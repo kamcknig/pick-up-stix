@@ -10,6 +10,7 @@ const ts = require('gulp-typescript');
 const less = require('gulp-less');
 const sass = require('gulp-sass');
 const git = require('gulp-git');
+const { kStringMaxLength } = require('buffer');
 
 const argv = require('yargs').argv;
 
@@ -168,6 +169,7 @@ async function copyFiles() {
 		'module.json',
 		'system.json',
 		'template.json',
+		'pick-up-stix.css'
 	];
 	try {
 		for (const file of statics) {

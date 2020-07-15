@@ -1,8 +1,8 @@
-<div style="display: flex; flex-wrap: wrap;">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start;">
   {{#each object.items}}
-    <div data-item="{{this._id}}" class="item">
-      <img style="width: 60px; height: auto; margin-right: 5px;" src="{{this.img}}"></img>
-      <div style="text-align: center;">{{ this.name }}</div>
+    <div data-item-id="{{this._id}}" class="item">
+      <img src="{{this.img}}"></img>
+      <div class="item-name">{{ this.name }}</div>
     </div>
   {{/each}}
 </div>

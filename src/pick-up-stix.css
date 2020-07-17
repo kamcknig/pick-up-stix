@@ -3,9 +3,57 @@
   flex-direction: column;
 }
 
+.pick-up-stix .currency-wrapper {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.pick-up-stix .currency-wrapper > * {
+  margin-right: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pick-up-stix .currency-wrapper > * div {
+  width: 32px;
+  height: 32px;
+}
+
+.pick-up-stix .currency-wrapper > * input {
+  width: 60px;
+}
+
+.pick-up-stix .currency-wrapper .plat {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png);
+}
+
+.pick-up-stix .currency-wrapper .gold {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -34px 0px;
+}
+
+.pick-up-stix .currency-wrapper .electrum {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -66px 0px;
+}
+
+.pick-up-stix .currency-wrapper .silver {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -98px 0px;
+}
+
+.pick-up-stix .currency-wrapper .copper {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -130px 0px;
+}
+
 .pick-up-stix .file-input {
   display: flex;
   flex-direction: column;
+  margin-bottom: 10px;
 }
 
 .pick-up-stix .file-input .container-image {
@@ -15,7 +63,8 @@
 .pick-up-stix .file-input .check-box {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: flex-end;
+  justify-content: flex-start;
 }
 
 .pick-up-stix .item-wrapper {

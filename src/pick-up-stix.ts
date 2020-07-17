@@ -14,7 +14,22 @@
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 
+
+let socket: any;
 export type FormData = [string, number];
+
+export enum SocketMessageType {
+	deleteToken,
+	updateToken,
+	updateActor
+}
+
+export interface PickUpStixSocketMessage {
+	// user ID of the sender
+	sender: string;
+	type: SocketMessageType;
+	data: any;
+}
 
 export interface PickUpStixFlags {
 	itemIds: FormData[];
@@ -114,7 +129,7 @@ class SelectItemApplication extends Application {
 		const itemFlags = this._token.getFlag('pick-up-stix', 'pick-up-stix');
 		this._flags = {
 			...this._flags,
-			...itemFlags
+			...duplicate(itemFlags)
 		}
 
 		console.log(`pick-up-stix | select item form | constructed with flags`);
@@ -312,20 +327,41 @@ Hooks.once('ready', function() {
 	console.log(`pick-up-stix | ready hook`);
 
 	canvas?.tokens?.placeables?.forEach(async (p: PlaceableObject) => {
-		const data: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix') || [];
+		const data: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
 
-		if (data?.itemIds?.length > 0) {
+		if (data) {
 			console.log(`pick-up-stix | ready hook | found token ${p.id} with itemIds`);
-			p.on('mousedown', handleTokenItemClicked);
+			setupMouseManager(p);
 		}
 	});
 
-	(game.socket as any).on('module.pick-up-stix', (...args) => {
+	socket = game.socket;
+
+	socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
 		console.log(`pick-up-stix | received socket message with args:`);
-		console.log(args);
+		console.log(msg);
+
+		if (msg.sender === game.user.id) {
+			console.log(`pick-up-stix | receieved socket message | i sent this, ignoring`);
+			return;
+		}
+
+		switch (msg.type) {
+			case SocketMessageType.updateActor:
+				const actor = game.actors.get(msg.data.actor._id);
+				await actor.update(msg.data.updates);
+				break;
+			case SocketMessageType.deleteToken:
+				await canvas.scene.deleteEmbeddedEntity('Token', msg.data);
+				break;
+			case SocketMessageType.updateToken:
+				const token = canvas.tokens.get(msg.data.tokenId);
+				await token.update(msg.data.updates);
+
+		}
 	});
 
-	(game.socket as any).emit('module.pick-up-stix', 'you guessed it!');
+	socket.emit('module.pick-up-stix', 'yep you got it!');
 });
 
 Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
@@ -351,12 +387,37 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 	$(hudHtml.children('div')[0]).prepend(controlIcon);
 });
 
+Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: string) => {
+	console.log(`pick-up-stix | updateToken`)
+	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
+
+	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
+	if (flags) {
+		setTimeout(() => {
+			setupMouseManager(token);
+			console.log(`pick-up-stix | update token | itemIds ${flags.itemIds}`);
+		}, 100);
+	}
+});
+Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userId: string) => {
+	console.log(`pick-up-stix | create token`)
+	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
+
+	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
+	if (flags) {
+		setTimeout(() => {
+			setupMouseManager(token);
+			console.log(`pick-up-stix | create token | itemIds ${flags.itemIds}`);
+		}, 100);
+	}
+});
+
 function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any): (this: HTMLDivElement, ev: MouseEvent) => any {
 	return async function(this, ev: MouseEvent) {
 		console.log(`pick-up-sticks | toggle icon clicked`);
 		const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
 		if (!token) {
-			console.log(`pick-up-sticx | Couldn't find token '${tokenData._id}'`);
+			console.log(`pick-up-stix | Couldn't find token '${tokenData._id}'`);
 			return;
 		}
 
@@ -371,35 +432,27 @@ function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any):
 	}
 }
 
-Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: string) => {
-	console.log(`pick-up-stix | updateToken`)
-	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
-	token.off('mousedown');
-
-	const itemIds = token.getFlag('pick-up-stix', 'pick-up-stix.itemIds');
-	if (itemIds?.length) {
-		setTimeout(() => {
-			token.on('mousedown', handleTokenItemClicked);
-			console.log(`pick-up-stix | update token | itemIds ${itemIds}`);
-		}, 100);
-	}
-});
-Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userId: string) => {
-	console.log(`pick-up-stix | create token`)
-	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
-
-	const itemIds: FormData[] = token.getFlag('pick-up-stix', 'pick-up-stix.itemIds');
-	if (itemIds?.length) {
-		// TODO not really sure why but for some reason adding a mousdown hook to the token doesn't work
-		// in the create hook so have to set a timeout and put it in there. Maybe a redraw issue or some
-		// timing issue I don't know about in the framework
-		setTimeout(() => {
-			token.on('mousedown', handleTokenItemClicked);
-			console.log(`pick-up-stix | create token | itemIds ${itemIds}`);
-		}, 100);
-	}
-});
-
+function setupMouseManager(token: PlaceableObject): void {
+	console.log(`pick-up-stix | setupMouseManager with args:`)
+	console.log(token);
+	token.mouseInteractionManager = new MouseInteractionManager(
+		token,
+		canvas.stage,
+		{
+			clickLeft: () => true,
+			dragStart: () => game.user.isGM,
+			clickRight: () => game.user.isGM
+		},
+		{
+			clickLeft: handleTokenItemClicked,
+			dragLeftStart: (token as any)._onDragLeftStart,
+      dragLeftMove: (token as any)._onDragLeftMove,
+      dragLeftDrop: (token as any)._onDragLeftDrop,
+			dragLeftCancel: (token as any)._onDragLeftCancel,
+			clickRight: (token as any)._onClickRight
+		}
+	).activate();
+}
 
 // WARNING: Overwritten from foundry method in order to be able to drop actor data. This is the Canvas
 // on drop handler
@@ -472,37 +525,48 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
-	const tokens = (canvas.tokens as TokenLayer).controlled;
-	if (tokens.length !== 1 || tokens[0]?.getFlag('pick-up-stix', 'pick-up-stix.itemIds')?.length > 0) {
+	const controlledTokens = (canvas.tokens as TokenLayer).controlled;
+	if (controlledTokens.length !== 1 || controlledTokens[0]?.getFlag('pick-up-stix', 'pick-up-stix.itemIds')?.length > 0) {
 		ui.notifications.error('You must be controlling only one token to pick up an item');
 		return;
 	}
 
+	// get the current flags and check if it's a container, if so open the container
 	const flags: PickUpStixFlags = duplicate(this.getFlag('pick-up-stix', 'pick-up-stix'));
+	let containerUpdates;
 	if(flags.isContainer) {
 		console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
 		flags.isOpen = !flags.isOpen;
-		setTimeout(() => {
-			const data = {
-				img: flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath,
-				flags: {
+
+		containerUpdates = {
+			img: flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath,
+			flags: {
+				'pick-up-stix': {
 					'pick-up-stix': {
-						'pick-up-stix': {
-							...flags
-						}
+						...flags
 					}
 				}
-			};
-			console.log(data);
-			this.update(data);
-		}, 100);
-
-		return;
+			}
+		};
 	}
 
-	const token = tokens[0];
+	const token = controlledTokens[0];
 
-	const tokenUpdates = flags?.itemIds?.reduce((accumulator, next) => {
+	if (!flags.isContainer || flags.isOpen) {
+		const currentCurrencies = token?.actor?.data?.data?.currency;
+		const actorUpdates = Object.keys(flags?.currency || {})?.reduce((acc, next) => {
+			if (flags?.currency?.[next] > 0) {
+				currentCurrencies[next] = currentCurrencies[next] ? +currentCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
+			}
+			return currentCurrencies;
+		}, currentCurrencies);
+
+		if (actorUpdates) {
+			await updateActor(token.actor, { data: { data: { currency: { ...currentCurrencies }}}});
+		}
+	}
+
+	const itemsToCreate = (!flags.isContainer || flags.isOpen) && flags?.itemIds?.reduce((accumulator, next) => {
 		const item = game.items.get(next[0]);
 		const datas = [];
 		for (let i = 0; i < next[1]; i++) {
@@ -513,32 +577,75 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return accumulator.concat(datas);
 	}, []);
 
-	const currentCurrencies = token?.actor?.data?.data?.currency;
-
-	const actorUpdates = Object.keys(flags?.currency).reduce((acc, next) => {
-		if (flags?.currency?.[next] > 0) {
-			currentCurrencies[next] = currentCurrencies[next] ? +currentCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
+	if (itemsToCreate) {
+		if (flags.isContainer) {
+			containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemIds = [];
+			containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
 		}
-		return currentCurrencies;
-	}, currentCurrencies);
-
-	console.log(actorUpdates);
-
-	if (actorUpdates) {
-		await token?.actor.update({
-			data: {
-				data: {
-					currency: {
-						...currentCurrencies
-					}
-				}
-			}
-		});
+		await token?.actor.createEmbeddedEntity('OwnedItem', itemsToCreate);
 	}
 
-	if (tokenUpdates) {
-		await token?.actor.createEmbeddedEntity('OwnedItem', tokenUpdates);
+	if (containerUpdates) {
+		await updateToken(this, containerUpdates);
 	}
 
-	await canvas.scene.deleteEmbeddedEntity('Token', this.id);
+	if (!flags.isContainer) {
+		await deleteToken(this);
+	}
+}
+
+async function deleteToken(token: Token): Promise<void> {
+	console.log(`pick-up-stix | deleteToken with args:`);
+	console.log(token);
+
+	if (game.user.isGM) {
+		await canvas.scene.deleteEmbeddedEntity('Token', token.id);
+		return;
+	}
+
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.deleteToken,
+		data: token.id
+	}
+	socket.emit('module.pick-up-stix', msg);
+}
+
+async function updateToken(token: Token, updates): Promise<void> {
+	console.log(`pick-up-stix | updateToken with args:`);
+	console.log(token, updates);
+
+	if (game.user.isGM) {
+		await token.update(updates);
+		return;
+	}
+
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.updateToken,
+		data: {
+			tokenId: token.id,
+			updates
+		}
+	};
+
+	socket.emit('module.pick-up-stix', msg);
+}
+
+async function updateActor(actor, updates): Promise<void> {
+	if (game.user.isGM) {
+		await actor.update(updates);
+		return;
+	}
+
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.updateActor,
+		data: {
+			actor,
+			updates
+		}
+	};
+
+	socket.emit('module.pick-up-stix', msg);
 }

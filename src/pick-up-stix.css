@@ -1,17 +1,55 @@
-.item {
-  border: 1px solid rgba(0, 0, 0, 0);
-  margin-right: -1px;
-  padding: 2px;
+.wrapper.pick-up-stix {
+  display: flex;
+  flex-direction: column;
 }
-.item.active {
+
+.pick-up-stix .file-input {
+  display: flex;
+  flex-direction: column;
+}
+
+.pick-up-stix .file-input .container-image {
+  max-width: 100px;
+}
+
+.pick-up-stix .file-input .check-box {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.pick-up-stix .item-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+}
+
+.pick-up-stix .item {
+  padding: 5px;
+  max-width: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pick-up-stix .item * {
+  margin-bottom: 5px;
+}
+
+.pick-up-stix .item img {
+  border: 1px solid rgba(0, 0, 0, 0);
+  max-width: 80px;
+}
+
+.pick-up-stix .item.active img {
   border: 1px solid blue;
 }
 
-.item img {
-  width: 60px;
-  border: none;
+.pick-up-stix .item div.item-name {
+  text-align: center;
 }
 
-.item div.item-name {
-  text-align: center;
+.pick-up-stix .item input {
+  display: block;
+  width: 100%;
 }

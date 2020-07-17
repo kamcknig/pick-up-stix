@@ -1,8 +1,34 @@
-<div style="display: flex; flex-wrap: wrap; align-items: flex-start;">
-  {{#each object.items}}
-    <div data-item-id="{{this._id}}" class="item">
-      <img src="{{this.img}}"></img>
-      <div class="item-name">{{ this.name }}</div>
+<div class="wrapper pick-up-stix">
+  <div class="file-input">
+    <div class="check-box">
+      {{#if object.isContainer}}
+        <div style="display: flex; flex-direction: column;">
+          <input checked class="file-input-checkbox" type="checkbox"/><span style="margin-right: 10px;">Container Closed</span>
+          <input class="closed" type="file" />
+          {{#if object.imageContainerClosedPath}}
+            <img class="container-image" src="{{object.imageContainerClosedPath}}" />
+          {{/if}}
+        </div>
+        <div style="display: flex; flex-direction: column;">
+          <span style="margin-right: 10px;">Container Open</span>
+          <input class="open" type="file" />
+          {{#if object.imageContainerOpenPath}}
+            <img class="container-image" src="{{object.imageContainerOpenPath}}" />
+          {{/if}}
+        </div>
+      {{else}}
+        <input class="file-input-checkbox" type="checkbox"/>
+        <span style="margin-right: 10px;">Container</span>
+      {{/if}}
     </div>
-  {{/each}}
+  </div>
+  <div class="item-wrapper">
+    {{#each object.items}}
+      <div data-item-id="{{this._id}}" class="item">
+        <img src="{{this.img}}"></img>
+        <input class="count" type="number" min="0">
+        <div class="item-name">{{ this.name }}</div>
+      </div>
+    {{/each}}
+  </div>
 </div>

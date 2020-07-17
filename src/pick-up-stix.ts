@@ -22,6 +22,13 @@ export interface PickUpStixFlags {
 	imageContainerClosedPath: string;
 	imageContainerOpenPath: string;
 	isOpen: boolean;
+	currency: {
+		pp: 0,
+		gp: 0,
+		ep: 0,
+		sp: 0,
+		cp: 0
+	},
 }
 
 /**
@@ -31,7 +38,20 @@ export interface PickUpStixFlags {
 class SelectItemApplication extends Application {
 	static created: boolean = false;
 
-	private _flags: PickUpStixFlags;
+	private _flags: PickUpStixFlags = {
+		isContainer: false,
+			imageContainerClosedPath: undefined,
+			imageContainerOpenPath: undefined,
+			isOpen: false,
+			currency: {
+				pp: 0,
+				gp: 0,
+				ep: 0,
+				sp: 0,
+				cp: 0
+			},
+			itemIds: []
+	};
 
 	private get isContainer(): boolean {
 		return this._flags.isContainer;
@@ -63,6 +83,15 @@ class SelectItemApplication extends Application {
 		];
 	}
 
+	private get currency(): any {
+		return this._flags.currency;
+	}
+	private set currency(value: any) {
+		this._flags.currency = {
+			...value
+		};
+	}
+
 	private _html: any;
 
 	static get defaultOptions(): ApplicationOptions {
@@ -82,8 +111,11 @@ class SelectItemApplication extends Application {
 		console.log(`pick-up-stix | select item form | constructed with args:`)
 		console.log(this._token);
 
-		const flags = this._token.getFlag('pick-up-stix', 'pick-up-stix');
-		this._flags = flags ? duplicate(flags) : { itemIds: [], isContainer: false, imageContainerPath: undefined, isOpen: false };
+		const itemFlags = this._token.getFlag('pick-up-stix', 'pick-up-stix');
+		this._flags = {
+			...this._flags,
+			...itemFlags
+		}
 
 		console.log(`pick-up-stix | select item form | constructed with flags`);
 		console.log(this._flags);
@@ -111,6 +143,10 @@ class SelectItemApplication extends Application {
 
 		console.log(`pick-up-stix | selection form setup | current selection data`);
 		console.log(this.selectionData);
+
+		Object.keys(this._flags.currency).forEach(k => {
+			$(this._html).find(`.currency-wrapper [data-currency-type="${k}"]`).val(this._flags.currency[k]);
+		});
 
 		this.selectionData?.forEach(itemData => {
 			console.log(`pick-up-stix | selection from setup | setting item ${itemData[0]} to active and count to ${itemData[1]}`);
@@ -170,6 +206,19 @@ class SelectItemApplication extends Application {
 				$(this._html).find(`[data-item-id="${id}"]`).addClass('active');
 			}
 			await this.setSelectionAmount(id, count);
+		});
+
+		/**
+		 * listen for currency input changes
+		 */
+		$(this._html).find('.currency-wrapper .currency-input').change(e => {
+			console.log(`pick-up-stix | select item form | currency input changed with args:`)
+			console.log(e);
+			const currency = $(e.currentTarget).attr('data-currency-type');
+			const amount = $(e.currentTarget).val();
+			console.log(this._flags);
+			this._flags.currency[currency] = amount;
+			console.log(this._flags.currency);
 		});
 
 		/**
@@ -451,10 +500,9 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
-	let itemDatas: FormData[] = this.getFlag('pick-up-stix', 'pick-up-stix.itemIds');
 	const token = tokens[0];
 
-	let datas = itemDatas.reduce((accumulator, next) => {
+	const tokenUpdates = flags?.itemIds?.reduce((accumulator, next) => {
 		const item = game.items.get(next[0]);
 		const datas = [];
 		for (let i = 0; i < next[1]; i++) {
@@ -464,6 +512,33 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}
 		return accumulator.concat(datas);
 	}, []);
-	await token?.actor.createEmbeddedEntity('OwnedItem', datas);
+
+	const currentCurrencies = token?.actor?.data?.data?.currency;
+
+	const actorUpdates = Object.keys(flags?.currency).reduce((acc, next) => {
+		if (flags?.currency?.[next] > 0) {
+			currentCurrencies[next] = currentCurrencies[next] ? +currentCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
+		}
+		return currentCurrencies;
+	}, currentCurrencies);
+
+	console.log(actorUpdates);
+
+	if (actorUpdates) {
+		await token?.actor.update({
+			data: {
+				data: {
+					currency: {
+						...currentCurrencies
+					}
+				}
+			}
+		});
+	}
+
+	if (tokenUpdates) {
+		await token?.actor.createEmbeddedEntity('OwnedItem', tokenUpdates);
+	}
+
 	await canvas.scene.deleteEmbeddedEntity('Token', this.id);
 }

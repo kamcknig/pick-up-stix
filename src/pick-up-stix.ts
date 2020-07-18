@@ -21,7 +21,8 @@ export type FormData = [string, number];
 export enum SocketMessageType {
 	deleteToken,
 	updateToken,
-	updateActor
+	updateActor,
+	createOwnedItem
 }
 
 export interface PickUpStixSocketMessage {
@@ -290,6 +291,7 @@ class SelectItemApplication extends Application {
 /* ------------------------------------ */
 Hooks.once('init', async function() {
 	CONFIG.debug.hooks = true;
+	(CONFIG.debug as any).mouseInteraction = true;
 
 	Canvas.prototype._onDrop = handleOnDrop;
 
@@ -346,9 +348,12 @@ Hooks.once('ready', function() {
 			return;
 		}
 
+		let actor;
+		let token;
+
 		switch (msg.type) {
 			case SocketMessageType.updateActor:
-				const actor = game.actors.get(msg.data.actor._id);
+				actor = game.actors.get(msg.data.actorId);
 				await actor.update(msg.data.updates);
 				break;
 			case SocketMessageType.deleteToken:
@@ -357,7 +362,9 @@ Hooks.once('ready', function() {
 			case SocketMessageType.updateToken:
 				const token = canvas.tokens.get(msg.data.tokenId);
 				await token.update(msg.data.updates);
-
+				case SocketMessageType.createOwnedItem:
+					actor = game.actors.get(msg.data.actorId);
+					await token.update(msg.data.items);
 		}
 	});
 
@@ -522,10 +529,26 @@ async function handleTokenItemClicked(e): Promise<void> {
 	console.log(`pick-up-stix | handleTokenItemClicked | ${this.id}`);
 
 	if (e.currentTarget.data.hidden) {
+		this._onClickLeft(e);
 		return;
 	}
 
 	const controlledTokens = (canvas.tokens as TokenLayer).controlled;
+
+	// gm special stuff
+	if (game.user.isGM) {
+		if (!controlledTokens.length) {
+			this._onClickLeft(e);
+			return;
+		}
+
+		// if there is only one controlled token and it's the item itself, don't do anything
+		if (controlledTokens.includes(this) && controlledTokens.length === 1) {
+			this._onClickLeft(e);
+			return;
+		}
+	}
+
 	if (controlledTokens.length !== 1 || controlledTokens[0]?.getFlag('pick-up-stix', 'pick-up-stix.itemIds')?.length > 0) {
 		ui.notifications.error('You must be controlling only one token to pick up an item');
 		return;
@@ -582,11 +605,14 @@ async function handleTokenItemClicked(e): Promise<void> {
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemIds = [];
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
 		}
-		await token?.actor.createEmbeddedEntity('OwnedItem', itemsToCreate);
+
+		await createOwnedEntity(token.actor, itemsToCreate);
 	}
 
 	if (containerUpdates) {
-		await updateToken(this, containerUpdates);
+		setTimeout(() => {
+			updateToken(this, containerUpdates);
+		}, 300);
 	}
 
 	if (!flags.isContainer) {
@@ -642,10 +668,26 @@ async function updateActor(actor, updates): Promise<void> {
 		sender: game.user.id,
 		type: SocketMessageType.updateActor,
 		data: {
-			actor,
+			actorId: actor.id,
 			updates
 		}
 	};
 
 	socket.emit('module.pick-up-stix', msg);
+}
+
+async function createOwnedEntity(actor, items) {
+	if (game.user.isGM) {
+		await actor.createEmbeddedEntity('OwnedItem', items);
+		return;
+	}
+
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.createOwnedItem,
+		data: {
+			actorId: actor.id,
+			items
+		}
+	};
 }

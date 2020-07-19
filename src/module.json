@@ -5,6 +5,7 @@
   "systems": ["dnd5e"],
   "version": "0.1.0",
   "author": "Kyle McKnight",
+  "socket": true,
   "authors": [
     {
       "name": "Kyle McKnight",

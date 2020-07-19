@@ -10,6 +10,10 @@
  * 					 determines how others may use and modify your module
  */
 
+declare class Canvas {
+  _onDrop(event): any;
+}
+
 // Import TypeScript modules
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';

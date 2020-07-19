@@ -506,6 +506,15 @@ async function handleOnDrop(event) {
 	// Dropped Item
 	else if (data.type === "Item") {
 		const item: Item = game.items.get(data.id);
+
+		const hg = canvas.dimensions.size / 2;
+    data.x -= (hg);
+		data.y -= (hg);
+
+		const { x, y } = canvas.grid.getSnappedPosition(data.x, data.y, 1);
+		data.x = x;
+		data.y = y;
+
 		await Token.create({
 			bar1: {	},
 			img: item.img,

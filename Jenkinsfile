@@ -5,6 +5,7 @@ pipeline{
         stage("BUILD"){
             steps{
                 echo "========executing BUILD========"
+                sh 'npm ci'
                 sh 'npm run build'
             }
             post{

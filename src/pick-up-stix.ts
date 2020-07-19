@@ -550,7 +550,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
-	const controlledTokens = (canvas.tokens as TokenLayer).controlled;
+	const controlledTokens = canvas.token.controlled;
 
 	const flags: PickUpStixFlags = duplicate(this.getFlag('pick-up-stix', 'pick-up-stix'));
 

@@ -22,7 +22,7 @@ export enum SocketMessageType {
 	deleteToken,
 	updateToken,
 	updateActor,
-	createOwnedItem
+	createOwnedEntity
 }
 
 export interface PickUpStixSocketMessage {
@@ -360,11 +360,13 @@ Hooks.once('ready', function() {
 				await canvas.scene.deleteEmbeddedEntity('Token', msg.data);
 				break;
 			case SocketMessageType.updateToken:
-				const token = canvas.tokens.get(msg.data.tokenId);
+				token = canvas.tokens.get(msg.data.tokenId);
 				await token.update(msg.data.updates);
-				case SocketMessageType.createOwnedItem:
-					actor = game.actors.get(msg.data.actorId);
-					await token.update(msg.data.items);
+				break;
+			case SocketMessageType.createOwnedEntity:
+				actor = game.actors.get(msg.data.actorId);
+				await actor.createOwnedItem(msg.data.items);
+				break;
 		}
 	});
 
@@ -684,10 +686,12 @@ async function createOwnedEntity(actor, items) {
 
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
-		type: SocketMessageType.createOwnedItem,
+		type: SocketMessageType.createOwnedEntity,
 		data: {
 			actorId: actor.id,
 			items
 		}
 	};
+
+	socket.emit('module.pick-up-stix', msg);
 }

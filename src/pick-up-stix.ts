@@ -453,6 +453,8 @@ function setupMouseManager(token: PlaceableObject): void {
 			clickRight: () => game.user.isGM
 		},
 		{
+			hoverIn: (token as any)._onHoverIn,
+      hoverOut: (token as any)._onHoverOut,
 			clickLeft: handleTokenItemClicked,
 			dragLeftStart: (token as any)._onDragLeftStart,
       dragLeftMove: (token as any)._onDragLeftMove,
@@ -546,6 +548,8 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 	const controlledTokens = (canvas.tokens as TokenLayer).controlled;
 
+	const flags: PickUpStixFlags = duplicate(this.getFlag('pick-up-stix', 'pick-up-stix'));
+
 	// gm special stuff
 	if (game.user.isGM) {
 		if (!controlledTokens.length) {
@@ -553,8 +557,10 @@ async function handleTokenItemClicked(e): Promise<void> {
 			return;
 		}
 
+		const controlledFlags = controlledTokens[0].getFlag('pick-up-stix', 'pick-up-stix')
+
 		// if there is only one controlled token and it's the item itself, don't do anything
-		if (controlledTokens.includes(this) && controlledTokens.length === 1) {
+		if (controlledTokens.length === 1 && (controlledTokens.includes(this) || controlledFlags)) {
 			this._onClickLeft(e);
 			return;
 		}
@@ -565,8 +571,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
-	// get the current flags and check if it's a container, if so open the container
-	const flags: PickUpStixFlags = duplicate(this.getFlag('pick-up-stix', 'pick-up-stix'));
+
 	let containerUpdates;
 	if(flags.isContainer) {
 		console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
@@ -629,6 +634,8 @@ async function handleTokenItemClicked(e): Promise<void> {
 	if (!flags.isContainer) {
 		await deleteToken(this);
 	}
+
+	this.mouseInteractionManager._deactivateDragEvents();
 }
 
 async function deleteToken(token: Token): Promise<void> {

@@ -1,5 +1,5 @@
 {
   "dataPath": "C:\\Users\\kamck\\AppData\\Local\\FoundryVTT",
-  "repository": "",
-  "rawURL": ""
+  "repository": "git@github.com:kamcknig/pick-up-stix.git",
+  "rawURL": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json"
 }

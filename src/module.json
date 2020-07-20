@@ -10,7 +10,7 @@
     {
       "name": "Kyle McKnight",
       "email": "kamcknig@gmail.com",
-      "url": ""
+      "url": "https://turkeysunite.com"
     }
   ],
   "scripts": [],
@@ -18,13 +18,13 @@
   "styles": ["pick-up-stix.css"],
   "packs": [],
   "languages": [],
-  "minimumCoreVersion": "0.5.0",
-  "compatibleCoreVersion": "0.5.0",
-  "url": "",
-  "manifest": "",
+  "minimumCoreVersion": "0.6.0",
+  "compatibleCoreVersion": "0.6.5",
+  "url": "https://turkeysunite.com",
+  "manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",
   "download": "",
   "license": "",
   "readme": "",
-  "bugs": "",
-  "changelog": ""
+  "bugs": "https://github.com/kamcknig/pick-up-stix/issues",
+  "changelog": "https://github.com/kamcknig/pick-up-stix/releases"
 }

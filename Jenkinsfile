@@ -28,9 +28,12 @@ pipeline{
                 }
             }
             post {
-                failure(
+                always{
+                    echo "========Publish to S3 Success========"
+                }
+                failure{
                     echo "========Failed to upload to S3"
-                )
+                }
             }
         }
     }

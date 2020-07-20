@@ -24,7 +24,7 @@ pipeline {
         stage("UPLOAD") {
             steps {
                 withAWS(credentials: "jenkins-s3-publisher") {
-                    s3Upload(bucket:"turkeysunite-foundry-modules", path:"pick-up-stix/releases/", includePathPattern:'**/*.zip', workingDir:"package")
+                    s3Upload(bucket:"turkeysunite-foundry-modules", path:"pick-up-stix/releases/", includePathPattern:'**/*.zip', workingDir:"package", acl: "PublicRead")
                 }
             }
             post {

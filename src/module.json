@@ -22,7 +22,7 @@
   "compatibleCoreVersion": "0.6.5",
   "url": "https://turkeysunite.com",
   "manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",
-  "download": "",
+  "download": "https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/releases/pick-up-stix-v0.1.0.zip",
   "license": "",
   "readme": "",
   "bugs": "https://github.com/kamcknig/pick-up-stix/issues",

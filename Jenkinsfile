@@ -1,22 +1,22 @@
-pipeline{
+pipeline {
     agent any
 
-    stages{
-        stage("BUILD"){
-            steps{
+    stages {
+        stage("BUILD") {
+            steps {
                 echo "========executing BUILD========"
                 sh 'npm ci'
                 sh 'npm run build'
                 sh 'npm run package'
             }
             post{
-                always{
+                always {
                     echo "========always========"
                 }
-                success{
+                success {
                     echo "========A executed successfully========"
                 }
-                failure{
+                failure {
                     echo "========A execution failed========"
                 }
             }
@@ -24,29 +24,17 @@ pipeline{
         stage("UPLOAD") {
             steps {
                 withAWS(credentials: "jenkins-s3-publisher") {
-                    s3Upload(bucket:"turkeysunite-foundry-modules", path:"pick-up-stix/releases/", includePathPattern:'**/*.zip', workingDir:"package", excludePathPattern:"**/*.svg,**/*.jpg", acl: "PublicRead")
+                    s3Upload(bucket:"turkeysunite-foundry-modules", path:"pick-up-stix/releases/", includePathPattern:'**/*.zip', workingDir:"package")
                 }
             }
             post {
-                always{
+                success {
                     echo "========Publish to S3 Success========"
                 }
-                failure{
-                    echo "========Failed to upload to S3"
+                failure {
+                    echo "========Failed to upload to S3=========="
                 }
             }
         }
     }
-
-    // post{
-    //     always{
-    //         echo "========always========"
-    //     }
-    //     success{
-    //         echo "========pipeline executed successfully ========"
-    //     }
-    //     failure{
-    //         echo "========pipeline execution failed========"
-    //     }
-    // }
 }

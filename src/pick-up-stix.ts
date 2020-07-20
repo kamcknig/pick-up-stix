@@ -457,8 +457,8 @@ function setupMouseManager(token: PlaceableObject): void {
 			clickRight: () => game.user.isGM
 		},
 		{
-			hoverIn: (token as any)._onHoverIn,
-      hoverOut: (token as any)._onHoverOut,
+			hoverIn: (e) => true,
+      hoverOut: (e) => true,
 			clickLeft: handleTokenItemClicked,
 			dragLeftStart: (token as any)._onDragLeftStart,
       dragLeftMove: (token as any)._onDragLeftMove,
@@ -550,7 +550,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
-	const controlledTokens = canvas.token.controlled;
+	const controlledTokens = canvas.tokens.controlled;
 
 	const flags: PickUpStixFlags = duplicate(this.getFlag('pick-up-stix', 'pick-up-stix'));
 

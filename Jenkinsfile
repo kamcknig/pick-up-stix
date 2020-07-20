@@ -21,7 +21,20 @@ pipeline{
                 }
             }
         }
+        stage("UPLOAD") {
+            steps {
+                withAWS(credentials: 'jenkins-s3-publisher') {
+                   s3Upload(path: "pick-up-stix/releases" workingDir: "package" includePathPattern: "**/*.zip", bucket: "turkeysunite-foundry-modules")
+                }
+            }
+            post {
+                failure(
+                    echo "========Failed to upload to S3"
+                )
+            }
+        }
     }
+
     // post{
     //     always{
     //         echo "========always========"

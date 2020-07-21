@@ -407,8 +407,9 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
 		setTimeout(() => {
+			token.mouseInteractionManager.activate();
 			setupMouseManager(token);
-			console.log(`pick-up-stix | update token | itemIds ${flags.itemIds}`);
+			console.log(`pick-up-stix | updateToken hook | itemIds ${flags.itemIds}`);
 		}, 100);
 	}
 });
@@ -420,7 +421,7 @@ Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userI
 	if (flags) {
 		setTimeout(() => {
 			setupMouseManager(token);
-			console.log(`pick-up-stix | create token | itemIds ${flags.itemIds}`);
+			console.log(`pick-up-stix | createToken | itemIds ${flags.itemIds}`);
 		}, 100);
 	}
 });

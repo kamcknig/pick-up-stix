@@ -418,36 +418,40 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 		return;
 	}
 
+	const flags = data.flags?.['pick-up-stix']?.['pick-up-stix'];
+
 	const containerDiv = document.createElement('div');
 	containerDiv.style.display = 'flex';
 	containerDiv.style.flexDirection = 'row';
 
-	// create the control icon
+	// create the control icon div and add it to the container div
 	const controlIconDiv = document.createElement('div');
 	controlIconDiv.className = 'control-icon';
 	const controlIconImg = document.createElement('img');
-	controlIconImg.src = data.flags?.['pick-up-stix']?.['pick-up-stix']?.['itemIds']?.length
+	controlIconImg.src = flags?.['itemIds']?.length
 		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
 	controlIconImg.className = "item-pick-up";
 	controlIconDiv.appendChild(controlIconImg);
-
-	const lockDiv = document.createElement('div');
-	lockDiv.style.marginRight = '10px';
-	lockDiv.className = 'control-icon';
-	const lockImg = document.createElement('img');
-	lockImg.src = data.flags?.['pick-up-stix']?.['pick-up-stix']?.['isLocked']
-		? 'modules/pick-up-stix/assets/lock-white.svg'
-		: 'modules/pick-up-stix/assets/lock-black.svg';
-	lockDiv.appendChild(lockImg);
-
-	containerDiv.appendChild(lockDiv);
-	containerDiv.append(controlIconDiv);
-	$(hudHtml.children('div')[0]).prepend(containerDiv);
-
 	controlIconDiv.addEventListener('mousedown', toggleItemPickup(hud, controlIconImg, data));
-	lockDiv.addEventListener('mousedown', toggleLocked(data));
+	containerDiv.appendChild(controlIconDiv);
 
+	// if the item is a container then add the lock icon
+	if (flags?.isContainer) {
+		const lockDiv = document.createElement('div');
+		lockDiv.style.marginRight = '10px';
+		lockDiv.className = 'control-icon';
+		const lockImg = document.createElement('img');
+		lockImg.src = flags?.['isLocked']
+			? 'modules/pick-up-stix/assets/lock-white.svg'
+			: 'modules/pick-up-stix/assets/lock-black.svg';
+		lockDiv.appendChild(lockImg);
+		lockDiv.addEventListener('mousedown', toggleLocked(data));
+		containerDiv.prepend(lockDiv);
+	}
+
+	// add the container to the hud
+	$(hudHtml.children('div')[0]).prepend(containerDiv);
 });
 
 function toggleLocked(data): () => void {
@@ -517,8 +521,8 @@ function setupMouseManager(token: PlaceableObject): void {
 	target.off('mousemove', handlers.mouseover);
 	target.off('mousedown', handlers.mousedown);
 
-	handlers.mouseover = () => true;
-	handlers.mouseout = () => true;
+	handlers.mouseover = () => mim.state = mim.states.HOVER;
+	handlers.mouseout = () => mim.state = mim.states.NONE;
 	handlers.mousedown = handleTokenItemClicked.bind(token);
 
 	(mim as any)._activateClickEvents();

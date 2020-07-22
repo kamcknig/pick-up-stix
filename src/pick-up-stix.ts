@@ -298,8 +298,6 @@ Hooks.once('init', async function() {
 	CONFIG.debug.hooks = true;
 	(CONFIG.debug as any).mouseInteraction = true;
 
-	Canvas.prototype._onDrop = handleOnDrop;
-
 	console.log('pick-up-stix | Init pick-up-stix');
 
 	// Assign custom classes and constants here
@@ -324,6 +322,41 @@ Hooks.once('setup', function() {
 
 Hooks.once('canvasReady', function() {
 	console.log(`pick-up-stix | Canvas ready, adding PickUpStixItemLayer`);
+});
+
+Hooks.on('dropCanvasData', (canvas, dropData) => {
+	console.log(`pick-up-stix | dropCanvasData | called with args:`);
+	console.log(canvas, dropData);
+
+	if (dropData.type === "Item") {
+		const item: Item = game.items.get(dropData.id);
+
+		const hg = canvas.dimensions.size / 2;
+    dropData.x -= (hg);
+		dropData.y -= (hg);
+
+		const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
+		dropData.x = x;
+		dropData.y = y;
+
+		Token.create({
+			img: item.img,
+			name: item.name,
+			x: dropData.x,
+			y: dropData.y,
+			disposition: 0,
+			flags: {
+				'pick-up-stix': {
+					'pick-up-stix': {
+						originalImagePath: item.img,
+						itemIds: [
+							[dropData.id, 1]
+						]
+					}
+				}
+			}
+		});
+	}
 });
 
 /* ------------------------------------ */
@@ -432,7 +465,6 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
 		setTimeout(() => {
-			token.mouseInteractionManager.activate();
 			setupMouseManager(token);
 			console.log(`pick-up-stix | updateToken hook | itemIds ${flags.itemIds}`);
 		}, 100);
@@ -475,98 +507,22 @@ function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any):
 function setupMouseManager(token: PlaceableObject): void {
 	console.log(`pick-up-stix | setupMouseManager with args:`)
 	console.log(token);
-	token.mouseInteractionManager = new MouseInteractionManager(
-		token,
-		canvas.stage,
-		{
-			clickLeft: () => true,
-			dragStart: () => game.user.isGM,
-			clickRight: () => game.user.isGM
-		},
-		{
-			hoverIn: (e) => true,
-      hoverOut: (e) => true,
-			clickLeft: handleTokenItemClicked,
-			dragLeftStart: (token as any)._onDragLeftStart,
-      dragLeftMove: (token as any)._onDragLeftMove,
-      dragLeftDrop: (token as any)._onDragLeftDrop,
-			dragLeftCancel: (token as any)._onDragLeftCancel,
-			clickRight: (token as any)._onClickRight
-		}
-	).activate();
-}
 
-// WARNING: Overwritten from foundry method in order to be able to drop actor data. This is the Canvas
-// on drop handler
-//
-// TODO 0.7.0 of Foundry should all for better drop handling so switch to that when it's
-// available
-async function handleOnDrop(event) {
-	console.log(`pick-up-stix | handleOnDrop with args:`);
-	console.log(event);
-	event.preventDefault();
+	const mim = token.mouseInteractionManager;
+	const target = mim.target;
+	const handlers = mim.handlers;
 
-	// Try to extract the data
-	let data;
-	try {
-		data = JSON.parse(event.dataTransfer.getData('text/plain'));
-	}
-	catch (err) {
-		return false;
-	}
+	target.off('mouseover', handlers.mouseover);
+	target.off('mouseout', handlers.mouseout);
+	target.off('mousemove', handlers.mouseover);
+	target.off('mousedown', handlers.mousedown);
 
-	// Acquire the cursor position transformed to Canvas coordinates
-	const [x, y] = [event.clientX, event.clientY];
-	const t = this.stage.worldTransform;
-	data.x = (x - t.tx) / canvas.stage.scale.x;
-	data.y = (y - t.ty) / canvas.stage.scale.y;
+	handlers.mouseover = () => true;
+	handlers.mouseout = () => true;
+	handlers.mousedown = handleTokenItemClicked.bind(token);
 
-	// Dropped Actor
-	if ( data.type === "Actor" ) canvas.tokens._onDropActorData(event, data);
-
-	// Dropped Journal Entry
-	else if ( data.type === "JournalEntry" ) canvas.notes._onDropData(event, data);
-
-	// Dropped Macro (clear slot)
-	else if ( data.type === "Macro" ) {
-		game.user.assignHotbarMacro(null, data.slot);
-	}
-
-	// Dropped Tile artwork
-	else if ( data.type === "Tile" ) {
-		return canvas.tiles._onDropTileData(event, data);
-	}
-	// Dropped Item
-	else if (data.type === "Item") {
-		const item: Item = game.items.get(data.id);
-
-		const hg = canvas.dimensions.size / 2;
-    data.x -= (hg);
-		data.y -= (hg);
-
-		const { x, y } = canvas.grid.getSnappedPosition(data.x, data.y, 1);
-		data.x = x;
-		data.y = y;
-
-		await Token.create({
-			bar1: {	},
-			img: item.img,
-			name: item.name,
-			x: data.x,
-			y: data.y,
-			disposition: 0,
-			flags: {
-				'pick-up-stix': {
-					'pick-up-stix': {
-						originalImagePath: item.img,
-						itemIds: [
-							[data.id, 1]
-						]
-					}
-				}
-			}
-		});
-	}
+	(mim as any)._activateClickEvents();
+	(mim as any)._activateHoverEvents();
 }
 
 async function handleTokenItemClicked(e): Promise<void> {

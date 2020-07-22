@@ -298,8 +298,6 @@ Hooks.once('init', async function() {
 	CONFIG.debug.hooks = true;
 	(CONFIG.debug as any).mouseInteraction = true;
 
-	Canvas.prototype._onDrop = handleOnDrop;
-
 	console.log('pick-up-stix | Init pick-up-stix');
 
 	// Assign custom classes and constants here
@@ -324,6 +322,41 @@ Hooks.once('setup', function() {
 
 Hooks.once('canvasReady', function() {
 	console.log(`pick-up-stix | Canvas ready, adding PickUpStixItemLayer`);
+});
+
+Hooks.on('dropCanvasData', (canvas, dropData) => {
+	console.log(`pick-up-stix | dropCanvasData | called with args:`);
+	console.log(canvas, dropData);
+
+	if (dropData.type === "Item") {
+		const item: Item = game.items.get(dropData.id);
+
+		const hg = canvas.dimensions.size / 2;
+    dropData.x -= (hg);
+		dropData.y -= (hg);
+
+		const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
+		dropData.x = x;
+		dropData.y = y;
+
+		Token.create({
+			img: item.img,
+			name: item.name,
+			x: dropData.x,
+			y: dropData.y,
+			disposition: 0,
+			flags: {
+				'pick-up-stix': {
+					'pick-up-stix': {
+						originalImagePath: item.img,
+						itemIds: [
+							[dropData.id, 1]
+						]
+					}
+				}
+			}
+		});
+	}
 });
 
 /* ------------------------------------ */
@@ -385,36 +418,40 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 		return;
 	}
 
+	const flags = data.flags?.['pick-up-stix']?.['pick-up-stix'];
+
 	const containerDiv = document.createElement('div');
 	containerDiv.style.display = 'flex';
 	containerDiv.style.flexDirection = 'row';
 
-	// create the control icon
+	// create the control icon div and add it to the container div
 	const controlIconDiv = document.createElement('div');
 	controlIconDiv.className = 'control-icon';
 	const controlIconImg = document.createElement('img');
-	controlIconImg.src = data.flags?.['pick-up-stix']?.['pick-up-stix']?.['itemIds']?.length
+	controlIconImg.src = flags?.['itemIds']?.length
 		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
 	controlIconImg.className = "item-pick-up";
 	controlIconDiv.appendChild(controlIconImg);
-
-	const lockDiv = document.createElement('div');
-	lockDiv.style.marginRight = '10px';
-	lockDiv.className = 'control-icon';
-	const lockImg = document.createElement('img');
-	lockImg.src = data.flags?.['pick-up-stix']?.['pick-up-stix']?.['isLocked']
-		? 'modules/pick-up-stix/assets/lock-white.svg'
-		: 'modules/pick-up-stix/assets/lock-black.svg';
-	lockDiv.appendChild(lockImg);
-
-	containerDiv.appendChild(lockDiv);
-	containerDiv.append(controlIconDiv);
-	$(hudHtml.children('div')[0]).prepend(containerDiv);
-
 	controlIconDiv.addEventListener('mousedown', toggleItemPickup(hud, controlIconImg, data));
-	lockDiv.addEventListener('mousedown', toggleLocked(data));
+	containerDiv.appendChild(controlIconDiv);
 
+	// if the item is a container then add the lock icon
+	if (flags?.isContainer) {
+		const lockDiv = document.createElement('div');
+		lockDiv.style.marginRight = '10px';
+		lockDiv.className = 'control-icon';
+		const lockImg = document.createElement('img');
+		lockImg.src = flags?.['isLocked']
+			? 'modules/pick-up-stix/assets/lock-white.svg'
+			: 'modules/pick-up-stix/assets/lock-black.svg';
+		lockDiv.appendChild(lockImg);
+		lockDiv.addEventListener('mousedown', toggleLocked(data));
+		containerDiv.prepend(lockDiv);
+	}
+
+	// add the container to the hud
+	$(hudHtml.children('div')[0]).prepend(containerDiv);
 });
 
 function toggleLocked(data): () => void {
@@ -432,7 +469,6 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
 		setTimeout(() => {
-			token.mouseInteractionManager.activate();
 			setupMouseManager(token);
 			console.log(`pick-up-stix | updateToken hook | itemIds ${flags.itemIds}`);
 		}, 100);
@@ -475,98 +511,22 @@ function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any):
 function setupMouseManager(token: PlaceableObject): void {
 	console.log(`pick-up-stix | setupMouseManager with args:`)
 	console.log(token);
-	token.mouseInteractionManager = new MouseInteractionManager(
-		token,
-		canvas.stage,
-		{
-			clickLeft: () => true,
-			dragStart: () => game.user.isGM,
-			clickRight: () => game.user.isGM
-		},
-		{
-			hoverIn: (e) => true,
-      hoverOut: (e) => true,
-			clickLeft: handleTokenItemClicked,
-			dragLeftStart: (token as any)._onDragLeftStart,
-      dragLeftMove: (token as any)._onDragLeftMove,
-      dragLeftDrop: (token as any)._onDragLeftDrop,
-			dragLeftCancel: (token as any)._onDragLeftCancel,
-			clickRight: (token as any)._onClickRight
-		}
-	).activate();
-}
 
-// WARNING: Overwritten from foundry method in order to be able to drop actor data. This is the Canvas
-// on drop handler
-//
-// TODO 0.7.0 of Foundry should all for better drop handling so switch to that when it's
-// available
-async function handleOnDrop(event) {
-	console.log(`pick-up-stix | handleOnDrop with args:`);
-	console.log(event);
-	event.preventDefault();
+	const mim = token.mouseInteractionManager;
+	const target = mim.target;
+	const handlers = mim.handlers;
 
-	// Try to extract the data
-	let data;
-	try {
-		data = JSON.parse(event.dataTransfer.getData('text/plain'));
-	}
-	catch (err) {
-		return false;
-	}
+	target.off('mouseover', handlers.mouseover);
+	target.off('mouseout', handlers.mouseout);
+	target.off('mousemove', handlers.mouseover);
+	target.off('mousedown', handlers.mousedown);
 
-	// Acquire the cursor position transformed to Canvas coordinates
-	const [x, y] = [event.clientX, event.clientY];
-	const t = this.stage.worldTransform;
-	data.x = (x - t.tx) / canvas.stage.scale.x;
-	data.y = (y - t.ty) / canvas.stage.scale.y;
+	handlers.mouseover = () => mim.state = mim.states.HOVER;
+	handlers.mouseout = () => mim.state = mim.states.NONE;
+	handlers.mousedown = handleTokenItemClicked.bind(token);
 
-	// Dropped Actor
-	if ( data.type === "Actor" ) canvas.tokens._onDropActorData(event, data);
-
-	// Dropped Journal Entry
-	else if ( data.type === "JournalEntry" ) canvas.notes._onDropData(event, data);
-
-	// Dropped Macro (clear slot)
-	else if ( data.type === "Macro" ) {
-		game.user.assignHotbarMacro(null, data.slot);
-	}
-
-	// Dropped Tile artwork
-	else if ( data.type === "Tile" ) {
-		return canvas.tiles._onDropTileData(event, data);
-	}
-	// Dropped Item
-	else if (data.type === "Item") {
-		const item: Item = game.items.get(data.id);
-
-		const hg = canvas.dimensions.size / 2;
-    data.x -= (hg);
-		data.y -= (hg);
-
-		const { x, y } = canvas.grid.getSnappedPosition(data.x, data.y, 1);
-		data.x = x;
-		data.y = y;
-
-		await Token.create({
-			bar1: {	},
-			img: item.img,
-			name: item.name,
-			x: data.x,
-			y: data.y,
-			disposition: 0,
-			flags: {
-				'pick-up-stix': {
-					'pick-up-stix': {
-						originalImagePath: item.img,
-						itemIds: [
-							[data.id, 1]
-						]
-					}
-				}
-			}
-		});
-	}
+	(mim as any)._activateClickEvents();
+	(mim as any)._activateHoverEvents();
 }
 
 async function handleTokenItemClicked(e): Promise<void> {

@@ -42,13 +42,14 @@ export interface PickUpStixFlags {
 	imageContainerClosedPath: string;
 	imageContainerOpenPath: string;
 	isOpen: boolean;
-	currency: {
+	currency?: {
 		pp: 0,
 		gp: 0,
 		ep: 0,
 		sp: 0,
 		cp: 0
-	},
+	};
+	isLocked?: boolean;
 }
 
 /**
@@ -378,27 +379,51 @@ Hooks.once('ready', function() {
 });
 
 Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
-	const token: Token = canvas.tokens.placeables.find(p => p.id === data._id);
-
-	// TODO when you get to dropping an item, check for a flag here to determine
-	// the token can actually be picked up
+  const token: Token = canvas.tokens.placeables.find(p => p.id === data._id);
 
 	if (!data.isGM) {
 		return;
 	}
 
-	const controlIcon = document.createElement('div');
-	controlIcon.className = 'control-icon';
-	const img = document.createElement('img');
-	img.src = token.getFlag('pick-up-stix', 'pick-up-stix.itemIds')?.length
+	const containerDiv = document.createElement('div');
+	containerDiv.style.display = 'flex';
+	containerDiv.style.flexDirection = 'row';
+
+	// create the control icon
+	const controlIconDiv = document.createElement('div');
+	controlIconDiv.className = 'control-icon';
+	const controlIconImg = document.createElement('img');
+	controlIconImg.src = data.flags?.['pick-up-stix']?.['pick-up-stix']?.['itemIds']?.length
 		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
-	img.className = "item-pick-up";
+	controlIconImg.className = "item-pick-up";
+	controlIconDiv.appendChild(controlIconImg);
 
-	controlIcon.addEventListener('mousedown', toggleItemPickup(hud, img, data));
-	controlIcon.appendChild(img);
-	$(hudHtml.children('div')[0]).prepend(controlIcon);
+	const lockDiv = document.createElement('div');
+	lockDiv.style.marginRight = '10px';
+	lockDiv.className = 'control-icon';
+	const lockImg = document.createElement('img');
+	lockImg.src = data.flags?.['pick-up-stix']?.['pick-up-stix']?.['isLocked']
+		? 'modules/pick-up-stix/assets/lock-white.svg'
+		: 'modules/pick-up-stix/assets/lock-black.svg';
+	lockDiv.appendChild(lockImg);
+
+	containerDiv.appendChild(lockDiv);
+	containerDiv.append(controlIconDiv);
+	$(hudHtml.children('div')[0]).prepend(containerDiv);
+
+	controlIconDiv.addEventListener('mousedown', toggleItemPickup(hud, controlIconImg, data));
+	lockDiv.addEventListener('mousedown', toggleLocked(data));
+
 });
+
+function toggleLocked(data): () => void {
+	return async () => {
+		const token = canvas.tokens.get(data._id);
+		const isLocked = token.getFlag('pick-up-stix', 'pick-up-stix.isLocked');
+		await token.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !isLocked);
+	}
+}
 
 Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: string) => {
 	console.log(`pick-up-stix | updateToken`)
@@ -413,6 +438,7 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 		}, 100);
 	}
 });
+
 Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userId: string) => {
 	console.log(`pick-up-stix | create token`)
 	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
@@ -576,6 +602,13 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
+	const isLocked = flags.isLocked;
+
+	if (isLocked) {
+		var audio = new Audio('sounds/lock.wav');
+		audio.play();
+		return;
+	}
 
 	let containerUpdates;
 	if(flags.isContainer) {

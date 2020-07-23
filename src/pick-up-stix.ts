@@ -386,12 +386,17 @@ Hooks.once('ready', function() {
 	socket = game.socket;
 
 	socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
-		console.log(`pick-up-stix | received socket message with args:`);
+		console.log(`pick-up-stix | socket.on | received socket message with args:`);
 		console.log(msg);
 
 		if (msg.sender === game.user.id) {
 			console.log(`pick-up-stix | receieved socket message | i sent this, ignoring`);
 			return;
+		}
+
+		const firstGm = game.users.find((u) => u.isGM && u.active);
+		if (firstGm && game.user !== firstGm) {
+   		return;
 		}
 
 		let actor;

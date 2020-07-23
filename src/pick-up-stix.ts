@@ -574,6 +574,20 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
+	const userControlledToken: Token = controlledTokens[0];
+
+	if (!this.isVisible) {
+		console.log(`pick-up-stix | handleTokenItemClicked | item is not visible to user`);
+		return;
+	}
+
+	const dist = Math.hypot(userControlledToken.x - this.x, userControlledToken.y - this.y);
+	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
+	if (dist > maxDist) {
+		console.log(`pick-up-stix | handleTokenItemClicked | item is out of reach`);
+		return;
+	}
+
 	const isLocked = flags.isLocked;
 
 	if (isLocked) {
@@ -604,10 +618,8 @@ async function handleTokenItemClicked(e): Promise<void> {
 		};
 	}
 
-	const token = controlledTokens[0];
-
 	if (!flags.isContainer || flags.isOpen) {
-		const currentCurrencies = token?.actor?.data?.data?.currency;
+		const currentCurrencies = userControlledToken?.actor?.data?.data?.currency;
 		const actorUpdates = Object.keys(flags?.currency || {})?.reduce((acc, next) => {
 			if (flags?.currency?.[next] > 0) {
 				currentCurrencies[next] = currentCurrencies[next] ? +currentCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
@@ -616,7 +628,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}, currentCurrencies);
 
 		if (actorUpdates) {
-			await updateActor(token.actor, { data: { data: { currency: { ...currentCurrencies }}}});
+			await updateActor(userControlledToken.actor, { data: { data: { currency: { ...currentCurrencies }}}});
 		}
 	}
 
@@ -637,7 +649,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
 		}
 
-		await createOwnedEntity(token.actor, itemsToCreate);
+		await createOwnedEntity(userControlledToken.actor, itemsToCreate);
 	}
 
 	if (containerUpdates) {

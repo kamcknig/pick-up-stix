@@ -262,7 +262,7 @@ class SelectItemApplication extends Application {
 		return {
 			options: this.options,
 			object: {
-				items: duplicate(Array.from(game.items)),
+				items: duplicate(game.items.entities.filter(i => !['class', 'spell', 'feat'].includes(i.type))),
 				isContainer: this.isContainer,
 				imageContainerOpenPath: this.imageContainerOpenPath,
 				imageContainerClosedPath: this.imageContainerClosedPath
@@ -433,7 +433,7 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
 	controlIconImg.className = "item-pick-up";
 	controlIconDiv.appendChild(controlIconImg);
-	controlIconDiv.addEventListener('mousedown', toggleItemPickup(hud, controlIconImg, data));
+	controlIconDiv.addEventListener('mousedown', displayItemContainerApplication(hud, controlIconImg, data));
 	containerDiv.appendChild(controlIconDiv);
 
 	// if the item is a container then add the lock icon
@@ -488,7 +488,7 @@ Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userI
 	}
 });
 
-function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any): (this: HTMLDivElement, ev: MouseEvent) => any {
+function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, tokenData: any): (this: HTMLDivElement, ev: MouseEvent) => any {
 	return async function(this, ev: MouseEvent) {
 		console.log(`pick-up-sticks | toggle icon clicked`);
 		const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
@@ -497,11 +497,7 @@ function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any):
 			return;
 		}
 
-		const flags: PickUpStixFlags = token.getFlag('pick-up-stix', 'pick-up-stix');
-
-		if (flags?.itemIds?.length > 0) {
-			console.log(`pick-up-stix | token already has itemIds ${flags?.itemIds}`);
-		}
+		const flags: PickUpStixFlags = token.getFlag('pick-up-stix', 'pick-up-stix')
 
 		let b = new SelectItemApplication(token);
 		b.render(true);

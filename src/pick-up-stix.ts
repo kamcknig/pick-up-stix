@@ -10,10 +10,6 @@
  * 					 determines how others may use and modify your module
  */
 
-declare class Canvas {
-  _onDrop(event): any;
-}
-
 // Import TypeScript modules
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -37,17 +33,18 @@ export interface PickUpStixSocketMessage {
 }
 
 export interface PickUpStixFlags {
-	itemIds: FormData[];
-	isContainer: boolean;
-	imageContainerClosedPath: string;
-	imageContainerOpenPath: string;
-	isOpen: boolean;
+	itemIds?: FormData[];
+	isContainer?: boolean;
+	imageContainerClosedPath?: string;
+	imageContainerOpenPath?: string;
+	isOpen?: boolean;
+	canClose?: boolean;
 	currency?: {
-		pp: 0,
-		gp: 0,
-		ep: 0,
-		sp: 0,
-		cp: 0
+		pp?: number;
+		gp?: number;
+		ep?: number;
+		sp?: number;
+		cp?: number;
 	};
 	isLocked?: boolean;
 }
@@ -57,21 +54,28 @@ export interface PickUpStixFlags {
  * associated with
  */
 class SelectItemApplication extends Application {
-	static created: boolean = false;
+	static get defaultOptions(): ApplicationOptions {
+	  const options = super.defaultOptions;
+    options.id = "pick-up-stix-selectItem";
+	  options.template = "modules/pick-up-stix/templates/select-item.html";
+		options.width = 500;
+		options.height = 'auto';
+		options.minimizable = false;
+		options.title = "Select an Item";
+		options.resizable = true;
+    return options;
+	}
 
 	private _flags: PickUpStixFlags = {
-		isContainer: false,
-			imageContainerClosedPath: undefined,
-			imageContainerOpenPath: undefined,
-			isOpen: false,
-			currency: {
-				pp: 0,
-				gp: 0,
-				ep: 0,
-				sp: 0,
-				cp: 0
-			},
-			itemIds: []
+		currency: {
+			pp: 0,
+			gp: 0,
+			ep: 0,
+			sp: 0,
+			cp: 0
+		},
+		itemIds: [],
+		canClose: true
 	};
 
 	private get isContainer(): boolean {
@@ -115,18 +119,6 @@ class SelectItemApplication extends Application {
 
 	private _html: any;
 
-	static get defaultOptions(): ApplicationOptions {
-	  const options = super.defaultOptions;
-    options.id = "pick-up-stix-selectItem";
-	  options.template = "modules/pick-up-stix/templates/select-item.html";
-		options.width = 500;
-		options.height = 'auto';
-		options.minimizable = false;
-		options.title = "Select an Item";
-		options.resizable = true;
-    return options;
-	}
-
 	constructor(private _token: Token) {
 		super({});
 		console.log(`pick-up-stix | select item form | constructed with args:`)
@@ -159,15 +151,23 @@ class SelectItemApplication extends Application {
 	}
 
 	activateListeners(html) {
-		this._html = html;
-		super.activateListeners(this._html);
+		console.log(`pick-up-stix | SelectItemApplication | activateListeners called with args:`);
+		console.log(html);
 
-		console.log(`pick-up-stix | selection form setup | current selection data`);
-		console.log(this.selectionData);
+		super.activateListeners(this._html);
+		this._html = html;
 
 		Object.keys(this._flags.currency).forEach(k => {
 			$(this._html).find(`.currency-wrapper [data-currency-type="${k}"]`).val(this._flags.currency[k]);
 		});
+
+		if (this.isContainer) {
+			$(this._html).find(`#isContainerCheckBox`).prop('checked', true);
+		}
+
+		if (this._flags.canClose) {
+			$(this._html).find(`#canCloseCheckBox`).prop('checked', true);
+		}
 
 		this.selectionData?.forEach(itemData => {
 			console.log(`pick-up-stix | selection from setup | setting item ${itemData[0]} to active and count to ${itemData[1]}`);
@@ -207,11 +207,21 @@ class SelectItemApplication extends Application {
 		/**
 		 * Listen for the container checkbox change event
 		 */
-		$(this._html).find('.file-input-checkbox').change(async (e) => {
+		$(this._html).find('#isContainerCheckBox').change(async (e) => {
 			console.log(`pick-up-stix | select form | file input check box changed`);
 			this.isContainer = !this.isContainer;
 			this.render();
 		});
+
+		if (this.isContainer) {
+			/**
+			 * Listen for if the can close checkbox is changed
+			 */
+			$(this._html).find('#canCloseCheckBox').change(async (e) => {
+				console.log(`pick-up-stix | SelectItemApplication | canCloseCheckBox changed`);
+				this._flags.canClose = !this._flags.canClose;
+			});
+		}
 
 		/**
 		 * Listen for the change event on the count input
@@ -295,10 +305,8 @@ class SelectItemApplication extends Application {
 /* Initialize module					*/
 /* ------------------------------------ */
 Hooks.once('init', async function() {
+	console.log('pick-up-stix | init Hook');
 	CONFIG.debug.hooks = true;
-	(CONFIG.debug as any).mouseInteraction = true;
-
-	console.log('pick-up-stix | Init pick-up-stix');
 
 	// Assign custom classes and constants here
 
@@ -317,7 +325,7 @@ Hooks.once('init', async function() {
 Hooks.once('setup', function() {
 	// Do anything after initialization but before
 	// ready
-	console.log(`pick-up-stix | Setup`);
+	console.log(`pick-up-stix | setup Hook`);
 });
 
 Hooks.once('canvasReady', function() {
@@ -528,13 +536,16 @@ function setupMouseManager(token: PlaceableObject): void {
 async function handleTokenItemClicked(e): Promise<void> {
 	console.log(`pick-up-stix | handleTokenItemClicked | ${this.id}`);
 
+	// if the token is hidden just do a normal click
 	if (e.currentTarget.data.hidden) {
 		this._onClickLeft(e);
 		return;
 	}
 
+	// get the tokens that the user controls
 	const controlledTokens = canvas.tokens.controlled;
 
+	// get the flags on the clicked token
 	const flags: PickUpStixFlags = duplicate(this.getFlag('pick-up-stix', 'pick-up-stix'));
 
 	// gm special stuff
@@ -563,6 +574,11 @@ async function handleTokenItemClicked(e): Promise<void> {
 	if (isLocked) {
 		var audio = new Audio('sounds/lock.wav');
 		audio.play();
+		return;
+	}
+
+	if (flags.isContainer && flags.isOpen && !flags.canClose) {
+		console.log(`pick-up-stix | handleTokenItemClicked | container is open and can't be closed`);
 		return;
 	}
 

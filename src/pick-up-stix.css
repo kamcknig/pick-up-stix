@@ -60,13 +60,6 @@
   max-width: 100px;
 }
 
-.pick-up-stix .file-input .check-box {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: flex-start;
-}
-
 .pick-up-stix .item-wrapper {
   display: flex;
   flex-wrap: wrap;

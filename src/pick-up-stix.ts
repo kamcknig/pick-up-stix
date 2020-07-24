@@ -648,6 +648,23 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}, currentCurrencies);
 
 		if (actorUpdates) {
+			let content = `
+				<p>Picked up:</p>
+				<span class="pick-up-stix-chat-currency plat"></span><span>${flags?.currency?.pp || 0}</span><br />
+				<span class="pick-up-stix-chat-currency gold"></span><span>${flags?.currency?.gp || 0}</span><br />
+				<span class="pick-up-stix-chat-currency electrum"></span><span>${flags?.currency?.ep || 0}</span><br />
+				<span class="pick-up-stix-chat-currency silver"></span><span>${flags?.currency?.sp || 0}</span><br />
+				<span class="pick-up-stix-chat-currency copper"></span><span>${flags?.currency?.cp || 0}</span><br />
+			`;
+			ChatMessage.create({
+				content,
+				speaker: {
+					alias: userControlledToken.actor.name,
+					scene: (game.scenes as any).active.id,
+					actor: userControlledToken.actor.id,
+					token: userControlledToken.id
+				}
+			});
 			await updateActor(userControlledToken.actor, { data: { data: { currency: { ...currentCurrencies }}}});
 		}
 	}

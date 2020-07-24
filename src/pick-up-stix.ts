@@ -10,10 +10,6 @@
  * 					 determines how others may use and modify your module
  */
 
-declare class Canvas {
-  _onDrop(event): any;
-}
-
 // Import TypeScript modules
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
@@ -37,17 +33,18 @@ export interface PickUpStixSocketMessage {
 }
 
 export interface PickUpStixFlags {
-	itemIds: FormData[];
-	isContainer: boolean;
-	imageContainerClosedPath: string;
-	imageContainerOpenPath: string;
-	isOpen: boolean;
+	itemIds?: FormData[];
+	isContainer?: boolean;
+	imageContainerClosedPath?: string;
+	imageContainerOpenPath?: string;
+	isOpen?: boolean;
+	canClose?: boolean;
 	currency?: {
-		pp: 0,
-		gp: 0,
-		ep: 0,
-		sp: 0,
-		cp: 0
+		pp?: number;
+		gp?: number;
+		ep?: number;
+		sp?: number;
+		cp?: number;
 	};
 	isLocked?: boolean;
 }
@@ -57,21 +54,28 @@ export interface PickUpStixFlags {
  * associated with
  */
 class SelectItemApplication extends Application {
-	static created: boolean = false;
+	static get defaultOptions(): ApplicationOptions {
+	  const options = super.defaultOptions;
+    options.id = "pick-up-stix-selectItem";
+	  options.template = "modules/pick-up-stix/templates/select-item.html";
+		options.width = 500;
+		options.height = 'auto';
+		options.minimizable = false;
+		options.title = "Select an Item";
+		options.resizable = true;
+    return options;
+	}
 
 	private _flags: PickUpStixFlags = {
-		isContainer: false,
-			imageContainerClosedPath: undefined,
-			imageContainerOpenPath: undefined,
-			isOpen: false,
-			currency: {
-				pp: 0,
-				gp: 0,
-				ep: 0,
-				sp: 0,
-				cp: 0
-			},
-			itemIds: []
+		currency: {
+			pp: 0,
+			gp: 0,
+			ep: 0,
+			sp: 0,
+			cp: 0
+		},
+		itemIds: [],
+		canClose: true
 	};
 
 	private get isContainer(): boolean {
@@ -115,18 +119,6 @@ class SelectItemApplication extends Application {
 
 	private _html: any;
 
-	static get defaultOptions(): ApplicationOptions {
-	  const options = super.defaultOptions;
-    options.id = "pick-up-stix-selectItem";
-	  options.template = "modules/pick-up-stix/templates/select-item.html";
-		options.width = 500;
-		options.height = 'auto';
-		options.minimizable = false;
-		options.title = "Select an Item";
-		options.resizable = true;
-    return options;
-	}
-
 	constructor(private _token: Token) {
 		super({});
 		console.log(`pick-up-stix | select item form | constructed with args:`)
@@ -159,15 +151,23 @@ class SelectItemApplication extends Application {
 	}
 
 	activateListeners(html) {
-		this._html = html;
-		super.activateListeners(this._html);
+		console.log(`pick-up-stix | SelectItemApplication | activateListeners called with args:`);
+		console.log(html);
 
-		console.log(`pick-up-stix | selection form setup | current selection data`);
-		console.log(this.selectionData);
+		super.activateListeners(this._html);
+		this._html = html;
 
 		Object.keys(this._flags.currency).forEach(k => {
 			$(this._html).find(`.currency-wrapper [data-currency-type="${k}"]`).val(this._flags.currency[k]);
 		});
+
+		if (this.isContainer) {
+			$(this._html).find(`#isContainerCheckBox`).prop('checked', true);
+		}
+
+		if (this._flags.canClose) {
+			$(this._html).find(`#canCloseCheckBox`).prop('checked', true);
+		}
 
 		this.selectionData?.forEach(itemData => {
 			console.log(`pick-up-stix | selection from setup | setting item ${itemData[0]} to active and count to ${itemData[1]}`);
@@ -207,11 +207,21 @@ class SelectItemApplication extends Application {
 		/**
 		 * Listen for the container checkbox change event
 		 */
-		$(this._html).find('.file-input-checkbox').change(async (e) => {
+		$(this._html).find('#isContainerCheckBox').change(async (e) => {
 			console.log(`pick-up-stix | select form | file input check box changed`);
 			this.isContainer = !this.isContainer;
 			this.render();
 		});
+
+		if (this.isContainer) {
+			/**
+			 * Listen for if the can close checkbox is changed
+			 */
+			$(this._html).find('#canCloseCheckBox').change(async (e) => {
+				console.log(`pick-up-stix | SelectItemApplication | canCloseCheckBox changed`);
+				this._flags.canClose = !this._flags.canClose;
+			});
+		}
 
 		/**
 		 * Listen for the change event on the count input
@@ -262,7 +272,7 @@ class SelectItemApplication extends Application {
 		return {
 			options: this.options,
 			object: {
-				items: duplicate(Array.from(game.items)),
+				items: duplicate(game.items.entities.filter(i => !['class', 'spell', 'feat'].includes(i.type))),
 				isContainer: this.isContainer,
 				imageContainerOpenPath: this.imageContainerOpenPath,
 				imageContainerClosedPath: this.imageContainerClosedPath
@@ -295,10 +305,8 @@ class SelectItemApplication extends Application {
 /* Initialize module					*/
 /* ------------------------------------ */
 Hooks.once('init', async function() {
+	console.log('pick-up-stix | init Hook');
 	CONFIG.debug.hooks = true;
-	(CONFIG.debug as any).mouseInteraction = true;
-
-	console.log('pick-up-stix | Init pick-up-stix');
 
 	// Assign custom classes and constants here
 
@@ -317,7 +325,7 @@ Hooks.once('init', async function() {
 Hooks.once('setup', function() {
 	// Do anything after initialization but before
 	// ready
-	console.log(`pick-up-stix | Setup`);
+	console.log(`pick-up-stix | setup Hook`);
 });
 
 Hooks.once('canvasReady', function() {
@@ -378,12 +386,17 @@ Hooks.once('ready', function() {
 	socket = game.socket;
 
 	socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
-		console.log(`pick-up-stix | received socket message with args:`);
+		console.log(`pick-up-stix | socket.on | received socket message with args:`);
 		console.log(msg);
 
 		if (msg.sender === game.user.id) {
 			console.log(`pick-up-stix | receieved socket message | i sent this, ignoring`);
 			return;
+		}
+
+		const firstGm = game.users.find((u) => u.isGM && u.active);
+		if (firstGm && game.user !== firstGm) {
+   		return;
 		}
 
 		let actor;
@@ -415,6 +428,12 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
   const token: Token = canvas.tokens.placeables.find(p => p.id === data._id);
 
 	if (!data.isGM) {
+		console.log(`pick-up-stix | renderTokenHUD | user is not a gm, don't change HUD`);
+		return;
+	}
+
+	if (data.actorId) {
+		console.log(`pick-up-stix | renderTokenHUD | token has an actor associated with it, dont' change HUD`);
 		return;
 	}
 
@@ -433,7 +452,7 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
 	controlIconImg.className = "item-pick-up";
 	controlIconDiv.appendChild(controlIconImg);
-	controlIconDiv.addEventListener('mousedown', toggleItemPickup(hud, controlIconImg, data));
+	controlIconDiv.addEventListener('mousedown', displayItemContainerApplication(hud, controlIconImg, data));
 	containerDiv.appendChild(controlIconDiv);
 
 	// if the item is a container then add the lock icon
@@ -488,7 +507,7 @@ Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userI
 	}
 });
 
-function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any): (this: HTMLDivElement, ev: MouseEvent) => any {
+function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, tokenData: any): (this: HTMLDivElement, ev: MouseEvent) => any {
 	return async function(this, ev: MouseEvent) {
 		console.log(`pick-up-sticks | toggle icon clicked`);
 		const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
@@ -497,11 +516,7 @@ function toggleItemPickup(hud: TokenHUD, img: HTMLImageElement, tokenData: any):
 			return;
 		}
 
-		const flags: PickUpStixFlags = token.getFlag('pick-up-stix', 'pick-up-stix');
-
-		if (flags?.itemIds?.length > 0) {
-			console.log(`pick-up-stix | token already has itemIds ${flags?.itemIds}`);
-		}
+		const flags: PickUpStixFlags = token.getFlag('pick-up-stix', 'pick-up-stix')
 
 		let b = new SelectItemApplication(token);
 		b.render(true);
@@ -532,18 +547,23 @@ function setupMouseManager(token: PlaceableObject): void {
 async function handleTokenItemClicked(e): Promise<void> {
 	console.log(`pick-up-stix | handleTokenItemClicked | ${this.id}`);
 
+	// if the token is hidden just do a normal click
 	if (e.currentTarget.data.hidden) {
+		console.log(`pick-up-stix | handleTokenItemClicked | token is hidden, handle normal click`);
 		this._onClickLeft(e);
 		return;
 	}
 
+	// get the tokens that the user controls
 	const controlledTokens = canvas.tokens.controlled;
 
+	// get the flags on the clicked token
 	const flags: PickUpStixFlags = duplicate(this.getFlag('pick-up-stix', 'pick-up-stix'));
 
 	// gm special stuff
 	if (game.user.isGM) {
 		if (!controlledTokens.length) {
+			console.log(`pick-up-stix | handleTokenItemClicked | no controlled tokens, handle normal click`);
 			this._onClickLeft(e);
 			return;
 		}
@@ -552,6 +572,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 		// if there is only one controlled token and it's the item itself, don't do anything
 		if (controlledTokens.length === 1 && (controlledTokens.includes(this) || controlledFlags)) {
+			console.log(`pick-up-stix | handleTokenItemClicked | only controlling the item, handle normal click`);
 			this._onClickLeft(e);
 			return;
 		}
@@ -562,15 +583,43 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
+	// get the token the user is controlling
+	const userControlledToken: Token = controlledTokens[0];
+
+	// if the item isn't visible can't pick it up
+	if (!this.isVisible) {
+		console.log(`pick-up-stix | handleTokenItemClicked | item is not visible to user`);
+		return;
+	}
+
+	// get the distance to the token and if it's too far then can't pick it up
+	const dist = Math.hypot(userControlledToken.x - this.x, userControlledToken.y - this.y);
+	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
+	if (dist > maxDist) {
+		console.log(`pick-up-stix | handleTokenItemClicked | item is out of reach`);
+		return;
+	}
+
 	const isLocked = flags.isLocked;
 
+	// if it's locked then it can't be opened
 	if (isLocked) {
+		console.log(`pick-up-stix | handleTokenItemClicked | item is locked, play lock sound`);
 		var audio = new Audio('sounds/lock.wav');
 		audio.play();
 		return;
 	}
 
+	// if it's a container and it's open and can't be closed then don't do anything
+	if (flags.isContainer && flags.isOpen && !flags.canClose) {
+		console.log(`pick-up-stix | handleTokenItemClicked | container is open and can't be closed`);
+		return;
+	}
+
 	let containerUpdates;
+
+	// create an update for the container but don't run update it yet. if it's container then switch then
+	// open property
 	if(flags.isContainer) {
 		console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
 		flags.isOpen = !flags.isOpen;
@@ -587,10 +636,10 @@ async function handleTokenItemClicked(e): Promise<void> {
 		};
 	}
 
-	const token = controlledTokens[0];
-
+	// if it's not a container or if it is and it's open it's now open (from switching above) then update
+	// the actor's currencies if there are any in the container
 	if (!flags.isContainer || flags.isOpen) {
-		const currentCurrencies = token?.actor?.data?.data?.currency;
+		const currentCurrencies = userControlledToken?.actor?.data?.data?.currency;
 		const actorUpdates = Object.keys(flags?.currency || {})?.reduce((acc, next) => {
 			if (flags?.currency?.[next] > 0) {
 				currentCurrencies[next] = currentCurrencies[next] ? +currentCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
@@ -599,10 +648,11 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}, currentCurrencies);
 
 		if (actorUpdates) {
-			await updateActor(token.actor, { data: { data: { currency: { ...currentCurrencies }}}});
+			await updateActor(userControlledToken.actor, { data: { data: { currency: { ...currentCurrencies }}}});
 		}
 	}
 
+	// get the items from teh container and create an update object if there are any
 	const itemsToCreate = (!flags.isContainer || flags.isOpen) && flags?.itemIds?.reduce((accumulator, next) => {
 		const item = game.items.get(next[0]);
 		const datas = [];
@@ -614,19 +664,52 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return accumulator.concat(datas);
 	}, []);
 
+	// if we have item's then create the owned entities on the actor
 	if (itemsToCreate) {
 		if (flags.isContainer) {
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemIds = [];
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
 		}
 
-		await createOwnedEntity(token.actor, itemsToCreate);
+		const itemCounts = itemsToCreate.reduce((prev, next) => {
+			if (!prev[next._id]) {
+				prev[next._id] = 1;
+			}
+			else {
+				prev[next._id]++;
+			}
+
+			return prev;
+		}, {});
+
+		Object.keys(itemCounts).forEach(itemId => {
+			const item = game.items.get(itemId);
+
+			ChatMessage.create({
+				content: `
+					<p>Picked up ${itemCounts[itemId]} ${item.name}</p>
+					<img src="${item.img}" style="width: 40px;" />
+				`,
+				speaker: {
+					alias: userControlledToken.actor.name,
+					scene: (game.scenes as any).active.id,
+					actor: userControlledToken.actor.id,
+					token: userControlledToken.id
+				}
+			});
+		});
+
+		await createOwnedEntity(userControlledToken.actor, itemsToCreate);
 	}
 
+	// if there are any container updates then update the container
 	if (containerUpdates) {
-		setTimeout(() => {
-			updateToken(this, containerUpdates);
-		}, 300);
+		await new Promise(resolve => {
+			setTimeout(() => {
+				updateToken(this, containerUpdates);
+				resolve();
+			}, 300);
+		});
 	}
 
 	if (!flags.isContainer) {

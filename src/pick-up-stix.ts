@@ -428,6 +428,12 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
   const token: Token = canvas.tokens.placeables.find(p => p.id === data._id);
 
 	if (!data.isGM) {
+		console.log(`pick-up-stix | renderTokenHUD | user is not a gm, don't change HUD`);
+		return;
+	}
+
+	if (data.actorId) {
+		console.log(`pick-up-stix | renderTokenHUD | token has an actor associated with it, dont' change HUD`);
 		return;
 	}
 
@@ -543,6 +549,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 	// if the token is hidden just do a normal click
 	if (e.currentTarget.data.hidden) {
+		console.log(`pick-up-stix | handleTokenItemClicked | token is hidden, handle normal click`);
 		this._onClickLeft(e);
 		return;
 	}
@@ -556,6 +563,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 	// gm special stuff
 	if (game.user.isGM) {
 		if (!controlledTokens.length) {
+			console.log(`pick-up-stix | handleTokenItemClicked | no controlled tokens, handle normal click`);
 			this._onClickLeft(e);
 			return;
 		}
@@ -564,6 +572,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 		// if there is only one controlled token and it's the item itself, don't do anything
 		if (controlledTokens.length === 1 && (controlledTokens.includes(this) || controlledFlags)) {
+			console.log(`pick-up-stix | handleTokenItemClicked | only controlling the item, handle normal click`);
 			this._onClickLeft(e);
 			return;
 		}
@@ -574,13 +583,16 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
+	// get the token the user is controlling
 	const userControlledToken: Token = controlledTokens[0];
 
+	// if the item isn't visible can't pick it up
 	if (!this.isVisible) {
 		console.log(`pick-up-stix | handleTokenItemClicked | item is not visible to user`);
 		return;
 	}
 
+	// get the distance to the token and if it's too far then can't pick it up
 	const dist = Math.hypot(userControlledToken.x - this.x, userControlledToken.y - this.y);
 	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
 	if (dist > maxDist) {
@@ -590,18 +602,24 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 	const isLocked = flags.isLocked;
 
+	// if it's locked then it can't be opened
 	if (isLocked) {
+		console.log(`pick-up-stix | handleTokenItemClicked | item is locked, play lock sound`);
 		var audio = new Audio('sounds/lock.wav');
 		audio.play();
 		return;
 	}
 
+	// if it's a container and it's open and can't be closed then don't do anything
 	if (flags.isContainer && flags.isOpen && !flags.canClose) {
 		console.log(`pick-up-stix | handleTokenItemClicked | container is open and can't be closed`);
 		return;
 	}
 
 	let containerUpdates;
+
+	// create an update for the container but don't run update it yet. if it's container then switch then
+	// open property
 	if(flags.isContainer) {
 		console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
 		flags.isOpen = !flags.isOpen;
@@ -618,6 +636,8 @@ async function handleTokenItemClicked(e): Promise<void> {
 		};
 	}
 
+	// if it's not a container or if it is and it's open it's now open (from switching above) then update
+	// the actor's currencies if there are any in the container
 	if (!flags.isContainer || flags.isOpen) {
 		const currentCurrencies = userControlledToken?.actor?.data?.data?.currency;
 		const actorUpdates = Object.keys(flags?.currency || {})?.reduce((acc, next) => {
@@ -632,6 +652,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}
 	}
 
+	// get the items from teh container and create an update object if there are any
 	const itemsToCreate = (!flags.isContainer || flags.isOpen) && flags?.itemIds?.reduce((accumulator, next) => {
 		const item = game.items.get(next[0]);
 		const datas = [];
@@ -643,19 +664,52 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return accumulator.concat(datas);
 	}, []);
 
+	// if we have item's then create the owned entities on the actor
 	if (itemsToCreate) {
 		if (flags.isContainer) {
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemIds = [];
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
 		}
 
+		const itemCounts = itemsToCreate.reduce((prev, next) => {
+			if (!prev[next._id]) {
+				prev[next._id] = 1;
+			}
+			else {
+				prev[next._id]++;
+			}
+
+			return prev;
+		}, {});
+
+		Object.keys(itemCounts).forEach(itemId => {
+			const item = game.items.get(itemId);
+
+			ChatMessage.create({
+				content: `
+					<p>Picked up ${itemCounts[itemId]} ${item.name}</p>
+					<img src="${item.img}" style="width: 40px;" />
+				`,
+				speaker: {
+					alias: userControlledToken.actor.name,
+					scene: (game.scenes as any).active.id,
+					actor: userControlledToken.actor.id,
+					token: userControlledToken.id
+				}
+			});
+		});
+
 		await createOwnedEntity(userControlledToken.actor, itemsToCreate);
 	}
 
+	// if there are any container updates then update the container
 	if (containerUpdates) {
-		setTimeout(() => {
-			updateToken(this, containerUpdates);
-		}, 300);
+		await new Promise(resolve => {
+			setTimeout(() => {
+				updateToken(this, containerUpdates);
+				resolve();
+			}, 300);
+		});
 	}
 
 	if (!flags.isContainer) {

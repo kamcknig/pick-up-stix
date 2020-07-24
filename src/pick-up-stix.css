@@ -95,3 +95,34 @@
   display: block;
   width: 100%;
 }
+
+span.pick-up-stix-chat-currency {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+}
+
+span.pick-up-stix-chat-currency.plat {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png);
+}
+
+span.pick-up-stix-chat-currency.gold {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -34px 0px;
+}
+
+span.pick-up-stix-chat-currency.electrum {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -66px 0px;
+}
+
+span.pick-up-stix-chat-currency.silver {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -98px 0px;
+}
+
+span.pick-up-stix-chat-currency.copper {
+  margin-right: 5px;
+  background: url(assets/currency-sprite.png) -130px 0px;
+}

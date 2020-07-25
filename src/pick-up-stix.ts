@@ -16,7 +16,11 @@ import { preloadTemplates } from './module/preloadTemplates.js';
 
 
 let socket: any;
-export type FormData = [string, number];
+export type FormData = {
+	id: string;
+	count: number;
+	pack?: string;
+};
 
 export enum SocketMessageType {
 	deleteToken,
@@ -135,16 +139,16 @@ class SelectItemApplication extends Application {
 	}
 
 	private async setSelectionAmount(id: string, count: number): Promise<FormData> {
-		let currItemData = this.selectionData.find(itemData => itemData[0] === id);
+		let currItemData = this.selectionData.find(itemData => itemData.id === id);
 
 		if (currItemData) {
-			currItemData[1] = count;
-			console.log(`Previous value existed, setting ${currItemData[0]} to count ${currItemData[1]}`);
+			currItemData.count = count;
+			console.log(`Previous value existed, setting ${currItemData.id} to count ${currItemData.count}`);
 		}
 		else {
-			currItemData = [id, 1];
+			currItemData = { id, count: 1 };
 			this.selectionData.push(currItemData);
-			console.log(`Adding item ${currItemData[0]} with count ${currItemData[1]}`);
+			console.log(`Adding item ${currItemData.id} with count ${currItemData.count}`);
 		}
 
 		return currItemData;
@@ -170,12 +174,12 @@ class SelectItemApplication extends Application {
 		}
 
 		this.selectionData?.forEach(itemData => {
-			console.log(`pick-up-stix | selection from setup | setting item ${itemData[0]} to active and count to ${itemData[1]}`);
-			const item = $(this._html).find(`[data-item-id="${itemData[0]}"]`);
-			if (itemData[1] > 0) {
+			console.log(`pick-up-stix | selection from setup | setting item ${itemData.id} to active and count to ${itemData.count}`);
+			const item = $(this._html).find(`[data-item-id="${itemData.id}"]`);
+			if (itemData.count > 0) {
 				item.addClass('active');
 			}
-			item.find('.count').val(itemData[1]);
+			item.find('.count').val(itemData.count);
 		});
 
 		/**
@@ -259,10 +263,10 @@ class SelectItemApplication extends Application {
 			const item = $(e.currentTarget).parent();
 			const itemId = item.attr('data-item-id');
 
-			let currItemData = this.selectionData.find(itemData => itemData[0] === itemId);
-			currItemData = await this.setSelectionAmount(itemId, currItemData ? currItemData[1] + 1 : 1);
+			let currItemData = this.selectionData.find(itemData => itemData.id === itemId);
+			currItemData = await this.setSelectionAmount(itemId, currItemData ? currItemData.count + 1 : 1);
 			item.find('.count').val(currItemData[1]);
-			console.log(`pick-up-stix | selection form image clicked | setting item ${itemId} to count ${currItemData[1]}`);
+			console.log(`pick-up-stix | selection form image clicked | setting item ${itemId} to count ${currItemData.count}`);
 			item.addClass('active');
 			this.render();
 		});
@@ -332,12 +336,17 @@ Hooks.once('canvasReady', function() {
 	console.log(`pick-up-stix | Canvas ready, adding PickUpStixItemLayer`);
 });
 
-Hooks.on('dropCanvasData', (canvas, dropData) => {
+Hooks.on('dropCanvasData', async (canvas, dropData) => {
 	console.log(`pick-up-stix | dropCanvasData | called with args:`);
 	console.log(canvas, dropData);
 
 	if (dropData.type === "Item") {
-		const item: Item = game.items.get(dropData.id);
+		const item: Item = dropData.pack !== undefined ? await game.packs.get(dropData.pack).getEntity(dropData.id) : game.items.get(dropData.id);
+
+		if (!item) {
+			console.log(`pick-up-stix | dropCanvasData | item '${dropData.id}' not found in game items or compendium`);
+			return;
+		}
 
 		const hg = canvas.dimensions.size / 2;
     dropData.x -= (hg);
@@ -358,7 +367,7 @@ Hooks.on('dropCanvasData', (canvas, dropData) => {
 					'pick-up-stix': {
 						originalImagePath: item.img,
 						itemIds: [
-							[dropData.id, 1]
+							{ id: dropData.id, count: 1, pack: dropData.pack ? dropData.pack : undefined }
 						]
 					}
 				}
@@ -425,9 +434,7 @@ Hooks.once('ready', function() {
 });
 
 Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
-  const token: Token = canvas.tokens.placeables.find(p => p.id === data._id);
-
-	if (!data.isGM) {
+  if (!data.isGM) {
 		console.log(`pick-up-stix | renderTokenHUD | user is not a gm, don't change HUD`);
 		return;
 	}
@@ -667,51 +674,39 @@ async function handleTokenItemClicked(e): Promise<void> {
 	}
 
 	// get the items from teh container and create an update object if there are any
-	const itemsToCreate = (!flags.isContainer || flags.isOpen) && flags?.itemIds?.reduce((accumulator, next) => {
-		const item = game.items.get(next[0]);
-		const datas = [];
-		for (let i = 0; i < next[1]; i++) {
-			datas.push({
-				...item.data
-			});
-		}
-		return accumulator.concat(datas);
-	}, []);
+	const itemsToCreate = [];
+	if (!flags.isContainer || flags.isOpen) {
+		for (let itemData of flags.itemIds) {
+			const item = itemData.pack !== undefined ? await game.packs.get(itemData.pack).getEntity(itemData.id) : game.items.get(itemData.id);
+			const datas = [];
+			for (let i = 0; i < itemData.count; i++) {
+				datas.push({
+					...item.data
+				});
+			}
+			itemsToCreate.push(...datas)
 
-	// if we have item's then create the owned entities on the actor
-	if (itemsToCreate) {
+			if (itemData.count > 0) {
+				ChatMessage.create({
+					content: `
+						<p>Picked up ${itemData.count} ${item.name}</p>
+						<img src="${item.img}" style="width: 40px;" />
+					`,
+					speaker: {
+						alias: userControlledToken.actor.name,
+						scene: (game.scenes as any).active.id,
+						actor: userControlledToken.actor.id,
+						token: userControlledToken.id
+					}
+				});
+			}
+		}
+
+		// if it's a container, clear out the items as they've been picked up now
 		if (flags.isContainer) {
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemIds = [];
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
 		}
-
-		const itemCounts = itemsToCreate.reduce((prev, next) => {
-			if (!prev[next._id]) {
-				prev[next._id] = 1;
-			}
-			else {
-				prev[next._id]++;
-			}
-
-			return prev;
-		}, {});
-
-		Object.keys(itemCounts).forEach(itemId => {
-			const item = game.items.get(itemId);
-
-			ChatMessage.create({
-				content: `
-					<p>Picked up ${itemCounts[itemId]} ${item.name}</p>
-					<img src="${item.img}" style="width: 40px;" />
-				`,
-				speaker: {
-					alias: userControlledToken.actor.name,
-					scene: (game.scenes as any).active.id,
-					actor: userControlledToken.actor.id,
-					token: userControlledToken.id
-				}
-			});
-		});
 
 		await createOwnedEntity(userControlledToken.actor, itemsToCreate);
 	}

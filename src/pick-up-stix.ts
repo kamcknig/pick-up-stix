@@ -674,8 +674,9 @@ async function handleTokenItemClicked(e): Promise<void> {
 	}
 
 	// get the items from teh container and create an update object if there are any
-	const itemsToCreate = [];
 	if (!flags.isContainer || flags.isOpen) {
+		const itemsToCreate = [];
+
 		for (let itemData of flags.itemIds) {
 			const item = itemData.pack !== undefined ? await game.packs.get(itemData.pack).getEntity(itemData.id) : game.items.get(itemData.id);
 			const datas = [];
@@ -684,8 +685,10 @@ async function handleTokenItemClicked(e): Promise<void> {
 					...item.data
 				});
 			}
+
 			itemsToCreate.push(...datas)
 
+			debugger;
 			if (itemData.count > 0) {
 				ChatMessage.create({
 					content: `

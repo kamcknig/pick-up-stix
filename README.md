@@ -6,6 +6,10 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 - Player's must be within one square of the item in order to pick it up (not configurable at the moment)
 - Player's must control one and only one token when picking up an item
 
+## Known Issues
+
+- There is a hover issue which can add the yellow hover border over items when there shouldn't be.
+
 # Demos
 
 ## Drop an item from the `items directory`

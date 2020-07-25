@@ -9,6 +9,7 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 ## Known Issues
 
 - There is a hover issue which can add the yellow hover border over items when there shouldn't be.
+- HUD does not update until you close and re-open the HUD
 
 # Demos
 

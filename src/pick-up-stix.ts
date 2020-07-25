@@ -639,23 +639,20 @@ async function handleTokenItemClicked(e): Promise<void> {
 	// if it's not a container or if it is and it's open it's now open (from switching above) then update
 	// the actor's currencies if there are any in the container
 	if (!flags.isContainer || flags.isOpen) {
-		const currentCurrencies = userControlledToken?.actor?.data?.data?.currency;
+		let currencyFound = false;
+		let chatContent = '';
+		const userCurrencies = userControlledToken?.actor?.data?.data?.currency;
 		const actorUpdates = Object.keys(flags?.currency || {})?.reduce((acc, next) => {
 			if (flags?.currency?.[next] > 0) {
-				currentCurrencies[next] = currentCurrencies[next] ? +currentCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
+				currencyFound = true;
+				chatContent += `<span class="pick-up-stix-chat-currency ${next}"></span><span>(${next}) ${flags?.currency?.[next]}</span><br />`;
+				userCurrencies[next] = userCurrencies[next] ? +userCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
 			}
-			return currentCurrencies;
-		}, currentCurrencies);
+			return userCurrencies;
+		}, userCurrencies);
 
-		if (actorUpdates) {
-			let content = `
-				<p>Picked up:</p>
-				<span class="pick-up-stix-chat-currency plat"></span><span>${flags?.currency?.pp || 0}</span><br />
-				<span class="pick-up-stix-chat-currency gold"></span><span>${flags?.currency?.gp || 0}</span><br />
-				<span class="pick-up-stix-chat-currency electrum"></span><span>${flags?.currency?.ep || 0}</span><br />
-				<span class="pick-up-stix-chat-currency silver"></span><span>${flags?.currency?.sp || 0}</span><br />
-				<span class="pick-up-stix-chat-currency copper"></span><span>${flags?.currency?.cp || 0}</span><br />
-			`;
+		if (currencyFound) {
+			let content = `<p>Picked up:</p>${chatContent}`;
 			ChatMessage.create({
 				content,
 				speaker: {
@@ -665,7 +662,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 					token: userControlledToken.id
 				}
 			});
-			await updateActor(userControlledToken.actor, { data: { data: { currency: { ...currentCurrencies }}}});
+			await updateActor(userControlledToken.actor, { data: { data: { currency: { ...userCurrencies }}}});
 		}
 	}
 

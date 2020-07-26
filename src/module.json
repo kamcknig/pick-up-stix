@@ -17,7 +17,7 @@
   "styles": ["pick-up-stix.css"],
   "packs": [],
   "languages": [],
-  "minimumCoreVersion": "0.7.0",
+  "minimumCoreVersion": "0.6.5",
   "compatibleCoreVersion": "0.7.0",
   "url": "https://turkeysunite.com",
   "manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",

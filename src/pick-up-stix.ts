@@ -676,7 +676,9 @@ async function handleTokenItemClicked(e): Promise<void> {
 			const datas = [];
 			for (let i = 0; i < itemData.count; i++) {
 				datas.push({
-					...item.data
+					...item.data,
+					'flags.pick-up-stix.pick-up-stix.pack': itemData.pack,
+					'flags.pick-up-stix.pick-up-stix.sourceItemId': itemData.id
 				});
 			}
 
@@ -798,46 +800,13 @@ async function createOwnedEntity(actor, items) {
 	socket.emit('module.pick-up-stix', msg);
 }
 
-async function handleDropItem(dropData) {
-	console.log(`pick-up-stix | handleDropItem | called with args:`);
-	console.log(dropData);
-
-	const item: Item = dropData.pack !== undefined ? await game.packs.get(dropData.pack).getEntity(dropData.id) : game.items.get(dropData.id);
-
-	if (!item) {
-		console.log(`pick-up-stix | dropCanvasData | item '${dropData.id}' not found in game items or compendium`);
-		return;
-	}
-
-	const hg = canvas.dimensions.size / 2;
-	dropData.x -= (hg);
-	dropData.y -= (hg);
-
-	const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
-	dropData.x = x;
-	dropData.y = y;
-
-	Token.create({
-		img: item.img,
-		name: item.name,
-		x: dropData.x,
-		y: dropData.y,
-		disposition: 0,
-		flags: {
-			'pick-up-stix': {
-				'pick-up-stix': {
-					originalImagePath: item.img,
-					itemIds: [
-						{ id: dropData.id, count: 1, pack: dropData.pack ? dropData.pack : undefined }
-					]
-				}
-			}
-		}
-	});
-}
-
+/**
+ * @override
+ *
+ * @param event
+ */
 async function handleOnDrop(event) {
-	console.log(`pick-up-stix | handleOnDrop with args:`);
+	console.log(`pick-up-stix | handleOnDrop | called with args:`);
 	console.log(event);
 	event.preventDefault();
 
@@ -875,4 +844,63 @@ async function handleOnDrop(event) {
 	else if (data.type === "Item") {
 		handleDropItem(data);
 	}
+}
+
+async function handleDropItem(dropData) {
+	console.log(`pick-up-stix | handleDropItem | called with args:`);
+	console.log(dropData);
+
+	// if the item came from an actor's inventory, then it'll have an actorId property, we'll need to remove the item from that actor
+	const sourceActorId: string = dropData.actorId;
+
+	let pack: string;
+	let itemId: string;
+
+	// if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
+	// in a data property on the dropData parameter rather than on the top-level of the dropData
+	if (sourceActorId) {
+		pack = dropData.data?.flags?.['pick-up-stix']?.['pick-up-stix']?.pack;
+		itemId = dropData.data?.flags?.['pick-up-stix']?.['pick-up-stix']?.sourceItemId;
+	}
+	else {
+		pack = dropData.pack;
+		itemId = dropData.id;
+	}
+
+	const item: Item = pack ? await game.packs.get(pack).getEntity(itemId) : game.items.get(itemId);
+
+	if (!item) {
+		console.log(`pick-up-stix | handleDropItem | item '${dropData.id}' not found in game items or compendium`);
+		return;
+	}
+
+	if (sourceActorId) {
+		await game.actors.get(sourceActorId).deleteOwnedItem(dropData.data._id);
+	}
+
+	const hg = canvas.dimensions.size / 2;
+	dropData.x -= (hg);
+	dropData.y -= (hg);
+
+	const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
+	dropData.x = x;
+	dropData.y = y;
+
+	Token.create({
+		img: item.img,
+		name: item.name,
+		x: dropData.x,
+		y: dropData.y,
+		disposition: 0,
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					originalImagePath: item.img,
+					itemIds: [
+						{ id: itemId, count: 1, pack }
+					]
+				}
+			}
+		}
+	});
 }

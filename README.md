@@ -49,3 +49,7 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 ## Create locked containers that must be unlocked before players can open them
 
 ![](demo/07-lock-containers.gif)
+
+## Drop Items directly onto Tokens or from an Actor's inventory to the map or other Tokens
+
+![](demo/08-drop-items-on-tokens.gif)

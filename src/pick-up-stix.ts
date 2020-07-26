@@ -513,7 +513,7 @@ function setupMouseManager(): void {
 	console.log(`pick-up-stix | setupMouseManager`);
 
 	const permissions = {
-		clickLeft: this._canControl,
+		clickLeft: () => true,
 		clickLeft2: this._canView,
 		clickRight: this._canHUD,
 		clickRight2: this._canConfigure,

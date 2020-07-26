@@ -14,6 +14,9 @@
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 
+Hooks.on('getActorDirectoryFolderContext', () => {
+	console.log('yeah!');
+})
 
 let socket: any;
 export type FormData = {
@@ -388,7 +391,7 @@ Hooks.once('ready', function() {
 
 		if (data) {
 			console.log(`pick-up-stix | ready hook | found token ${p.id} with itemIds`);
-			setupMouseManager(p);
+			p.mouseInteractionManager = setupMouseManager.bind(p)();
 		}
 	});
 
@@ -494,10 +497,9 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
-		setTimeout(() => {
-			setupMouseManager(token);
+			//setupMouseManager(token);
+			token.activateListeners = setupMouseManager.bind(token);
 			console.log(`pick-up-stix | updateToken hook | itemIds ${flags.itemIds}`);
-		}, 100);
 	}
 });
 
@@ -505,12 +507,12 @@ Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userI
 	console.log(`pick-up-stix | create token`)
 	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
 
+	token.activateListeners = setupMouseManager.bind(token);
+
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
-		setTimeout(() => {
-			setupMouseManager(token);
+			// setupMouseManager(token);
 			console.log(`pick-up-stix | createToken | itemIds ${flags.itemIds}`);
-		}, 100);
 	}
 });
 
@@ -534,21 +536,37 @@ function setupMouseManager(token: PlaceableObject): void {
 	console.log(`pick-up-stix | setupMouseManager with args:`)
 	console.log(token);
 
-	const mim = token.mouseInteractionManager;
-	const target = mim.target;
-	const handlers = mim.handlers;
+	const permissions = {
+		clickLeft: this._canControl,
+		clickLeft2: this._canView,
+		clickRight: this._canHUD,
+		clickRight2: this._canConfigure,
+		dragStart: this._canDrag
+	};
 
-	target.off('mouseover', handlers.mouseover);
-	target.off('mouseout', handlers.mouseout);
-	target.off('mousemove', handlers.mouseover);
-	target.off('mousedown', handlers.mousedown);
+	// Define callback functions for each workflow step
+	const callbacks = {
+		clickLeft: handleTokenItemClicked,
+		clickLeft2: this._onClickLeft2,
+		clickRight: this._onClickRight,
+		clickRight2: this._onClickRight2,
+		dragLeftStart: this._onDragLeftStart,
+		dragLeftMove: this._onDragLeftMove,
+		dragLeftDrop: this._onDragLeftDrop,
+		dragLeftCancel: this._onDragLeftCancel,
+		dragRightStart: null,
+		dragRightMove: null,
+		dragRightDrop: null,
+		dragRightCancel: null
+	};
 
-	handlers.mouseover = () => mim.state = mim.states.HOVER;
-	handlers.mouseout = () => mim.state = mim.states.NONE;
-	handlers.mousedown = handleTokenItemClicked.bind(token);
+	// Define options
+	const options = {
+		target: this.controlIcon ? "controlIcon" : null
+	};
 
-	(mim as any)._activateClickEvents();
-	(mim as any)._activateHoverEvents();
+	// Create the interaction manager
+	this.mouseInteractionManager = new MouseInteractionManager(this, canvas.stage, permissions, callbacks, options).activate();
 }
 
 async function handleTokenItemClicked(e): Promise<void> {
@@ -688,7 +706,6 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 			itemsToCreate.push(...datas)
 
-			debugger;
 			if (itemData.count > 0) {
 				ChatMessage.create({
 					content: `

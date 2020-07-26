@@ -16,6 +16,7 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 ## Known Issues
 
 - HUD does not update until you close and re-open the HUD
+- Actors dragged directly from the compendium (not impoted and added from the actors directory) will display the pickup HUD option when they should not
 
 # Demos
 

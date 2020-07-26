@@ -389,6 +389,7 @@ function updateManifest(cb) {
 		const versionMatch = /^(\d{1,}).(\d{1,}).(\d{1,})$/;
 		const currentVersion = manifest.file.version;
 		let targetVersion = '';
+		console.log(currentVersion);
 
 		if (!version) {
 			cb(Error('Missing version number'));

@@ -782,7 +782,7 @@ async function updateActor(actor, updates): Promise<void> {
 	socket.emit('module.pick-up-stix', msg);
 }
 
-async function createOwnedEntity(actor, items) {
+async function createOwnedEntity(actor: Actor, items: any[]) {
 	if (game.user.isGM) {
 		await actor.createEmbeddedEntity('OwnedItem', items);
 		return;
@@ -878,29 +878,47 @@ async function handleDropItem(dropData) {
 		await game.actors.get(sourceActorId).deleteOwnedItem(dropData.data._id);
 	}
 
-	const hg = canvas.dimensions.size / 2;
-	dropData.x -= (hg);
-	dropData.y -= (hg);
+	let targetToken: Token;
+	let p: PlaceableObject;
+	for (p of canvas.tokens.placeables) {
+		if (dropData.x < p.x + p.width && dropData.x > p.x && dropData.y < p.y + p.height && dropData.y > p.y && p instanceof Token && p.actor) {
+			targetToken = p;
+			break;
+		}
+	}
 
-	const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
-	dropData.x = x;
-	dropData.y = y;
+	if (targetToken) {
+		await createOwnedEntity(targetToken.actor, [{
+			...item.data,
+			'flags.pick-up-stix.pick-up-stix.pack': pack,
+	 	  'flags.pick-up-stix.pick-up-stix.sourceItemId': item.id
+		}]);
+	}
+	else {
+		const hg = canvas.dimensions.size / 2;
+		dropData.x -= (hg);
+		dropData.y -= (hg);
 
-	Token.create({
-		img: item.img,
-		name: item.name,
-		x: dropData.x,
-		y: dropData.y,
-		disposition: 0,
-		flags: {
-			'pick-up-stix': {
+		const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
+		dropData.x = x;
+		dropData.y = y;
+
+		Token.create({
+			img: item.img,
+			name: item.name,
+			x: dropData.x,
+			y: dropData.y,
+			disposition: 0,
+			flags: {
 				'pick-up-stix': {
-					originalImagePath: item.img,
-					itemIds: [
-						{ id: itemId, count: 1, pack }
-					]
+					'pick-up-stix': {
+						originalImagePath: item.img,
+						itemIds: [
+							{ id: itemId, count: 1, pack }
+						]
+					}
 				}
 			}
-		}
-	});
+		});
+	}
 }

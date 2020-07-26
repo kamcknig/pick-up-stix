@@ -887,7 +887,6 @@ async function handleDropItem(dropData) {
 		}
 	}
 
-	debugger;
 	if (targetToken) {
 		await createOwnedEntity(targetToken.actor, [{
 			...item.data,

@@ -14,6 +14,10 @@
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 
+declare class Canvas {
+	_onDrop(event): any;
+}
+
 Hooks.on('getActorDirectoryFolderContext', () => {
 	console.log('yeah!');
 })
@@ -314,6 +318,7 @@ class SelectItemApplication extends Application {
 Hooks.once('init', async function() {
 	console.log('pick-up-stix | init Hook');
 	CONFIG.debug.hooks = true;
+	console.log(game.data.version);
 
 	// Assign custom classes and constants here
 
@@ -322,6 +327,21 @@ Hooks.once('init', async function() {
 
 	// Preload Handlebars templates
 	await preloadTemplates();
+
+	const coreVersion: string = game.data.version;
+	if (/0.7.\d/.test(coreVersion)) {
+		Hooks.on('dropCanvasData', async (canvas, dropData) => {
+			console.log(`pick-up-stix | dropCanvasData | called with args:`);
+			console.log(canvas, dropData);
+
+			if (dropData.type === "Item") {
+				handleDropItem(dropData);
+			}
+		});
+	}
+	else {
+		Canvas.prototype._onDrop = handleOnDrop;
+	}
 
 	// Register custom sheets (if any)
 });
@@ -337,46 +357,6 @@ Hooks.once('setup', function() {
 
 Hooks.once('canvasReady', function() {
 	console.log(`pick-up-stix | Canvas ready, adding PickUpStixItemLayer`);
-});
-
-Hooks.on('dropCanvasData', async (canvas, dropData) => {
-	console.log(`pick-up-stix | dropCanvasData | called with args:`);
-	console.log(canvas, dropData);
-
-	if (dropData.type === "Item") {
-		const item: Item = dropData.pack !== undefined ? await game.packs.get(dropData.pack).getEntity(dropData.id) : game.items.get(dropData.id);
-
-		if (!item) {
-			console.log(`pick-up-stix | dropCanvasData | item '${dropData.id}' not found in game items or compendium`);
-			return;
-		}
-
-		const hg = canvas.dimensions.size / 2;
-    dropData.x -= (hg);
-		dropData.y -= (hg);
-
-		const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
-		dropData.x = x;
-		dropData.y = y;
-
-		Token.create({
-			img: item.img,
-			name: item.name,
-			x: dropData.x,
-			y: dropData.y,
-			disposition: 0,
-			flags: {
-				'pick-up-stix': {
-					'pick-up-stix': {
-						originalImagePath: item.img,
-						itemIds: [
-							{ id: dropData.id, count: 1, pack: dropData.pack ? dropData.pack : undefined }
-						]
-					}
-				}
-			}
-		});
-	}
 });
 
 /* ------------------------------------ */
@@ -497,7 +477,6 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
-			//setupMouseManager(token);
 			token.activateListeners = setupMouseManager.bind(token);
 			console.log(`pick-up-stix | updateToken hook | itemIds ${flags.itemIds}`);
 	}
@@ -507,12 +486,10 @@ Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userI
 	console.log(`pick-up-stix | create token`)
 	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
 
-	token.activateListeners = setupMouseManager.bind(token);
-
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
-			// setupMouseManager(token);
 			console.log(`pick-up-stix | createToken | itemIds ${flags.itemIds}`);
+			token.activateListeners = setupMouseManager.bind(token);
 	}
 });
 
@@ -532,9 +509,8 @@ function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, t
 	}
 }
 
-function setupMouseManager(token: PlaceableObject): void {
-	console.log(`pick-up-stix | setupMouseManager with args:`)
-	console.log(token);
+function setupMouseManager(): void {
+	console.log(`pick-up-stix | setupMouseManager`);
 
 	const permissions = {
 		clickLeft: this._canControl,
@@ -820,4 +796,83 @@ async function createOwnedEntity(actor, items) {
 	};
 
 	socket.emit('module.pick-up-stix', msg);
+}
+
+async function handleDropItem(dropData) {
+	console.log(`pick-up-stix | handleDropItem | called with args:`);
+	console.log(dropData);
+
+	const item: Item = dropData.pack !== undefined ? await game.packs.get(dropData.pack).getEntity(dropData.id) : game.items.get(dropData.id);
+
+	if (!item) {
+		console.log(`pick-up-stix | dropCanvasData | item '${dropData.id}' not found in game items or compendium`);
+		return;
+	}
+
+	const hg = canvas.dimensions.size / 2;
+	dropData.x -= (hg);
+	dropData.y -= (hg);
+
+	const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
+	dropData.x = x;
+	dropData.y = y;
+
+	Token.create({
+		img: item.img,
+		name: item.name,
+		x: dropData.x,
+		y: dropData.y,
+		disposition: 0,
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					originalImagePath: item.img,
+					itemIds: [
+						{ id: dropData.id, count: 1, pack: dropData.pack ? dropData.pack : undefined }
+					]
+				}
+			}
+		}
+	});
+}
+
+async function handleOnDrop(event) {
+	console.log(`pick-up-stix | handleOnDrop with args:`);
+	console.log(event);
+	event.preventDefault();
+
+	// Try to extract the data
+	let data;
+	try {
+		data = JSON.parse(event.dataTransfer.getData('text/plain'));
+	}
+	catch (err) {
+		return false;
+	}
+
+	// Acquire the cursor position transformed to Canvas coordinates
+	const [x, y] = [event.clientX, event.clientY];
+	const t = this.stage.worldTransform;
+	data.x = (x - t.tx) / canvas.stage.scale.x;
+	data.y = (y - t.ty) / canvas.stage.scale.y;
+
+	// Dropped Actor
+	if ( data.type === "Actor" ) canvas.tokens._onDropActorData(event, data);
+
+	// Dropped Journal Entry
+	else if ( data.type === "JournalEntry" ) canvas.notes._onDropData(event, data);
+
+	// Dropped Macro (clear slot)
+	else if ( data.type === "Macro" ) {
+		game.user.assignHotbarMacro(null, data.slot);
+	}
+
+	// Dropped Tile artwork
+	else if ( data.type === "Tile" ) {
+		return canvas.tiles._onDropTileData(event, data);
+	}
+	// Dropped Item
+	else if (data.type === "Item") {
+		handleDropItem(data);
+	}
 }

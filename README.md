@@ -3,13 +3,13 @@
 Pick-Up-Stix allows you to create items as Tokens that players can pick up. It will automatically add the items to the player's inventory.
 
 ## Features
-- Drop items from the Items directory
+- Drop items from the items directory
 - Drop items from the compendiums without importing them
 - Create containers out of dropped items, lock them, add open and closed images
 - Players may pick items up
 - Players may drop items from their own inventories onto the map that other players can pick up
-- Drop Items directly onto a Token to add it to the actor's inventory
-- Drag items from an Actor's inventory onto another Token to transfer the item to that Actor's inventory
+- Drop Items directly onto a token to add it to the actor's inventory
+- Drag items from an actor's inventory onto another Token or another actor's inventory to transfer the item to that Actor's inventory
 
 ## Limitations
 - Player's must be within one square of the item in order to pick it up (not configurable at the moment)

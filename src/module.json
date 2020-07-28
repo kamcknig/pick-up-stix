@@ -2,7 +2,7 @@
 	"name": "pick-up-stix",
 	"title": "Pick-Up-Stix",
 	"description": "Allows Items to be placed on the map as Tokens that players are able to pick up.",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"author": "Kyle McKnight",
 	"socket": true,
 	"authors": [
@@ -21,7 +21,7 @@
 	"compatibleCoreVersion": "0.7.0",
 	"url": "git@github.com:kamcknig/pick-up-stix.git",
 	"manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",
-	"download": "https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/releases/pick-up-stix-v0.3.0.zip",
+	"download": "https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/releases/pick-up-stix-v0.4.0.zip",
 	"license": "",
 	"readme": "",
 	"bugs": "https://github.com/kamcknig/pick-up-stix/issues",

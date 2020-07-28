@@ -11,6 +11,9 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 - Drop Items directly onto a token to add it to the actor's inventory
 - Drag items from an actor's inventory onto another Token or another actor's inventory to transfer the item to that Actor's inventory
 
+## Integrations
+- If you have the Lootsheet5eNPC module installed, you can use an actor token and add container properties to it to create a lootable chest that opens the Lootsheet5eNPC actor sheet that players can loot.
+
 ## Limitations
 - Player's must be within one square of the item in order to pick it up (not configurable at the moment)
 - Player's must control one and only one token when picking up an item

@@ -18,15 +18,11 @@ declare class Canvas {
 	_onDrop(event): any;
 }
 
-Hooks.on('getActorDirectoryFolderContext', () => {
-	console.log('yeah!');
-})
-
 let socket: any;
-export type FormData = {
-	id: string;
+export type ItemData = {
+	id?: string;
+	data: any;
 	count: number;
-	pack?: string;
 };
 
 export enum SocketMessageType {
@@ -44,7 +40,7 @@ export interface PickUpStixSocketMessage {
 }
 
 export interface PickUpStixFlags {
-	itemIds?: FormData[];
+	itemData?: ItemData[];
 	isContainer?: boolean;
 	imageContainerClosedPath?: string;
 	imageContainerOpenPath?: string;
@@ -85,7 +81,7 @@ class SelectItemApplication extends Application {
 			sp: 0,
 			cp: 0
 		},
-		itemIds: [],
+		itemData: [],
 		canClose: true
 	};
 
@@ -110,11 +106,11 @@ class SelectItemApplication extends Application {
 		this._flags.imageContainerClosedPath = value;
 	}
 
-	private get selectionData(): FormData[] {
-		return this._flags.itemIds;
+	private get selectionData(): ItemData[] {
+		return this._flags.itemData;
 	}
-	private set selectionData(value: FormData[]) {
-		this._flags.itemIds = [
+	private set selectionData(value: ItemData[]) {
+		this._flags.itemData = [
 			...value
 		];
 	}
@@ -145,7 +141,7 @@ class SelectItemApplication extends Application {
 		console.log(this._flags);
 	}
 
-	private async setSelectionAmount(id: string, count: number): Promise<FormData> {
+	private async setSelectionAmount(id: string, count: number): Promise<ItemData> {
 		let currItemData = this.selectionData.find(itemData => itemData.id === id);
 
 		if (currItemData) {
@@ -153,7 +149,13 @@ class SelectItemApplication extends Application {
 			console.log(`Previous value existed, setting ${currItemData.id} to count ${currItemData.count}`);
 		}
 		else {
-			currItemData = { id, count: 1 };
+			currItemData = {
+				id,
+				count: 1,
+				data: {
+					...this.getData()?.object?.items?.find((i: Item) => i._id === id)
+				}
+			};
 			this.selectionData.push(currItemData);
 			console.log(`Adding item ${currItemData.id} with count ${currItemData.count}`);
 		}
@@ -181,8 +183,8 @@ class SelectItemApplication extends Application {
 		}
 
 		this.selectionData?.forEach(itemData => {
-			console.log(`pick-up-stix | selection from setup | setting item ${itemData.id} to active and count to ${itemData.count}`);
-			const item = $(this._html).find(`[data-item-id="${itemData.id}"]`);
+			console.log(`pick-up-stix | selection from setup | setting item ${itemData.data._id} to active and count to ${itemData.count}`);
+			const item = $(this._html).find(`[data-item-id="${itemData.data._id}"]`);
 			if (itemData.count > 0) {
 				item.addClass('active');
 			}
@@ -279,7 +281,7 @@ class SelectItemApplication extends Application {
 		});
 	}
 
-	getData(): any {
+	getData(): {options: any, object: { items: any[], isContainer: boolean, imageContainerOpenPath: string, imageContainerClosedPath: string } } {
 		return {
 			options: this.options,
 			object: {
@@ -307,7 +309,6 @@ class SelectItemApplication extends Application {
 			}
 		}
 		await this._token.update(update);
-		// await this._token.setFlag('pick-up-stix', 'pick-up-stix', flags);
 		super.close();
 	}
 }
@@ -317,8 +318,8 @@ class SelectItemApplication extends Application {
 /* ------------------------------------ */
 Hooks.once('init', async function() {
 	console.log('pick-up-stix | init Hook');
-	CONFIG.debug.hooks = true;
-	console.log(game.data.version);
+
+	// CONFIG.debug.hooks = true;
 
 	// Assign custom classes and constants here
 
@@ -329,7 +330,7 @@ Hooks.once('init', async function() {
 	await preloadTemplates();
 
 	const coreVersion: string = game.data.version;
-	if (/0.7.\d/.test(coreVersion)) {
+	if (isNewerVersion(coreVersion, '0.6.5')) {
 		Hooks.on('dropCanvasData', async (canvas, dropData) => {
 			console.log(`pick-up-stix | dropCanvasData | called with args:`);
 			console.log(canvas, dropData);
@@ -347,19 +348,6 @@ Hooks.once('init', async function() {
 });
 
 /* ------------------------------------ */
-/* Setup module							*/
-/* ------------------------------------ */
-Hooks.once('setup', function() {
-	// Do anything after initialization but before
-	// ready
-	console.log(`pick-up-stix | setup Hook`);
-});
-
-Hooks.once('canvasReady', function() {
-	console.log(`pick-up-stix | Canvas ready, adding PickUpStixItemLayer`);
-});
-
-/* ------------------------------------ */
 /* When ready													  */
 /* ------------------------------------ */
 Hooks.once('ready', function() {
@@ -370,7 +358,7 @@ Hooks.once('ready', function() {
 		const data: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
 
 		if (data) {
-			console.log(`pick-up-stix | ready hook | found token ${p.id} with itemIds`);
+			console.log(`pick-up-stix | ready hook | found token ${p.id} with itemData`);
 			p.mouseInteractionManager = setupMouseManager.bind(p)();
 		}
 	});
@@ -412,22 +400,35 @@ Hooks.once('ready', function() {
 				break;
 		}
 	});
+});
 
-	socket.emit('module.pick-up-stix', 'yep you got it!');
+Hooks.on('preCreateOwnedItem', async (actor: Actor, itemData: any, options: any, userId: string) => {
+	let owner: { actorId: string, itemId: string };
+	if (owner = getProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner')) {
+		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
+		const ownerActor = game.actors.get(owner.actorId);
+		await ownerActor.deleteOwnedItem(itemData._id);
+	}
+	else {
+		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
+	}
 });
 
 Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
   if (!data.isGM) {
-		console.log(`pick-up-stix | renderTokenHUD | user is not a gm, don't change HUD`);
+		console.log(`pick-up-stix | renderTokenHUD hook | user is not a gm, don't change HUD`);
 		return;
 	}
 
 	if (data.actorId) {
-		console.log(`pick-up-stix | renderTokenHUD | token has an actor associated with it, dont' change HUD`);
+		console.log(`pick-up-stix | renderTokenHUD hook | token has an actor associated with it, dont' change HUD`);
 		return;
 	}
 
-	const flags = data.flags?.['pick-up-stix']?.['pick-up-stix'];
+	console.log(`pick-up-stix | renderTokenHUD hook | called with args:`);
+	console.log(hud, hudHtml, data);
+
+	const flags = getProperty(data.flags, 'pick-up-stix.pick-up-stix');
 
 	const containerDiv = document.createElement('div');
 	containerDiv.style.display = 'flex';
@@ -437,7 +438,7 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 	const controlIconDiv = document.createElement('div');
 	controlIconDiv.className = 'control-icon';
 	const controlIconImg = document.createElement('img');
-	controlIconImg.src = flags?.['itemIds']?.length
+	controlIconImg.src = flags?.['itemData']?.length
 		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
 	controlIconImg.className = "item-pick-up";
@@ -478,17 +479,15 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
 			token.activateListeners = setupMouseManager.bind(token);
-			console.log(`pick-up-stix | updateToken hook | itemIds ${flags.itemIds}`);
 	}
 });
 
 Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userId: string) => {
-	console.log(`pick-up-stix | create token`)
+	console.log(`pick-up-stix | createToken hook`);
 	const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
-			console.log(`pick-up-stix | createToken | itemIds ${flags.itemIds}`);
 			token.activateListeners = setupMouseManager.bind(token);
 	}
 });
@@ -498,14 +497,11 @@ function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, t
 		console.log(`pick-up-sticks | toggle icon clicked`);
 		const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
 		if (!token) {
-			console.log(`pick-up-stix | Couldn't find token '${tokenData._id}'`);
+			console.log(`pick-up-stix | displayItemContainerApplication | Couldn't find token '${tokenData._id}'`);
 			return;
 		}
 
-		const flags: PickUpStixFlags = token.getFlag('pick-up-stix', 'pick-up-stix')
-
-		let b = new SelectItemApplication(token);
-		b.render(true);
+		new SelectItemApplication(token).render(true);
 	}
 }
 
@@ -579,7 +575,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}
 	}
 
-	if (controlledTokens.length !== 1 || controlledTokens[0]?.getFlag('pick-up-stix', 'pick-up-stix.itemIds')?.length > 0) {
+	if (controlledTokens.length !== 1 || controlledTokens[0]?.getFlag('pick-up-stix', 'pick-up-stix.itemData')?.length > 0) {
 		ui.notifications.error('You must be controlling only one token to pick up an item');
 		return;
 	}
@@ -671,14 +667,12 @@ async function handleTokenItemClicked(e): Promise<void> {
 	if (!flags.isContainer || flags.isOpen) {
 		const itemsToCreate = [];
 
-		for (let itemData of flags.itemIds) {
-			const item = itemData.pack !== undefined ? await game.packs.get(itemData.pack).getEntity(itemData.id) : game.items.get(itemData.id);
+		for (let i=0; i < flags.itemData.length; i++) {
+			const itemData = flags.itemData[i];
 			const datas = [];
 			for (let i = 0; i < itemData.count; i++) {
 				datas.push({
-					...item.data,
-					'flags.pick-up-stix.pick-up-stix.pack': itemData.pack,
-					'flags.pick-up-stix.pick-up-stix.sourceItemId': itemData.id
+					...itemData.data
 				});
 			}
 
@@ -687,8 +681,8 @@ async function handleTokenItemClicked(e): Promise<void> {
 			if (itemData.count > 0) {
 				ChatMessage.create({
 					content: `
-						<p>Picked up ${itemData.count} ${item.name}</p>
-						<img src="${item.img}" style="width: 40px;" />
+						<p>Picked up ${itemData.count} ${itemData.data.name}</p>
+						<img src="${itemData.data.img}" style="width: 40px;" />
 					`,
 					speaker: {
 						alias: userControlledToken.actor.name,
@@ -702,7 +696,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 		// if it's a container, clear out the items as they've been picked up now
 		if (flags.isContainer) {
-			containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemIds = [];
+			containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemData = [];
 			containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
 		}
 
@@ -855,23 +849,26 @@ async function handleDropItem(dropData) {
 
 	let pack: string;
 	let itemId: string;
+	let itemData: any;
 
 	// if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
 	// in a data property on the dropData parameter rather than on the top-level of the dropData
 	if (sourceActorId) {
-		pack = dropData.data?.flags?.['pick-up-stix']?.['pick-up-stix']?.pack;
-		itemId = dropData.data?.flags?.['pick-up-stix']?.['pick-up-stix']?.sourceItemId;
+		itemData = {
+			...dropData.data
+		};
 	}
 	else {
 		pack = dropData.pack;
 		itemId = dropData.id;
-	}
-
-	const item: Item = pack ? await game.packs.get(pack).getEntity(itemId) : game.items.get(itemId);
-
-	if (!item) {
-		console.log(`pick-up-stix | handleDropItem | item '${dropData.id}' not found in game items or compendium`);
-		return;
+		const item: Item = pack ? await game.packs.get(pack).getEntity(itemId) : game.items.get(itemId);
+		if (!item) {
+			console.log(`pick-up-stix | handleDropItem | item '${dropData.id}' not found in game items or compendium`);
+			return;
+		}
+		itemData = {
+			...item.data
+		}
 	}
 
 	if (sourceActorId) {
@@ -889,9 +886,7 @@ async function handleDropItem(dropData) {
 
 	if (targetToken) {
 		await createOwnedEntity(targetToken.actor, [{
-			...item.data,
-			'flags.pick-up-stix.pick-up-stix.pack': pack,
-	 	  'flags.pick-up-stix.pick-up-stix.sourceItemId': item.id
+			...itemData
 		}]);
 	}
 	else {
@@ -904,17 +899,17 @@ async function handleDropItem(dropData) {
 		dropData.y = y;
 
 		Token.create({
-			img: item.img,
-			name: item.name,
+			img: itemData.img,
+			name: itemData.name,
 			x: dropData.x,
 			y: dropData.y,
 			disposition: 0,
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': {
-						originalImagePath: item.img,
-						itemIds: [
-							{ id: itemId, count: 1, pack }
+						originalImagePath: itemData.img,
+						itemData: [
+							{ count: 1, data: { ...itemData } }
 						]
 					}
 				}

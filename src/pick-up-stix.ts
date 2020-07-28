@@ -60,11 +60,11 @@ export interface PickUpStixFlags {
  * Application class to display to select an item that the token is
  * associated with
  */
-class SelectItemApplication extends Application {
+class ItemSheetApplication extends Application {
 	static get defaultOptions(): ApplicationOptions {
 	  const options = super.defaultOptions;
     options.id = "pick-up-stix-selectItem";
-	  options.template = "modules/pick-up-stix/templates/select-item.html";
+	  options.template = "modules/pick-up-stix/templates/item-sheet.html";
 		options.width = 500;
 		options.height = 'auto';
 		options.minimizable = false;
@@ -281,10 +281,11 @@ class SelectItemApplication extends Application {
 		});
 	}
 
-	getData(): {options: any, object: { items: any[], isContainer: boolean, imageContainerOpenPath: string, imageContainerClosedPath: string } } {
+	getData(): {options: any, object: { items: any[], isContainer: boolean, imageContainerOpenPath: string, imageContainerClosedPath: string, actor: Actor } } {
 		return {
 			options: this.options,
 			object: {
+				actor: this._token.actor,
 				items: duplicate(game.items.entities.filter(i => !['class', 'spell', 'feat'].includes(i.type))),
 				isContainer: this.isContainer,
 				imageContainerOpenPath: this.imageContainerOpenPath,
@@ -319,7 +320,7 @@ class SelectItemApplication extends Application {
 Hooks.once('init', async function() {
 	console.log('pick-up-stix | init Hook');
 
-	// CONFIG.debug.hooks = true;
+	CONFIG.debug.hooks = true;
 
 	// Assign custom classes and constants here
 
@@ -420,7 +421,7 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 		return;
 	}
 
-	if (data.actorId) {
+	if (data.actorId && !game.modules.get('lootsheetnpc5e').active) {
 		console.log(`pick-up-stix | renderTokenHUD hook | token has an actor associated with it, dont' change HUD`);
 		return;
 	}
@@ -501,7 +502,7 @@ function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, t
 			return;
 		}
 
-		new SelectItemApplication(token).render(true);
+		new ItemSheetApplication(token).render(true);
 	}
 }
 
@@ -631,6 +632,21 @@ async function handleTokenItemClicked(e): Promise<void> {
 				}
 			}
 		};
+
+		// if there are any container updates then update the container
+		if (containerUpdates) {
+			await new Promise(resolve => {
+				setTimeout(() => {
+					updateToken(this, containerUpdates);
+					resolve();
+				}, 200);
+			});
+		}
+
+		if (this.actor && game.modules.get('lootsheetnpc5e').active && flags.isOpen) {
+			this._onClickLeft2(e);
+			return;
+		}
 	}
 
 	// if it's not a container or if it is and it's open it's now open (from switching above) then update
@@ -701,16 +717,6 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}
 
 		await createOwnedEntity(userControlledToken.actor, itemsToCreate);
-	}
-
-	// if there are any container updates then update the container
-	if (containerUpdates) {
-		await new Promise(resolve => {
-			setTimeout(() => {
-				updateToken(this, containerUpdates);
-				resolve();
-			}, 300);
-		});
 	}
 
 	if (!flags.isContainer) {

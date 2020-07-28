@@ -1,0 +1,36 @@
+<div class="currency-wrapper">
+  <div>
+    <div class="plat"></div>
+    <input data-currency-type="pp" class="currency-input" type="number" />
+  </div>
+
+  <div>
+    <div class="gold"></div>
+    <input data-currency-type="gp" class="currency-input" type="number" />
+  </div>
+
+  <div>
+    <div class="electrum"></div>
+    <input data-currency-type="ep" class="currency-input" type="number" />
+  </div>
+
+  <div>
+    <div class="silver"></div>
+    <input data-currency-type="sp" class="currency-input" type="number" />
+  </div>
+  <div>
+    <div class="copper"></div>
+    <input data-currency-type="cp" class="currency-input" type="number" />
+  </div>
+</div>
+
+<!-- available items -->
+<div class="item-wrapper">
+  {{#each object.items}}
+    <div data-item-id="{{this._id}}" class="item">
+      <img src="{{this.img}}"></img>
+      <input class="count" type="number" min="0">
+      <div class="item-name">{{ this.name }}</div>
+    </div>
+  {{/each}}
+</div>

@@ -79,4 +79,4 @@ It has been reported that some modules might be incompatible with Pick-Up-Stix. 
 ## Integration with Lootsheet5eNPC module
 
 Click to see the video
-[![](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.png)] (https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.webm)
+[![](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.png)](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.webm)

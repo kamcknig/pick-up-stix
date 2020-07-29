@@ -18,6 +18,15 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 - Player's must be within one square of the item in order to pick it up (not configurable at the moment)
 - Player's must control one and only one token when picking up an item
 
+## Future Considrations and Plans
+- Loot sheet for items.
+  - Randomization of items given out
+  - Allow players to choose items they want and then click an accept button and when all have accepted, distribute loot
+- Loot dead bodies
+- Steal from living bodies using DC checks and notifications to GM if it fails
+- Dropping items onto containers to add the item to the container
+- Filters and search for item selection form including searching compendiums
+
 ## Known Issues
 
 - HUD does not update until you close and re-open the HUD

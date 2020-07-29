@@ -14,6 +14,19 @@
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 
+declare class DragDrop {
+	constructor(options: DragDropOptions);
+
+	bind(canvas: any);
+}
+
+declare interface DragDropOptions {
+	dragSelector?;
+	dropSelector?;
+	permissions?;
+	callbacks?;
+}
+
 let socket: any;
 export type ItemData = {
 	id?: string;

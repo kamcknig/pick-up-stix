@@ -14,10 +14,6 @@
 import { registerSettings } from './module/settings.js';
 import { preloadTemplates } from './module/preloadTemplates.js';
 
-declare class Canvas {
-	_onDrop(event): any;
-}
-
 let socket: any;
 export type ItemData = {
 	id?: string;
@@ -331,21 +327,6 @@ Hooks.once('init', async function() {
 	// Preload Handlebars templates
 	await preloadTemplates();
 
-	const coreVersion: string = game.data.version;
-	if (isNewerVersion(coreVersion, '0.6.5')) {
-		Hooks.on('dropCanvasData', async (canvas, dropData) => {
-			console.log(`pick-up-stix | dropCanvasData | called with args:`);
-			console.log(canvas, dropData);
-
-			if (dropData.type === "Item") {
-				handleDropItem(dropData);
-			}
-		});
-	}
-	else {
-		Canvas.prototype._onDrop = handleOnDrop;
-	}
-
 	// Register custom sheets (if any)
 });
 
@@ -406,6 +387,28 @@ Hooks.once('ready', function() {
 		}
 	});
 });
+
+Hooks.on('canvasReady', (...args) => {
+	console.log(`pick-up-stix | canvasReady hook | call width args:`);
+	console.log(args);
+
+	const coreVersion: string = game.data.version;
+	if (isNewerVersion(coreVersion, '0.6.5')) {
+		console.log(`pick-up-stix | canvasReady hook | Foundry version newer than 0.6.5. Using dropCanvasData hook`);
+		Hooks.on('dropCanvasData', async (canvas, dropData) => {
+			console.log(`pick-up-stix | dropCanvasData | called with args:`);
+			console.log(canvas, dropData);
+
+			if (dropData.type === "Item") {
+				handleDropItem(dropData);
+			}
+		});
+	}
+	else {
+		console.log(`pick-up-stix | canvasReady hook | Foundry version is 0.6.5 or below. Overriding Canvas._onDrop`);
+		canvas._dragDrop = new DragDrop({ callbacks: { drop: handleOnDrop.bind(canvas) } }).bind(document.getElementById('board'));
+	}
+})
 
 Hooks.on('preCreateOwnedItem', async (actor: Actor, itemData: any, options: any, userId: string) => {
 	let owner: { actorId: string, itemId: string };

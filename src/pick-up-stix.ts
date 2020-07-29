@@ -29,7 +29,8 @@ export enum SocketMessageType {
 	deleteToken,
 	updateToken,
 	updateActor,
-	createOwnedEntity
+	createOwnedEntity,
+	createItemToken
 }
 
 export interface PickUpStixSocketMessage {
@@ -398,6 +399,9 @@ Hooks.once('ready', function() {
 			case SocketMessageType.createOwnedEntity:
 				actor = game.actors.get(msg.data.actorId);
 				await actor.createOwnedItem(msg.data.items);
+				break;
+			case SocketMessageType.createItemToken:
+				await Token.create(msg.data);
 				break;
 		}
 	});
@@ -802,6 +806,26 @@ async function createOwnedEntity(actor: Actor, items: any[]) {
 	socket.emit('module.pick-up-stix', msg);
 }
 
+async function createItemToken(data: any) {
+	console.log(`pick-up-stix | createItemToken | called with args:`);
+	console.log(data);
+	if (game.user.isGM) {
+		console.log(`pick-up-stix | createItemToken | current user is GM, creating token`);
+		await Token.create({
+			...data
+		});
+		return;
+	}
+
+	console.log(`pick-up-stix | createItemToken | current user is not GM, send socket message`);
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.createItemToken,
+		data
+	}
+	socket.emit('module.pick-up-stix', msg);
+}
+
 /**
  * @override
  *
@@ -862,14 +886,16 @@ async function handleDropItem(dropData) {
 	// if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
 	// in a data property on the dropData parameter rather than on the top-level of the dropData
 	if (sourceActorId) {
+		console.log(`pick-up-stix | handleDropItem | actor '${sourceActorId}' dropped item`);
 		itemData = {
 			...dropData.data
 		};
 	}
 	else {
+		console.log(`pick-up-stix | handleDropItem | item comes from directory or compendium`);
 		pack = dropData.pack;
 		itemId = dropData.id;
-		const item: Item = pack ? await game.packs.get(pack).getEntity(itemId) : game.items.get(itemId);
+		const item: Item = await game.packs.get(pack)?.getEntity(itemId) ?? game.items.get(itemId);
 		if (!item) {
 			console.log(`pick-up-stix | handleDropItem | item '${dropData.id}' not found in game items or compendium`);
 			return;
@@ -893,6 +919,7 @@ async function handleDropItem(dropData) {
 	}
 
 	if (targetToken) {
+		console.log(`pick-up-stix | handleDropItem | item dropped onto target token '${targetToken.id}'`);
 		await createOwnedEntity(targetToken.actor, [{
 			...itemData
 		}]);
@@ -906,7 +933,7 @@ async function handleDropItem(dropData) {
 		dropData.x = x;
 		dropData.y = y;
 
-		Token.create({
+		await createItemToken({
 			img: itemData.img,
 			name: itemData.name,
 			x: dropData.x,

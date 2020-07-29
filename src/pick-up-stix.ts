@@ -134,7 +134,7 @@ class ItemSheetApplication extends Application {
 		const itemFlags = this._token.getFlag('pick-up-stix', 'pick-up-stix');
 		this._flags = {
 			...this._flags,
-			...duplicate(itemFlags)
+			...duplicate(itemFlags ?? {})
 		}
 
 		console.log(`pick-up-stix | select item form | constructed with flags`);
@@ -479,6 +479,7 @@ Hooks.on('updateToken', (scene: Scene, tokenData: any, tokenFlags: any, userId: 
 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
+			token.mouseInteractionManager = setupMouseManager.bind(token)();
 			token.activateListeners = setupMouseManager.bind(token);
 	}
 });
@@ -489,6 +490,7 @@ Hooks.on('createToken', async (scene: Scene, tokenData: any, options: any, userI
 
 	const flags = token.getFlag('pick-up-stix', 'pick-up-stix');
 	if (flags) {
+			token.mouseInteractionManager = setupMouseManager.bind(token)();
 			token.activateListeners = setupMouseManager.bind(token);
 	}
 });
@@ -723,7 +725,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		await deleteToken(this);
 	}
 
-	this.mouseInteractionManager._deactivateDragEvents();
+	this.mouseInteractionManager?._deactivateDragEvents();
 }
 
 async function deleteToken(token: Token): Promise<void> {

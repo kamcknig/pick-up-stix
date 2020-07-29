@@ -39,7 +39,7 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 It has been reported that some modules might be incompatible with Pick-Up-Stix. I will endeavor to fix these issues though I can make no guarantees as to any timelines
 
 - Forien's Quest Log
-- Token Animation Tools
+- Token Animation Tools (confirmed 1.1.0 and below. 1.1.1 and above should work)
 - Token Hotbar
 
 # Demos

@@ -27,11 +27,20 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 - Dropping items onto containers to add the item to the container
 - Filters and search for item selection form including searching compendiums
 - Allow players controllling multiple tokens to still interact with items.
+- Add default closed/open chest images
 
 ## Known Issues
 
 - HUD does not update until you close and re-open the HUD
 - Actors dragged directly from the compendium (not impoted and added from the actors directory) will display the pickup HUD option when they should not
+
+### Possible incompatibilies
+
+It has been reported that some modules might be incompatible with Pick-Up-Stix. I will endeavor to fix these issues though I can make no guarantees as to any timelines
+
+- Forien's Quest Log
+- Token Animation Tools
+- Token Hotbar
 
 # Demos
 

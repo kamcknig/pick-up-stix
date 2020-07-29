@@ -26,6 +26,7 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 - Steal from living bodies using DC checks and notifications to GM if it fails
 - Dropping items onto containers to add the item to the container
 - Filters and search for item selection form including searching compendiums
+- Allow players controllling multiple tokens to still interact with items.
 
 ## Known Issues
 

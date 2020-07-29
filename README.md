@@ -56,3 +56,8 @@ Pick-Up-Stix allows you to create items as Tokens that players can pick up. It w
 ## Drop Items directly onto Tokens or from an Actor's inventory to the map or other Tokens
 
 ![](demo/08-drop-items-on-tokens.gif)
+
+## Integration with Lootsheet5eNPC module
+
+Click to see the video
+[![](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.png)] (https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.webm)

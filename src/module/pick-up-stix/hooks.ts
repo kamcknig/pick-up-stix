@@ -6,6 +6,25 @@ import { displayItemContainerApplication, toggleLocked, setupMouseManager, handl
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
 
+/**
+ * TODO: This should be removed once 0.7.0 becomes stable
+ */
+declare class DragDrop {
+	constructor(options: DragDropOptions);
+
+	bind(canvas: any);
+}
+
+/**
+ * TODO: This should be removed once 0.7.0 becomes stable
+ */
+declare interface DragDropOptions {
+	dragSelector?;
+	dropSelector?;
+	permissions?;
+	callbacks?;
+}
+
 /* ------------------------------------ */
 /* Initialize module					*/
 /* ------------------------------------ */

@@ -229,11 +229,18 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}
 
 		const itemsToCreate = [];
+
+		// if itemData was set through the item selection window, use that as the item data. If not then check if there
+		// are any currencies and if we have currencies then we have no items. If we don't have currencies OR itemData
+		// from the selection window and it's not a container, then use the intiial state
 		const itemDatas = flags?.itemData?.length
 			? flags.itemData
-			: (Object.values(flags.currency).some(amount => amount > 0)
+			: (Object.values(flags.currency ?? {}).some(amount => amount > 0)
 				? []
-				: [flags.initialState]);
+				: (!flags.isContainer
+					? [flags.initialState]
+					: [])
+				);
 
 		for (let i=0; i < itemDatas.length; i++) {
 			const itemData = itemDatas[i];

@@ -330,7 +330,7 @@ class ItemSheetApplication extends Application {
 Hooks.once('init', async function() {
 	console.log('pick-up-stix | init Hook');
 
-	CONFIG.debug.hooks = true;
+	// CONFIG.debug.hooks = true;
 
 	// Assign custom classes and constants here
 
@@ -459,7 +459,7 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 	const controlIconDiv = document.createElement('div');
 	controlIconDiv.className = 'control-icon';
 	const controlIconImg = document.createElement('img');
-	controlIconImg.src = flags?.['itemData']?.length
+	controlIconImg.src = flags?.['itemData']?.some(data => data.count > 0)
 		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
 	controlIconImg.className = "item-pick-up";
@@ -477,7 +477,7 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 			? 'modules/pick-up-stix/assets/lock-white.svg'
 			: 'modules/pick-up-stix/assets/lock-black.svg';
 		lockDiv.appendChild(lockImg);
-		lockDiv.addEventListener('mousedown', toggleLocked(data));
+		lockDiv.addEventListener('mousedown', toggleLocked(hud, data));
 		containerDiv.prepend(lockDiv);
 	}
 
@@ -485,11 +485,12 @@ Hooks.on('renderTokenHUD', (hud: TokenHUD, hudHtml: JQuery, data: any) => {
 	$(hudHtml.children('div')[0]).prepend(containerDiv);
 });
 
-function toggleLocked(data): () => void {
+function toggleLocked(hud: TokenHUD, data): () => void {
 	return async () => {
 		const token = canvas.tokens.get(data._id);
 		const isLocked = token.getFlag('pick-up-stix', 'pick-up-stix.isLocked');
 		await token.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !isLocked);
+		hud.render();
 	}
 }
 
@@ -525,6 +526,11 @@ function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, t
 		}
 
 		new ItemSheetApplication(token).render(true);
+
+		Hooks.once('closeItemSheetApplication', () => {
+			console.log(`pick-up-stix | closeItemSheetApplication`);
+			hud.render();
+		});
 	}
 }
 
@@ -960,7 +966,7 @@ async function handleDropItem(dropData) {
 					'pick-up-stix': {
 						originalImagePath: itemData.img,
 						itemData: [
-							{ count: 1, data: { ...itemData } }
+							{ id: itemData._id, count: 1, data: { ...itemData } }
 						]
 					}
 				}

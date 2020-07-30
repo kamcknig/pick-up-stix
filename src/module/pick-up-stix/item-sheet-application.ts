@@ -146,10 +146,6 @@ export default class ItemSheetApplication extends Application {
 			$(e).val(this._flags?.currency?.[currencyType]);
 		});
 
-		// Object.keys(this._flags.currency).forEach(k => {
-		// 	$(this._html).find(`.currency-wrapper [data-currency-type="${k}"]`).val(this._flags.currency[k]);
-		// });
-
 		if (this.isContainer) {
 			$(this._html).find(`#isContainerCheckBox`).prop('checked', true);
 		}
@@ -199,6 +195,12 @@ export default class ItemSheetApplication extends Application {
 		$(this._html).find('#isContainerCheckBox').change(async (e) => {
 			console.log(`pick-up-stix | select form | file input check box changed`);
 			this.isContainer = !this.isContainer;
+
+			if (!this.imageContainerClosedPath && !this.imageContainerOpenPath) {
+				this.imageContainerClosedPath = 'modules/pick-up-stix/assets/chest-closed.png';
+				this.imageContainerOpenPath = 'modules/pick-up-stix/assets/chest-opened.png'
+				this._flags.canClose = true;
+			}
 			this.render();
 		});
 

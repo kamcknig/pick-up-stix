@@ -1,24 +1,5 @@
 import ItemSheetApplication, { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./item-sheet-application";
 
-/**
- * TODO: This should be removed once 0.7.0 becomes stable
- */
-declare class DragDrop {
-	constructor(options: DragDropOptions);
-
-	bind(canvas: any);
-}
-
-/**
- * TODO: This should be removed once 0.7.0 becomes stable
- */
-declare interface DragDropOptions {
-	dragSelector?;
-	dropSelector?;
-	permissions?;
-	callbacks?;
-}
-
 export function toggleLocked(hud: TokenHUD, data): () => void {
 	return async () => {
 		const token = canvas.tokens.get(data._id);

@@ -5,6 +5,7 @@ export type ItemData = {
 };
 
 export interface PickUpStixFlags {
+	initialState?: ItemData;
 	itemData?: ItemData[];
 	isContainer?: boolean;
 	imageContainerClosedPath?: string;
@@ -54,14 +55,6 @@ export default class ItemSheetApplication extends Application {
 	}
 
 	private _flags: PickUpStixFlags = {
-		currency: {
-			pp: 0,
-			gp: 0,
-			ep: 0,
-			sp: 0,
-			cp: 0
-		},
-		itemData: [],
 		canClose: true
 	};
 
@@ -111,17 +104,15 @@ export default class ItemSheetApplication extends Application {
 		console.log(`pick-up-stix | select item form | constructed with args:`)
 		console.log(this._token);
 
-		const itemFlags = this._token.getFlag('pick-up-stix', 'pick-up-stix');
 		this._flags = {
-			...this._flags,
-			...duplicate(itemFlags ?? {})
+			...duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix') ?? {})
 		}
-
-		console.log(`pick-up-stix | select item form | constructed with flags`);
-		console.log(this._flags);
 	}
 
 	private async setSelectionAmount(id: string, count: number): Promise<ItemData> {
+		console.log(`pick-up-stix | select item from | setSelectionAmount | called with args`);
+		console.log([id, count]);
+
 		let currItemData = this.selectionData.find(itemData => itemData.id === id);
 
 		if (currItemData) {
@@ -150,9 +141,14 @@ export default class ItemSheetApplication extends Application {
 		super.activateListeners(this._html);
 		this._html = html;
 
-		Object.keys(this._flags.currency).forEach(k => {
-			$(this._html).find(`.currency-wrapper [data-currency-type="${k}"]`).val(this._flags.currency[k]);
+		$(this._html).find(`.currency-wrapper [data-currency-type]`).each((idx, e) => {
+			const currencyType = $(e).attr(`data-currency-type`);
+			$(e).val(this._flags?.currency?.[currencyType]);
 		});
+
+		// Object.keys(this._flags.currency).forEach(k => {
+		// 	$(this._html).find(`.currency-wrapper [data-currency-type="${k}"]`).val(this._flags.currency[k]);
+		// });
 
 		if (this.isContainer) {
 			$(this._html).find(`#isContainerCheckBox`).prop('checked', true);
@@ -238,11 +234,9 @@ export default class ItemSheetApplication extends Application {
 		$(this._html).find('.currency-wrapper .currency-input').change(e => {
 			console.log(`pick-up-stix | select item form | currency input changed with args:`)
 			console.log(e);
-			const currency = $(e.currentTarget).attr('data-currency-type');
+			const currencyType = $(e.currentTarget).attr('data-currency-type');
 			const amount = $(e.currentTarget).val();
-			console.log(this._flags);
-			this._flags.currency[currency] = amount;
-			console.log(this._flags.currency);
+			setProperty(this._flags, `currency.${currencyType}`, amount);
 		});
 
 		/**
@@ -275,16 +269,12 @@ export default class ItemSheetApplication extends Application {
 	}
 
 	async close() {
-		const flags: PickUpStixFlags = {
-			...this._flags
-		}
-
 		const update = {
-			img: flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath,
+			img: this._flags.isOpen ? this._flags.imageContainerOpenPath : this._flags.imageContainerClosedPath,
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': {
-						...flags
+						...this._flags
 					}
 				}
 			}

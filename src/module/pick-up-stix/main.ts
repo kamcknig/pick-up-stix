@@ -1,11 +1,17 @@
 import ItemSheetApplication, { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./item-sheet-application";
 
+/**
+ * TODO: This should be removed once 0.7.0 becomes stable
+ */
 declare class DragDrop {
 	constructor(options: DragDropOptions);
 
 	bind(canvas: any);
 }
 
+/**
+ * TODO: This should be removed once 0.7.0 becomes stable
+ */
 declare interface DragDropOptions {
 	dragSelector?;
 	dropSelector?;
@@ -25,14 +31,18 @@ export function toggleLocked(hud: TokenHUD, data): () => void {
 export function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, tokenData: any): (this: HTMLDivElement, ev: MouseEvent) => any {
 	return async function(this, ev: MouseEvent) {
 		console.log(`pick-up-sticks | toggle icon clicked`);
+
+		// make sure we can find the token
 		const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
 		if (!token) {
 			console.log(`pick-up-stix | displayItemContainerApplication | Couldn't find token '${tokenData._id}'`);
 			return;
 		}
 
+		// create and render the item selection sheet
 		new ItemSheetApplication(token).render(true);
 
+		// listen for when the item render sheet closes and re-render the token HUD
 		Hooks.once('closeItemSheetApplication', () => {
 			console.log(`pick-up-stix | closeItemSheetApplication`);
 			hud.render();
@@ -195,7 +205,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 		let currencyFound = false;
 		let chatContent = '';
 		const userCurrencies = userControlledToken?.actor?.data?.data?.currency;
-		const actorUpdates = Object.keys(flags?.currency || {})?.reduce((acc, next) => {
+		Object.keys(flags?.currency || {})?.reduce((acc, next) => {
 			if (flags?.currency?.[next] > 0) {
 				currencyFound = true;
 				chatContent += `<span class="pick-up-stix-chat-currency ${next}"></span><span>(${next}) ${flags?.currency?.[next]}</span><br />`;
@@ -217,14 +227,16 @@ async function handleTokenItemClicked(e): Promise<void> {
 			});
 			await updateActor(userControlledToken.actor, { data: { data: { currency: { ...userCurrencies }}}});
 		}
-	}
 
-	// get the items from teh container and create an update object if there are any
-	if (!flags.isContainer || flags.isOpen) {
 		const itemsToCreate = [];
+		const itemDatas = flags?.itemData?.length
+			? flags.itemData
+			: (Object.values(flags.currency).some(amount => amount > 0)
+				? []
+				: [flags.initialState]);
 
-		for (let i=0; i < flags.itemData.length; i++) {
-			const itemData = flags.itemData[i];
+		for (let i=0; i < itemDatas.length; i++) {
+			const itemData = itemDatas[i];
 			const datas = [];
 			for (let i = 0; i < itemData.count; i++) {
 				datas.push({
@@ -476,10 +488,8 @@ export async function handleDropItem(dropData) {
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': {
-						originalImagePath: itemData.img,
-						itemData: [
-							{ id: itemData._id, count: 1, data: { ...itemData } }
-						]
+						initialState: { id: itemData._id, count: 1, data: { ...itemData } },
+						originalImagePath: itemData.img
 					}
 				}
 			}

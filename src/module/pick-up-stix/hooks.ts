@@ -140,7 +140,7 @@ export async function onRenderTokenHud(hud: TokenHUD, hudHtml: JQuery, data: any
 	const controlIconDiv = document.createElement('div');
 	controlIconDiv.className = 'control-icon';
 	const controlIconImg = document.createElement('img');
-	controlIconImg.src = flags?.['itemData']?.some(data => data.count > 0)
+	controlIconImg.src = flags?.['itemData']?.some(data => data.count > 0) || Object.values(flags?.currency ?? {}).some(amount => amount > 0)
 		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
 		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
 	controlIconImg.className = "item-pick-up";

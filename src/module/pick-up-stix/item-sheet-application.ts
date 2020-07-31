@@ -76,7 +76,7 @@ export default class ItemSheetApplication extends Application {
 		console.log(`pick-up-stix | select item from | setSelectionAmount | called with args`);
 		console.log([id, count]);
 
-		let currItemData = this.selectionData.find(itemData => itemData.id === id);
+		let currItemData = this.selectionData?.find(itemData => itemData.id === id);
 
 		if (currItemData) {
 			currItemData.count = count;
@@ -90,7 +90,13 @@ export default class ItemSheetApplication extends Application {
 					...this.getData()?.object?.items?.find((i: Item) => i._id === id)
 				}
 			};
-			this.selectionData.push(currItemData);
+			if (this.selectionData) {
+				this.selectionData?.push(currItemData)
+			}
+			else {
+				this._flags.itemData = [currItemData];
+			}
+
 			console.log(`Adding item ${currItemData.id} with count ${currItemData.count}`);
 		}
 

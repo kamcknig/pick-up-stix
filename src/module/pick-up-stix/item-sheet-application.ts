@@ -1,41 +1,4 @@
-export type ItemData = {
-	id?: string;
-	data: any;
-	count: number;
-};
-
-export interface PickUpStixFlags {
-	initialState?: ItemData;
-	itemData?: ItemData[];
-	isContainer?: boolean;
-	imageContainerClosedPath?: string;
-	imageContainerOpenPath?: string;
-	isOpen?: boolean;
-	canClose?: boolean;
-	currency?: {
-		pp?: number;
-		gp?: number;
-		ep?: number;
-		sp?: number;
-		cp?: number;
-	};
-	isLocked?: boolean;
-}
-
-export enum SocketMessageType {
-	deleteToken,
-	updateToken,
-	updateActor,
-	createOwnedEntity,
-	createItemToken
-}
-
-export interface PickUpStixSocketMessage {
-	// user ID of the sender
-	sender: string;
-	type: SocketMessageType;
-	data: any;
-}
+import { PickUpStixFlags, ItemData } from "./models";
 
 /**
  * Application class to display to select an item that the token is
@@ -113,7 +76,7 @@ export default class ItemSheetApplication extends Application {
 		console.log(`pick-up-stix | select item from | setSelectionAmount | called with args`);
 		console.log([id, count]);
 
-		let currItemData = this.selectionData.find(itemData => itemData.id === id);
+		let currItemData = this.selectionData?.find(itemData => itemData.id === id);
 
 		if (currItemData) {
 			currItemData.count = count;
@@ -127,7 +90,13 @@ export default class ItemSheetApplication extends Application {
 					...this.getData()?.object?.items?.find((i: Item) => i._id === id)
 				}
 			};
-			this.selectionData.push(currItemData);
+			if (this.selectionData) {
+				this.selectionData?.push(currItemData)
+			}
+			else {
+				this._flags.itemData = [currItemData];
+			}
+
 			console.log(`Adding item ${currItemData.id} with count ${currItemData.count}`);
 		}
 

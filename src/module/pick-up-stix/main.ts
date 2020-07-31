@@ -1,4 +1,5 @@
-import ItemSheetApplication, { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./item-sheet-application";
+import ItemSheetApplication from "./item-sheet-application";
+import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./models";
 
 export function toggleLocked(hud: TokenHUD, data): () => void {
 	return async () => {
@@ -446,7 +447,7 @@ export async function handleDropItem(dropData) {
 	let targetToken: Token;
 	let p: PlaceableObject;
 	for (p of canvas.tokens.placeables) {
-		if (dropData.x < p.x + p.width && dropData.x > p.x && dropData.y < p.y + p.height && dropData.y > p.y && p instanceof Token && p.actor) {
+		if (dropData.x < p.x + p.width && dropData.x > p.x && dropData.y < p.y + p.height && dropData.y > p.y && p instanceof Token) {
 			targetToken = p;
 			break;
 		}
@@ -454,33 +455,53 @@ export async function handleDropItem(dropData) {
 
 	if (targetToken) {
 		console.log(`pick-up-stix | handleDropItem | item dropped onto target token '${targetToken.id}'`);
-		await createOwnedEntity(targetToken.actor, [{
-			...itemData
-		}]);
+
+		const targetTokenFlags: PickUpStixFlags = targetToken.getFlag('pick-up-stix', 'pick-up-stix');
+
+		// if the target is a container, then add the item to the container's data
+		if (targetTokenFlags.isContainer) {
+			console.log(`pick-up-stix | handleDropItem | target token is a container`);
+			const existingItemData = targetTokenFlags.itemData;
+			const existingItem = existingItemData.find(i => i.id === itemData._id);
+			if (existingItem) {
+				existingItem.count++;
+			}
+			else {
+				existingItemData.push({ id: itemData._id, count: 1, data: { ...itemData }});
+			}
+
+			await targetToken.setFlag('pick-up-stix', 'pick-up-stix.itemData', [...existingItemData]);
+			return;
+		}
+		else if (targetToken.actor) {
+			await createOwnedEntity(targetToken.actor, [{
+				...itemData
+			}]);
+			return;
+		}
 	}
-	else {
-		const hg = canvas.dimensions.size / 2;
-		dropData.x -= (hg);
-		dropData.y -= (hg);
 
-		const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
-		dropData.x = x;
-		dropData.y = y;
+	const hg = canvas.dimensions.size / 2;
+	dropData.x -= (hg);
+	dropData.y -= (hg);
 
-		await createItemToken({
-			img: itemData.img,
-			name: itemData.name,
-			x: dropData.x,
-			y: dropData.y,
-			disposition: 0,
-			flags: {
+	const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
+	dropData.x = x;
+	dropData.y = y;
+
+	await createItemToken({
+		img: itemData.img,
+		name: itemData.name,
+		x: dropData.x,
+		y: dropData.y,
+		disposition: 0,
+		flags: {
+			'pick-up-stix': {
 				'pick-up-stix': {
-					'pick-up-stix': {
-						initialState: { id: itemData._id, count: 1, data: { ...itemData } },
-						originalImagePath: itemData.img
-					}
+					initialState: { id: itemData._id, count: 1, data: { ...itemData } },
+					originalImagePath: itemData.img
 				}
 			}
-		});
-	}
+		}
+	});
 }

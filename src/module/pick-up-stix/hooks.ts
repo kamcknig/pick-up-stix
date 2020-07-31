@@ -1,10 +1,10 @@
 /* ------------------------------------ */
 /* When ready													  */
 
-import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./item-sheet-application";
 import { displayItemContainerApplication, toggleLocked, setupMouseManager, handleDropItem, handleOnDrop } from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
+import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags } from "./models";
 
 /**
  * TODO: This should be removed once 0.7.0 becomes stable

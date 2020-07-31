@@ -1,4 +1,5 @@
-import ItemSheetApplication, { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./item-sheet-application";
+import ItemSheetApplication from "./item-sheet-application";
+import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./models";
 
 export function toggleLocked(hud: TokenHUD, data): () => void {
 	return async () => {

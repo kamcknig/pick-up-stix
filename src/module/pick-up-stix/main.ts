@@ -2,17 +2,7 @@ import ItemSheetApplication from "./item-sheet-application";
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
 import LootTypeSelectionApplication from "./loot-type-selection-application";
 
-const lootTokens: string[] = [];
-
-// export function toggleLocked(hud: TokenHUD, data): () => void {
-// 	return async () => {
-// 		const token = canvas.tokens.get(data._id);
-// 		const isLocked = token.getFlag('pick-up-stix', 'pick-up-stix.isLocked');
-// 		await token.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !isLocked);
-// 		hud.render();
-// 	}
-// }
-
+export const lootTokens: string[] = [];
 
 /**
  * Handles data dropped onto the canvas.
@@ -173,7 +163,7 @@ export function setupMouseManager(): void {
 
 	const permissions = {
 		clickLeft: () => true,
-		clickLeft2: this._canView,
+		clickLeft2: () => game.user.isGM,
 		clickRight: () => game.user.isGM,
 		clickRight2: this._canConfigure,
 		dragStart: this._canDrag
@@ -182,7 +172,7 @@ export function setupMouseManager(): void {
 	// Define callback functions for each workflow step
 	const callbacks = {
 		clickLeft: handleTokenItemClicked.bind(this),
-		clickLeft2: this._onClickLeft2,
+		clickLeft2: handleTokenItemConfig.bind(this),
 		clickRight: toggleItemLocked.bind(this),
 		clickRight2: this._onClickRight2,
 		dragLeftStart: this._onDragLeftStart,
@@ -204,7 +194,15 @@ export function setupMouseManager(): void {
 	this.mouseInteractionManager = new MouseInteractionManager(this, canvas.stage, permissions, callbacks, options).activate();
 }
 
+function handleTokenItemConfig(e) {
+	console.log(`pick-up-stix | handleTokenItemConfig`);
+	const clickedToken: Token = this;
+	const f = new ItemSheetApplication(clickedToken).render(true);
+}
+
 async function toggleItemLocked(e): Promise<any> {
+	console.log(`pick-up-stix | toggleItemLocked`);
+
 	const clickedToken: Token = this;
 	const flags: PickUpStixFlags = clickedToken.getFlag('pick-up-stix', 'pick-up-stix');
 	await clickedToken.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !flags.isLocked);

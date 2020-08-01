@@ -5,7 +5,8 @@ import {
 	displayItemContainerApplication,
 	setupMouseManager,
 	handleDropItem,
-	drawLockIcon
+	drawLockIcon,
+	lootTokens
 } from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
@@ -213,6 +214,12 @@ export async function onPreUpdateToken(scene: Scene, tokenData: any, data: any, 
 	catch (e) {
 
 	}
+}
+
+export function onDeleteToken(scene: Scene, tokenData: any, data: any, userId: string) {
+	console.log(`pick-up-stix | onDeleteToken | called with args:`);
+	console.log([scene, tokenData, data, userId]);
+	lootTokens.findSplice(t => t === tokenData._id);
 }
 
 export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {

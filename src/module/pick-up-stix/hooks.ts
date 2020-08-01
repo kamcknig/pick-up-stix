@@ -1,10 +1,11 @@
 /* ------------------------------------ */
 /* When ready													  */
 
-import { displayItemContainerApplication, toggleLocked, setupMouseManager, handleDropItem, handleOnDrop } from "./main";
+import { displayItemContainerApplication, /* toggleLocked, */ setupMouseManager, handleDropItem } from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
 import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags } from "./models";
+import { handleOnDrop } from "./overrides";
 
 /**
  * TODO: This should be removed once 0.7.0 becomes stable
@@ -123,18 +124,6 @@ export function onCanvasReady(...args) {
 	}
 }
 
-export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options: any, userId: string) {
-	let owner: { actorId: string, itemId: string };
-	if (owner = getProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner')) {
-		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
-		const ownerActor = game.actors.get(owner.actorId);
-		await ownerActor.deleteOwnedItem(itemData._id);
-	}
-	else {
-		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
-	}
-};
-
 export async function onRenderTokenHud(hud: TokenHUD, hudHtml: JQuery, data: any) {
   if (!data.isGM) {
 		console.log(`pick-up-stix | onRenderTokenHud | user is not a gm, don't change HUD`);
@@ -177,12 +166,29 @@ export async function onRenderTokenHud(hud: TokenHUD, hudHtml: JQuery, data: any
 			? 'modules/pick-up-stix/assets/lock-white.svg'
 			: 'modules/pick-up-stix/assets/lock-black.svg';
 		lockDiv.appendChild(lockImg);
-		lockDiv.addEventListener('mousedown', toggleLocked(hud, data));
+		/* lockDiv.addEventListener('mousedown', toggleLocked(hud, data)); */
 		containerDiv.prepend(lockDiv);
 	}
 
 	// add the container to the hud
 	$(hudHtml.children('div')[0]).prepend(containerDiv);
+};
+
+export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options: any, userId: string) {
+	console.log(`pick-up-stix | onPreCreateOwnedItem | called with args:`);
+	console.log([actor, itemData, options, userId]);
+
+	let owner: { actorId: string, itemId: string };
+	if (owner = getProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner')) {
+		// if the item is already owned by someone else, set the new actor as the owner and
+		// delete the item from the old owner
+		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
+		const ownerActor = game.actors.get(owner.actorId);
+		await ownerActor.deleteOwnedItem(itemData._id);
+		return;
+	}
+
+	setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
 };
 
 export function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {

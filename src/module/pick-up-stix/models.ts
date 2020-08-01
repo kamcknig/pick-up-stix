@@ -5,12 +5,17 @@ export type ItemData = {
 };
 
 export interface PickUpStixFlags {
-	initialState?: ItemData;
+	itemType: ItemType;
+	initialState: ItemData;
+	imageOriginalPath: string;
+	imageContainerClosedPath: string;
+	imageContainerOpenPath: string;
+	isOpen: boolean;
+	isLocked: boolean;
+
+
 	itemData?: ItemData[];
-	isContainer?: boolean;
-	imageContainerClosedPath?: string;
-	imageContainerOpenPath?: string;
-	isOpen?: boolean;
+
 	canClose?: boolean;
 	currency?: {
 		pp?: number;
@@ -19,7 +24,6 @@ export interface PickUpStixFlags {
 		sp?: number;
 		cp?: number;
 	};
-	isLocked?: boolean;
 }
 
 export enum SocketMessageType {
@@ -35,4 +39,9 @@ export interface PickUpStixSocketMessage {
 	sender: string;
 	type: SocketMessageType;
 	data: any;
+}
+
+export enum ItemType {
+	ITEM = 'Item',
+	CONTAINER = 'Container'
 }

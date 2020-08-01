@@ -28,5 +28,8 @@
 		"sass": "^1.26.10",
 		"typescript": "^3.9.6",
 		"yargs": "^15.4.1"
+	},
+	"dependencies": {
+		"gulp-sourcemaps": "^2.6.5"
 	}
 }

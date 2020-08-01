@@ -1,4 +1,5 @@
 const gulp = require('gulp');
+var sourcemaps = require('gulp-sourcemaps');
 const fs = require('fs-extra');
 const path = require('path');
 const chalk = require('chalk');
@@ -137,7 +138,11 @@ const tsConfig = ts.createProject('tsconfig.json', {
  * Build TypeScript
  */
 function buildTS() {
-	return gulp.src('src/**/*.ts').pipe(tsConfig()).pipe(gulp.dest('dist'));
+	return gulp.src('src/**/*.ts')
+		.pipe(sourcemaps.init())
+		.pipe(tsConfig())
+		.pipe(sourcemaps.write('../maps'))
+		.pipe(gulp.dest('dist'))
 }
 
 /**
@@ -165,7 +170,7 @@ async function copyFiles() {
 		'lang',
 		'fonts',
 		'assets',
-		'templates',
+		'module/pick-up-stix/templates',
 		'module.json',
 		'system.json',
 		'template.json',
@@ -191,7 +196,7 @@ function buildWatch() {
 	gulp.watch('src/**/*.less', { ignoreInitial: false }, buildLess);
 	gulp.watch('src/**/*.scss', { ignoreInitial: false }, buildSASS);
 	gulp.watch(
-		['src/fonts', 'src/lang', 'src/templates', 'src/*.json', 'src/*.css'],
+		['src/fonts', 'src/lang', 'src/module/**/*.html', 'src/*.json', 'src/*.css'],
 		{ ignoreInitial: false },
 		copyFiles
 	);

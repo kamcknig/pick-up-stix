@@ -1,4 +1,4 @@
-import { PickUpStixFlags, ItemData } from "./models";
+import { PickUpStixFlags, ItemData, ItemType } from "./models";
 
 /**
  * Application class to display to select an item that the token is
@@ -8,7 +8,7 @@ export default class ItemSheetApplication extends Application {
 	static get defaultOptions(): ApplicationOptions {
 	  const options = super.defaultOptions;
     options.id = "pick-up-stix-selectItem";
-	  options.template = "modules/pick-up-stix/templates/item-sheet.html";
+	  options.template = "modules/pick-up-stix/module/pick-up-stix/templates/item-sheet.html";
 		options.width = 500;
 		options.height = 'auto';
 		options.minimizable = false;
@@ -18,14 +18,29 @@ export default class ItemSheetApplication extends Application {
 	}
 
 	private _flags: PickUpStixFlags = {
+		imageContainerClosedPath: null,
+		imageContainerOpenPath: null,
+		imageOriginalPath: null,
+		initialState: {data: null, count: 0, id: null},
+		isLocked: false,
+		isOpen: false,
+		currency: {
+			cp: 0,
+			sp: 0,
+			ep: 0,
+			gp: 0,
+			pp: 0
+		},
+		itemData: [],
+		itemType: ItemType.ITEM,
 		canClose: true
 	};
 
-	private get isContainer(): boolean {
-		return this._flags.isContainer;
+	private get itemType(): ItemType {
+		return this._flags.itemType;
 	}
-	private set isContainer(value: boolean) {
-		this._flags.isContainer = value;
+	private set itemType(value: ItemType) {
+		this._flags.itemType = value;
 	}
 
 	private get imageContainerOpenPath(): string {
@@ -115,7 +130,7 @@ export default class ItemSheetApplication extends Application {
 			$(e).val(this._flags?.currency?.[currencyType]);
 		});
 
-		if (this.isContainer) {
+		if (this.itemType) {
 			$(this._html).find(`#isContainerCheckBox`).prop('checked', true);
 		}
 
@@ -163,7 +178,7 @@ export default class ItemSheetApplication extends Application {
 		 */
 		$(this._html).find('#isContainerCheckBox').change(async (e) => {
 			console.log(`pick-up-stix | select form | file input check box changed`);
-			this.isContainer = !this.isContainer;
+			//this.itemType = !this.itemType;
 
 			if (!this.imageContainerClosedPath && !this.imageContainerOpenPath) {
 				this.imageContainerClosedPath = 'modules/pick-up-stix/assets/chest-closed.png';
@@ -173,7 +188,7 @@ export default class ItemSheetApplication extends Application {
 			this.render();
 		});
 
-		if (this.isContainer) {
+		if (this.itemType) {
 			/**
 			 * Listen for if the can close checkbox is changed
 			 */
@@ -226,13 +241,13 @@ export default class ItemSheetApplication extends Application {
 		});
 	}
 
-	getData(): {options: any, object: { items: any[], isContainer: boolean, imageContainerOpenPath: string, imageContainerClosedPath: string, actor: Actor } } {
+	getData(): {options: any, object: { items: any[], itemType: ItemType, imageContainerOpenPath: string, imageContainerClosedPath: string, actor: Actor } } {
 		return {
 			options: this.options,
 			object: {
 				actor: this._token.actor,
 				items: duplicate(game.items.entities.filter(i => !['class', 'spell', 'feat'].includes(i.type))),
-				isContainer: this.isContainer,
+				itemType: this.itemType,
 				imageContainerOpenPath: this.imageContainerOpenPath,
 				imageContainerClosedPath: this.imageContainerClosedPath
 			}

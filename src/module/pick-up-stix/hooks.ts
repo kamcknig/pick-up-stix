@@ -1,7 +1,12 @@
 /* ------------------------------------ */
 /* When ready													  */
 
-import { displayItemContainerApplication, /* toggleLocked, */ setupMouseManager, handleDropItem } from "./main";
+import {
+	displayItemContainerApplication,
+	setupMouseManager,
+	handleDropItem,
+	drawLockIcon
+} from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
 import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags } from "./models";
@@ -92,16 +97,20 @@ export function readyHook() {
 	});
 };
 
-export function onCanvasReady(...args) {
+export async function onCanvasReady(...args) {
 	console.log(`pick-up-stix | onCanvasReady | call width args:`);
 	console.log(args);
 
   canvas?.tokens?.placeables?.forEach(async (p: PlaceableObject) => {
-		const data: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
+		const flags: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
 
-		if (data) {
+		if (flags) {
 			console.log(`pick-up-stix | onCanvasReady | found token ${p.id} with itemData`);
 			p.mouseInteractionManager = setupMouseManager.bind(p)();
+
+			if (flags.isLocked) {
+				await drawLockIcon(p);
+			}
 		}
   });
 
@@ -191,7 +200,22 @@ export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options:
 	setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
 };
 
-export function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {
+export async function onPreUpdateToken(scene: Scene, tokenData: any, data: any, userId: string) {
+	try {
+		const currentLocked: boolean = getProperty(tokenData.flags, 'pick-up-stix.pick-up-stix.isLocked');
+		const newLocked: boolean = getProperty(data.flags, 'pick-up-stix.pick-up-stix.isLocked');
+
+		// if we are currently locked and this update unlocks the item, then set a temp flag to delete the lock after the update
+		if (currentLocked && !newLocked) {
+			setProperty(data.flags, 'pick-up-stix.pick-up-stix.deleteLock', true);
+		}
+	}
+	catch (e) {
+
+	}
+}
+
+export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {
   console.log(`pick-up-stix | onUpdateToken | called with args:`)
   console.log([scene, tokenData, tokenFlags, userId]);
 
@@ -199,7 +223,16 @@ export function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, use
 
 	if (flags) {
       console.log(`pick-up-stix | onUpdateToken | found flags on token data, add mouse interaction`);
-      const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
+			const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
+
+			if (flags.isLocked) {
+				await drawLockIcon(token);
+			}
+			else if (flags.deleteLock) {
+				token.removeChildAt(token.children.length - 1).destroy();
+				await token.unsetFlag('pick-up-stix', 'pick-up-stix.deleteLock');
+			}
+
 			token.mouseInteractionManager = setupMouseManager.bind(token)();
 			token.activateListeners = setupMouseManager.bind(token);
 	}

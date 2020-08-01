@@ -102,6 +102,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		}
 	}
 
+	// if it's not a container, then we can assume it's an item. Create the item token
 	const hg = canvas.dimensions.size / 2;
 	dropData.x -= (hg);
 	dropData.y -= (hg);
@@ -182,7 +183,7 @@ export function setupMouseManager(): void {
 	const callbacks = {
 		clickLeft: handleTokenItemClicked.bind(this),
 		clickLeft2: this._onClickLeft2,
-		clickRight: this._onClickRight,
+		clickRight: toggleItemLocked.bind(this),
 		clickRight2: this._onClickRight2,
 		dragLeftStart: this._onDragLeftStart,
 		dragLeftMove: this._onDragLeftMove,
@@ -201,6 +202,12 @@ export function setupMouseManager(): void {
 
 	// Create the interaction manager
 	this.mouseInteractionManager = new MouseInteractionManager(this, canvas.stage, permissions, callbacks, options).activate();
+}
+
+async function toggleItemLocked(e): Promise<any> {
+	const clickedToken: Token = this;
+	const flags: PickUpStixFlags = clickedToken.getFlag('pick-up-stix', 'pick-up-stix');
+	await clickedToken.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !flags.isLocked);
 }
 
 async function handleTokenItemClicked(e): Promise<void> {
@@ -287,11 +294,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 				updateToken(clickedToken, {
 					img: (flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath) ?? flags.imageOriginalPath,
 					flags: {
-						'pick-up-stix': {
-							'pick-up-stix': {
-								isOpen: flags.isOpen
-							}
-						}
+						...flags
 					}
 				});
 				resolve();
@@ -526,4 +529,15 @@ async function createItemToken(data: any): Promise<string> {
 			});
 		});
 	});
+}
+
+export async function drawLockIcon(p: PlaceableObject): Promise<any> {
+	console.log(`pick-up-stix | drawLockIcon | called with args:`);
+	console.log(p);
+
+	const tex = await loadTexture('icons/svg/padlock.svg');
+	const icon = p.addChild(new PIXI.Sprite(tex));
+	icon.width = icon.height = 40;
+	icon.alpha = .5;
+	icon.position.set(p.width * .5 - icon.width * .5, p.height * .5 - icon.height * .5);
 }

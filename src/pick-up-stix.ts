@@ -5,7 +5,8 @@ import {
 	onPreCreateOwnedItem,
 	onRenderTokenHud,
 	onUpdateToken,
-	onCreateToken
+	onCreateToken,
+	onPreUpdateToken
 } from "./module/pick-up-stix/hooks";
 
 Hooks.once('init', initHook);
@@ -15,3 +16,4 @@ Hooks.on('preCreateOwnedItem', onPreCreateOwnedItem);
 Hooks.on('renderTokenHUD', onRenderTokenHud);
 Hooks.on('createToken', onCreateToken);
 Hooks.on('updateToken', onUpdateToken);
+Hooks.on('preUpdateToken', onPreUpdateToken);

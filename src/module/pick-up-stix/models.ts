@@ -1,6 +1,6 @@
 export type ItemData = {
 	id?: string;
-	data: any;
+	itemData: any;
 	count: number;
 };
 

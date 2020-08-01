@@ -32,7 +32,8 @@ export default class LootTypeSelectionApplication extends FormApplication {
     console.log(`pick-up-stix | LootTypeSelectionApplication | _updateObject called with args:`);
     console.log([event, formData]);
     formData._id = this.object._id;
-    formData['flags.pick-up-stix.pick-up-stix.isLocked'] = false;
+    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.itemType', formData.itemType)
+    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.isLocked', formData.isLocked);
     return this.object.update(formData);
   }
 }

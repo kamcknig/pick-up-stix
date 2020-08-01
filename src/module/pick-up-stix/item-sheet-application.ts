@@ -21,7 +21,7 @@ export default class ItemSheetApplication extends Application {
 		imageContainerClosedPath: null,
 		imageContainerOpenPath: null,
 		imageOriginalPath: null,
-		initialState: {data: null, count: 0, id: null},
+		initialState: { itemData: null, count: 0, id: null },
 		isLocked: false,
 		isOpen: false,
 		currency: {
@@ -101,7 +101,7 @@ export default class ItemSheetApplication extends Application {
 			currItemData = {
 				id,
 				count: 1,
-				data: {
+				itemData: {
 					...this.getData()?.object?.items?.find((i: Item) => i._id === id)
 				}
 			};
@@ -139,8 +139,8 @@ export default class ItemSheetApplication extends Application {
 		}
 
 		this.selectionData?.forEach(itemData => {
-			console.log(`pick-up-stix | selection from setup | setting item ${itemData.data._id} to active and count to ${itemData.count}`);
-			const item = $(this._html).find(`[data-item-id="${itemData.data._id}"]`);
+			console.log(`pick-up-stix | selection from setup | setting item ${itemData.itemData._id} to active and count to ${itemData.count}`);
+			const item = $(this._html).find(`[data-item-id="${itemData.itemData._id}"]`);
 			if (itemData.count > 0) {
 				item.addClass('active');
 			}

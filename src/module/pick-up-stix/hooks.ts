@@ -2,11 +2,11 @@
 /* When ready													  */
 
 import {
-	displayItemContainerApplication,
 	setupMouseManager,
 	handleDropItem,
 	drawLockIcon,
-	lootTokens
+	lootTokens,
+	updateToken
 } from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
@@ -134,56 +134,6 @@ export async function onCanvasReady(...args) {
 	}
 }
 
-export async function onRenderTokenHud(hud: TokenHUD, hudHtml: JQuery, data: any) {
-  if (!data.isGM) {
-		console.log(`pick-up-stix | onRenderTokenHud | user is not a gm, don't change HUD`);
-		return;
-	}
-
-	if (data.actorId && !game.actors.get(data.actorId).isPC && !game.modules.get('lootsheetnpc5e').active) {
-		console.log(`pick-up-stix | onRenderTokenHud | token has an actor associated with it, dont' change HUD`);
-		return;
-	}
-
-	console.log(`pick-up-stix | onRenderTokenHud | called with args:`);
-	console.log(hud, hudHtml, data);
-
-	const flags = getProperty(data.flags, 'pick-up-stix.pick-up-stix');
-
-	const containerDiv = document.createElement('div');
-	containerDiv.style.display = 'flex';
-	containerDiv.style.flexDirection = 'row';
-
-	// create the control icon div and add it to the container div
-	const controlIconDiv = document.createElement('div');
-	controlIconDiv.className = 'control-icon';
-	const controlIconImg = document.createElement('img');
-	controlIconImg.src = flags?.['itemData']?.some(data => data.count > 0) || Object.values(flags?.currency ?? {}).some(amount => amount > 0)
-		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
-		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
-	controlIconImg.className = "item-pick-up";
-	controlIconDiv.appendChild(controlIconImg);
-	controlIconDiv.addEventListener('mousedown', displayItemContainerApplication(hud, controlIconImg, data));
-	containerDiv.appendChild(controlIconDiv);
-
-	// if the item is a container then add the lock icon
-	if (flags?.isContainer) {
-		const lockDiv = document.createElement('div');
-		lockDiv.style.marginRight = '10px';
-		lockDiv.className = 'control-icon';
-		const lockImg = document.createElement('img');
-		lockImg.src = flags?.['isLocked']
-			? 'modules/pick-up-stix/assets/lock-white.svg'
-			: 'modules/pick-up-stix/assets/lock-black.svg';
-		lockDiv.appendChild(lockImg);
-		/* lockDiv.addEventListener('mousedown', toggleLocked(hud, data)); */
-		containerDiv.prepend(lockDiv);
-	}
-
-	// add the container to the hud
-	$(hudHtml.children('div')[0]).prepend(containerDiv);
-};
-
 export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options: any, userId: string) {
 	console.log(`pick-up-stix | onPreCreateOwnedItem | called with args:`);
 	console.log([actor, itemData, options, userId]);
@@ -206,6 +156,7 @@ export async function onPreUpdateToken(scene: Scene, tokenData: any, data: any, 
 		const currentLocked: boolean = getProperty(tokenData.flags, 'pick-up-stix.pick-up-stix.isLocked');
 		const newLocked: boolean = getProperty(data.flags, 'pick-up-stix.pick-up-stix.isLocked');
 
+		console.log(currentLocked, newLocked);
 		// if we are currently locked and this update unlocks the item, then set a temp flag to delete the lock after the update
 		if (currentLocked && !newLocked) {
 			setProperty(data.flags, 'pick-up-stix.pick-up-stix.deleteLock', true);
@@ -236,8 +187,13 @@ export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: an
 				await drawLockIcon(token);
 			}
 			else if (flags.deleteLock) {
+				flags.deleteLock = false;
 				token.removeChildAt(token.children.length - 1).destroy();
-				await token.unsetFlag('pick-up-stix', 'pick-up-stix.deleteLock');
+				await updateToken(token, {
+					flags: {
+						...flags
+					}
+				});
 			}
 
 			token.mouseInteractionManager = setupMouseManager.bind(token)();

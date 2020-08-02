@@ -1,6 +1,6 @@
-import ItemSheetApplication from "./item-sheet-application";
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
-import LootTypeSelectionApplication from "./loot-type-selection-application";
+import ItemTypeSelectionApplication from "./item-type-selection-application";
+import ItemConfigApplication from "./item-config-application";
 
 export const lootTokens: string[] = [];
 
@@ -130,31 +130,9 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		// get a reference to the Token
 		const token: Token = canvas.tokens.placeables.find(p => p.id === tokenId);
 		// render the item type selection form
-		new LootTypeSelectionApplication(token).render(true);
+		new ItemTypeSelectionApplication(token).render(true);
 		// store the Token ID
 		lootTokens.push(tokenId);
-	}
-}
-
-export function displayItemContainerApplication(hud: TokenHUD, img: HTMLImageElement, tokenData: any): (this: HTMLDivElement, ev: MouseEvent) => any {
-	return async function(this, ev: MouseEvent) {
-		console.log(`pick-up-sticks | toggle icon clicked`);
-
-		// make sure we can find the token
-		const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
-		if (!token) {
-			console.log(`pick-up-stix | displayItemContainerApplication | Couldn't find token '${tokenData._id}'`);
-			return;
-		}
-
-		// create and render the item selection sheet
-		new ItemSheetApplication(token).render(true);
-
-		// listen for when the item render sheet closes and re-render the token HUD
-		Hooks.once('closeItemSheetApplication', () => {
-			console.log(`pick-up-stix | closeItemSheetApplication`);
-			hud.render();
-		});
 	}
 }
 
@@ -165,7 +143,6 @@ export function setupMouseManager(): void {
 		clickLeft: () => true,
 		clickLeft2: () => game.user.isGM,
 		clickRight: () => game.user.isGM,
-		clickRight2: this._canConfigure,
 		dragStart: this._canDrag
 	};
 
@@ -174,15 +151,10 @@ export function setupMouseManager(): void {
 		clickLeft: handleTokenItemClicked.bind(this),
 		clickLeft2: handleTokenItemConfig.bind(this),
 		clickRight: toggleItemLocked.bind(this),
-		clickRight2: this._onClickRight2,
 		dragLeftStart: this._onDragLeftStart,
 		dragLeftMove: this._onDragLeftMove,
 		dragLeftDrop: this._onDragLeftDrop,
-		dragLeftCancel: this._onDragLeftCancel,
-		dragRightStart: null,
-		dragRightMove: null,
-		dragRightDrop: null,
-		dragRightCancel: null
+		dragLeftCancel: this._onDragLeftCancel
 	};
 
 	// Define options
@@ -196,8 +168,9 @@ export function setupMouseManager(): void {
 
 function handleTokenItemConfig(e) {
 	console.log(`pick-up-stix | handleTokenItemConfig`);
+	clearTimeout(clickTimeout);
 	const clickedToken: Token = this;
-	const f = new ItemSheetApplication(clickedToken).render(true);
+	const f = new ItemConfigApplication(clickedToken).render(true);
 }
 
 async function toggleItemLocked(e): Promise<any> {
@@ -208,6 +181,7 @@ async function toggleItemLocked(e): Promise<any> {
 	await clickedToken.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !flags.isLocked);
 }
 
+let clickTimeout;
 async function handleTokenItemClicked(e): Promise<void> {
 	console.log(`pick-up-stix | handleTokenItemClicked | ${this.id}`);
 
@@ -275,61 +249,77 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
-	if(flags.itemType === ItemType.CONTAINER) {
-		console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
+	clickTimeout = setTimeout(async () => {
+		if(flags.itemType === ItemType.CONTAINER) {
+			console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
 
-		// if it's a container and it's open and can't be closed then don't do anything
-		if (flags.isOpen && !flags.canClose) {
-			console.log(`pick-up-stix | handleTokenItemClicked | container is open and can't be closed`);
+			// if it's a container and it's open and can't be closed then don't do anything
+			if (flags.isOpen && !(flags.canClose ?? true)) {
+				console.log(`pick-up-stix | handleTokenItemClicked | container is open and can't be closed`);
+				return;
+			}
+
+			flags.isOpen = !flags.isOpen;
+
+			// if there are any container updates then update the container
+			await new Promise(resolve => {
+				setTimeout(() => {
+					updateToken(clickedToken, {
+						img: (flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath) ?? flags.imageOriginalPath,
+						flags: {
+							'pick-up-stix': {
+								'pick-up-stix': {
+									...flags
+								}
+							}
+						}
+					});
+					resolve();
+				}, 200);
+			});
+
+			if (!flags.isOpen) {
+				return;
+			}
+
+			// if the token clicked is an actor and the lootsheetnpc5e module is installed and it's now in the open
+			// state, perform a double-left click which will open the loot sheet from that module
+			if (clickedToken.actor) {
+				if (game.modules.get('lootsheetnpc5e').active && flags.isOpen) {
+					(clickedToken as any)._onClickLeft2(e);
+				}
+			}
+			else {
+				const f = new ItemConfigApplication(clickedToken).render(true);
+			}
+
 			return;
 		}
 
-		flags.isOpen = !flags.isOpen;
+		console.log(`pick-up-stix | handleTokenItemClicked | token is an ItemType.ITEM`);
 
-		// if there are any container updates then update the container
-		await new Promise(resolve => {
-			setTimeout(() => {
-				updateToken(clickedToken, {
-					img: (flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath) ?? flags.imageOriginalPath,
-					flags: {
-						...flags
-					}
-				});
-				resolve();
-			}, 200);
+		// if it's just a single item, delete the map token and create an new item on the player
+		await deleteToken(clickedToken);
+		await createOwnedEntity(controlledToken.actor, {
+			...flags.initialState.itemData,
+			flags: {
+				...clickedToken.data.flags
+			}
 		});
 
-		// if the token clicked is an actor and the lootsheetnpc5e module is installed and it's now in the open
-		// state, perform a double-left click which will open the loot sheet from that module
-		if (clickedToken.actor && game.modules.get('lootsheetnpc5e').active && flags.isOpen) {
-			(clickedToken as any)._onClickLeft2(e);
-			return;
-		}
-	}
-
-	console.log(`pick-up-stix | handleTokenItemClicked | token is an ItemType.ITEM`);
-
-	// if it's just a single item, delete the map token and create an new item on the player
-	await deleteToken(clickedToken);
-	await createOwnedEntity(controlledToken.actor, {
-		...flags.initialState.itemData,
-		flags: {
-			...clickedToken.data.flags
-		}
-	});
-
-	ChatMessage.create({
-		content: `
-			<p>Picked up ${flags.initialState.count} ${flags.initialState.itemData.name}</p>
-			<img src="${flags.imageOriginalPath}" style="width: 40px;" />
-		`,
-		speaker: {
-			alias: controlledToken.actor.name,
-			scene: (game.scenes as any).active.id,
-			actor: controlledToken.actor.id,
-			token: controlledToken.id
-		}
-	});
+		ChatMessage.create({
+			content: `
+				<p>Picked up ${flags.initialState.count} ${flags.initialState.itemData.name}</p>
+				<img src="${flags.imageOriginalPath}" style="width: 40px;" />
+			`,
+			speaker: {
+				alias: controlledToken.actor.name,
+				scene: (game.scenes as any).active.id,
+				actor: controlledToken.actor.id,
+				token: controlledToken.id
+			}
+		});
+	}, 250);
 
 	// if it's not a container or if it is and it's open it's now open (from switching above) then update
 	// the actor's currencies if there are any in the container
@@ -431,7 +421,7 @@ async function deleteToken(token: Token): Promise<void> {
 	socket.emit('module.pick-up-stix', msg);
 }
 
-async function updateToken(token: Token, updates): Promise<void> {
+export async function updateToken(token: Token, updates): Promise<void> {
 	console.log(`pick-up-stix | updateToken with args:`);
 	console.log(token, updates);
 

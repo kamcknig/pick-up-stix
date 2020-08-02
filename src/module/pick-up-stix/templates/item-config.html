@@ -1,0 +1,112 @@
+<form>
+    <!-- container image, name, and description-->
+  <header class="sheet-header flexrow">
+    <!-- display the image -->
+    <img class="profile" src="{{object.[flags].[pick-up-stix].[pick-up-stix].imageContainerOpenPath}}" title="chest" data-edit="img">
+
+    <section class="header-details">
+      <h1 style="border-bottom: 2px groove #eeede0;" class="charname">{{object.name}}</h1>
+      <div>
+        {{{containerDescription}}}
+      </div>
+    </section>
+  </header>
+
+  <!-- list of items separated by type -->
+  <ol class="inventory-list">
+    <!-- weapon list -->
+    <li class="inventory-header flexrow">
+        <h3 class="item-name flexrow">Weapons</h3>
+        <div class="item-controls">
+            <a class="item-control item-create" title="Create Item" data-type="weapon">
+                <i class="fas fa-plus"></i> Add
+            </a>
+        </div>
+    </li>
+
+    {{#each loot.weapon}}
+      <ol data-itemType="weapon" class="item-list">
+        <img src="{{this.img}}" />{{this.name}}
+      </ol>
+    {{/each}}
+
+    <!-- equipment  list -->
+    <li class="inventory-header flexrow">
+        <h3 class="item-name flexrow">Equipment</h3>
+        <div class="item-controls">
+            <a class="item-control item-create" title="Create Item" data-type="equipment">
+                <i class="fas fa-plus"></i> Add
+            </a>
+        </div>
+    </li>
+
+    {{#each loot.equipment}}
+      <ol data-itemType="equipment" class="item-list">
+        <img src="{{this.img}}" />{{this.name}}
+      </ol>
+    {{/each}}
+
+    <!-- consumable list -->
+    <li class="inventory-header flexrow">
+        <h3 class="item-name flexrow">Consumables</h3>
+        <div class="item-controls">
+            <a class="item-control item-create" title="Create Item" data-type="consumable">
+                <i class="fas fa-plus"></i> Add
+            </a>
+        </div>
+    </li>
+
+    {{#each loot.consumable}}
+      <ol data-itemType="consumable" class="item-list">
+        <img src="{{this.img}}" />{{this.name}}
+      </ol>
+    {{/each}}
+
+    <!-- tools  list -->
+    <li class="inventory-header flexrow">
+        <h3 class="item-name flexrow">Tools</h3>
+        <div class="item-controls">
+            <a class="item-control item-create" title="Create Item" data-type="tool">
+                <i class="fas fa-plus"></i> Add
+            </a>
+        </div>
+    </li>
+
+    {{#each loot.tool}}
+      <ol data-itemType="tool" class="item-list">
+        <img src="{{this.img}}" />{{this.name}}
+      </ol>
+    {{/each}}
+
+    <li class="inventory-header flexrow">
+        <h3 class="item-name flexrow">Containers</h3>
+        <div class="item-controls">
+            <a class="item-control item-create" title="Create Item" data-type="backpack">
+                <i class="fas fa-plus"></i> Add
+            </a>
+        </div>
+    </li>
+
+    {{#each loot.backpack}}
+      <ol data-itemType="backpack" class="item-list">
+        <img src="{{this.img}}" />{{this.name}}
+      </ol>
+    {{/each}}
+
+    <!-- loot list -->
+    <li class="inventory-header flexrow">
+        <h3 class="item-name flexrow">Loot</h3>
+        <div class="item-controls">
+            <a class="item-control item-create" title="Create Item" data-type="loot">
+                <i class="fas fa-plus"></i> Add
+            </a>
+        </div>
+    </li>
+
+    {{#each loot.loot}}
+      <ol data-itemType="loot" class="item-list">
+        <img src="{{this.img}}" />{{this.name}}
+      </ol>
+    {{/each}}
+  </ol>
+</form>

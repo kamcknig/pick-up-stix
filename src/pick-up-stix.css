@@ -77,10 +77,13 @@ span.pick-up-stix-chat-currency.cp {
   background: url(assets/currency-sprite.png) -130px 0px;
 }
 
+.dnd5e.sheet.actor .inventory-list:not(:last-child) {
+  border-right: 1px solid #c9c7b8;
+}
+
 .dnd5e.sheet.actor .inventory-list .item-qty {
   flex: 0 0 60px;
   border-left: 1px solid #c9c7b8;
-  border-right: 1px solid #c9c7b8;
   color: #7a7971;
   overflow: hidden;
   text-align: center;

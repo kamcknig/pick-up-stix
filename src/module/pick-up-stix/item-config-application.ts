@@ -33,13 +33,14 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	activateListeners(html) {
-		console.log(`pick-up-stix | ItemConfigApplication | activateListeners called with args:`);
-		console.log(html);
-
+		console.log(`pick-up-stix | ItemConfigApplication | activateListeners`);
 		this._html = html;
 		super.activateListeners(this._html);
 
+		// set the click listener on the image
 		$(html).find(`[data-edit="img"]`).click(e => this._onEditImage(e));
+
+		// set click listeners on the buttons to pick up individual items
 		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
 	}
 
@@ -84,12 +85,12 @@ export default class ItemConfigApplication extends FormApplication {
 
 		Hooks.once('closeContainerImageSelectionApplication', () => {
 			console.log(`pick-up-stix | ItemConfigApplication | closeContainerImageSelectionApplication hook`);
-			this.render();
+			this.submit();
 		});
 	}
 
 	protected async _onDrop(e) {
-		console.log(`pick-up-stix | ItemConfigApplication | _onDrop`)
+		console.log(`pick-up-stix | ItemConfigApplication | _onDrop`);
 		const data = JSON.parse(e.dataTransfer.getData('text/plain'));
 
 		if (data.type !== "Item") {
@@ -104,10 +105,14 @@ export default class ItemConfigApplication extends FormApplication {
 			this._loot[itemType] = [];
 		}
 		this._loot[itemType].push(itemData);
-		this.render();
+		await this.submit();
 	}
 
-	protected _updateObject(e, formData) {
-		return Promise.resolve(true);
+	protected async _updateObject(e, formData) {
+		console.log(`pick-up-stix | ItemConfigApplication | _onUpdateObject called with args:`);
+		console.log([e, formData]);
+		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
+		await this._token.update(formData);
+		this.render();
 	}
 }

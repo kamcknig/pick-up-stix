@@ -1,4 +1,5 @@
 import ContainerImageSelectionApplication from "../container-image-selection-application";
+import { createOwnedEntity } from './main';
 
 /**
  * Application class to display to select an item that the token is
@@ -7,7 +8,7 @@ import ContainerImageSelectionApplication from "../container-image-selection-app
 export default class ItemConfigApplication extends FormApplication {
 	private _html: any;
 	private _loot: {
-		[key: string]: any[]
+		[key: string]: any[];
 	} = {};
 
 	static get defaultOptions(): ApplicationOptions {
@@ -39,19 +40,42 @@ export default class ItemConfigApplication extends FormApplication {
 		super.activateListeners(this._html);
 
 		$(html).find(`[data-edit="img"]`).click(e => this._onEditImage(e));
-		$(html).find('.item-list img').css('')
-
+		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
 	}
 
 	getData() {
+		console.log(`pick-up-stix | ItemConfigApplication | getData`);
 		const data = {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 18px;') ?? '',
-			loot: this._loot
+			loot: Object.entries(this._loot).reduce((prev, [k, v]) => {
+				prev[k] = v.reduce((prev, itemData) => {
+					const existing = prev.find(i => i._id === itemData._id);
+					if (existing) {
+						existing.qty = existing.qty + 1;
+						existing.price = existing.qty * existing.data.price;
+					}
+					else {
+						prev.push({...itemData, qty: 1, price: itemData.data.price})
+					}
+					return prev;
+				}, []);
+				return prev;
+			}, {})
 		};
-		console.log(`pick-up-stix | ItemConfigApplication | getData`);
-		console.log(data);
+		// console.log(data);
 		return data;
+	}
+
+	protected async _onTakeItem(e) {
+		console.log(`pick-up-stix | ItemConfigApplication | _onTakeItem`);
+		const itemId = e.currentTarget.dataset.id;
+		const actor = canvas.tokens.controlled[0].actor;
+		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
+		const itemData = this._loot?.[itemType]?.findSplice(i => i._id === itemId);
+		console.log([itemId, actor, itemType, itemData]);
+		await createOwnedEntity(actor, [itemData]);
+		this.render();
 	}
 
 	protected _onEditImage(e) {
@@ -80,7 +104,6 @@ export default class ItemConfigApplication extends FormApplication {
 			this._loot[itemType] = [];
 		}
 		this._loot[itemType].push(itemData);
-		//this.submit({});
 		this.render();
 	}
 

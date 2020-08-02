@@ -460,7 +460,7 @@ async function updateActor(actor, updates): Promise<void> {
 	socket.emit('module.pick-up-stix', msg);
 }
 
-async function createOwnedEntity(actor: Actor, items: any[]) {
+export async function createOwnedEntity(actor: Actor, items: any[]) {
 	if (game.user.isGM) {
 		await actor.createEmbeddedEntity('OwnedItem', items);
 		return;

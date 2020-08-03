@@ -423,7 +423,7 @@ async function deleteToken(token: Token): Promise<void> {
 
 export async function updateToken(token: Token, updates): Promise<void> {
 	console.log(`pick-up-stix | updateToken with args:`);
-	console.log(token, updates);
+	console.log([token, updates]);
 
 	if (game.user.isGM) {
 		await token.update(updates);
@@ -439,7 +439,9 @@ export async function updateToken(token: Token, updates): Promise<void> {
 		}
 	};
 
-	socket.emit('module.pick-up-stix', msg);
+	socket.emit('module.pick-up-stix', msg, () => {
+		console.log(`pick-up-stix | updateToken | socket message handled`);
+	});
 }
 
 async function updateActor(actor, updates): Promise<void> {

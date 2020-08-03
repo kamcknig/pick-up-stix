@@ -1,5 +1,5 @@
 import ContainerImageSelectionApplication from "../container-image-selection-application";
-import { createOwnedEntity } from './main';
+import { createOwnedEntity, updateToken } from './main';
 import { ItemType } from "./models";
 
 /**
@@ -37,7 +37,7 @@ export default class ItemConfigApplication extends FormApplication {
 		super({});
 		console.log(`pick-up-stix | ItemConfigApplication | constructed with args:`)
 		console.log(this._token);
-		this._loot = this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {};
+		this._loot = { ...this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') } ?? {};
 	}
 
 	activateListeners(html) {
@@ -85,7 +85,7 @@ export default class ItemConfigApplication extends FormApplication {
 		});
 		console.log([itemId, actor, itemType, itemData]);
 		await createOwnedEntity(actor, [itemData]);
-		this.render();
+		this.submit();
 	}
 
 	protected _onEditImage(e) {
@@ -140,7 +140,7 @@ export default class ItemConfigApplication extends FormApplication {
 		setProperty(formData, 'flags.pick-up-stix.pick-up-stix.containerLoot', { ...this._loot });
 		delete formData._id;
 		console.log([e, formData]);
-		await this._token.update(formData);
+		await updateToken(this._token, formData);
 		this.render();
 	}
 }

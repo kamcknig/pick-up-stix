@@ -10,7 +10,7 @@ import {
 } from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
-import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags } from "./models";
+import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags, ItemType } from "./models";
 import { handleOnDrop } from "./overrides";
 
 /**
@@ -148,7 +148,15 @@ export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options:
 		return;
 	}
 
-	setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
+	setProperty(itemData.flags, 'pick-up-stix.pick-up-stix', {
+		owner: {
+			actorId: actor.id
+		},
+		initialState: { id: itemData._id, count: 1, itemData: { ...itemData, flags: {} } },
+		imageOriginalPath: itemData.img,
+		itemType: ItemType.ITEM,
+		isLocked: false
+	});
 };
 
 export async function onPreUpdateToken(scene: Scene, tokenData: any, data: any, userId: string) {

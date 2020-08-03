@@ -462,7 +462,7 @@ async function updateActor(actor, updates): Promise<void> {
 
 export async function createOwnedEntity(actor: Actor, items: any[]) {
 	if (game.user.isGM) {
-		await actor.createEmbeddedEntity('OwnedItem', items);
+		await actor.createOwnedItem(items);
 		return;
 	}
 

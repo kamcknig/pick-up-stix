@@ -1,5 +1,6 @@
 import ContainerImageSelectionApplication from "../container-image-selection-application";
 import { createOwnedEntity } from './main';
+import { ItemType } from "./models";
 
 /**
  * Application class to display to select an item that the token is
@@ -58,7 +59,7 @@ export default class ItemConfigApplication extends FormApplication {
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 18px;') ?? '',
 			loot: this._loot
 		};
-		// console.log(data);
+		console.log(data);
 		return data;
 	}
 
@@ -68,9 +69,15 @@ export default class ItemConfigApplication extends FormApplication {
 		const actor = canvas.tokens.controlled[0].actor;
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemData = this._loot?.[itemType]?.find(i => i._id === itemId);
-		if (itemData.qty-- === 0) {
+		if (--itemData.qty === 0) {
 			this._loot?.[itemType].findSplice(i => i._id === itemId);
 		}
+		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', {
+			initialState: { id: itemData._id, count: 1, itemData: { ...itemData, flags: {} } },
+			imageOriginalPath: itemData.img,
+			itemType: ItemType.ITEM,
+			isLocked: false
+		});
 		console.log([itemId, actor, itemType, itemData]);
 		await createOwnedEntity(actor, [itemData]);
 		this.render();
@@ -89,13 +96,23 @@ export default class ItemConfigApplication extends FormApplication {
 	protected async _onDrop(e) {
 		console.log(`pick-up-stix | ItemConfigApplication | _onDrop`);
 		const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+		console.log(data);
 
 		if (data.type !== "Item") {
 			console.log(`pick-up-stix | ItemConfigApplication | _onDrop | item is not 'Item' type`);
 			return;
 		}
 
-		const itemData = data.data ?? await game.items.get(data.id)?.data ?? await game.packs.get(data.pack).getEntry(data.id);
+		if (data.actorId) {
+			await game.actors.get(data.actorId).deleteOwnedItem(data.data._id);
+		}
+
+		let itemData = data.data ?? await game.items.get(data.id)?.data ?? await game.packs.get(data.pack).getEntry(data.id);
+
+		if (data.actorId) {
+			itemData = { ...getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.initialState.itemData') };
+		}
+
 		const itemType = itemData.type;
 
 		if (!this._loot[itemType]) {

@@ -7,9 +7,15 @@ import { createOwnedEntity } from './main';
  */
 export default class ItemConfigApplication extends FormApplication {
 	private _html: any;
+
+	/**
+	 * This is an object of the loot that this container holds. The keys are the loot type
+	 * `weapon`, `equipment`, `consumable`, `backpack`, `tool`, `loot`. The values will
+	 * be an array of Item instance data
+	 */
 	private _loot: {
 		[key: string]: any[];
-	} = {};
+	};
 
 	static get defaultOptions(): ApplicationOptions {
 		return mergeObject(super.defaultOptions, {
@@ -30,6 +36,7 @@ export default class ItemConfigApplication extends FormApplication {
 		super({});
 		console.log(`pick-up-stix | ItemConfigApplication | constructed with args:`)
 		console.log(this._token);
+		this._loot = this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {};
 	}
 
 	activateListeners(html) {
@@ -49,20 +56,7 @@ export default class ItemConfigApplication extends FormApplication {
 		const data = {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 18px;') ?? '',
-			loot: Object.entries(this._loot).reduce((prev, [k, v]) => {
-				prev[k] = v.reduce((prev, itemData) => {
-					const existing = prev.find(i => i._id === itemData._id);
-					if (existing) {
-						existing.qty = existing.qty + 1;
-						existing.price = existing.qty * existing.data.price;
-					}
-					else {
-						prev.push({...itemData, qty: 1, price: itemData.data.price})
-					}
-					return prev;
-				}, []);
-				return prev;
-			}, {})
+			loot: this._loot
 		};
 		// console.log(data);
 		return data;
@@ -73,7 +67,10 @@ export default class ItemConfigApplication extends FormApplication {
 		const itemId = e.currentTarget.dataset.id;
 		const actor = canvas.tokens.controlled[0].actor;
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
-		const itemData = this._loot?.[itemType]?.findSplice(i => i._id === itemId);
+		const itemData = this._loot?.[itemType]?.find(i => i._id === itemId);
+		if (itemData.qty-- === 0) {
+			this._loot?.[itemType].findSplice(i => i._id === itemId);
+		}
 		console.log([itemId, actor, itemType, itemData]);
 		await createOwnedEntity(actor, [itemData]);
 		this.render();
@@ -104,14 +101,23 @@ export default class ItemConfigApplication extends FormApplication {
 		if (!this._loot[itemType]) {
 			this._loot[itemType] = [];
 		}
-		this._loot[itemType].push(itemData);
+		const existingItem = this._loot[itemType].find(i => i._id === itemData._id);
+		if (existingItem) {
+			existingItem.qty++;
+		}
+		else {
+			itemData.qty = 1;
+			this._loot[itemType].push(itemData);
+		}
 		await this.submit();
 	}
 
 	protected async _updateObject(e, formData) {
 		console.log(`pick-up-stix | ItemConfigApplication | _onUpdateObject called with args:`);
-		console.log([e, formData]);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
+		setProperty(formData, 'flags.pick-up-stix.pick-up-stix.containerLoot', { ...this._loot });
+		delete formData._id;
+		console.log([e, formData]);
 		await this._token.update(formData);
 		this.render();
 	}

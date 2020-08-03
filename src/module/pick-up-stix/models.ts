@@ -12,10 +12,15 @@ export interface PickUpStixFlags {
 	imageContainerOpenPath: string;
 	isOpen: boolean;
 	isLocked: boolean;
+	containerLoot: {
+		[key: string]: any[];
+	}
+
+
+
 
 
 	itemData?: ItemData[];
-
 	canClose?: boolean;
 	currency?: {
 		pp?: number;

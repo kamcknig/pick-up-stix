@@ -1,5 +1,5 @@
 import ContainerImageSelectionApplication from "../container-image-selection-application";
-import { createOwnedEntity, updateToken } from './main';
+import { createOwnedEntity, updateToken, itemCollected } from './main';
 import { ItemType } from "./models";
 
 /**
@@ -66,11 +66,14 @@ export default class ItemConfigApplication extends FormApplication {
 	protected async _onTakeItem(e) {
 		console.log(`pick-up-stix | ItemConfigApplication | _onTakeItem`);
 		const itemId = e.currentTarget.dataset.id;
-		const actor = canvas.tokens.controlled?.[0]?.actor;
-		if (!actor) {
+		const token = canvas.tokens.controlled?.[0];
+
+		if (!token) {
 			ui.notifications.error('You must be controlling only one token to pick up an item');
 			return;
 		}
+
+		const actor = token.actor;
 
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemData = this._loot?.[itemType]?.find(i => i._id === itemId);
@@ -85,6 +88,7 @@ export default class ItemConfigApplication extends FormApplication {
 		});
 		console.log([itemId, actor, itemType, itemData]);
 		await createOwnedEntity(actor, [itemData]);
+		itemCollected(token, itemData);
 		this.submit();
 	}
 

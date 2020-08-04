@@ -306,19 +306,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 				...clickedToken.data.flags
 			}
 		});
-
-		ChatMessage.create({
-			content: `
-				<p>Picked up ${flags.initialState.count} ${flags.initialState.itemData.name}</p>
-				<img src="${flags.imageOriginalPath}" style="width: 40px;" />
-			`,
-			speaker: {
-				alias: controlledToken.actor.name,
-				scene: (game.scenes as any).active.id,
-				actor: controlledToken.actor.id,
-				token: controlledToken.id
-			}
-		});
+		itemCollected(controlledToken, { ...flags.initialState.itemData });
 	}, 250);
 
 	// if it's not a container or if it is and it's open it's now open (from switching above) then update
@@ -530,4 +518,19 @@ export async function drawLockIcon(p: PlaceableObject): Promise<any> {
 	icon.width = icon.height = 40;
 	icon.alpha = .5;
 	icon.position.set(p.width * .5 - icon.width * .5, p.height * .5 - icon.height * .5);
+}
+
+export function itemCollected(actorToken, item) {
+	ChatMessage.create({
+		content: `
+			<p>Picked up ${item.name}</p>
+			<img src="${item.img}" style="width: 40px;" />
+		`,
+		speaker: {
+			alias: actorToken.actor.name,
+			scene: (game.scenes as any).active.id,
+			actor: actorToken.actor.id,
+			token: actorToken.id
+		}
+	});
 }

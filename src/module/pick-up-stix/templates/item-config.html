@@ -12,228 +12,244 @@
     </section>
   </header>
 
-  <!-- list of items separated by type -->
-  <ol class="inventory-list">
-    <!-- weapon list -->
-    <li class="inventory-header flexrow">
-        <h3 class="item-name flexrow">Weapons</h3>
-        <div class="item-details item-qty">Qty</div>
-        <div class="item-details item-value">Value</div>
-        <div class="item-controls">
-            <a class="item-control item-create" title="Create Item" data-type="weapon">
-                <i class="fas fa-plus"></i> Add
-            </a>
-        </div>
-    </li>
+  <!-- display currencies -->
+  <section class="currency-details flexrow">
+    <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
+    <ul class="currency-list flexrow">
+      <li>Platinum <span>20</span></li>
+      <li>Electrum <span>20</span></li>
+      <li>Gold <span>20</span></li>
+      <li>Silver <span>20</span></li>
+      <li>Copper <span>20</span></li>
+      <li class="item-controls"><a class="item-take"><i class="fas fa-hand-paper"></i></a></li>
+    </ul>
+  </section>
 
-    <ol data-itemType="weapon" class="item-list">
-      {{#each loot.weapon}}
-      <li class="item flexrow">
-        <div class="item-name flexrow">
-          <div class="item-image" style="background-image: url({{this.img}});"></div>
-          <h4>{{this.name}}</h4>
-        </div>
-
-        <div class="item-qty">
-          {{this.qty}}
-        </div>
-
-        <div class="item-value">
-          {{this.price}}
-        </div>
-
-        <div class="item-controls">
-          <a data-id="{{this._id}}" class="item-control item-take" title="Take Item">
-            <i class="fas fa-hand-paper"></i>
-          </a>
-        </div>
+  <section class="inventory-details">
+    <h3>Loot <i class="fas fa-box"></i></h3>
+    <!-- list of items separated by type -->
+    <ol class="inventory-list">
+      <!-- weapon list -->
+      <li class="inventory-header flexrow">
+          <h3 class="item-name flexrow">Weapons</h3>
+          <div class="item-details item-qty">Qty</div>
+          <div class="item-details item-value">Value</div>
+          <div class="item-controls">
+              <a class="item-create" title="Create Item" data-type="weapon">
+                  <i class="fas fa-plus"></i> Add
+              </a>
+          </div>
       </li>
-      {{/each}}
-    </ol>
 
-    <!-- equipment  list -->
-    <li class="inventory-header flexrow">
-        <h3 class="item-name flexrow">Equipment</h3>
-        <div class="item-details item-qty">Qty</div>
-        <div class="item-details item-value">Value</div>
-        <div class="item-controls">
-            <a class="item-control item-create" title="Create Item" data-type="weapon">
-                <i class="fas fa-plus"></i> Add
+      <ol data-itemType="weapon" class="item-list">
+        {{#each loot.weapon}}
+        <li class="item flexrow">
+          <div class="item-name flexrow">
+            <div class="item-image" style="background-image: url({{this.img}});"></div>
+            <h4>{{this.name}}</h4>
+          </div>
+
+          <div class="item-qty">
+            {{this.qty}}
+          </div>
+
+          <div class="item-value">
+            {{this.price}}
+          </div>
+
+          <div class="item-controls">
+            <a data-id="{{this._id}}" class="item-take" title="Take Item">
+              <i class="fas fa-hand-paper"></i>
             </a>
-        </div>
-    </li>
+          </div>
+        </li>
+        {{/each}}
+      </ol>
 
-    <ol data-itemType="equipment" class="item-list">
-      {{#each loot.equipment}}
-      <li class="item flexrow">
-        <div class="item-name flexrow">
-          <div class="item-image" style="background-image: url({{this.img}});"></div>
-          <h4>{{this.name}}</h4>
-        </div>
-
-        <div class="item-qty">
-          {{this.qty}}
-        </div>
-
-        <div class="item-value">
-          {{this.price}}
-        </div>
-
-        <div class="item-controls">
-          <a data-id="{{this._id}}" class="item-control item-take" title="Take Item">
-            <i class="fas fa-hand-paper"></i>
-          </a>
-        </div>
+      <!-- equipment  list -->
+      <li class="inventory-header flexrow">
+          <h3 class="item-name flexrow">Equipment</h3>
+          <div class="item-details item-qty">Qty</div>
+          <div class="item-details item-value">Value</div>
+          <div class="item-controls">
+              <a class="item-create" title="Create Item" data-type="weapon">
+                  <i class="fas fa-plus"></i> Add
+              </a>
+          </div>
       </li>
-      {{/each}}
-    </ol>
 
-    <!-- consumable list -->
-    <li class="inventory-header flexrow">
-        <h3 class="item-name flexrow">Consumables</h3>
-        <div class="item-details item-qty">Qty</div>
-        <div class="item-details item-value">Value</div>
-        <div class="item-controls">
-            <a class="item-control item-create" title="Create Item" data-type="weapon">
-                <i class="fas fa-plus"></i> Add
+      <ol data-itemType="equipment" class="item-list">
+        {{#each loot.equipment}}
+        <li class="item flexrow">
+          <div class="item-name flexrow">
+            <div class="item-image" style="background-image: url({{this.img}});"></div>
+            <h4>{{this.name}}</h4>
+          </div>
+
+          <div class="item-qty">
+            {{this.qty}}
+          </div>
+
+          <div class="item-value">
+            {{this.price}}
+          </div>
+
+          <div class="item-controls">
+            <a data-id="{{this._id}}" class="item-take" title="Take Item">
+              <i class="fas fa-hand-paper"></i>
             </a>
-        </div>
-    </li>
+          </div>
+        </li>
+        {{/each}}
+      </ol>
 
-    <ol data-itemType="consumable" class="item-list">
-      {{#each loot.consumable}}
-      <li class="item flexrow">
-        <div class="item-name flexrow">
-          <div class="item-image" style="background-image: url({{this.img}});"></div>
-          <h4>{{this.name}}</h4>
-        </div>
-
-        <div class="item-qty">
-          {{this.qty}}
-        </div>
-
-        <div class="item-value">
-          {{this.price}}
-        </div>
-
-        <div class="item-controls">
-          <a data-id="{{this._id}}" class="item-control item-take" title="Take Item">
-            <i class="fas fa-hand-paper"></i>
-          </a>
-        </div>
+      <!-- consumable list -->
+      <li class="inventory-header flexrow">
+          <h3 class="item-name flexrow">Consumables</h3>
+          <div class="item-details item-qty">Qty</div>
+          <div class="item-details item-value">Value</div>
+          <div class="item-controls">
+              <a class="item-create" title="Create Item" data-type="weapon">
+                  <i class="fas fa-plus"></i> Add
+              </a>
+          </div>
       </li>
-      {{/each}}
-    </ol>
 
-    <!-- tools  list -->
-    <li class="inventory-header flexrow">
-        <h3 class="item-name flexrow">Tools</h3>
-        <div class="item-details item-qty">Qty</div>
-        <div class="item-details item-value">Value</div>
-        <div class="item-controls">
-            <a class="item-control item-create" title="Create Item" data-type="weapon">
-                <i class="fas fa-plus"></i> Add
+      <ol data-itemType="consumable" class="item-list">
+        {{#each loot.consumable}}
+        <li class="item flexrow">
+          <div class="item-name flexrow">
+            <div class="item-image" style="background-image: url({{this.img}});"></div>
+            <h4>{{this.name}}</h4>
+          </div>
+
+          <div class="item-qty">
+            {{this.qty}}
+          </div>
+
+          <div class="item-value">
+            {{this.price}}
+          </div>
+
+          <div class="item-controls">
+            <a data-id="{{this._id}}" class="item-take" title="Take Item">
+              <i class="fas fa-hand-paper"></i>
             </a>
-        </div>
-    </li>
+          </div>
+        </li>
+        {{/each}}
+      </ol>
 
-    <ol data-itemType="tool" class="item-list">
-      {{#each loot.tool}}
-      <li class="item flexrow">
-        <div class="item-name flexrow">
-          <div class="item-image" style="background-image: url({{this.img}});"></div>
-          <h4>{{this.name}}</h4>
-        </div>
-
-        <div class="item-qty">
-          {{this.qty}}
-        </div>
-
-        <div class="item-value">
-          {{this.price}}
-        </div>
-
-        <div class="item-controls">
-          <a data-id="{{this._id}}" class="item-control item-take" title="Take Item">
-            <i class="fas fa-hand-paper"></i>
-          </a>
-        </div>
+      <!-- tools  list -->
+      <li class="inventory-header flexrow">
+          <h3 class="item-name flexrow">Tools</h3>
+          <div class="item-details item-qty">Qty</div>
+          <div class="item-details item-value">Value</div>
+          <div class="item-controls">
+              <a class="item-create" title="Create Item" data-type="weapon">
+                  <i class="fas fa-plus"></i> Add
+              </a>
+          </div>
       </li>
-      {{/each}}
-    </ol>
 
-    <!-- container list -->
-    <li class="inventory-header flexrow">
-        <h3 class="item-name flexrow">Containers</h3>
-        <div class="item-details item-qty">Qty</div>
-        <div class="item-details item-value">Value</div>
-        <div class="item-controls">
-            <a class="item-control item-create" title="Create Item" data-type="weapon">
-                <i class="fas fa-plus"></i> Add
+      <ol data-itemType="tool" class="item-list">
+        {{#each loot.tool}}
+        <li class="item flexrow">
+          <div class="item-name flexrow">
+            <div class="item-image" style="background-image: url({{this.img}});"></div>
+            <h4>{{this.name}}</h4>
+          </div>
+
+          <div class="item-qty">
+            {{this.qty}}
+          </div>
+
+          <div class="item-value">
+            {{this.price}}
+          </div>
+
+          <div class="item-controls">
+            <a data-id="{{this._id}}" class="item-take" title="Take Item">
+              <i class="fas fa-hand-paper"></i>
             </a>
-        </div>
-    </li>
+          </div>
+        </li>
+        {{/each}}
+      </ol>
 
-    <ol data-itemType="backpack" class="item-list">
-      {{#each loot.backpack}}
-      <li class="item flexrow">
-        <div class="item-name flexrow">
-          <div class="item-image" style="background-image: url({{this.img}});"></div>
-          <h4>{{this.name}}</h4>
-        </div>
-
-        <div class="item-qty">
-          {{this.qty}}
-        </div>
-
-        <div class="item-value">
-          {{this.price}}
-        </div>
-
-        <div class="item-controls">
-          <a data-id="{{this._id}}" class="item-control item-take" title="Take Item">
-            <i class="fas fa-hand-paper"></i>
-          </a>
-        </div>
+      <!-- container list -->
+      <li class="inventory-header flexrow">
+          <h3 class="item-name flexrow">Containers</h3>
+          <div class="item-details item-qty">Qty</div>
+          <div class="item-details item-value">Value</div>
+          <div class="item-controls">
+              <a class="item-create" title="Create Item" data-type="weapon">
+                  <i class="fas fa-plus"></i> Add
+              </a>
+          </div>
       </li>
-      {{/each}}
-    </ol>
 
-    <!-- loot list -->
-    <li class="inventory-header flexrow">
-        <h3 class="item-name flexrow">Loot</h3>
-        <div class="item-details item-qty">Qty</div>
-        <div class="item-details item-value">Value</div>
-        <div class="item-controls">
-            <a class="item-control item-create" title="Create Item" data-type="weapon">
-                <i class="fas fa-plus"></i> Add
+      <ol data-itemType="backpack" class="item-list">
+        {{#each loot.backpack}}
+        <li class="item flexrow">
+          <div class="item-name flexrow">
+            <div class="item-image" style="background-image: url({{this.img}});"></div>
+            <h4>{{this.name}}</h4>
+          </div>
+
+          <div class="item-qty">
+            {{this.qty}}
+          </div>
+
+          <div class="item-value">
+            {{this.price}}
+          </div>
+
+          <div class="item-controls">
+            <a data-id="{{this._id}}" class="item-take" title="Take Item">
+              <i class="fas fa-hand-paper"></i>
             </a>
-        </div>
-    </li>
+          </div>
+        </li>
+        {{/each}}
+      </ol>
 
-    <ol data-itemType="loot" class="item-list">
-      {{#each loot.loot}}
-      <li class="item flexrow">
-        <div class="item-name flexrow">
-          <div class="item-image" style="background-image: url({{this.img}});"></div>
-          <h4>{{this.name}}</h4>
-        </div>
-
-        <div class="item-qty">
-          {{this.qty}}
-        </div>
-
-        <div class="item-value">
-          {{this.price}}
-        </div>
-
-        <div class="item-controls">
-          <a data-id="{{this._id}}" class="item-control item-take" title="Take Item">
-            <i class="fas fa-hand-paper"></i>
-          </a>
-        </div>
+      <!-- loot list -->
+      <li class="inventory-header flexrow">
+          <h3 class="item-name flexrow">Loot</h3>
+          <div class="item-details item-qty">Qty</div>
+          <div class="item-details item-value">Value</div>
+          <div class="item-controls">
+              <a class="item-create" title="Create Item" data-type="weapon">
+                  <i class="fas fa-plus"></i> Add
+              </a>
+          </div>
       </li>
-      {{/each}}
+
+      <ol data-itemType="loot" class="item-list">
+        {{#each loot.loot}}
+        <li class="item flexrow">
+          <div class="item-name flexrow">
+            <div class="item-image" style="background-image: url({{this.img}});"></div>
+            <h4>{{this.name}}</h4>
+          </div>
+
+          <div class="item-qty">
+            {{this.qty}}
+          </div>
+
+          <div class="item-value">
+            {{this.price}}
+          </div>
+
+          <div class="item-controls">
+            <a data-id="{{this._id}}" class="item-take" title="Take Item">
+              <i class="fas fa-hand-paper"></i>
+            </a>
+          </div>
+        </li>
+        {{/each}}
+      </ol>
     </ol>
-  </ol>
+  </section>
 </form>

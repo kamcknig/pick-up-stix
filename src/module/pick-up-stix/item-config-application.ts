@@ -65,7 +65,7 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	getData() {
-		console.log(`pick-up-stix | ItemConfigApplication | getData`);
+		console.log(`pick-up-stix | ItemConfigApplication | getData:`);
 		const data = {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 18px;') ?? '',
@@ -115,7 +115,7 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	protected async _onDrop(e) {
-		console.log(`pick-up-stix | ItemConfigApplication | _onDrop`);
+		console.log(`pick-up-stix | ItemConfigApplication | _onDrop with data:`);
 		const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
 		console.log(droppedData);
 

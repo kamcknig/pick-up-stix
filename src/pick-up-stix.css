@@ -98,8 +98,51 @@ span.pick-up-stix-chat-currency.cp {
   text-align: center;
 }
 
-.dnd5e.sheet.actor .inventory-list .item-controls a {
-  flex: 0 0 22px;
+.dnd5e.sheet.actor .inventory-list .item-controls a,
+ul.currency-list li .item-controls a,
+ul.currency-list li.item-controls a {
   text-align: center;
   color: #7a7971;
+}
+
+.dnd5e.sheet.actor .inventory-list .item-controls a.item-take,
+ul.currency-list li .item-controls a,
+ul.currency-list li.item-controls a {
+  flex: 1;
+}
+
+section.inventory-details,
+section.currency-details {
+  border-bottom: 2px groove #eeede0;
+  padding-top: 5px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+section.currency-details .currency-header {
+  flex: 0 0 120px;
+}
+
+ul.currency-list {
+  list-style: none;
+  justify-content: space-around;
+}
+
+ul.currency-list > * {
+  flex: unset;
+}
+
+ul.currency-list li.item-controls {
+  flex: 0 0 44px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+ul.currency-list li span {
+  display: inline-block;
+  width: 50px;
+  text-align: center;
+  border-bottom: 2px groove #eeede0;
 }

@@ -37,7 +37,19 @@ export default class ItemConfigApplication extends FormApplication {
 		super({});
 		console.log(`pick-up-stix | ItemConfigApplication | constructed with args:`)
 		console.log(this._token);
-		this._loot = { ...this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') } ?? {};
+		this._loot = duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {});
+		Hooks.on('updateToken', this._tokenUpdated.bind(this));
+	}
+
+	protected _tokenUpdated(scene, data, flags, options, userId) {
+		console.log(`pick-up-stix | ItemConfigApplication | _tokenUpdated called with args:`);
+		console.log([scene, data, flags, options, userId]);
+
+		if (data._id === this._token.id) {
+			console.log(`pick-up-stix | ItemConfigApplication | _tokenUpdated | token has been updated, re-render`);
+			this._loot = duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {});
+			this.render();
+		}
 	}
 
 	activateListeners(html) {
@@ -68,7 +80,7 @@ export default class ItemConfigApplication extends FormApplication {
 		const itemId = e.currentTarget.dataset.id;
 		const token = canvas.tokens.controlled?.[0];
 
-		if (!token) {
+		if (!token || !token.actor) {
 			ui.notifications.error('You must be controlling only one token to pick up an item');
 			return;
 		}
@@ -104,21 +116,21 @@ export default class ItemConfigApplication extends FormApplication {
 
 	protected async _onDrop(e) {
 		console.log(`pick-up-stix | ItemConfigApplication | _onDrop`);
-		const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-		console.log(data);
+		const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
+		console.log(droppedData);
 
-		if (data.type !== "Item") {
+		if (droppedData.type !== "Item") {
 			console.log(`pick-up-stix | ItemConfigApplication | _onDrop | item is not 'Item' type`);
 			return;
 		}
 
-		if (data.actorId) {
-			await game.actors.get(data.actorId).deleteOwnedItem(data.data._id);
+		if (droppedData.actorId) {
+			await game.actors.get(droppedData.actorId).deleteOwnedItem(droppedData.data._id);
 		}
 
-		let itemData = data.data ?? await game.items.get(data.id)?.data ?? await game.packs.get(data.pack).getEntry(data.id);
+		let itemData = droppedData.data ?? await game.items.get(droppedData.id)?.data ?? await game.packs.get(droppedData.pack).getEntry(droppedData.id);
 
-		if (data.actorId) {
+		if (droppedData.actorId) {
 			itemData = { ...getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.initialState.itemData') };
 		}
 
@@ -146,5 +158,11 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log([e, formData]);
 		await updateToken(this._token, formData);
 		this.render();
+	}
+
+	async close() {
+		console.log(`pick-up-stix | ItemConfigApplication | close`);
+		Hooks.off('renderToken', this._tokenUpdated);
+		return super.close();
 	}
 }

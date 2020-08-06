@@ -162,22 +162,6 @@ export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options:
 	});
 };
 
-export async function onPreUpdateToken(scene: Scene, tokenData: any, data: any, userId: string) {
-	try {
-		const currentLocked: boolean = getProperty(tokenData.flags, 'pick-up-stix.pick-up-stix.isLocked');
-		const newLocked: boolean = getProperty(data.flags, 'pick-up-stix.pick-up-stix.isLocked');
-
-		console.log(currentLocked, newLocked);
-		// if we are currently locked and this update unlocks the item, then set a temp flag to delete the lock after the update
-		if (currentLocked && !newLocked) {
-			setProperty(data.flags, 'pick-up-stix.pick-up-stix.deleteLock', true);
-		}
-	}
-	catch (e) {
-
-	}
-}
-
 export function onDeleteToken(scene: Scene, tokenData: any, data: any, userId: string) {
 	console.log(`pick-up-stix | onDeleteToken | called with args:`);
 	console.log([scene, tokenData, data, userId]);
@@ -197,16 +181,12 @@ export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: an
 			if (flags.isLocked) {
 				await drawLockIcon(token);
 			}
-			else if (flags.deleteLock) {
-				flags.deleteLock = false;
-				token.removeChildAt(token.children.length - 1).destroy();
-				await updateToken(token, {
-					flags: {
-						...flags
-					}
-				});
+			else {
+				const lock = token.getChildByName('pick-up-stix-lock');
+				if (lock) {
+					token.removeChild(lock);
+				}
 			}
-
 			token.mouseInteractionManager = setupMouseManager.bind(token)();
 			token.activateListeners = setupMouseManager.bind(token);
 	}

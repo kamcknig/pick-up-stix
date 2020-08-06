@@ -9,6 +9,8 @@ import { DND5E } from "../../../../systems/dnd5e/module/config.js";
  * associated with
  */
 export default class ItemConfigApplication extends FormApplication {
+	private _tokenUpdateHandler;
+	private _tokenDeletedHandler;
 	private _html: any;
 
 	/**
@@ -23,6 +25,7 @@ export default class ItemConfigApplication extends FormApplication {
 	static get defaultOptions(): ApplicationOptions {
 		return mergeObject(super.defaultOptions, {
 			closeOnSubmit: false,
+			submitOnClose: false,
 			id: "pick-up-stix-item-config",
 			template: "modules/pick-up-stix/module/pick-up-stix/templates/item-config.html",
 			width: 500,
@@ -37,25 +40,39 @@ export default class ItemConfigApplication extends FormApplication {
 
 	constructor(private _token: Token) {
 		super({});
-		console.log(`pick-up-stix | ItemConfigApplication | constructed with args:`)
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructed with args:`)
 		console.log(this._token);
 		this._loot = duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {});
-		Hooks.on('updateToken', this._tokenUpdated.bind(this));
+
+		this._tokenUpdateHandler = this._tokenUpdated.bind(this);
+		this._tokenDeletedHandler = this._tokenDeleted.bind(this);
+		Hooks.on('updateToken', this._tokenUpdateHandler);
+		Hooks.on('deleteToken', this._tokenDeletedHandler);
+	}
+
+	protected _tokenDeleted(scene: Scene, tokenData: any, data: any, userId: string) {
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _tokenDeleted called with args:`);
+		console.log([scene, tokenData, data, userId]);
+
+		if (tokenData._id === this._token.id) {
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _tokenDeleted | token ID matches this app's token`)
+			this.close();
+		}
 	}
 
 	protected _tokenUpdated(scene, data, flags, options, userId) {
-		console.log(`pick-up-stix | ItemConfigApplication | _tokenUpdated called with args:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _tokenUpdated called with args:`);
 		console.log([scene, data, flags, options, userId]);
 
 		if (data._id === this._token.id) {
-			console.log(`pick-up-stix | ItemConfigApplication | _tokenUpdated | token has been updated, re-render`);
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _tokenUpdated | token has been updated, re-render`);
 			this._loot = duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {});
 			this.render();
 		}
 	}
 
 	activateListeners(html) {
-		console.log(`pick-up-stix | ItemConfigApplication | activateListeners`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | activateListeners`);
 		this._html = html;
 		super.activateListeners(this._html);
 
@@ -67,7 +84,7 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	getData() {
-		console.log(`pick-up-stix | ItemConfigApplication | getData:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | getData:`);
 		const data = {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
@@ -80,7 +97,7 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	protected async _onTakeItem(e) {
-		console.log(`pick-up-stix | ItemConfigApplication | _onTakeItem`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onTakeItem`);
 		const itemId = e.currentTarget.dataset.id;
 		const token = canvas.tokens.controlled?.[0];
 
@@ -109,22 +126,22 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	protected _onEditImage(e) {
-		console.log(`pick-up-stix | ItemConfigApplication | _onEditImage`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onEditImage`);
 		const f = new ContainerImageSelectionApplication(this._token).render(true);
 
 		Hooks.once('closeContainerImageSelectionApplication', () => {
-			console.log(`pick-up-stix | ItemConfigApplication | closeContainerImageSelectionApplication hook`);
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | closeContainerImageSelectionApplication hook`);
 			this.submit();
 		});
 	}
 
 	protected async _onDrop(e) {
-		console.log(`pick-up-stix | ItemConfigApplication | _onDrop with data:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop with data:`);
 		const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
 		console.log(droppedData);
 
 		if (droppedData.type !== "Item") {
-			console.log(`pick-up-stix | ItemConfigApplication | _onDrop | item is not 'Item' type`);
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | item is not 'Item' type`);
 			return;
 		}
 
@@ -155,7 +172,7 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	protected async _updateObject(e, formData) {
-		console.log(`pick-up-stix | ItemConfigApplication | _onUpdateObject called with args:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject called with args:`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
 		setProperty(formData, 'flags.pick-up-stix.pick-up-stix.containerLoot', { ...this._loot });
 		delete formData._id;
@@ -165,8 +182,9 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	async close() {
-		console.log(`pick-up-stix | ItemConfigApplication | close`);
-		Hooks.off('renderToken', this._tokenUpdated);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | close`);
+		Hooks.off('updateToken', this._tokenUpdateHandler);
+		Hooks.off('deleteToken', this._tokenDeletedHandler);
 		return super.close();
 	}
 }

@@ -515,6 +515,7 @@ export async function drawLockIcon(p: PlaceableObject): Promise<any> {
 
 	const tex = await loadTexture('icons/svg/padlock.svg');
 	const icon = p.addChild(new PIXI.Sprite(tex));
+	icon.name = 'pick-up-stix-lock';
 	icon.width = icon.height = 40;
 	icon.alpha = .5;
 	icon.position.set(p.width * .5 - icon.width * .5, p.height * .5 - icon.height * .5);

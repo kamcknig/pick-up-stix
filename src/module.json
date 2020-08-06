@@ -2,7 +2,7 @@
 	"name": "pick-up-stix",
 	"title": "Pick-Up-Stix",
 	"description": "Allows Items to be placed on the map as Tokens that players are able to pick up.",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"author": "Kyle McKnight",
 	"socket": true,
 	"authors": [
@@ -13,6 +13,7 @@
 		}
 	],
 	"scripts": [],
+	"systems": ["dnd5e"],
 	"esmodules": ["pick-up-stix.js"],
 	"styles": ["pick-up-stix.css"],
 	"packs": [],

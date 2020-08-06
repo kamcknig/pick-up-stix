@@ -1,0 +1,73 @@
+<form>
+    <!-- container image, name, and description-->
+  <header class="sheet-header flexrow">
+    <!-- display the image -->
+    <img class="profile" src="{{object.[flags].[pick-up-stix].[pick-up-stix].imageContainerOpenPath}}" title="chest" data-edit="img">
+
+    <!-- container name and description -->
+    <section class="header-details">
+      <h1 style="border-bottom: 2px groove #eeede0;" class="charname">{{object.name}}</h1>
+      <div class="container-description">
+        {{{containerDescription}}}
+      </div>
+    </section>
+  </header>
+
+  <!-- display currencies -->
+  <section class="currency-details flexrow">
+    <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
+    <ul class="currency-list flexrow">
+      {{#each currencyTypes as | currencyOb |}}
+        <label>{{currencyOb.long}}</label>
+        {{#with (lookup (lookup ../loot 'currency') currencyOb.short)}}
+          <input name="flags.pick-up-stix.pick-up-stix.containerLoot.currency.{{currencyOb.short}}" type="text" class="currency-input" data-itemType="currency" data-dtype="Number" data-currency-input value="{{this}}">
+        {{/with}}
+      {{/each}}
+      <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
+    </ul>
+  </section>
+
+  <!-- display loot -->
+  <section class="inventory-details">
+    <h3>Loot <i class="fas fa-box"></i></h3>
+    <ol class="inventory-list">
+      {{#each lootTypes as | lootType |}}
+        <li class="inventory-header flexrow">
+            <h3 class="item-name flexrow">{{lootType}}</h3>
+            <div class="item-details item-qty">Qty</div>
+            <div class="item-details item-value">Value</div>
+            <div class="item-controls">
+                <a class="item-create" title="Create Item" data-type="weapon">
+                    <i class="fas fa-plus"></i> Add
+                </a>
+            </div>
+        </li>
+
+        <ol data-itemType="{{lootType}}" class="item-list">
+          {{#each (lookup ../loot lootType) as | loot |}}
+            <li class="item flexrow">
+              <div class="item-name flexrow">
+                <div class="item-image" style="background-image: url({{loot.img}});"></div>
+                <h4>{{loot.name}}</h4>
+              </div>
+
+              <div class="item-qty">
+                {{loot.qty}}
+              </div>
+
+              <div class="item-value">
+                {{loot.price}}
+              </div>
+
+              <div class="item-controls">
+                <a data-id="{{loot._id}}" class="item-take" title="Take Item">
+                  <i class="fas fa-hand-paper"></i>
+                </a>
+              </div>
+            </li>
+          {{/each}}
+        </ol>
+      {{/each}}
+    </ol>
+  </section>
+</form>

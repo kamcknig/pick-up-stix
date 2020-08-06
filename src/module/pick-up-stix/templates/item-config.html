@@ -4,6 +4,7 @@
     <!-- display the image -->
     <img class="profile" src="{{object.[flags].[pick-up-stix].[pick-up-stix].imageContainerOpenPath}}" title="chest" data-edit="img">
 
+    <!-- container name and description -->
     <section class="header-details">
       <h1 style="border-bottom: 2px groove #eeede0;" class="charname">{{object.name}}</h1>
       <div class="container-description">
@@ -16,24 +17,25 @@
   <section class="currency-details flexrow">
     <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
     <ul class="currency-list flexrow">
-      {{#each currencies as | currency |}}
-        <label>{{this.long}}</label>
-        {{#if ../user.isGM}}
-          <input type="text" data-type="Number" data-currency-input value="20">
-        {{else}}
-          <span>20</span>
-        {{/if}}
+      {{#each currencyTypes as | currencyOb |}}
+        <label>{{currencyOb.long}}</label>
+        {{#with (lookup (lookup ../loot 'currency') currencyOb.short)}}
+          {{#if ../../user.isGM}}
+              <input name="flags.pick-up-stix.pick-up-stix.containerLoot.currency.{{currencyOb.short}}" type="text" data-type="Number" data-currency-input value="{{this}}">
+          {{else}}
+            <span>{{this}}</span>
+          {{/if}}
+        {{/with}}
       {{/each}}
       <li class="item-controls"><a class="item-take"><i class="fas fa-hand-paper"></i></a></li>
     </ul>
   </section>
 
+  <!-- display loot -->
   <section class="inventory-details">
     <h3>Loot <i class="fas fa-box"></i></h3>
-    <!-- list of items separated by type -->
     <ol class="inventory-list">
       {{#each lootTypes as | lootType |}}
-        <!-- weapon list -->
         <li class="inventory-header flexrow">
             <h3 class="item-name flexrow">{{lootType}}</h3>
             <div class="item-details item-qty">Qty</div>
@@ -46,7 +48,7 @@
         </li>
 
         <ol data-itemType="{{lootType}}" class="item-list">
-            {{#each (lookup ../loot lootType) as | loot |}}
+          {{#each (lookup ../loot lootType) as | loot |}}
             <li class="item flexrow">
               <div class="item-name flexrow">
                 <div class="item-image" style="background-image: url({{loot.img}});"></div>
@@ -67,7 +69,7 @@
                 </a>
               </div>
             </li>
-            {{/each}}
+          {{/each}}
         </ol>
       {{/each}}
     </ol>

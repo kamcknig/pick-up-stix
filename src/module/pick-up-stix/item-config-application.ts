@@ -1,8 +1,8 @@
-import ContainerImageSelectionApplication from "../container-image-selection-application";
-import { createOwnedEntity, updateToken, itemCollected } from './main';
-import { ItemType } from "./models";
 //@ts-ignore
 import { DND5E } from "../../../../systems/dnd5e/module/config.js";
+import ContainerImageSelectionApplication from "../container-image-selection-application";
+import { createOwnedEntity, itemCollected } from './main';
+import { ItemType } from "./models";
 
 /**
  * Application class to display to select an item that the token is
@@ -26,6 +26,7 @@ export default class ItemConfigApplication extends FormApplication {
 		return mergeObject(super.defaultOptions, {
 			closeOnSubmit: false,
 			submitOnClose: false,
+			submitOnChange: true,
 			id: "pick-up-stix-item-config",
 			template: "modules/pick-up-stix/module/pick-up-stix/templates/item-config.html",
 			width: 500,
@@ -42,7 +43,9 @@ export default class ItemConfigApplication extends FormApplication {
 		super({});
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructed with args:`)
 		console.log(this._token);
-		this._loot = duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {});
+		this._loot = {
+			...duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {})
+		}
 
 		this._tokenUpdateHandler = this._tokenUpdated.bind(this);
 		this._tokenDeletedHandler = this._tokenDeleted.bind(this);
@@ -81,10 +84,6 @@ export default class ItemConfigApplication extends FormApplication {
 
 		// set click listeners on the buttons to pick up individual items
 		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
-
-		console.log($(html).find('[data-currency-input]'));
-
-		$(html).find('[data-currency-input]').prop('readonly', !game.user.isGM);
 	}
 
 	getData() {
@@ -92,9 +91,9 @@ export default class ItemConfigApplication extends FormApplication {
 		const data = {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
-			lootTypes: Object.keys(this._loot),
+			lootTypes: Object.keys(this._loot).findSplice(k => k ==='currency'),
 			loot: this._loot,
-			currencies: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v })),
+			currencyTypes: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v })),
 			user: game.user
 		};
 		console.log(data);
@@ -105,14 +104,11 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onTakeItem`);
 		const itemId = e.currentTarget.dataset.id;
 		const token = canvas.tokens.controlled?.[0];
-
 		if (!token || !token.actor) {
 			ui.notifications.error('You must be controlling only one token to pick up an item');
 			return;
 		}
-
 		const actor = token.actor;
-
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemData = this._loot?.[itemType]?.find(i => i._id === itemId);
 		if (--itemData.qty === 0) {
@@ -179,10 +175,8 @@ export default class ItemConfigApplication extends FormApplication {
 	protected async _updateObject(e, formData) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject called with args:`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
-		setProperty(formData, 'flags.pick-up-stix.pick-up-stix.containerLoot', { ...this._loot });
-		delete formData._id;
 		console.log([e, formData]);
-		await updateToken(this._token, formData);
+		await this._token.update(formData);
 		this.render();
 	}
 

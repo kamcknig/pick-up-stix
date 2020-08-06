@@ -282,17 +282,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 				return;
 			}
 
-			// if the token clicked is an actor and the lootsheetnpc5e module is installed and it's now in the open
-			// state, perform a double-left click which will open the loot sheet from that module
-			if (clickedToken.actor) {
-				if (game.modules.get('lootsheetnpc5e').active && flags.isOpen) {
-					(clickedToken as any)._onClickLeft2(e);
-				}
-			}
-			else {
-				const f = new ItemConfigApplication(clickedToken).render(true);
-			}
-
+			const f = new ItemConfigApplication(clickedToken).render(true);
 			return;
 		}
 

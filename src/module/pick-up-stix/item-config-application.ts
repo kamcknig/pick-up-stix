@@ -81,6 +81,10 @@ export default class ItemConfigApplication extends FormApplication {
 
 		// set click listeners on the buttons to pick up individual items
 		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
+
+		console.log($(html).find('[data-currency-input]'));
+
+		$(html).find('[data-currency-input]').prop('readonly', !game.user.isGM);
 	}
 
 	getData() {
@@ -90,7 +94,8 @@ export default class ItemConfigApplication extends FormApplication {
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
 			lootTypes: Object.keys(this._loot),
 			loot: this._loot,
-			currencies: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v }))
+			currencies: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v })),
+			user: game.user
 		};
 		console.log(data);
 		return data;

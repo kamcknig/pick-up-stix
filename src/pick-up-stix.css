@@ -81,6 +81,11 @@ span.pick-up-stix-chat-currency.cp {
   border-right: 1px solid #c9c7b8;
 }
 
+.dnd5e.sheet.actor .header-details .container-description {
+  font-family: "Signika", sans-serif;
+  font-weight: 400;
+}
+
 .dnd5e.sheet.actor .inventory-list .item-qty {
   flex: 0 0 60px;
   border-left: 1px solid #c9c7b8;

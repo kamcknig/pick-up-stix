@@ -48,6 +48,10 @@ export async function initHook() {
 	// Preload Handlebars templates
 	await preloadTemplates();
 
+	Handlebars.registerHelper('capitalize', (input: string) => {
+		return `${input[0].toUpperCase()} ${input.slice(1)}`;
+	});
+
 	// Register custom sheets (if any)
 };
 

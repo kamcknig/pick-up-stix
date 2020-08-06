@@ -4,8 +4,7 @@ import {
 	setupMouseManager,
 	handleDropItem,
 	drawLockIcon,
-	lootTokens,
-	updateToken
+	lootTokens
 } from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";

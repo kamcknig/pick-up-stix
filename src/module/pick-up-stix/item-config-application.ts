@@ -1,7 +1,7 @@
 //@ts-ignore
 import { DND5E } from "../../../../systems/dnd5e/module/config.js";
 import ContainerImageSelectionApplication from "../container-image-selection-application";
-import { createOwnedEntity, itemCollected } from './main';
+import { createOwnedEntity, itemCollected, updateActor } from './main';
 import { ItemType } from "./models";
 
 /**
@@ -41,12 +41,14 @@ export default class ItemConfigApplication extends FormApplication {
 
 	constructor(private _token: Token) {
 		super({});
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructed with args:`)
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
 		console.log(this._token);
 		this._loot = {
+			currency: Object.keys(DND5E.currencies).reduce((prev, k) => { prev[k] = 0; return prev; }, {}),
 			...duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {})
 		}
-
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor | initial loot:`);
+		console.log(this._loot);
 		this._tokenUpdateHandler = this._tokenUpdated.bind(this);
 		this._tokenDeletedHandler = this._tokenDeleted.bind(this);
 		Hooks.on('updateToken', this._tokenUpdateHandler);
@@ -84,6 +86,9 @@ export default class ItemConfigApplication extends FormApplication {
 
 		// set click listeners on the buttons to pick up individual items
 		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
+
+		// set click listener for taking currency
+		$(html).find(`a.currency-take`).click(e => this._onTakeCurrency(e));
 	}
 
 	getData() {
@@ -100,16 +105,32 @@ export default class ItemConfigApplication extends FormApplication {
 		return data;
 	}
 
-	protected async _onTakeItem(e) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onTakeItem`);
-		const itemId = e.currentTarget.dataset.id;
-		const token = canvas.tokens.controlled?.[0];
-		if (!token || !token.actor) {
+	protected async _onTakeCurrency(e) {
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency`);
+		const token: Token = canvas.tokens.controlled?.[0];
+		const actor: Actor = token.actor;
+		if (!token || !actor) {
 			ui.notifications.error('You must be controlling only one token to pick up an item');
 			return;
 		}
+		const currentCurrency = { ...getProperty(actor, 'data.data.currency') };
+		const lootCurrencies = this._loot['currency'];
+		Object.keys(currentCurrency).forEach(k => currentCurrency[k] = +currentCurrency[k] + +lootCurrencies[k]);
+		await actor.update({'data.currency': currentCurrency})
+		Object.keys(this._loot['currency']).forEach(k => this._loot['currency'][k] = 0);
+		await this.submit();
+	}
+
+	protected async _onTakeItem(e) {
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeItem`);
+		const token = canvas.tokens.controlled?.[0];
 		const actor = token.actor;
+		if (!token || !actor) {
+			ui.notifications.error('You must be controlling only one token to pick up an item');
+			return;
+		}
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
+		const itemId = e.currentTarget.dataset.id;
 		const itemData = this._loot?.[itemType]?.find(i => i._id === itemId);
 		if (--itemData.qty === 0) {
 			this._loot?.[itemType].findSplice(i => i._id === itemId);
@@ -120,10 +141,10 @@ export default class ItemConfigApplication extends FormApplication {
 			itemType: ItemType.ITEM,
 			isLocked: false
 		});
-		console.log([itemId, actor, itemType, itemData]);
 		await createOwnedEntity(actor, [itemData]);
 		itemCollected(token, itemData);
-		this.submit();
+
+		await this.submit();
 	}
 
 	protected _onEditImage(e) {

@@ -432,7 +432,7 @@ export async function updateToken(token: Token, updates): Promise<void> {
 	});
 }
 
-async function updateActor(actor, updates): Promise<void> {
+export async function updateActor(actor, updates): Promise<void> {
 	if (game.user.isGM) {
 		await actor.update(updates);
 		return;

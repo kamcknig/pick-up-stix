@@ -16,11 +16,9 @@
   <section class="currency-details flexrow">
     <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
     <ul class="currency-list flexrow">
-      <li>Platinum <span>20</span></li>
-      <li>Electrum <span>20</span></li>
-      <li>Gold <span>20</span></li>
-      <li>Silver <span>20</span></li>
-      <li>Copper <span>20</span></li>
+      {{#each currencies as | currency |}}
+        <li>{{this.long}} <span>20</span></li>
+      {{/each}}
       <li class="item-controls"><a class="item-take"><i class="fas fa-hand-paper"></i></a></li>
     </ul>
   </section>

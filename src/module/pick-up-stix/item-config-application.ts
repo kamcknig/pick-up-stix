@@ -1,6 +1,8 @@
 import ContainerImageSelectionApplication from "../container-image-selection-application";
 import { createOwnedEntity, updateToken, itemCollected } from './main';
 import { ItemType } from "./models";
+//@ts-ignore
+import { DND5E } from "../../../../systems/dnd5e/module/config.js";
 
 /**
  * Application class to display to select an item that the token is
@@ -70,7 +72,8 @@ export default class ItemConfigApplication extends FormApplication {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
 			lootTypes: Object.keys(this._loot),
-			loot: this._loot
+			loot: this._loot,
+			currencies: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v }))
 		};
 		console.log(data);
 		return data;

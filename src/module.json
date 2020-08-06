@@ -13,6 +13,7 @@
 		}
 	],
 	"scripts": [],
+	"systems": ["dnd5e"],
 	"esmodules": ["pick-up-stix.js"],
 	"styles": ["pick-up-stix.css"],
 	"packs": [],

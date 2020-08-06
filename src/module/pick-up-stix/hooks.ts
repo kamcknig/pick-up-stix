@@ -1,6 +1,5 @@
 /* ------------------------------------ */
 /* When ready													  */
-
 import {
 	setupMouseManager,
 	handleDropItem,

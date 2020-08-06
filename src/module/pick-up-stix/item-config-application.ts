@@ -91,6 +91,11 @@ export default class ItemConfigApplication extends FormApplication {
 		$(html).find(`a.currency-take`).click(e => this._onTakeCurrency(e));
 
 		$(html).find('[data-currency-input]').prop('readonly', !game.user.isGM);
+
+		if (!game.user.isGM) {
+			console.log($(html).find('input[type="text"].currency-input'));
+			$(html).find('input[type="text"].currency-input').addClass('isNotGM');
+		}
 	}
 
 	getData() {

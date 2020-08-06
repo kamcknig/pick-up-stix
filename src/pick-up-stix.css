@@ -151,6 +151,13 @@ ul.currency-list li.item-controls {
   border-bottom: 2px groove #eeede0;
 }
 
+.dnd5e.sheet.actor .currency-list input[type="text"].isNotGM:focus,
+.dnd5e.sheet.actor .currency-list input[type="text"].isNotGM:hover {
+  box-shadow: unset;
+  border: unset;
+  border-bottom: 2px groove #eeede0;
+}
+
 .dnd5e.sheet.actor .currency-list input[type="text"] {
   margin-left: 8px;
   height: unset;

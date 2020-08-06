@@ -50,54 +50,6 @@
   background: url(assets/currency-sprite.png) -130px 0px;
 }
 
-.pick-up-stix .file-input {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 10px;
-}
-
-.pick-up-stix .file-input .container-image {
-  max-width: 100px;
-}
-
-.pick-up-stix .item-wrapper {
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: row;
-}
-
-.pick-up-stix .item {
-  padding: 5px;
-  max-width: 150px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.pick-up-stix .item * {
-  margin-bottom: 5px;
-}
-
-.pick-up-stix .item img {
-  border: 1px solid rgba(0, 0, 0, 0);
-  max-width: 80px;
-  max-height: 80px;
-  height: auto;
-}
-
-.pick-up-stix .item.active img {
-  border: 1px solid blue;
-}
-
-.pick-up-stix .item div.item-name {
-  text-align: center;
-}
-
-.pick-up-stix .item input {
-  display: block;
-  width: 100%;
-}
-
 span.pick-up-stix-chat-currency {
   display: inline-block;
   width: 32px;
@@ -123,4 +75,90 @@ span.pick-up-stix-chat-currency.sp {
 
 span.pick-up-stix-chat-currency.cp {
   background: url(assets/currency-sprite.png) -130px 0px;
+}
+
+.dnd5e.sheet.actor .inventory-list:not(:last-child) {
+  border-right: 1px solid #c9c7b8;
+}
+
+.dnd5e.sheet.actor .header-details .container-description {
+  font-family: "Signika", sans-serif;
+  font-weight: 400;
+}
+
+.dnd5e.sheet.actor .inventory-list .item-qty {
+  flex: 0 0 60px;
+  border-left: 1px solid #c9c7b8;
+  color: #7a7971;
+  overflow: hidden;
+  text-align: center;
+}
+
+.dnd5e.sheet.actor .inventory-list .item-value {
+  flex: 0 0 100px;
+  border-left: 1px solid #c9c7b8;
+  border-right: 1px solid #c9c7b8;
+  color: #7a7971;
+  overflow: hidden;
+  text-align: center;
+}
+
+.dnd5e.sheet.actor .inventory-list .item-controls a,
+ul.currency-list li .item-controls a,
+ul.currency-list li.item-controls a {
+  text-align: center;
+  color: #7a7971;
+}
+
+.dnd5e.sheet.actor .inventory-list .item-controls a.item-take,
+ul.currency-list li .item-controls a,
+ul.currency-list li.item-controls a {
+  flex: 1;
+}
+
+section.inventory-details,
+section.currency-details {
+  border-bottom: 2px groove #eeede0;
+  padding-top: 5px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+section.currency-details .currency-header {
+  flex: 0 0 120px;
+}
+
+ul.currency-list {
+  list-style: none;
+  justify-content: space-around;
+}
+
+ul.currency-list > * {
+  flex: unset;
+}
+
+ul.currency-list li.item-controls {
+  flex: 0 0 44px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dnd5e.sheet.actor .currency-list input[type="text"] {
+  flex: 0 0 48px;
+  text-align: center;
+  border-bottom: 2px groove #eeede0;
+}
+
+.dnd5e.sheet.actor .currency-list input[type="text"].isNotGM:focus,
+.dnd5e.sheet.actor .currency-list input[type="text"].isNotGM:hover {
+  box-shadow: unset;
+  border: unset;
+  border-bottom: 2px groove #eeede0;
+}
+
+.dnd5e.sheet.actor .currency-list input[type="text"] {
+  margin-left: 8px;
+  height: unset;
 }

@@ -1,10 +1,15 @@
 /* ------------------------------------ */
 /* When ready													  */
-
-import { displayItemContainerApplication, toggleLocked, setupMouseManager, handleDropItem, handleOnDrop } from "./main";
+import {
+	setupMouseManager,
+	handleDropItem,
+	drawLockIcon,
+	lootTokens
+} from "./main";
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
-import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags } from "./models";
+import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags, ItemType } from "./models";
+import { handleOnDrop } from "./overrides";
 
 /**
  * TODO: This should be removed once 0.7.0 becomes stable
@@ -40,6 +45,10 @@ export async function initHook() {
 
 	// Preload Handlebars templates
 	await preloadTemplates();
+
+	Handlebars.registerHelper('capitalize', (input: string) => {
+		return `${input[0].toUpperCase()} ${input.slice(1)}`;
+	});
 
 	// Register custom sheets (if any)
 };
@@ -91,16 +100,20 @@ export function readyHook() {
 	});
 };
 
-export function onCanvasReady(...args) {
+export async function onCanvasReady(...args) {
 	console.log(`pick-up-stix | onCanvasReady | call width args:`);
 	console.log(args);
 
   canvas?.tokens?.placeables?.forEach(async (p: PlaceableObject) => {
-		const data: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
+		const flags: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
 
-		if (data) {
+		if (flags) {
 			console.log(`pick-up-stix | onCanvasReady | found token ${p.id} with itemData`);
 			p.mouseInteractionManager = setupMouseManager.bind(p)();
+
+			if (flags.isLocked) {
+				await drawLockIcon(p);
+			}
 		}
   });
 
@@ -124,68 +137,37 @@ export function onCanvasReady(...args) {
 }
 
 export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options: any, userId: string) {
+	console.log(`pick-up-stix | onPreCreateOwnedItem | called with args:`);
+	console.log([actor, itemData, options, userId]);
+
 	let owner: { actorId: string, itemId: string };
 	if (owner = getProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner')) {
+		// if the item is already owned by someone else, set the new actor as the owner and
+		// delete the item from the old owner
 		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
 		const ownerActor = game.actors.get(owner.actorId);
 		await ownerActor.deleteOwnedItem(itemData._id);
-	}
-	else {
-		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
-	}
-};
-
-export async function onRenderTokenHud(hud: TokenHUD, hudHtml: JQuery, data: any) {
-  if (!data.isGM) {
-		console.log(`pick-up-stix | onRenderTokenHud | user is not a gm, don't change HUD`);
 		return;
 	}
 
-	if (data.actorId && !game.actors.get(data.actorId).isPC && !game.modules.get('lootsheetnpc5e').active) {
-		console.log(`pick-up-stix | onRenderTokenHud | token has an actor associated with it, dont' change HUD`);
-		return;
-	}
-
-	console.log(`pick-up-stix | onRenderTokenHud | called with args:`);
-	console.log(hud, hudHtml, data);
-
-	const flags = getProperty(data.flags, 'pick-up-stix.pick-up-stix');
-
-	const containerDiv = document.createElement('div');
-	containerDiv.style.display = 'flex';
-	containerDiv.style.flexDirection = 'row';
-
-	// create the control icon div and add it to the container div
-	const controlIconDiv = document.createElement('div');
-	controlIconDiv.className = 'control-icon';
-	const controlIconImg = document.createElement('img');
-	controlIconImg.src = flags?.['itemData']?.some(data => data.count > 0) || Object.values(flags?.currency ?? {}).some(amount => amount > 0)
-		? 'modules/pick-up-stix/assets/pick-up-stix-icon-white.svg'
-		: 'modules/pick-up-stix/assets/pick-up-stix-icon-black.svg';
-	controlIconImg.className = "item-pick-up";
-	controlIconDiv.appendChild(controlIconImg);
-	controlIconDiv.addEventListener('mousedown', displayItemContainerApplication(hud, controlIconImg, data));
-	containerDiv.appendChild(controlIconDiv);
-
-	// if the item is a container then add the lock icon
-	if (flags?.isContainer) {
-		const lockDiv = document.createElement('div');
-		lockDiv.style.marginRight = '10px';
-		lockDiv.className = 'control-icon';
-		const lockImg = document.createElement('img');
-		lockImg.src = flags?.['isLocked']
-			? 'modules/pick-up-stix/assets/lock-white.svg'
-			: 'modules/pick-up-stix/assets/lock-black.svg';
-		lockDiv.appendChild(lockImg);
-		lockDiv.addEventListener('mousedown', toggleLocked(hud, data));
-		containerDiv.prepend(lockDiv);
-	}
-
-	// add the container to the hud
-	$(hudHtml.children('div')[0]).prepend(containerDiv);
+	setProperty(itemData.flags, 'pick-up-stix.pick-up-stix', {
+		owner: {
+			actorId: actor.id
+		},
+		initialState: { id: itemData._id, count: 1, itemData: { ...itemData, flags: {} } },
+		imageOriginalPath: itemData.img,
+		itemType: ItemType.ITEM,
+		isLocked: false
+	});
 };
 
-export function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {
+export function onDeleteToken(scene: Scene, tokenData: any, data: any, userId: string) {
+	console.log(`pick-up-stix | onDeleteToken | called with args:`);
+	console.log([scene, tokenData, data, userId]);
+	lootTokens.findSplice(t => t === tokenData._id);
+}
+
+export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {
   console.log(`pick-up-stix | onUpdateToken | called with args:`)
   console.log([scene, tokenData, tokenFlags, userId]);
 
@@ -193,7 +175,17 @@ export function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, use
 
 	if (flags) {
       console.log(`pick-up-stix | onUpdateToken | found flags on token data, add mouse interaction`);
-      const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
+			const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
+
+			if (flags.isLocked) {
+				await drawLockIcon(token);
+			}
+			else {
+				const lock = token.getChildByName('pick-up-stix-lock');
+				if (lock) {
+					token.removeChild(lock);
+				}
+			}
 			token.mouseInteractionManager = setupMouseManager.bind(token)();
 			token.activateListeners = setupMouseManager.bind(token);
 	}

@@ -20,11 +20,7 @@
       {{#each currencyTypes as | currencyOb |}}
         <label>{{currencyOb.long}}</label>
         {{#with (lookup (lookup ../loot 'currency') currencyOb.short)}}
-          {{#if ../../user.isGM}}
-              <input name="flags.pick-up-stix.pick-up-stix.containerLoot.currency.{{currencyOb.short}}" type="text" data-itemType="currency" data-dtype="Number" data-currency-input value="{{this}}">
-          {{else}}
-            <span>{{this}}</span>
-          {{/if}}
+          <input name="flags.pick-up-stix.pick-up-stix.containerLoot.currency.{{currencyOb.short}}" type="text" data-itemType="currency" data-dtype="Number" data-currency-input value="{{this}}">
         {{/with}}
       {{/each}}
       <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>

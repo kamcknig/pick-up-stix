@@ -1,7 +1,7 @@
 //@ts-ignore
 import { DND5E } from "../../../../systems/dnd5e/module/config.js";
 import ContainerImageSelectionApplication from "../container-image-selection-application";
-import { createOwnedEntity, itemCollected, updateActor } from './main';
+import { createOwnedEntity, itemCollected, updateActor, currencyCollected, updateToken } from './main';
 import { ItemType } from "./models";
 
 /**
@@ -89,6 +89,8 @@ export default class ItemConfigApplication extends FormApplication {
 
 		// set click listener for taking currency
 		$(html).find(`a.currency-take`).click(e => this._onTakeCurrency(e));
+
+		$(html).find('[data-currency-input]').prop('readonly', !game.user.isGM);
 	}
 
 	getData() {
@@ -96,7 +98,7 @@ export default class ItemConfigApplication extends FormApplication {
 		const data = {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
-			lootTypes: Object.keys(this._loot).findSplice(k => k ==='currency'),
+			lootTypes: Object.keys(this._loot).filter(k => k !== 'currency'),
 			loot: this._loot,
 			currencyTypes: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v })),
 			user: game.user
@@ -116,8 +118,12 @@ export default class ItemConfigApplication extends FormApplication {
 		const currentCurrency = { ...getProperty(actor, 'data.data.currency') };
 		const lootCurrencies = this._loot['currency'];
 		Object.keys(currentCurrency).forEach(k => currentCurrency[k] = +currentCurrency[k] + +lootCurrencies[k]);
-		await actor.update({'data.currency': currentCurrency})
+		await updateActor(actor, {'data.currency': currentCurrency});
+
+		currencyCollected(token, Object.entries(lootCurrencies).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
+
 		Object.keys(this._loot['currency']).forEach(k => this._loot['currency'][k] = 0);
+		$(this._html).find('[data-currency-input').val(0);
 		await this.submit();
 	}
 
@@ -167,26 +173,27 @@ export default class ItemConfigApplication extends FormApplication {
 			return;
 		}
 
-		if (droppedData.actorId) {
-			await game.actors.get(droppedData.actorId).deleteOwnedItem(droppedData.data._id);
-		}
-
 		let itemData = droppedData.data ?? await game.items.get(droppedData.id)?.data ?? await game.packs.get(droppedData.pack).getEntry(droppedData.id);
 
 		if (droppedData.actorId) {
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | drop data contains actor ID '${droppedData.actorId}', delete item from actor`);
+			await game.actors.get(droppedData.actorId).deleteOwnedItem(droppedData.data._id);
 			itemData = { ...getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.initialState.itemData') };
 		}
 
 		const itemType = itemData.type;
 
 		if (!this._loot[itemType]) {
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
 			this._loot[itemType] = [];
 		}
 		const existingItem = this._loot[itemType].find(i => i._id === itemData._id);
 		if (existingItem) {
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
 			existingItem.qty++;
 		}
 		else {
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for item '${itemData._id}' does not exist, set quantity to 1 and add to slot`);
 			itemData.qty = 1;
 			this._loot[itemType].push(itemData);
 		}
@@ -196,8 +203,9 @@ export default class ItemConfigApplication extends FormApplication {
 	protected async _updateObject(e, formData) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject called with args:`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
+		setProperty(formData, 'flags.pick-up-stix.pick-up-stix.containerLoot', { ...Object.entries(this._loot).reduce((prev, [k, v]) => { if (k === 'currency') return prev; prev[k] = v; return prev;}, {}) });
 		console.log([e, formData]);
-		await this._token.update(formData);
+		await updateToken(this._token, flattenObject(formData));
 		this.render();
 	}
 

@@ -309,86 +309,6 @@ async function handleTokenItemClicked(e): Promise<void> {
 		itemCollected(controlledToken, { ...flags.initialState.itemData });
 	}, 250);
 
-	// if it's not a container or if it is and it's open it's now open (from switching above) then update
-	// the actor's currencies if there are any in the container
-	// if (!flags.isContainer || flags.isOpen) {
-	// 	let currencyFound = false;
-	// 	let chatContent = '';
-	// 	const userCurrencies = controlledToken?.actor?.data?.data?.currency;
-	// 	Object.keys(flags?.currency || {})?.reduce((acc, next) => {
-	// 		if (flags?.currency?.[next] > 0) {
-	// 			currencyFound = true;
-	// 			chatContent += `<span class="pick-up-stix-chat-currency ${next}"></span><span>(${next}) ${flags?.currency?.[next]}</span><br />`;
-	// 			userCurrencies[next] = userCurrencies[next] ? +userCurrencies[next] + +flags.currency?.[next] : flags.currency?.[next];
-	// 		}
-	// 		return userCurrencies;
-	// 	}, userCurrencies);
-
-	// 	if (currencyFound) {
-	// 		let content = `<p>Picked up:</p>${chatContent}`;
-	// 		ChatMessage.create({
-	// 			content,
-	// 			speaker: {
-	// 				alias: controlledToken.actor.name,
-	// 				scene: (game.scenes as any).active.id,
-	// 				actor: controlledToken.actor.id,
-	// 				token: controlledToken.id
-	// 			}
-	// 		});
-	// 		await updateActor(controlledToken.actor, { data: { data: { currency: { ...userCurrencies }}}});
-	// 	}
-
-	// 	const itemsToCreate = [];
-
-	// 	// if itemData was set through the item selection window, use that as the item data. If not then check if there
-	// 	// are any currencies and if we have currencies then we have no items. If we don't have currencies OR itemData
-	// 	// from the selection window and it's not a container, then use the intiial state
-	// 	const itemDatas = flags?.itemData?.length
-	// 		? flags.itemData
-	// 		: (Object.values(flags.currency ?? {}).some(amount => amount > 0)
-	// 			? []
-	// 			: (!flags.isContainer
-	// 				? [flags.initialState]
-	// 				: [])
-	// 			);
-
-	// 	for (let i=0; i < itemDatas.length; i++) {
-	// 		const itemData = itemDatas[i];
-	// 		const datas = [];
-	// 		for (let i = 0; i < itemData.count; i++) {
-	// 			datas.push({
-	// 				...itemData.data
-	// 			});
-	// 		}
-
-	// 		itemsToCreate.push(...datas)
-
-	// 		if (itemData.count > 0) {
-	// 			ChatMessage.create({
-	// 				content: `
-	// 					<p>Picked up ${itemData.count} ${itemData.data.name}</p>
-	// 					<img src="${itemData.data.img}" style="width: 40px;" />
-	// 				`,
-	// 				speaker: {
-	// 					alias: controlledToken.actor.name,
-	// 					scene: (game.scenes as any).active.id,
-	// 					actor: controlledToken.actor.id,
-	// 					token: controlledToken.id
-	// 				}
-	// 			});
-	// 		}
-	// 	}
-
-	// 	// if it's a container, clear out the items as they've been picked up now
-	// 	if (flags.isContainer) {
-	// 		let containerUpdates;
-	// 		containerUpdates.flags['pick-up-stix']['pick-up-stix'].itemData = [];
-	// 		containerUpdates.flags['pick-up-stix']['pick-up-stix'].currency = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
-	// 	}
-
-	// 	await createOwnedEntity(controlledToken.actor, itemsToCreate);
-	// }
-
 	this.mouseInteractionManager?._deactivateDragEvents();
 }
 
@@ -527,6 +447,25 @@ export function itemCollected(actorToken, item) {
 			<p>Picked up ${item.name}</p>
 			<img src="${item.img}" style="width: 40px;" />
 		`,
+		speaker: {
+			alias: actorToken.actor.name,
+			scene: (game.scenes as any).active.id,
+			actor: actorToken.actor.id,
+			token: actorToken.id
+		}
+	});
+}
+
+export function currencyCollected(actorToken, currency) {
+	console.log(`pick-up-stix | currencyCollected | called with args:`);
+	console.log([actorToken, currency]);
+	let chatContent = '';
+	Object.entries(currency).forEach(([k, v]) => {
+		chatContent += `<span class="pick-up-stix-chat-currency ${k}"></span><span>(${k}) ${v}</span><br />`;
+	});
+	let content = `<p>Picked up:</p>${chatContent}`;
+	ChatMessage.create({
+		content,
 		speaker: {
 			alias: actorToken.actor.name,
 			scene: (game.scenes as any).active.id,

@@ -145,11 +145,6 @@ ul.currency-list li.item-controls {
   justify-content: flex-end;
 }
 
-ul.currency-list span {
-  display: inline-block;
-}
-
-ul.currency-list span,
 .dnd5e.sheet.actor .currency-list input[type="text"] {
   flex: 0 0 48px;
   text-align: center;

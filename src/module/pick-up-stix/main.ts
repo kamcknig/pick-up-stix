@@ -280,8 +280,8 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 			// if there are any container updates then update the container
 			await new Promise(resolve => {
-				setTimeout(() => {
-					updateToken(clickedToken, {
+				setTimeout(async () => {
+					await updateToken(clickedToken, {
 						img: (flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath) ?? flags.imageOriginalPath,
 						flags: {
 							'pick-up-stix': {

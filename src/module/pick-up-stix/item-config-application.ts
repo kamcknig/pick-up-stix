@@ -129,7 +129,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 		Object.keys(this._loot['currency']).forEach(k => this._loot['currency'][k] = 0);
 		$(this._html).find('[data-currency-input').val(0);
-		await this.submit();
+		await this.submit({});
 	}
 
 	protected async _onTakeItem(e) {
@@ -155,7 +155,7 @@ export default class ItemConfigApplication extends FormApplication {
 		await createOwnedEntity(actor, [itemData]);
 		itemCollected(token, itemData);
 
-		await this.submit();
+		await this.submit({});
 	}
 
 	protected _onEditImage(e) {
@@ -164,7 +164,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 		Hooks.once('closeContainerImageSelectionApplication', () => {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | closeContainerImageSelectionApplication hook`);
-			this.submit();
+			this.submit({});
 		});
 	}
 
@@ -202,7 +202,7 @@ export default class ItemConfigApplication extends FormApplication {
 			itemData.qty = 1;
 			this._loot[itemType].push(itemData);
 		}
-		await this.submit();
+		await this.submit({});
 	}
 
 	protected async _updateObject(e, formData) {

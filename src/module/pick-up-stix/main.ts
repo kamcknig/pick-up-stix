@@ -61,16 +61,33 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		if (targetTokenFlags?.itemType === ItemType.CONTAINER) {
 			// if the target is a container, then add the item to the container's data
 			console.log(`pick-up-stix | handleDropItem | target token is a container`);
-			const existingItemData = targetTokenFlags.itemData;
-			const existingItem = existingItemData.find(i => i.id === itemData._id);
+			const existingLoot = { ...duplicate(targetTokenFlags.containerLoot) };
+			const existingItem = Object.values(existingLoot[itemData.type]).find(i => i._id === itemId);
 			if (existingItem) {
-				existingItem.count++;
+				existingItem.qty++;
 			}
 			else {
-				existingItemData.push({ id: itemData._id, count: 1, itemData: { ...itemData }});
+				if (!existingLoot[itemData.type]) {
+					existingLoot[itemData.type] = [];
+				}
+				existingLoot[itemData.type].push({ id: itemData._id, count: 1, itemData: { ...itemData }});
 			}
 
-			await targetToken.setFlag('pick-up-stix', 'pick-up-stix.itemData', [...existingItemData]);
+			const update = {
+				flags: {
+					'pick-up-stix': {
+						'pick-up-stix': {
+							'containerLoot': {
+								...existingLoot
+							}
+						}
+					}
+				}
+			};
+
+			console.log(update);
+			await updateToken(targetToken, update);
+			//await targetToken.setFlag('pick-up-stix', 'pick-up-stix.containerLoot', { ...existingLoot });
 			return;
 		}
 		else if (targetToken.actor) {

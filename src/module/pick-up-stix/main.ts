@@ -183,8 +183,8 @@ export function setupMouseManager(): void {
 	this.mouseInteractionManager = new MouseInteractionManager(this, canvas.stage, permissions, callbacks, options).activate();
 }
 
-function handleTokenItemConfig(e) {
-	console.log(`pick-up-stix | handleTokenItemConfig`);
+function handleTokenItemConfig(e?) {
+	console.log(`pick-up-stix | handleTokenItemConfig called with args`);
 	clearTimeout(clickTimeout);
 	const clickedToken: Token = this;
 	const f = new ItemConfigApplication(clickedToken).render(true);
@@ -299,7 +299,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 				return;
 			}
 
-			const f = new ItemConfigApplication(clickedToken).render(true);
+			handleTokenItemConfig.bind(this)();
 			return;
 		}
 

@@ -77,24 +77,144 @@ span.pick-up-stix-chat-currency.cp {
   background: url(assets/currency-sprite.png) -130px 0px;
 }
 
-.dnd5e.sheet.actor .inventory-list:not(:last-child) {
+.inventory-list:not(:last-child) {
   border-right: 1px solid #c9c7b8;
 }
 
-.dnd5e.sheet.actor .header-details .container-description {
+.pick-up-stix {
+  font-family: "Signika", sans-serif;
+}
+
+.pick-up-stix * {
+  font-family: inherit;
+}
+
+.pick-up-stix .fa,
+.pick-up-stix .fas,
+.pick-up-stix .far {
+  font-family: "Font Awesome 5 Free";
+}
+
+/**
+ * Sheet header styles
+ */
+.pick-up-stix .sheet-section {
+  border-bottom: 2px groove #eeede0;
+}
+
+/**
+ * Header profile styles
+ */
+.pick-up-stix .sheet-header .profile {
+  border: unset;
+  max-width: 160px;
+  height: auto;
+}
+
+/**
+ * Header details section styles
+ */
+.pick-up-stix .sheet-header .header-details {
+  padding: 5px;
+  border-left: 2px groove #eeede0;
+}
+.pick-up-stix .sheet-header .header-details .container-name {
+  font-family: "Modesto Condensed", "Palatino Linotype", serif;
+  height: 60px;
+  font-size: 3em;
+}
+.pick-up-stix .sheet-header .header-details .container-description {
   font-family: "Signika", sans-serif;
   font-weight: 400;
 }
 
-.dnd5e.sheet.actor .inventory-list .item-qty {
+/**
+ * Input styles
+ */
+.pick-up-stix input[type="text"] {
+  background: unset;
+  border: 1px solid transparent;
+  box-shadow: unset;
+  border-bottom: 2px groove #eeede0;
+}
+.pick-up-stix input[type="text"]:focus,
+.pick-up-stix input[type="text"]:hover {
+  border: 1px solid black;
+  box-shadow: 1px 2px 3px red;
+}
+
+.pick-up-stix .inventory-details,
+.pick-up-stix .currency-details {
+  padding-top: 5px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/**
+ * Currency details section styles
+ */
+ .pick-up-stix .currency-details h3 {
+  flex: 0 0 120px;
+}
+.pick-up-stix .currency-details .currency-list {
+  list-style: none;
+  align-items: center;
+}
+.pick-up-stix .currency-details .currency-list input[type="text"] {
+  text-align: center;
+}
+
+/**
+ * Inventory list styles
+ */
+.pick-up-stix .inventory-details ol {
+  padding: 0;
+}
+
+.pick-up-stix .inventory-details .inventory-header {
+  background: rgba(0, 0, 0, .05);
+  border: 2px groove #eeede0;
+  font-family: "Modesto Condensed", "Palatino Linotype", serif;
+  font-weight: 400;
+  font-size: 1.2em;
+  padding: 5px;
+  margin: 2px 0px;
+}
+.pick-up-stix .inventory-details .inventory-header h3 {
+  margin: 0;
+}
+
+.pick-up-stix .inventory-details .inventory-list .item {
+  align-items: center;
+}
+.pick-up-stix .inventory-details .inventory-list .item h4 {
+  padding: 0;
+  margin: 0;
+}
+.pick-up-stix .inventory-details .inventory-list .item .item-name {
+  align-items: center;
+}
+
+.pick-up-stix .inventory-details .inventory-list .item .item-name * {
+  padding-left: 5px;
+}
+
+.pick-up-stix .inventory-details .inventory-list .item-image {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.pick-up-stix .inventory-details .inventory-list .item-qty {
   flex: 0 0 60px;
   border-left: 1px solid #c9c7b8;
   color: #7a7971;
   overflow: hidden;
   text-align: center;
 }
-
-.dnd5e.sheet.actor .inventory-list .item-value {
+.pick-up-stix .inventory-details .inventory-list .item-value {
   flex: 0 0 100px;
   border-left: 1px solid #c9c7b8;
   border-right: 1px solid #c9c7b8;
@@ -103,62 +223,18 @@ span.pick-up-stix-chat-currency.cp {
   text-align: center;
 }
 
-.dnd5e.sheet.actor .inventory-list .item-controls a,
-ul.currency-list li .item-controls a,
-ul.currency-list li.item-controls a {
-  text-align: center;
-  color: #7a7971;
-}
-
-.dnd5e.sheet.actor .inventory-list .item-controls a.item-take,
-ul.currency-list li .item-controls a,
-ul.currency-list li.item-controls a {
-  flex: 1;
-}
-
-section.inventory-details,
-section.currency-details {
-  border-bottom: 2px groove #eeede0;
-  padding-top: 5px;
-  justify-content: space-between;
-  align-items: center;
-}
-
-section.currency-details .currency-header {
-  flex: 0 0 120px;
-}
-
-ul.currency-list {
-  list-style: none;
-  justify-content: space-around;
-}
-
-ul.currency-list > * {
-  flex: unset;
-}
-
-ul.currency-list li.item-controls {
+.pick-up-stix .item-controls {
   flex: 0 0 44px;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-
-.dnd5e.sheet.actor .currency-list input[type="text"] {
-  flex: 0 0 48px;
+.pick-up-stix .item-controls a {
   text-align: center;
-  border-bottom: 2px groove #eeede0;
+  color: #7a7971;
 }
-
-.dnd5e.sheet.actor input[type="text"].isNotGM:focus,
-.dnd5e.sheet.actor input[type="text"].isNotGM:hover {
-  box-shadow: unset;
-  border: unset;
-  border-bottom: 2px groove #eeede0;
-}
-
-.dnd5e.sheet.actor .currency-list input[type="text"] {
-  margin-left: 8px;
-  height: unset;
+.pick-up-stix .item-controls a.item-take,
+.pick-up-stix .item-controls a.currency-take {
+  flex: 1;
 }

@@ -29,12 +29,11 @@ export default class ItemConfigApplication extends FormApplication {
 			submitOnChange: true,
 			id: "pick-up-stix-item-config",
 			template: "modules/pick-up-stix/module/pick-up-stix/templates/item-config.html",
-			width: 500,
-			height: 'auto',
+			width: 720,
 			minimizable: false,
 			title: `${game.user.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
 			resizable: true,
-			classes: ['dnd5e', 'sheet', 'actor', 'character'],
+			classes: ['pick-up-stix', 'item-config-sheet'],
 			dragDrop: [{ dropSelector: null }]
 		});
 	}
@@ -90,11 +89,11 @@ export default class ItemConfigApplication extends FormApplication {
 		// set click listener for taking currency
 		$(html).find(`a.currency-take`).click(e => this._onTakeCurrency(e));
 
-		$(html).find('[data-currency-input], [data-quantity-input]').prop('readonly', !game.user.isGM);
+		$(html).find(`input[type="text"]`).prop('readonly', !game.user.isGM);
+		$(html).find(`input[type="text"]`).prop('disabled', 	!game.user.isGM);
 
 		if (!game.user.isGM) {
-			console.log($(html).find('input[type="text"].currency-input'));
-			$(html).find('input[type="text"][data-currency-input], input[type="text"][data-quantity-input]').addClass('isNotGM');
+			$(html).find(`input[type="text"]`).addClass('isNotGM');
 		}
 	}
 
@@ -103,8 +102,16 @@ export default class ItemConfigApplication extends FormApplication {
 		const data = {
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
-			lootTypes: Object.keys(this._loot).filter(k => k !== 'currency'),
-			loot: this._loot,
+			lootTypes: Object.keys(this._loot).filter(lootKey => lootKey !== 'currency'),
+			loot: Object.entries(this._loot).reduce((prev, [lootKey, lootItems]) => {
+				if (lootKey === 'currency') {
+					prev[lootKey] = lootItems;
+					return prev;
+				}
+
+				prev[lootKey] = lootItems.map(i => ({ ...i, price: i.qty * i.data.price }));
+				return prev;
+			}, {}),
 			currencyTypes: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v })),
 			user: game.user
 		};
@@ -214,22 +221,33 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	protected async _updateObject(e, formData) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject called with args:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
-		let formCopy = duplicate(formData);
-		console.log(formCopy);
+		const formDuplicate = duplicate(formData);
+		console.log(`pick-up-stix | ItemConfigAPplication | original 'formData' object:`);
+		console.log(formDuplicate);
 
 		Object.entries(this._loot).filter(([k,]) => k !== 'currency').forEach(([k, v]) => {
 			if (v.length === 0) {
 				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.-=${k}`, null);
 			}
 			else {
-				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, v.map(loot => ({ ...loot, flags: {} })));
+				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, Object.entries(v).reduce((prev, [index, v]) => {
+					prev.push({
+						...v,
+						qty: e.type === 'change' ? $(e.currentTarget).val() : v.qty,
+						flags: {}
+					});
+					return prev;
+				}, []));
 			}
 		});
 
-		formCopy = mergeObject(formData, formCopy);
-		const flattendOb = flattenObject(formCopy);
+		console.log(`pick-up-stix | ItemConfigAPplication | new 'formData' object:`);
+		console.log(formData);
+		const flattendOb = flattenObject(formData);
+		console.log(`pick-up-stix | ItemConfigAPplication | flattend 'formData' object:`);
+		console.log(flattendOb);
 		await updateToken(this._token, flattendOb);
 		this.render();
 	}

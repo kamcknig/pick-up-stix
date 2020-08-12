@@ -90,11 +90,11 @@ export default class ItemConfigApplication extends FormApplication {
 		// set click listener for taking currency
 		$(html).find(`a.currency-take`).click(e => this._onTakeCurrency(e));
 
-		$(html).find('[data-currency-input]').prop('readonly', !game.user.isGM);
+		$(html).find('[data-currency-input], [data-quantity-input]').prop('readonly', !game.user.isGM);
 
 		if (!game.user.isGM) {
 			console.log($(html).find('input[type="text"].currency-input'));
-			$(html).find('input[type="text"].currency-input').addClass('isNotGM');
+			$(html).find('input[type="text"][data-currency-input], input[type="text"][data-quantity-input]').addClass('isNotGM');
 		}
 	}
 
@@ -218,7 +218,7 @@ export default class ItemConfigApplication extends FormApplication {
 				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.-=${k}`, null);
 			}
 			else {
-				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, Object.entries(v).reduce((prev, [k, v]) => { prev[k] = { ...v, flags: {} }; return prev; }, {}));
+				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, Object.entries(v).reduce((prev, [k, v]) => { prev.push({ ...v, flags: {} }); return prev; }, []));
 			}
 		});
 

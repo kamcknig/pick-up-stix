@@ -2,7 +2,7 @@
 	"name": "pick-up-stix",
 	"title": "Pick-Up-Stix",
 	"description": "Allows Items to be placed on the map as Tokens that players are able to pick up.",
-	"version": "0.7.2",
+	"version": "0.7.3",
 	"author": "Kyle McKnight",
 	"socket": true,
 	"authors": [

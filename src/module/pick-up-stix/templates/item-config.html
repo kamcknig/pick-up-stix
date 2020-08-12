@@ -51,7 +51,7 @@
                 <h4>{{loot.name}}</h4>
               </div>
 
-              <input name="flags.pick-up-stix.pick-up-stix.containerLoot.{{lootType}}.{{@key}}.qty" type="text" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
+              <input name="{{flags.[pick-up-stix].[pick-up-stix].containerLoot.lootType.[{{@key}}].qty}}" type="text" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
 
               <div class="item-value">
                 {{loot.price}}

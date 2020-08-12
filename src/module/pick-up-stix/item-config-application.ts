@@ -235,7 +235,7 @@ export default class ItemConfigApplication extends FormApplication {
 				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, Object.entries(v).reduce((prev, [index, v]) => {
 					prev.push({
 						...v,
-						qty: e.type === 'change' ? $(e.currentTarget).val() : v.qty,
+						qty: e.type === 'change' && e.currentTarget.dataset.hasOwnProperty('quantityInput') ? $(e.currentTarget).val() : v.qty,
 						flags: {}
 					});
 					return prev;

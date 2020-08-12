@@ -142,9 +142,9 @@ export default class ItemConfigApplication extends FormApplication {
 		}
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemId = e.currentTarget.dataset.id;
-		const itemData = this._loot?.[itemType]?.find(i => i._id === itemId);
-		if (--itemData.qty === 0) {
-			this._loot?.[itemType].findSplice(i => i._id === itemId);
+		const itemData = Object.values(this._loot?.[itemType])?.find(i => i._id === itemId);
+		if (--itemData.qty <= 0) {
+			Object.entries(this._loot?.[itemType])?.forEach(([k, v]) => { if (v._id === itemId) { delete this._loot?.[itemType]?.[k]; }});
 		}
 		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', {
 			initialState: { id: itemData._id, count: 1, itemData: { ...itemData, flags: {} } },
@@ -152,6 +152,8 @@ export default class ItemConfigApplication extends FormApplication {
 			itemType: ItemType.ITEM,
 			isLocked: false
 		});
+		console.log(itemData)
+		console.log(this._loot);
 		await createOwnedEntity(actor, [itemData]);
 		itemCollected(token, itemData);
 
@@ -192,7 +194,7 @@ export default class ItemConfigApplication extends FormApplication {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
 			this._loot[itemType] = [];
 		}
-		const existingItem = this._loot[itemType].find(i => i._id === itemData._id);
+		const existingItem = Object.values(this._loot?.[itemType])?.find(i => i._id === itemData._id);
 		if (existingItem) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
 			existingItem.qty++;
@@ -208,9 +210,23 @@ export default class ItemConfigApplication extends FormApplication {
 	protected async _updateObject(e, formData) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject called with args:`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
-		setProperty(formData, 'flags.pick-up-stix.pick-up-stix.containerLoot', { ...Object.entries(this._loot).reduce((prev, [k, v]) => { if (k === 'currency') return prev; prev[k] = v; return prev;}, {}) });
-		console.log([e, formData]);
-		await updateToken(this._token, flattenObject(formData));
+		console.log(duplicate(formData));
+
+
+		Object.entries(this._loot).filter(([k, v]) => k !== 'currency').forEach(([k, v]) => {
+			if (Object.values(v).length === 0) {
+				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.-=${k}`, null);
+			}
+			else {
+				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, Object.entries(v).reduce((prev, [k, v]) => { prev[k] = { ...v, flags: {} }; return prev; }, {}));
+			}
+		});
+
+		// setProperty(formData, 'flags.pick-up-stix.pick-up-stix.containerLoot', { ...Object.entries(this._loot).reduce((prev, [k, v]) => { /* if (k === 'currency') return prev; */ prev[k] = v; return prev;}, {}) });
+		console.log(formData);
+		const flattendOb = flattenObject(formData);
+		console.log([e, flattendOb]);
+		await updateToken(this._token, flattendOb);
 		this.render();
 	}
 

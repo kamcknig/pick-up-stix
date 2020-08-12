@@ -1,20 +1,21 @@
 <form>
     <!-- container image, name, and description-->
-  <header class="sheet-header flexrow">
+  <header class="sheet-header sheet-section flexrow">
     <!-- display the image -->
     <img class="profile" src="{{object.[flags].[pick-up-stix].[pick-up-stix].imageContainerOpenPath}}" title="chest" data-edit="img">
 
     <!-- container name and description -->
-    <section class="header-details">
-      <h1 style="border-bottom: 2px groove #eeede0;" class="charname">{{object.name}}</h1>
-      <div class="container-description">
+    <section class="header-details flexcol">
+      <!-- <h1 style="border-bottom: 2px groove #eeede0;" class="charname">{{object.name}}</h1> -->
+      <input class="container-name" type="text" name="name" value="{{object.name}}" style="flex: unset;">
+      <div class="container-description" style="flex: 1;">
         {{{containerDescription}}}
       </div>
     </section>
   </header>
 
   <!-- display currencies -->
-  <section class="currency-details flexrow">
+  <section class="currency-details sheet-section flexrow">
     <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
     <ul class="currency-list flexrow">
       {{#each currencyTypes as | currencyOb |}}
@@ -30,7 +31,8 @@
   <!-- display loot -->
   <section class="inventory-details">
     <h3>Loot <i class="fas fa-box"></i></h3>
-    <ol class="inventory-list">
+
+    <ol class="inventory-list flexcol">
       {{#each lootTypes as | lootType |}}
         <li class="inventory-header flexrow">
             <h3 class="item-name flexrow">{{lootType}}</h3>
@@ -51,7 +53,8 @@
                 <h4>{{loot.name}}</h4>
               </div>
 
-              <input name="{{flags.[pick-up-stix].[pick-up-stix].containerLoot.lootType.[{{@key}}].qty}}" type="text" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
+              <div>{{lootType}}</div>
+              <input name="{{flags.[pick-up-stix].[pick-up-stix].containerLoot.lootType.[{{@index}}].qty}}" type="text" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
 
               <div class="item-value">
                 {{loot.price}}

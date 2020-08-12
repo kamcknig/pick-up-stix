@@ -140,7 +140,15 @@ span.pick-up-stix-chat-currency.cp {
 .pick-up-stix input[type="text"]:focus,
 .pick-up-stix input[type="text"]:hover {
   border: 1px solid black;
-  box-shadow: 1px 2px 3px red;
+  box-shadow: .1px .5px 5px red;
+}
+
+.pick-up-stix input[type="text"].isNotGM,
+.pick-up-stix input[type="text"].isNotGM:focus,
+.pick-up-stix input[type="text"].isNotGM:hover {
+  border: 1px solid transparent;
+  border-bottom: 2px groove #eeede0;
+  box-shadow: unset;
 }
 
 .pick-up-stix .inventory-details,

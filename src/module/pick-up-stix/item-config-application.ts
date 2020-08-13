@@ -1,8 +1,7 @@
-//@ts-ignore
-import { DND5E } from "../../../../systems/dnd5e/module/config.js";
-import { createOwnedEntity, itemCollected, updateActor, currencyCollected, updateToken } from './main';
-import { ItemType } from "./models";
+import { getCurrencies } from '../../utils';
 import ContainerImageSelectionApplication from "./container-image-selection-application.js";
+import { createOwnedEntity, currencyCollected, itemCollected, updateActor, updateToken } from './main';
+import { ItemType } from "./models";
 
 /**
  * Application class to display to select an item that the token is
@@ -43,7 +42,10 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
 		console.log([this._token, this._controlledToken]);
 		this._loot = {
-			currency: Object.keys(DND5E.currencies).reduce((prev, k) => { prev[k] = 0; return prev; }, {}),
+			currency: Object.keys(getCurrencies()).reduce((prev, k) => {
+				prev[k] = 0;
+				return prev;
+			}, {}),
 			...duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {})
 		}
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor | initial loot:`);
@@ -112,7 +114,7 @@ export default class ItemConfigApplication extends FormApplication {
 				prev[lootKey] = lootItems.map(i => ({ ...i, price: i.qty * i.data.price }));
 				return prev;
 			}, {}),
-			currencyTypes: Object.entries(DND5E.currencies).map(([k, v]) => ({ short: k, long: v })),
+			currencyTypes: Object.entries(getCurrencies()).map(([k, v]) => ({ short: k, long: v })),
 			user: game.user
 		};
 		console.log(data);

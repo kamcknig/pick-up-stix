@@ -13,22 +13,10 @@ export interface PickUpStixFlags {
 	isOpen: boolean;
 	isLocked: boolean;
 	containerLoot: {
-		[key: string]: any[];
+		currency: {};
+		[key: string]: any[] | {};
 	}
-
-
-
-
-
-	itemData?: ItemData[];
 	canClose?: boolean;
-	currency?: {
-		pp?: number;
-		gp?: number;
-		ep?: number;
-		sp?: number;
-		cp?: number;
-	};
 }
 
 export enum SocketMessageType {

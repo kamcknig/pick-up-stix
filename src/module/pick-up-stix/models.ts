@@ -7,7 +7,6 @@ export type ItemData = {
 export interface PickUpStixFlags {
 	itemType: ItemType;
 	initialState: ItemData;
-	imageOriginalPath: string;
 	imageContainerClosedPath: string;
 	imageContainerOpenPath: string;
 	isOpen: boolean;

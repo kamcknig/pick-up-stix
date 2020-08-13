@@ -1,5 +1,4 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
-import ItemTypeSelectionApplication from "./item-type-selection-application";
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
 import { dist } from '../../utils'
@@ -98,7 +97,6 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 					'pick-up-stix': {
 						'pick-up-stix': {
 							initialState: { id: itemData._id, count: 1, itemData: { ...itemData } },
-							imageOriginalPath: itemData.img,
 							itemType: ItemType.ITEM,
 							isLocked: false
 						}
@@ -130,7 +128,6 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				'pick-up-stix': {
 					'pick-up-stix': {
 						initialState: { id: itemData._id, count: 1, itemData: { ...itemData } },
-						imageOriginalPath: itemData.img,
 						itemType: sourceActorId ? ItemType.ITEM : null,
 						isLocked: false
 					}
@@ -144,12 +141,52 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 
 	// if a Token was successfully created
 	if (tokenId && !sourceActorId) {
-		// get a reference to the Token
-		const token: Token = canvas.tokens.placeables.find(p => p.id === tokenId);
-		// render the item type selection form
-		new ItemTypeSelectionApplication(token).render(true);
-		// store the Token ID
-		lootTokens.push(tokenId);
+		await new Promise(resolve => {
+			// get a reference to the Token
+			const token: Token = canvas.tokens.placeables.find(p => p.id === tokenId);
+			// render the item type selection form
+			new Dialog({
+				content: 'What kind of loot is this?',
+				default: 'one',
+				title: 'Loot Type',
+				close: (...args) => { console.log(args); resolve(); },
+				buttons: {
+					one: {
+						icon: '<i class="fas fa-box"></i>',
+						label: 'Item',
+						callback: () => updateToken(token, {
+							flags: {
+								'pick-up-stix': {
+									'pick-up-stix': {
+										itemType: ItemType.ITEM,
+										isLocked: false
+									}
+								}
+							}
+						})
+					},
+					two: {
+						icon: '<i class="fas fa-boxes"></i>',
+						label: 'Container',
+						callback: () => updateToken(token, {
+							img: 'modules/pick-up-stix/assets/chest-closed.png',
+							flags: {
+								'pick-up-stix': {
+									'pick-up-stix': {
+										imageContainerClosedPath: 'modules/pick-up-stix/assets/chest-closed.png',
+										imageContainerOpenPath: 'modules/pick-up-stix/assets/chest-opened.png',
+										itemType: ItemType.CONTAINER,
+										isLocked: false
+									}
+								}
+							}
+						})
+					}
+				}
+			}).render(true);
+
+			lootTokens.push(tokenId);
+		})
 	}
 }
 
@@ -308,7 +345,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 			await new Promise(resolve => {
 				setTimeout(async () => {
 					await updateToken(clickedToken, {
-						img: (flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath) ?? flags.imageOriginalPath,
+						img: flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath,
 						flags: {
 							'pick-up-stix': {
 								'pick-up-stix': {

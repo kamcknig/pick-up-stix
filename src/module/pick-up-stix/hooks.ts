@@ -155,7 +155,6 @@ export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options:
 			actorId: actor.id
 		},
 		initialState: { id: itemData._id, count: 1, itemData: { ...itemData, flags: {} } },
-		imageOriginalPath: itemData.img,
 		itemType: ItemType.ITEM,
 		isLocked: false
 	});

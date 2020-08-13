@@ -6,8 +6,8 @@ import {
 	drawLockIcon,
 	lootTokens
 } from "./main";
-import { registerSettings } from "../settings";
-import { preloadTemplates } from "../preloadTemplates";
+import { registerSettings } from "./settings";
+import { preloadTemplates } from "./preloadTemplates";
 import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags, ItemType } from "./models";
 import { handleOnDrop } from "./overrides";
 

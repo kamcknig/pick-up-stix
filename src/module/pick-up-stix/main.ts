@@ -256,7 +256,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 	// get only the tokens that are within the right distance
 	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-	controlledTokens = controlledTokens.filter(t => dist(t, clickedToken) < maxDist)
+	controlledTokens = controlledTokens.filter(t => dist(t, clickedToken) < maxDist && t.getFlag('pick-up-stix', 'pick-up-stix') === undefined);
 
 	// if there are no controlled tokens within reach, show an error
 	if (!controlledTokens.length) {

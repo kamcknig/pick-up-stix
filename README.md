@@ -30,8 +30,7 @@ It has been reported that some modules might be incompatible with Pick-Up-Stix. 
 
 # Demos
 
-Click to see the video how-to
-[![](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.png)](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/demo.webm)
 
-Click to see demo of multiple controlled actor tokens
-[![](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/pick-up-stix-loot-sheet.png)](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/multiple-tokens.webm)
+[Click to see the video how-to](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/demo.webm)
+
+[Click to see demo of multiple controlled actor tokens](https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/demos/multiple-tokens.webm)

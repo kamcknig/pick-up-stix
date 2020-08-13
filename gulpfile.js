@@ -196,7 +196,7 @@ function buildWatch() {
 	gulp.watch('src/**/*.less', { ignoreInitial: false }, buildLess);
 	gulp.watch('src/**/*.scss', { ignoreInitial: false }, buildSASS);
 	gulp.watch(
-		['src/fonts', 'src/lang', 'src/module/**/*.html', 'src/*.json', 'src/*.css'],
+		['src/fonts', 'src/lang', 'src/module/**/*.html', 'src/*.json', 'src/*.css', 'src/*.scss'],
 		{ ignoreInitial: false },
 		copyFiles
 	);

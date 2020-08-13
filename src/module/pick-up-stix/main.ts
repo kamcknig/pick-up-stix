@@ -70,7 +70,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				if (!existingLoot[itemData.type]) {
 					existingLoot[itemData.type] = [];
 				}
-				existingLoot[itemData.type].push({ id: itemData._id, count: 1, itemData: { ...itemData }});
+				(existingLoot[itemData.type] as any).push({ id: itemData._id, count: 1, itemData: { ...itemData }});
 			}
 
 			const update = {
@@ -187,6 +187,12 @@ function handleTokenItemConfig(e?) {
 	console.log(`pick-up-stix | handleTokenItemConfig called with args`);
 	clearTimeout(clickTimeout);
 	const clickedToken: Token = this;
+
+	if (clickedToken.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.ITEM) {
+		console.log(`pick-up-stix | handleTokenItemConfig | Token is ItemType.ITEM, do not open config`);
+		return;
+	}
+
 	const f = new ItemConfigApplication(clickedToken).render(true);
 }
 

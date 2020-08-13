@@ -1,8 +1,8 @@
 //@ts-ignore
 import { DND5E } from "../../../../systems/dnd5e/module/config.js";
-import ContainerImageSelectionApplication from "../container-image-selection-application";
-import { createOwnedEntity, itemCollected, updateActor, currencyCollected, updateToken, lootTokens } from './main';
+import { createOwnedEntity, itemCollected, updateActor, currencyCollected, updateToken } from './main';
 import { ItemType } from "./models";
+import ContainerImageSelectionApplication from "./container-image-selection-application.js";
 
 /**
  * Application class to display to select an item that the token is

@@ -158,7 +158,6 @@ export default class ItemConfigApplication extends FormApplication {
 		}
 		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', {
 			initialState: { id: itemData._id, count: 1, itemData: { ...itemData, flags: {} } },
-			imageOriginalPath: itemData.img,
 			itemType: ItemType.ITEM,
 			isLocked: false
 		});

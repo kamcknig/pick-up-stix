@@ -38,10 +38,10 @@ export default class ItemConfigApplication extends FormApplication {
 		});
 	}
 
-	constructor(private _token: Token) {
+	constructor(private _token: Token, private _controlledToken: Token) {
 		super({});
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
-		console.log(this._token);
+		console.log([this._token, this._controlledToken]);
 		this._loot = {
 			currency: Object.keys(DND5E.currencies).reduce((prev, k) => { prev[k] = 0; return prev; }, {}),
 			...duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {})
@@ -121,9 +121,8 @@ export default class ItemConfigApplication extends FormApplication {
 
 	protected async _onTakeCurrency(e) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency`);
-		const token: Token = canvas.tokens.controlled?.[0];
-		const actor: Actor = token.actor;
-		if (!token || !actor) {
+		const actor: Actor = this._controlledToken?.actor;
+		if (!actor) {
 			ui.notifications.error('You must be controlling only one token to pick up an item');
 			return;
 		}
@@ -137,7 +136,7 @@ export default class ItemConfigApplication extends FormApplication {
 		Object.keys(currentCurrency).forEach(k => currentCurrency[k] = +currentCurrency[k] + +lootCurrencies[k]);
 		await updateActor(actor, {'data.currency': currentCurrency});
 
-		currencyCollected(token, Object.entries(lootCurrencies).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
+		currencyCollected(this._controlledToken, Object.entries(lootCurrencies).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
 
 		Object.values(this._loot['currency'])?.forEach(k => this._loot['currency'][k] = 0);
 		$(this._html).find('[data-currency-input').val(0);
@@ -146,9 +145,8 @@ export default class ItemConfigApplication extends FormApplication {
 
 	protected async _onTakeItem(e) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeItem`);
-		const token = canvas.tokens.controlled?.[0];
-		const actor = token.actor;
-		if (!token || !actor) {
+		const actor = this._controlledToken?.actor;
+		if (!actor) {
 			ui.notifications.error('You must be controlling only one token to pick up an item');
 			return;
 		}
@@ -167,7 +165,7 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(itemData)
 		console.log(this._loot);
 		await createOwnedEntity(actor, [itemData]);
-		itemCollected(token, itemData);
+		itemCollected(this._controlledToken, itemData);
 
 		await this.submit({});
 	}

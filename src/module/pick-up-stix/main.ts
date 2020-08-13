@@ -1,6 +1,8 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
 import ItemTypeSelectionApplication from "./item-type-selection-application";
 import ItemConfigApplication from "./item-config-application";
+import ChooseTokenApplication from "./choose-token-application";
+import { dist } from '../../utils'
 
 export const lootTokens: string[] = [];
 
@@ -85,9 +87,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				}
 			};
 
-			console.log(update);
 			await updateToken(targetToken, update);
-			//await targetToken.setFlag('pick-up-stix', 'pick-up-stix.containerLoot', { ...existingLoot });
 			return;
 		}
 		else if (targetToken.actor) {
@@ -183,7 +183,7 @@ export function setupMouseManager(): void {
 	this.mouseInteractionManager = new MouseInteractionManager(this, canvas.stage, permissions, callbacks, options).activate();
 }
 
-function handleTokenItemConfig(e?) {
+function handleTokenItemConfig(e?, controlledToken?: Token) {
 	console.log(`pick-up-stix | handleTokenItemConfig called with args`);
 	clearTimeout(clickTimeout);
 	const clickedToken: Token = this;
@@ -193,7 +193,17 @@ function handleTokenItemConfig(e?) {
 		return;
 	}
 
-	const f = new ItemConfigApplication(clickedToken).render(true);
+	try {
+		const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
+		if (!controlledToken && game.user.isGM) {
+			controlledToken = canvas.tokens.controlled?.filter((t: Token) => dist(t, clickedToken) < maxDist && t.getFlag('pick-up-stix', 'pick-up-stix') === undefined)[0]
+		}
+	}
+	catch (e) {
+		controlledToken = null;
+	}
+
+	const f = new ItemConfigApplication(clickedToken, controlledToken).render(true);
 }
 
 async function toggleItemLocked(e): Promise<any> {
@@ -224,7 +234,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 	}
 
 	// get the tokens that the user controls
-  const controlledTokens: Token[] = canvas.tokens.controlled;
+  let controlledTokens: Token[] = canvas.tokens.controlled;
 
 	// gm special stuff
 	if (game.user.isGM) {
@@ -244,18 +254,12 @@ async function handleTokenItemClicked(e): Promise<void> {
 		}
 	}
 
-	if (controlledTokens.length > 1) {
-		ui.notifications.error('You must be controlling only one token to pick up an item');
-		return;
-	}
-
-	// get the token the user is controlling
-	const controlledToken: Token = controlledTokens[0];
-
-	// get the distance to the token and if it's too far then can't pick it up
-	const dist = Math.hypot(controlledToken.x - clickedToken.x, controlledToken.y - clickedToken.y);
+	// get only the tokens that are within the right distance
 	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-	if (dist > maxDist) {
+	controlledTokens = controlledTokens.filter(t => dist(t, clickedToken) < maxDist)
+
+	// if there are no controlled tokens within reach, show an error
+	if (!controlledTokens.length) {
 		console.log(`pick-up-stix | handleTokenItemClicked | item is out of reach`);
 		ui.notifications.error('You are too far away to interact with that');
 		return;
@@ -273,6 +277,22 @@ async function handleTokenItemClicked(e): Promise<void> {
 	}
 
 	clickTimeout = setTimeout(async () => {
+		const controlledToken: Token =
+			controlledTokens.length === 1 ?
+			controlledTokens[0] :
+			await new Promise(resolve => {
+				const d = new ChooseTokenApplication(controlledTokens).render(true);
+				Hooks.once('closeChooseTokenApplication', () => {
+					resolve(d.getData().selectedToken);
+				});
+			});
+
+		if (!controlledToken) {
+			console.log(`pick-up-stix | handleTokenItemClicked | No token selected from dialog`);
+			ui.notifications.error('You must control at least one token.');
+			return;
+		}
+
 		if(flags.itemType === ItemType.CONTAINER) {
 			console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
 
@@ -305,7 +325,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 				return;
 			}
 
-			handleTokenItemConfig.bind(this)();
+			handleTokenItemConfig.bind(this)(null, controlledToken);
 			return;
 		}
 

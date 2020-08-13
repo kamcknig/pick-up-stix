@@ -12,10 +12,14 @@ export async function handleOnDrop(event) {
 	console.log(event);
 	event.preventDefault();
 
+	canvas._onDrop(event);
+
 	// Try to extract the data
 	let data;
 	try {
 		data = JSON.parse(event.dataTransfer.getData('text/plain'));
+		console.log(`pick-up-stix | handleOnDrop | data from event:`);
+		console.log(data);
 	}
 	catch (err) {
 		return false;
@@ -27,23 +31,7 @@ export async function handleOnDrop(event) {
 	data.x = (x - t.tx) / canvas.stage.scale.x;
 	data.y = (y - t.ty) / canvas.stage.scale.y;
 
-	// Dropped Actor
-	if ( data.type === "Actor" ) canvas.tokens._onDropActorData(event, data);
-
-	// Dropped Journal Entry
-	else if ( data.type === "JournalEntry" ) canvas.notes._onDropData(event, data);
-
-	// Dropped Macro (clear slot)
-	else if ( data.type === "Macro" ) {
-		game.user.assignHotbarMacro(null, data.slot);
-	}
-
-	// Dropped Tile artwork
-	else if ( data.type === "Tile" ) {
-		return canvas.tiles._onDropTileData(event, data);
-	}
-	// Dropped Item
-	else if (data.type === "Item") {
+	if (data.type === "Item") {
 		handleDropItem(data);
 	}
 }

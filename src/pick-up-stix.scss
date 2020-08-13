@@ -1,3 +1,5 @@
+$groove-color: #eeede0;
+
 .pick-up-stix {
   font-family: "Signika", sans-serif;
 
@@ -63,7 +65,7 @@
    * Sheet header styles
    */
   & .sheet-section {
-    border-bottom: 2px groove #eeede0;
+    border-bottom: 2px groove $groove-color;
   }
 
   /**
@@ -81,7 +83,7 @@
      */
     & .header-details {
       padding: 5px;
-      border-left: 2px groove #eeede0;
+      border-left: 2px groove $groove-color;
 
       & .container-name {
         font-family: "Modesto Condensed", "Palatino Linotype", serif;
@@ -103,7 +105,7 @@
     background: unset;
     border: 1px solid transparent;
     box-shadow: unset;
-    border-bottom: 2px groove #eeede0;
+    border-bottom: 2px groove $groove-color;
   }
   & input[type="text"]:focus,
   & input[type="text"]:hover {
@@ -115,7 +117,7 @@
   & input[type="text"].isNotGM:focus,
   & input[type="text"].isNotGM:hover {
     border: 1px solid transparent;
-    border-bottom: 2px groove #eeede0;
+    border-bottom: 2px groove $groove-color;
     box-shadow: unset;
   }
 
@@ -154,7 +156,7 @@
 
     & .inventory-header {
       background: rgba(0, 0, 0, .05);
-      border: 2px groove #eeede0;
+      border: 2px groove $groove-color;
       font-family: "Modesto Condensed", "Palatino Linotype", serif;
       font-weight: 400;
       font-size: 1.2em;
@@ -262,4 +264,44 @@ span.pick-up-stix-chat-currency.sp {
 
 span.pick-up-stix-chat-currency.cp {
   background: url(assets/currency-sprite.png) -130px 0px;
+}
+
+.pick-up-stix {
+  &.choose-token {
+    // the list wrapper, gives the outter padding
+    & .wrapper {
+      padding: 5px;
+      justify-content: flex-start;
+      flex: 0;
+    }
+
+    // the "List item" that displays the token image and name
+    & .token-selection {
+      cursor: pointer;
+      border: 2px groove $groove-color;
+      align-items: center;
+      margin-bottom: -2px;
+
+      & * {
+        margin-bottom: 5px;
+      }
+
+      & img {
+        border: none;
+        margin-right: 5px;
+        max-width: 80px;
+        height: auto;
+      }
+
+      & .token-name {
+        font-family: "Modesto";
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      &:hover {
+        background-color: rgba(0, 0, 0, .09);
+      }
+    }
+  }
 }

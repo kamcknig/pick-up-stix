@@ -25,7 +25,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 	if (sourceActorId) {
 		console.log(`pick-up-stix | handleDropItem | actor '${sourceActorId}' dropped item`);
 		itemData = {
-			...dropData.data.flags?.['pick-up-stix']?.['pick-up-stix']?.['initialState']?.['itemData'] ?? {}
+			...dropData.data.flags?.['pick-up-stix']?.['pick-up-stix']?.['initialState']?.['itemData'] ?? dropData.data
 		};
 
 		await game.actors.get(sourceActorId).deleteOwnedItem(dropData.data._id);
@@ -136,6 +136,9 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		});
 	}
 	catch (e) {
+		if(sourceActorId){
+			await game.actors.get(sourceActorId).createOwnedItem(itemData);
+		}
 		ui.notifications.error('Could not create token');
 	}
 
@@ -161,7 +164,8 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 										itemType: ItemType.ITEM,
 										isLocked: false
 									}
-								}
+								},
+								...itemData.flags
 							}
 						})
 					},

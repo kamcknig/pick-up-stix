@@ -131,7 +131,8 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 						itemType: sourceActorId ? ItemType.ITEM : null,
 						isLocked: false
 					}
-				}
+				},
+				...itemData.flags
 			}
 		});
 	}

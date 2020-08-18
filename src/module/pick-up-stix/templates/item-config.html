@@ -6,13 +6,23 @@
 
     <!-- container name and description -->
     <section class="header-details flexcol">
-      {{#if user.isGM}}
-        <div class="flexrow" style="flex: unset; justify-content: flex-start; align-items: center;">
-          <input id="canCloseCheckbox" type="checkbox" name="flags.pick-up-stix.pick-up-stix.canClose" data-dtype="Boolean">
-          <label style="flex: unset;">Can close</label>
+      <div class="flexrow" style="flex: unset; border-bottom: 2px groove #eeede0; padding-bottom: 5px;">
+        <input class="container-name" type="text" name="name" value="{{object.name}}" style="border-bottom: unset;">
+
+        {{#if user.isGM}}
+        <div class="flexcol" style="flex: 0 0 180px;">
+          <div class="flexrow" style="flex: unset; justify-content: flex-start; align-items: center;">
+            <input id="canCloseCheckbox" type="checkbox" name="flags.pick-up-stix.pick-up-stix.canClose" data-dtype="Boolean">
+            <label style="flex: unset;">Can close</label>
+          </div>
+          <div class="flexrow">
+            <input id="scale" name="scale" data-dtype="Number" type="range" min=".1" max="2" step=".1">
+            <span style="flex: 0 0 40px;" class="range-value">{{object.scale}}</span>
+          </div>
         </div>
-      {{/if}}
-      <input class="container-name" type="text" name="name" value="{{object.name}}" style="flex: unset;">
+        {{/if}}
+      </div>
+
       <div class="container-description" style="flex: 1;">
         {{{containerDescription}}}
       </div>

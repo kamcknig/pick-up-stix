@@ -225,11 +225,6 @@ function handleTokenItemConfig(e?, controlledToken?: Token) {
 	clearTimeout(clickTimeout);
 	const clickedToken: Token = this;
 
-	if (clickedToken.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.ITEM) {
-		console.log(`pick-up-stix | handleTokenItemConfig | Token is ItemType.ITEM, do not open config`);
-		return;
-	}
-
 	try {
 		const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
 		if (!controlledToken && game.user.isGM) {

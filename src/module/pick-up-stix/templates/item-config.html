@@ -2,20 +2,22 @@
     <!-- container image, name, and description-->
   <header class="sheet-header sheet-section flexrow">
     <!-- display the image -->
-    <img class="profile" src="{{object.[flags].[pick-up-stix].[pick-up-stix].imageContainerOpenPath}}" title="chest" data-edit="img">
+    <img class="profile" src="{{profileImage}}" title="chest" data-edit="img">
 
     <!-- container name and description -->
     <section class="header-details flexcol">
-      <div class="flexrow" style="flex: unset; border-bottom: 2px groove #eeede0; padding-bottom: 5px;">
+      <div class="flexrow" style="align-items: center; flex: unset; border-bottom: 2px groove #eeede0; padding-bottom: 5px;">
         <input class="container-name" type="text" name="name" value="{{object.name}}" style="border-bottom: unset;">
 
         {{#if user.isGM}}
         <div class="flexcol" style="flex: 0 0 180px;">
+          {{#if isContainer}}
           <div class="flexrow" style="flex: unset; justify-content: flex-start; align-items: center;">
             <input id="canCloseCheckbox" type="checkbox" name="flags.pick-up-stix.pick-up-stix.canClose" data-dtype="Boolean">
             <label style="flex: unset;">Can close</label>
           </div>
-          <div class="flexrow">
+          {{/if}}
+          <div class="flexrow" style="flex: unset;">
             <input id="scale" name="scale" data-dtype="Number" type="range" min=".1" max="2" step=".1">
             <span style="flex: 0 0 40px;" class="range-value">{{object.scale}}</span>
           </div>
@@ -29,6 +31,7 @@
     </section>
   </header>
 
+  {{#if isContainer}}
   <!-- display currencies -->
   <section class="currency-details sheet-section flexrow">
     <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
@@ -85,4 +88,5 @@
       {{/each}}
     </ol>
   </section>
+  {{/if}}
 </form>

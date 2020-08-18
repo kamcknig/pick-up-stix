@@ -12,7 +12,7 @@ export async function handleOnDrop(event) {
 	console.log(event);
 	event.preventDefault();
 
-	canvas._onDrop(event);
+	// canvas._onDrop(event);
 
 	// Try to extract the data
 	let data;

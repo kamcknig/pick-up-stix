@@ -6,7 +6,12 @@
 
     <!-- container name and description -->
     <section class="header-details flexcol">
-      <!-- <h1 style="border-bottom: 2px groove #eeede0;" class="charname">{{object.name}}</h1> -->
+      {{#if user.isGM}}
+        <div class="flexrow" style="flex: unset; justify-content: flex-start; align-items: center;">
+          <input id="canCloseCheckbox" type="checkbox" name="flags.pick-up-stix.pick-up-stix.canClose" data-dtype="Boolean">
+          <label style="flex: unset;">Can close</label>
+        </div>
+      {{/if}}
       <input class="container-name" type="text" name="name" value="{{object.name}}" style="flex: unset;">
       <div class="container-description" style="flex: 1;">
         {{{containerDescription}}}

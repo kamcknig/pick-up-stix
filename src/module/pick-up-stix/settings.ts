@@ -1,3 +1,8 @@
+export enum DefaultSetttingKeys {
+	openImagePath = 'default-container-opened-image-path',
+	closeImagePath = 'default-container-closed-image-path'
+}
+
 export const registerSettings = function() {
 	console.log(`pick-up-stix | registerSettings`);
 	// Register any custom module settings here
@@ -7,7 +12,7 @@ export const registerSettings = function() {
 	Object.defineProperty(typeFunc, 'name', {value: 'pick-up-stix-settings-image'});
 
 	// Register any custom module settings here
-	game.settings.register('pick-up-stix', 'default-container-opened-image-path', {
+	game.settings.register('pick-up-stix', DefaultSetttingKeys.openImagePath, {
 		name: 'Default Container Opened Image',
 		hint: 'Sets the path for the default image to use for opened containers',
 		scope: 'world',
@@ -15,7 +20,7 @@ export const registerSettings = function() {
 		type: typeFunc,
 		default: 'modules/pick-up-stix/assets/chest-opened.png'
 	});
-	game.settings.register('pick-up-stix', 'default-container-closed-image-path', {
+	game.settings.register('pick-up-stix', DefaultSetttingKeys.closeImagePath, {
 		name: 'Default Container Closed Image',
 		hint: 'Sets the path for the default image to use for closed containers',
 		scope: 'world',
@@ -30,10 +35,11 @@ export function processHtml(html) {
 		.find('input[data-dtype="pick-up-stix-settings-image"')
 		.each(function() {
 			const settingName = $(this).attr('name').split('.')[1];
+			console.log(settingName);
 
 			let picker = new FilePicker({
-				title: settingName === 'default-container-opened-image-path' ? 'Default Opened Image' : 'Default Closed Image',
 				type: 'Image',
+				current: game.settings.get('pick-up-stix', settingName),
 				field: $(this)[0]
 			});
 

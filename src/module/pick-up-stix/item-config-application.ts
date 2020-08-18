@@ -96,6 +96,8 @@ export default class ItemConfigApplication extends FormApplication {
 
 		$(html).find('input#canCloseCheckbox').prop('checked', this._token.getFlag('pick-up-stix', 'pick-up-stix.canClose') ?? true);
 
+		$(html).find('input#scale').val(this._token.data.scale);
+
 		if (!game.user.isGM) {
 			$(html).find(`input[type="text"]`).addClass('isNotGM');
 		}

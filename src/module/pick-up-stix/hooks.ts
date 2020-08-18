@@ -105,6 +105,7 @@ export function readyHook() {
 	});
 };
 
+let boardDropListener;
 export async function onCanvasReady(...args) {
 	console.log(`pick-up-stix | onCanvasReady | call width args:`);
 	console.log(args);
@@ -140,7 +141,12 @@ export async function onCanvasReady(...args) {
 		console.log(`pick-up-stix | onCanvasReady | Foundry version is 0.6.5 or below. Overriding Canvas._onDrop`);
 
 		const board = document.getElementById('board');
-		board.addEventListener('drop', handleOnDrop.bind(canvas));
+		if (boardDropListener) {
+			board.removeEventListener('drop', boardDropListener);
+		}
+
+		boardDropListener = handleOnDrop.bind(canvas);
+		board.addEventListener('drop', boardDropListener);
 	}
 }
 

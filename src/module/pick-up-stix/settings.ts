@@ -4,7 +4,7 @@ export const registerSettings = function() {
 	const typeFunc = (val) => {
 		return val;
 	}
-	Object.defineProperty(typeFunc, 'name', {value: 'pick-up-stix-settings-Image'});
+	Object.defineProperty(typeFunc, 'name', {value: 'pick-up-stix-settings-image'});
 
 	// Register any custom module settings here
 	game.settings.register('pick-up-stix', 'default-container-opened-image-path', {
@@ -27,7 +27,7 @@ export const registerSettings = function() {
 
 export function processHtml(html) {
 	$(html)
-		.find('input[data-dtype="pick-up-stix-settings-Image"')
+		.find('input[data-dtype="pick-up-stix-settings-image"')
 		.each(function() {
 			const settingName = $(this).attr('name').split('.')[1];
 

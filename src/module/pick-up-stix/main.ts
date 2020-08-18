@@ -169,12 +169,12 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
 						callback: () => updateToken(token, {
-							img: 'modules/pick-up-stix/assets/chest-closed.png',
+							img: game.settings.get('pick-up-stix', 'default-container-closed-image-path'),
 							flags: {
 								'pick-up-stix': {
 									'pick-up-stix': {
-										imageContainerClosedPath: 'modules/pick-up-stix/assets/chest-closed.png',
-										imageContainerOpenPath: 'modules/pick-up-stix/assets/chest-opened.png',
+										imageContainerClosedPath: game.settings.get('pick-up-stix', 'default-container-closed-image-path'),
+										imageContainerOpenPath: game.settings.get('pick-up-stix', 'default-container-opened-image-path'),
 										itemType: ItemType.CONTAINER,
 										isLocked: false
 									}
@@ -293,7 +293,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 	// get only the tokens that are within the right distance
 	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-	controlledTokens = controlledTokens.filter(t => dist(t, clickedToken) < maxDist && t.getFlag('pick-up-stix', 'pick-up-stix') === undefined);
+	controlledTokens = controlledTokens.filter(t => dist(t, clickedToken) < (maxDist + 20) && t.getFlag('pick-up-stix', 'pick-up-stix') === undefined);
 
 	// if there are no controlled tokens within reach, show an error
 	if (!controlledTokens.length) {

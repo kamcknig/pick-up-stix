@@ -1,15 +1,15 @@
 /* ------------------------------------ */
 /* When ready													  */
 import {
-	setupMouseManager,
-	handleDropItem,
 	drawLockIcon,
-	lootTokens
+	handleDropItem,
+	lootTokens,
+	setupMouseManager
 } from "./main";
-import { registerSettings } from "./settings";
-import { preloadTemplates } from "./preloadTemplates";
-import { PickUpStixSocketMessage, SocketMessageType, PickUpStixFlags, ItemType } from "./models";
+import { ItemType, PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./models";
 import { handleOnDrop } from "./overrides";
+import { preloadTemplates } from "./preloadTemplates";
+import { registerSettings } from "./settings";
 
 /**
  * TODO: This should be removed once 0.7.0 becomes stable
@@ -36,7 +36,7 @@ declare interface DragDropOptions {
 export async function initHook() {
 	console.log('pick-up-stix | initHook');
 
-	//CONFIG.debug.hooks = true;
+	CONFIG.debug.hooks = true;
 
 	// Assign custom classes and constants here
 
@@ -52,6 +52,11 @@ export async function initHook() {
 
 	// Register custom sheets (if any)
 };
+
+export async function setupHook(...args) {
+	console.log(`pick-up-stix | setupHook called with args:`);
+	console.log(args);
+}
 
 /* ------------------------------------ */
 export function readyHook() {
@@ -103,6 +108,7 @@ export function readyHook() {
 export async function onCanvasReady(...args) {
 	console.log(`pick-up-stix | onCanvasReady | call width args:`);
 	console.log(args);
+	console.log(game.user);
 
   canvas?.tokens?.placeables?.forEach(async (p: PlaceableObject) => {
 		const flags: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');

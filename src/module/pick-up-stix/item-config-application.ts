@@ -83,7 +83,9 @@ export default class ItemConfigApplication extends FormApplication {
 		super.activateListeners(this._html);
 
 		// set the click listener on the image
-		$(html).find(`[data-edit="img"]`).click(e => this._onEditImage(e));
+		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
+			$(html).find(`[data-edit="img"]`).click(e => this._onEditImage(e));
+		}
 
 		// set click listeners on the buttons to pick up individual items
 		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
@@ -105,7 +107,11 @@ export default class ItemConfigApplication extends FormApplication {
 
 	getData() {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | getData:`);
+		const itemType = this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType');
+
 		const data = {
+			profileImage: itemType === ItemType.CONTAINER ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.data.img,
+			isContainer: itemType === ItemType.CONTAINER,
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
 			lootTypes: Object.keys(this._loot).filter(lootKey => lootKey !== 'currency'),

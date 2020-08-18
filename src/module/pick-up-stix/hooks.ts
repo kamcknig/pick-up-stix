@@ -139,7 +139,8 @@ export async function onCanvasReady(...args) {
 	else {
 		console.log(`pick-up-stix | onCanvasReady | Foundry version is 0.6.5 or below. Overriding Canvas._onDrop`);
 
-		new DragDrop({ callbacks: { drop: handleOnDrop.bind(canvas) } }).bind(document.getElementById('board'));
+		const board = document.getElementById('board');
+		board.addEventListener('drop', handleOnDrop.bind(canvas));
 	}
 }
 

@@ -79,6 +79,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 	activateListeners(html) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | activateListeners`);
+		console.log(this);
 		this._html = html;
 		super.activateListeners(this._html);
 
@@ -98,7 +99,13 @@ export default class ItemConfigApplication extends FormApplication {
 
 		$(html).find('input#canCloseCheckbox').prop('checked', this._token.getFlag('pick-up-stix', 'pick-up-stix.canClose') ?? true);
 
-		$(html).find('input#scale').val(this._token.data.scale);
+		$(html).find('input#scale').val(this._token?.data?.scale ?? 1);
+
+		if (game.user.isGM) {
+			const description = getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value');
+			const descriptionText = $(`<span>${description}</span>`).text();
+			$(html).find('#description').text(descriptionText ?? '').prop('disabled', !game.user.isGM).prop('readonly', !game.user.isGM);
+		}
 
 		if (!game.user.isGM) {
 			$(html).find(`input[type="text"]`).addClass('isNotGM');
@@ -109,21 +116,27 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | getData:`);
 		const itemType = this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType');
 
+		const loot = Object.entries(this._loot).reduce((prev, [lootKey, lootItems]) => {
+			if (lootKey === 'currency') {
+				prev[lootKey] = lootItems;
+				return prev;
+			}
+
+			const items = lootItems.map(i => ({ ...i, price: (+i?.qty ?? 0) * (+i.data?.price ?? 0) })).filter(i => +i.price > 0)
+			if (items.length) {
+				prev[lootKey] = items;
+			}
+
+			return prev;
+		}, {});
+
 		const data = {
 			profileImage: itemType === ItemType.CONTAINER ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.data.img,
 			isContainer: itemType === ItemType.CONTAINER,
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
-			lootTypes: Object.keys(this._loot).filter(lootKey => lootKey !== 'currency'),
-			loot: Object.entries(this._loot).reduce((prev, [lootKey, lootItems]) => {
-				if (lootKey === 'currency') {
-					prev[lootKey] = lootItems;
-					return prev;
-				}
-
-				prev[lootKey] = lootItems.map(i => ({ ...i, price: i.qty * i.data.price }));
-				return prev;
-			}, {}),
+			lootTypes: Object.keys(loot).filter(lootKey => lootKey !== 'currency'),
+			loot,
 			currencyTypes: Object.entries(getCurrencies()).map(([k, v]) => ({ short: k, long: v })),
 			user: game.user
 		};
@@ -173,7 +186,8 @@ export default class ItemConfigApplication extends FormApplication {
 			itemType: ItemType.ITEM,
 			isLocked: false
 		});
-		console.log(itemData)
+		setProperty(itemData, '-=qty', null);
+		console.log(itemData);
 		console.log(this._loot);
 		await createOwnedEntity(actor, [itemData]);
 		itemCollected(this._controlledToken, itemData);
@@ -233,7 +247,7 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
 		const formDuplicate = duplicate(formData);
-		console.log(`pick-up-stix | ItemConfigAPplication | original 'formData' object:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | original 'formData' object:`);
 		console.log(formDuplicate);
 
 		Object.entries(this._loot).filter(([k,]) => k !== 'currency').forEach(([k, v]) => {
@@ -244,7 +258,7 @@ export default class ItemConfigApplication extends FormApplication {
 				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, Object.entries(v).reduce((prev, [index, v]) => {
 					prev.push({
 						...v,
-						qty: e.type === 'change' && e.currentTarget.dataset.hasOwnProperty('quantityInput') && e.currentTarget.dataset.lootType === v.type && e.currentTarget.dataset.lootId === v._id ? $(e.currentTarget).val() : v.qty,
+						qty: e.type === 'change' && e.currentTarget.dataset.hasOwnProperty('quantityInput') && e.currentTarget.dataset.lootType === v.type && e.currentTarget.dataset.lootId === v._id ? +$(e.currentTarget).val() : +v.qty,
 						flags: {}
 					});
 					return prev;
@@ -252,10 +266,10 @@ export default class ItemConfigApplication extends FormApplication {
 			}
 		});
 
-		console.log(`pick-up-stix | ItemConfigAPplication | new 'formData' object:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | new 'formData' object:`);
 		console.log(formData);
 		const flattendOb = flattenObject(formData);
-		console.log(`pick-up-stix | ItemConfigAPplication | flattend 'formData' object:`);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | flattend 'formData' object:`);
 		console.log(flattendOb);
 		await updateToken(this._token, flattendOb);
 		this.render();

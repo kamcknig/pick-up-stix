@@ -1,5 +1,6 @@
 /* ------------------------------------ */
 /* When ready													  */
+import ItemConfigApplication from "./item-config-application";
 import {
 	drawLockIcon,
 	handleDropItem,
@@ -9,7 +10,7 @@ import {
 import { ItemType, PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./models";
 import { handleOnDrop } from "./overrides";
 import { preloadTemplates } from "./preloadTemplates";
-import { registerSettings } from "./settings";
+import { DefaultSetttingKeys, registerSettings } from "./settings";
 
 /**
  * TODO: This should be removed once 0.7.0 becomes stable
@@ -53,15 +54,30 @@ export async function initHook() {
 	// Register custom sheets (if any)
 };
 
-export async function setupHook(...args) {
-	console.log(`pick-up-stix | setupHook called with args:`);
-	console.log(args);
+export async function setupHook() {
+	console.log(`pick-up-stix | setupHook`);
 }
 
 /* ------------------------------------ */
 export function readyHook() {
 	// Do anything once the module is ready
 	console.log(`pick-up-stix | readyHook`);
+
+	for (let item of game.items.values()) {
+		if (getProperty(item.data, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
+			item.data.type = 'container';
+		}
+	}
+
+	game.system.entityTypes.Item.push('container');
+	CONFIG.Item.sheetClasses['container'] = {
+		'pick-up-stix.ItemConfigApplication': {
+			cls: ItemConfigApplication,
+			default: true,
+			id: 'pick-up-stix.ItemConfigApplication'
+		}
+	};
+	EntitySheetConfig.registerSheet(Item, 'pick-up-stix', ItemConfigApplication, { types: [ 'container' ], makeDefault: true });
 
 	socket = game.socket;
 
@@ -217,3 +233,40 @@ export async function onCreateToken(scene: Scene, tokenData: any, options: any, 
 			token.activateListeners = setupMouseManager.bind(token);
 	}
 };
+
+export async function onRenderDialog(dialog: Dialog, html, dialogOptions) {
+	console.log(`pick-up-stix | onRenderDialog | called with args:`);
+	console.log([dialog, html, dialogOptions]);
+
+	if ((dialog as any).data.title !== 'Create New Item') {
+			return;
+	}
+
+	console.log(`pick-up-stix | onRenderDialog | Dialog is the create new item dialog`);
+	$(html).find('select[name="type"]').append(`<option value="Container">Container</option>`);
+}
+
+export async function onCreateItem(item: Item, options: any, userId: string) {
+	console.log(`pick-up-stix | onCreateItem | called with args:`);
+	console.log([item, options, userId]);
+
+	// change the type back to 'container' so that our item config sheet works. When the item is created, we created it with
+	// the 'backpack' type because we are forced to use an existing item type. but then after we make it just switch it back.
+	if (getProperty(item.data, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
+		item.data.type = 'container';
+	}
+}
+
+export async function onPreCreateItem(itemData: any, options: any, userId: string) {
+	console.log(`pick-up-stix | onPreCreateItem | called with args:`);
+	console.log([itemData, options, userId]);
+
+	if (itemData.type === ItemType.CONTAINER) {
+		options.renderSheet = false;
+		itemData.type = game.system.entityTypes.Item.includes('backpack') ? 'backpack' : game.system.entityTypes.Item[0];
+		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemType', ItemType.CONTAINER);
+		setProperty(itemData, 'img', game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath));
+		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.imageContainerOpenPath', game.settings.get('pick-up-stix', DefaultSetttingKeys.openImagePath));
+		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.imageContainerClosedPath', game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath));
+	}
+}

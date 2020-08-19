@@ -34,6 +34,7 @@ export interface PickUpStixSocketMessage {
 }
 
 export enum ItemType {
+	NONE = 'None',
 	ITEM = 'Item',
 	CONTAINER = 'Container'
 }

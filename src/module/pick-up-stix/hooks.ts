@@ -131,6 +131,15 @@ export function readyHook() {
 };
 
 let boardDropListener;
+const dropCanvasHandler = async (canvas, dropData) => {
+	console.log(`pick-up-stix | dropCanvasData | called with args:`);
+	console.log(canvas, dropData);
+
+	if (dropData.type === "Item") {
+		handleDropItem(dropData);
+	}
+}
+
 export async function onCanvasReady(...args) {
 	console.log(`pick-up-stix | onCanvasReady | call width args:`);
 	console.log(args);
@@ -153,14 +162,8 @@ export async function onCanvasReady(...args) {
 	if (isNewerVersion(coreVersion, '0.6.5')) {
     console.log(`pick-up-stix | onCanvasReady | Foundry version newer than 0.6.5. Using dropCanvasData hook`);
 
-		Hooks.on('dropCanvasData', async (canvas, dropData) => {
-			console.log(`pick-up-stix | dropCanvasData | called with args:`);
-			console.log(canvas, dropData);
-
-			if (dropData.type === "Item") {
-				handleDropItem(dropData);
-			}
-		});
+		Hooks.off('dropCanvasData', dropCanvasHandler);
+		Hooks.on('dropCanvasData', dropCanvasHandler);
 	}
 	else {
 		console.log(`pick-up-stix | onCanvasReady | Foundry version is 0.6.5 or below. Overriding Canvas._onDrop`);

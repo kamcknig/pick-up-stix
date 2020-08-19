@@ -21,6 +21,15 @@ declare class DragDrop {
 	bind(canvas: any);
 }
 
+declare class EntitySheetConfig {
+	static registerSheet(
+    entityClass,
+    scope,
+    sheetClass,
+    { types, makeDefault }?: { types?: string[], makeDefault?: boolean }
+  );
+}
+
 /**
  * TODO: This should be removed once 0.7.0 becomes stable
  */

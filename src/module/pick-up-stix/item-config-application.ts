@@ -256,9 +256,9 @@ export default class ItemConfigApplication extends FormApplication {
 			}
 			else {
 				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.${k}`, Object.entries(v).reduce((prev, [index, v]) => {
+					v.qty = e.type === 'change' && e.currentTarget.dataset.hasOwnProperty('quantityInput') && e.currentTarget.dataset.lootType === v.type && e.currentTarget.dataset.lootId === v._id ? +$(e.currentTarget).val() : +v.qty;
 					prev.push({
 						...v,
-						qty: e.type === 'change' && e.currentTarget.dataset.hasOwnProperty('quantityInput') && e.currentTarget.dataset.lootType === v.type && e.currentTarget.dataset.lootId === v._id ? +$(e.currentTarget).val() : +v.qty,
 						flags: {}
 					});
 					return prev;

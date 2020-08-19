@@ -7,7 +7,11 @@
     <!-- container name and description -->
     <section class="header-details flexcol">
       <div class="flexrow" style="align-items: center; flex: unset; border-bottom: 2px groove #eeede0; padding-bottom: 5px;">
+        {{#if user.isGM}}
         <input class="container-name" type="text" name="name" value="{{object.name}}" style="border-bottom: unset;">
+        {{else}}
+        <span class="container-name" style="border-bottom: unset;">{{object.name}}</span>
+        {{/if}}
 
         {{#if user.isGM}}
         <div class="flexcol" style="flex: 0 0 180px;">
@@ -25,9 +29,11 @@
         {{/if}}
       </div>
 
-      <div class="container-description" style="flex: 1;">
-        {{{containerDescription}}}
-      </div>
+      {{#if user.isGM}}
+      <textarea style="resize: none;" class="container-description" id="description" name="flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value"></textarea>
+      {{else}}
+      <span id="description" class="container-description">{{{containerDescription}}}</span>
+      {{/if}}
     </section>
   </header>
 
@@ -71,7 +77,7 @@
                 <h4>{{loot.name}}</h4>
               </div>
 
-              <input name="flag.pick-up-stix.pick-up-stix.containerLoot.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
+              <input name="flags.pick-up-stix.pick-up-stix.containerLoot.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
 
               <div class="item-value">
                 {{loot.price}}

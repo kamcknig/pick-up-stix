@@ -98,27 +98,32 @@ $groove-color: #eeede0;
     }
   }
 
+  & textarea {
+    border: 1px solid transparent;
+    background: unset;
+  }
+
+  & textarea:focus,
+  & textarea:hover {
+    outline: unset;
+    box-shadow: unset;
+    border: 1px solid black;
+  }
+
   /**
    * Input styles
    */
   & input[type="text"] {
     background: unset;
-    border: 1px solid transparent;
     box-shadow: unset;
+    outline: unset;
+    border: 1px solid transparent;
     border-bottom: 2px groove $groove-color;
-  }
-  & input[type="text"]:focus,
-  & input[type="text"]:hover {
-    border: 1px solid black;
-    box-shadow: .1px .5px 5px red;
-  }
 
-  & input[type="text"].isNotGM,
-  & input[type="text"].isNotGM:focus,
-  & input[type="text"].isNotGM:hover {
-    border: 1px solid transparent;
-    border-bottom: 2px groove $groove-color;
-    box-shadow: unset;
+    &:focus:not(.isNotGM),
+    &:hover:not(.isNotGM) {
+      border: 1px solid black;
+    }
   }
 
   & .inventory-details,

@@ -99,7 +99,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 		$(html).find('input#canCloseCheckbox').prop('checked', this._token.getFlag('pick-up-stix', 'pick-up-stix.canClose') ?? true);
 
-		$(html).find('input#scale').val(this._token?.data?.scale ?? 1);
+		//$(html).find('input#scale').val(this._token?.data?.width ?? 1);
 
 		if (game.user.isGM) {
 			const description = getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value');
@@ -244,6 +244,14 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	protected async _updateObject(e, formData) {
+		// this is SOOOOO ugly
+		// const lock = this._token.getChildByName('pick-up-stix-lock');
+		// if (lock) {
+		// 	console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | found previous lock icon, removing it`)
+		// 	this._token.removeChild(lock);
+		// 	lock.destroy();
+		// }
+
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
 		const formDuplicate = duplicate(formData);
@@ -266,6 +274,7 @@ export default class ItemConfigApplication extends FormApplication {
 			}
 		});
 
+		formData.height = formData.width;
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | new 'formData' object:`);
 		console.log(formData);
 		const flattendOb = flattenObject(formData);

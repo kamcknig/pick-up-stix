@@ -153,6 +153,7 @@ export async function onCanvasReady(...args) {
 			p.mouseInteractionManager = setupMouseManager.bind(p)();
 
 			if (flags.isLocked) {
+				console.log(`pick-up-stix | onCanvasReady | loot is locked, draw lock icon`);
 				await drawLockIcon(p);
 			}
 		}
@@ -219,14 +220,27 @@ export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: an
 			const token: Token = canvas?.tokens?.placeables?.find((p: PlaceableObject) => p.id === tokenData._id);
 
 			if (flags.isLocked) {
-				await drawLockIcon(token);
+				console.log(`pick-up-stix | onUpdateToken | token is locked, draw lock icon`);
+				await new Promise(resolve => {
+					setTimeout(() => {
+						drawLockIcon(token);
+					}, 0);
+				});
 			}
 			else {
+				console.log(`pick-up-stix | onUpdateToken | token is not locked, check for locked image`);
+				token.children.forEach(c => console.log(c.name));
+
 				const lock = token.getChildByName('pick-up-stix-lock');
+
+				console.log(`pick-up-stix | onUpdateToken | lock image ${!!lock ? ' found' : ' not found'}`);
+
 				if (lock) {
 					token.removeChild(lock);
+					lock.destroy();
 				}
 			}
+
 			token.mouseInteractionManager = setupMouseManager.bind(token)();
 			token.activateListeners = setupMouseManager.bind(token);
 	}

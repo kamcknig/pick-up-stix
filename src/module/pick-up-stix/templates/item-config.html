@@ -22,8 +22,8 @@
           </div>
           {{/if}}
           <div class="flexrow" style="flex: unset;">
-            <input id="scale" name="scale" data-dtype="Number" type="range" min=".1" max="2" step=".1">
-            <span style="flex: 0 0 40px;" class="range-value">{{object.scale}}</span>
+            <input id="scale" value="{{object.width}}" name="width" data-dtype="Number" type="range" min=".1" max="2" step=".1">
+            <span style="flex: 0 0 40px;" class="range-value">{{object.width}}</span>
           </div>
         </div>
         {{/if}}
@@ -62,11 +62,7 @@
             <h3 class="item-name flexrow">{{lootType}}</h3>
             <div class="item-details item-qty">Qty</div>
             <div class="item-details item-value">Value</div>
-            <div class="item-controls">
-                <a class="item-create" title="Create Item" data-type="{{lootType}}">
-                    <i class="fas fa-plus"></i> Add
-                </a>
-            </div>
+            <div class="item-details"></div>
         </li>
 
         <ol data-itemType="{{lootType}}" class="item-list">
@@ -77,13 +73,13 @@
                 <h4>{{loot.name}}</h4>
               </div>
 
-              <input name="flags.pick-up-stix.pick-up-stix.containerLoot.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
+              <input class="item-details" name="flags.pick-up-stix.pick-up-stix.containerLoot.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
 
-              <div class="item-value">
+              <div class="item-details item-value">
                 {{loot.price}}
               </div>
 
-              <div class="item-controls">
+              <div class="item-details item-controls">
                 <a data-id="{{loot._id}}" class="item-take" title="Take Item">
                   <i class="fas fa-hand-paper"></i>
                 </a>

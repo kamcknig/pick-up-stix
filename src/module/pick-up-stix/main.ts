@@ -548,6 +548,13 @@ export async function drawLockIcon(p: PlaceableObject): Promise<any> {
 	console.log(`pick-up-stix | drawLockIcon | called with args:`);
 	console.log(p);
 
+	const lock = p.getChildByName('pick-up-stix-lock');
+	if (lock) {
+		console.log(`pick-up-stix | drawLockIcon | found previous lock icon, removing it`)
+		p.removeChild(lock);
+		lock.destroy();
+	}
+
 	const tex = await loadTexture('icons/svg/padlock.svg');
 	const icon = p.addChild(new PIXI.Sprite(tex));
 	icon.name = 'pick-up-stix-lock';

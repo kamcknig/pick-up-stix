@@ -205,18 +205,9 @@ $groove-color: #eeede0;
         background-repeat: no-repeat;
       }
 
-      & .item-qty {
+      & .item-details {
         flex: 0 0 60px;
         border-left: 1px solid #c9c7b8;
-        color: #7a7971;
-        overflow: hidden;
-        text-align: center;
-      }
-
-      & .item-value {
-        flex: 0 0 100px;
-        border-left: 1px solid #c9c7b8;
-        border-right: 1px solid #c9c7b8;
         color: #7a7971;
         overflow: hidden;
         text-align: center;
@@ -225,7 +216,6 @@ $groove-color: #eeede0;
   }
 
   & .item-controls {
-    flex: 0 0 44px;
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;

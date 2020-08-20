@@ -387,6 +387,8 @@ function updateManifest(cb) {
 		);
 
 	try {
+		console.log(argv);
+		const force = argv.force === 'true' || argv.f;
 		const version = argv.update || argv.u;
 
 		/* Update version */
@@ -394,7 +396,7 @@ function updateManifest(cb) {
 		const versionMatch = /^(\d{1,}).(\d{1,}).(\d{1,})$/;
 		const currentVersion = manifest.file.version;
 		let targetVersion = '';
-		console.log(currentVersion);
+		console.log(`current version: ${currentVersion}`);
 
 		if (!version) {
 			cb(Error('Missing version number'));
@@ -425,7 +427,7 @@ function updateManifest(cb) {
 			);
 		}
 
-		if (targetVersion === '') {
+		if (targetVersion && !force === '') {
 			return cb(Error(chalk.red('Error: Incorrect version arguments.')));
 		}
 
@@ -445,10 +447,10 @@ function updateManifest(cb) {
 
 		/* Update URLs */
 
-		const result = `${rawURL}/v${manifest.file.version}/package/${manifest.file.name}-v${manifest.file.version}.zip`;
+		const result = `https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/releases/${manifest.file.name}-v${manifest.file.version}.zip`;
 
 		manifest.file.url = repoURL;
-		manifest.file.manifest = `${rawURL}/master/${manifestRoot}/${manifest.name}`;
+		manifest.file.manifest = `${rawURL}/v${manifest.file.version}/src/module.json`;
 		manifest.file.download = result;
 
 		const prettyProjectJson = stringify(manifest.file, {
@@ -507,6 +509,5 @@ exports.publish = gulp.series(
 	clean,
 	updateManifest,
 	execBuild,
-	packageBuild,
-	execGit
+	packageBuild
 );

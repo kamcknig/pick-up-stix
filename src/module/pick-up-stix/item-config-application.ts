@@ -266,8 +266,11 @@ export default class ItemConfigApplication extends FormApplication {
 			}
 		});
 
-		// we only collect the one size and store it as the width, so here we also store the height to be the same
-		formData.height = formData.width;
+		if (formData.width !== undefined) {
+			// we only collect the one size and store it as the width, so here we also store the height to be the same
+			formData.height = formData.width;
+		}
+
 		const flattendOb = flattenObject(formData);
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | flattend 'formData' object:`);
 		console.log(flattendOb);

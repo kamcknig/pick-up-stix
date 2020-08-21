@@ -147,11 +147,11 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': {
-						...itemData.flags['pick-up-stix']['pick-up-stix'],
-						itemType: ItemType.CONTAINER,
-						isLocked: false,
 						canClose: true,
-						isOpen: false
+						isLocked: false,
+						isOpen: false,
+						itemType: ItemType.CONTAINER,
+						...itemData.flags['pick-up-stix']['pick-up-stix'],
 					}
 				}
 			}

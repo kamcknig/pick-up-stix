@@ -360,6 +360,8 @@ async function packageBuild() {
 	});
 }
 
+noCommit = false;
+
 /*********************/
 /*		PACKAGE		 */
 /*********************/
@@ -432,16 +434,23 @@ function updateManifest(cb) {
 			return cb(Error(chalk.red('Error: Incorrect version arguments.')));
 		}
 
-		if (targetVersion === currentVersion && !force) {
-			return cb(
-				Error(
-					chalk.red(
-						'Error: Target version is identical to current version.'
+		if (targetVersion === currentVersion) {
+			noCommit = true;
+
+			if (!force) {
+				return cb(
+					Error(
+						chalk.red(
+							'Error: Target version is identical to current version.'
+						)
 					)
-				)
-			);
+				);
+			}
 		}
-		console.log(`Updating version number to '${targetVersion}'`);
+
+		if (!force) {
+			console.log(`Updating version number to '${targetVersion}'`);
+		}
 
 		packageJson.version = targetVersion;
 		manifest.file.version = targetVersion;
@@ -473,10 +482,20 @@ function updateManifest(cb) {
 }
 
 function gitAdd() {
+	if (noCommit) {
+		console.log('Skipping gitAdd, noCommit is true');
+		return Promise.resolve();
+	}
+
 	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
 }
 
 function gitCommit() {
+	if (noCommit) {
+		console.log('Skipping gitCommit, noCommit is true');
+		return Promise.resolve();
+	}
+
 	return gulp.src('./*').pipe(
 		git.commit(`v${getManifest().file.version}`, {
 			args: '-a',
@@ -486,6 +505,11 @@ function gitCommit() {
 }
 
 function gitTag() {
+	if (noCommit) {
+		console.log('Skipping gitTag, noCommit is true');
+		return Promise.resolve();
+	}
+
 	const manifest = getManifest();
 	return git.tag(
 		`v${manifest.file.version}`,
@@ -496,7 +520,18 @@ function gitTag() {
 	);
 }
 
-const execGit = gulp.series(gitAdd, gitCommit, gitTag);
+function gitPush() {
+	if (noCommit) {
+		console.log('Skipping gitPush, noCommit is true');
+		return Promise.resolve();
+	}
+
+	return git.push('origin', 'master', function(err) {
+		if (err) throw err;
+	});
+}
+
+const execGit = gulp.series(gitAdd, gitCommit, gitTag, gitPush);
 
 const execBuild = gulp.parallel(buildTS, buildLess, buildSASS, copyFiles);
 

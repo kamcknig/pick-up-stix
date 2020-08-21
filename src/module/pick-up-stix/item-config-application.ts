@@ -99,7 +99,9 @@ export default class ItemConfigApplication extends FormApplication {
 
 		$(html).find('input#canCloseCheckbox').prop('checked', this._token.getFlag('pick-up-stix', 'pick-up-stix.canClose') ?? true);
 
-		//$(html).find('input#scale').val(this._token?.data?.width ?? 1);
+		if (this._token) {
+			$(html).find('input#scale').val(this._token?.data?.width ?? 1);
+		}
 
 		if (game.user.isGM) {
 			const description = getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value');
@@ -133,6 +135,7 @@ export default class ItemConfigApplication extends FormApplication {
 		const data = {
 			profileImage: itemType === ItemType.CONTAINER ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.data.img,
 			isContainer: itemType === ItemType.CONTAINER,
+			isToken: this._token instanceof Token,
 			object: this._token.data,
 			containerDescription: getProperty(this._token.data, 'flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value')?.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;') ?? '',
 			lootTypes: Object.keys(loot).filter(lootKey => lootKey !== 'currency'),
@@ -244,19 +247,8 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	protected async _updateObject(e, formData) {
-		// this is SOOOOO ugly
-		// const lock = this._token.getChildByName('pick-up-stix-lock');
-		// if (lock) {
-		// 	console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | found previous lock icon, removing it`)
-		// 	this._token.removeChild(lock);
-		// 	lock.destroy();
-		// }
-
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onUpdateObject`);
 		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.imageContainerClosedPath');
-		const formDuplicate = duplicate(formData);
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | original 'formData' object:`);
-		console.log(formDuplicate);
 
 		Object.entries(this._loot).filter(([k,]) => k !== 'currency').forEach(([k, v]) => {
 			if (v.length === 0) {
@@ -274,9 +266,8 @@ export default class ItemConfigApplication extends FormApplication {
 			}
 		});
 
+		// we only collect the one size and store it as the width, so here we also store the height to be the same
 		formData.height = formData.width;
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | new 'formData' object:`);
-		console.log(formData);
 		const flattendOb = flattenObject(formData);
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | flattend 'formData' object:`);
 		console.log(flattendOb);

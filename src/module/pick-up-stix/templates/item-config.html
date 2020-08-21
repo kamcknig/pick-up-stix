@@ -21,10 +21,12 @@
             <label style="flex: unset;">Can close</label>
           </div>
           {{/if}}
+          {{#if isToken}}
           <div class="flexrow" style="flex: unset;">
             <input id="scale" value="{{object.width}}" name="width" data-dtype="Number" type="range" min=".1" max="2" step=".1">
-            <span style="flex: 0 0 40px;" class="range-value">{{object.width}}</span>
+            <span id="scaleSpan" style="flex: 0 0 40px;" class="range-value">{{object.width}}</span>
           </div>
+          {{/if}}
         </div>
         {{/if}}
       </div>

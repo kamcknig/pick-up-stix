@@ -472,7 +472,7 @@ function updateManifest(cb) {
 }
 
 function gitAdd() {
-	return gulp.src('package').pipe(git.add({ args: '--no-all' }));
+	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
 }
 
 function gitCommit() {
@@ -509,5 +509,6 @@ exports.publish = gulp.series(
 	clean,
 	updateManifest,
 	execBuild,
-	packageBuild
+	packageBuild,
+	execGit
 );

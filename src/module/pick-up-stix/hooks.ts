@@ -5,7 +5,8 @@ import {
 	drawLockIcon,
 	handleDropItem,
 	lootTokens,
-	setupMouseManager
+	setupMouseManager,
+	updateActor
 } from "./main";
 import { ItemType, PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./models";
 import { handleOnDrop } from "./overrides";
@@ -297,23 +298,26 @@ export async function onPreCreateItem(itemData: any, options: any, userId: strin
 	}
 }
 
-export async function onPreCreateActor(data: any, options: { renderSheet: boolean, temporary: boolean, [key: string]: any }, userId: string) {
-	console.log(`pick-up-stix | onPreCreateActor | called with args:`);
-	console.log([data, options, userId]);
-
-	data.items?.map(i => ({
-		...i,
-		flags: {
-			'pick-up-stix': {
+export async function onCreateActor(actor: Actor, userId: string) {
+	console.log(`pick-up-stix | onCreateActor | called with args:`);
+	console.log([actor, userId]);
+	const updates = [
+		...Object.values(actor.items.entries).map(ownedItem => ({
+			_id: ownedItem.id,
+			flags: {
 				'pick-up-stix': {
-					initialState: {
-						count: 1,
-						itemData: {
-							...i
+					'pick-up-stix': {
+						initialState: {
+							count: 1,
+							itemData: {
+								...ownedItem.data
+							}
 						}
 					}
 				}
 			}
-		}
-	}))
+		}))
+	];
+	console.log(updates);
+	await actor.updateOwnedItem(updates)
 }

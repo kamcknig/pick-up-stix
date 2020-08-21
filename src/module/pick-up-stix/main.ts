@@ -78,6 +78,9 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 			if (existingItem) {
 				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemId}`);
 				console.log(existingItem);
+
+				if(!existingItem.qty) existingItem.qty = 1;
+
 				existingItem.qty++;
 			}
 			else {
@@ -85,7 +88,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				if (!existingLoot[itemData.type]) {
 					existingLoot[itemData.type] = [];
 				}
-				(existingLoot[itemData.type] as any).push({ ...itemData });
+				(existingLoot[itemData.type] as any).push({ ...itemData, qty: 1 });
 			}
 
 			const update = {

@@ -1,13 +1,17 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'VERSION', description: 'Version to publish')
+    }
+
     stages {
         stage("BUILD") {
             steps {
                 echo "========executing BUILD========"
                 sh 'npm ci'
                 sh 'npm run build'
-                sh 'npm run package'
+                sh 'npm run publish -- --update=${params.VERSION}'
             }
             post{
                 always {

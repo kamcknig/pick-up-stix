@@ -387,9 +387,10 @@ function updateManifest(cb) {
 		);
 
 	try {
-		console.log(argv);
-		const force = argv.force === 'true' || argv.f;
+		const force = argv.force || argv.f;
+		console.log(`force ${force}`);
 		const version = argv.update || argv.u;
+		console.log(`version ${version}`);
 
 		/* Update version */
 
@@ -431,7 +432,7 @@ function updateManifest(cb) {
 			return cb(Error(chalk.red('Error: Incorrect version arguments.')));
 		}
 
-		if (targetVersion === currentVersion) {
+		if (targetVersion === currentVersion && !force) {
 			return cb(
 				Error(
 					chalk.red(

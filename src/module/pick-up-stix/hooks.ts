@@ -296,3 +296,24 @@ export async function onPreCreateItem(itemData: any, options: any, userId: strin
 		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.imageContainerClosedPath', game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath));
 	}
 }
+
+export async function onPreCreateActor(data: any, options: { renderSheet: boolean, temporary: boolean, [key: string]: any }, userId: string) {
+	console.log(`pick-up-stix | onPreCreateActor | called with args:`);
+	console.log([data, options, userId]);
+
+	data.items?.map(i => ({
+		...i,
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					initialState: {
+						count: 1,
+						itemData: {
+							...i
+						}
+					}
+				}
+			}
+		}
+	}))
+}

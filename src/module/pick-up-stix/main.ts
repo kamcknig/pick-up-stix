@@ -214,7 +214,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 	}
 	else {
 		updates = {
-			img: itemData.img,
+			...itemData,
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': {

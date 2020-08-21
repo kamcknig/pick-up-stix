@@ -22,6 +22,7 @@ I mainly play Dungeons and Dragons 5th and therefore I develop and test with tha
 ## Known Issues
 
 - The feature to create item container 'templates' by using the 'Create Item' button on the Items Directory is very new and hasn't been thoroughly tested.
+- Items created via the 'Add' button on character sheets are currently do not work with Pick-Up-Stix; They cannot be dropped like normal loot.
 
 # Demos
 

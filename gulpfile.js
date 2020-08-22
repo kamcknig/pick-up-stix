@@ -11,9 +11,12 @@ const ts = require('gulp-typescript');
 const less = require('gulp-less');
 const sass = require('gulp-sass');
 const git = require('gulp-git');
+const axios = require('axios');
 const { kStringMaxLength } = require('buffer');
 
 const argv = require('yargs').argv;
+const JENKINS_TRIGGER_TOKEN = 'fkj238u87v8uxvijn;askdjfh2yfah;jhkjfmn23k';
+const JENKINS_BUILD_URL = `https://jenkins.turkeysunite.com/job/pick-up-stix/buildWithParameters?token=${JENKINS_TRIGGER_TOKEN}`;
 
 sass.compiler = require('sass');
 
@@ -360,8 +363,6 @@ async function packageBuild() {
 	});
 }
 
-noCommit = false;
-
 /*********************/
 /*		PACKAGE		 */
 /*********************/
@@ -431,8 +432,6 @@ function updateManifest(cb) {
 		}
 
 		if (targetVersion === currentVersion) {
-			noCommit = true;
-
 			return cb(
 				Error(
 					chalk.red(
@@ -472,17 +471,10 @@ function updateManifest(cb) {
 }
 
 // function gitAdd() {
-// 	if (noCommit) {
-// 		console.log('Skipping gitAdd, noCommit is true');
-// 		return Promise.resolve();
-// 	}
-
 // 	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
 // }
 
 // function gitCommit() {
-// 	if (noCommit) {
-// 		console.log('Skipping gitCommit, noCommit is true');
 // 		return Promise.resolve();
 // 	}
 
@@ -495,11 +487,6 @@ function updateManifest(cb) {
 // }
 
 function gitTag() {
-	if (noCommit) {
-		console.log('Skipping gitTag, noCommit is true');
-		return Promise.resolve();
-	}
-
 	const manifest = getManifest();
 	return git.tag(
 		`v${manifest.file.version}`,
@@ -511,18 +498,27 @@ function gitTag() {
 }
 
 function gitPushTags() {
-	if (noCommit) {
-		console.log('Skipping gitPush, noCommit is true');
-		return Promise.resolve();
-	}
-
 	return git.push('origin', 'master', { args: '--tags' }, function(err) {
 		if (err) throw err;
 	});
 }
 
-// const execGit = gulp.series(gitAdd, gitCommit, gitTag, gitPush);
-const execGit = gulp.series(updateManifest, gitTag);
+function jenkinsBuild() {
+	const manifest = getManifest();
+	return new Promise((resolve, reject) => {
+		axios({
+			method: 'get',
+			url: `${JENKINS_BUILD_URL}&TAG=${manifest.file.version}`
+		})
+		.then(response => {
+			console.log(response);
+			resolve();
+		})
+		.catch(err => {
+			reject(err);
+		})
+	});
+}
 
 const execBuild = gulp.parallel(buildTS, buildLess, buildSASS, copyFiles);
 
@@ -532,9 +528,9 @@ exports.clean = clean;
 exports.link = linkUserData;
 exports.package = packageBuild;
 exports.update = updateManifest;
-exports.execGit = execGit;
 exports.publish = gulp.series(
-	clean,
 	updateManifest,
-	execGit
+	gitTag,
+	gitPushTags,
+	jenkinsBuild
 );

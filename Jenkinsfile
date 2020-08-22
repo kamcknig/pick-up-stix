@@ -11,7 +11,7 @@ pipeline {
                 echo "========executing BUILD========"
                 sh 'npm ci'
                 sh 'npm run build'
-                sh 'npm run publish -- --update=${params.VERSION}'
+                sh 'npm run package'
             }
             post{
                 always {

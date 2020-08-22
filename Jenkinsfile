@@ -9,7 +9,7 @@ pipeline {
         stage("CLONE") {
             steps {
                 echo "======== executing CLONE ==========="
-                git credentialsId: 'git-kamcknig', branch: "${params.TAG}", poll: false, url: 'https://github.com/kamcknig/pick-up-stix'
+                checkout scm: [$class: 'GitSCM', branches: [[name: "refs/tags/${params.TAG}"]],userRemoteConfigs: [[url: "https://github.com/kamcknig/pick-up-stix", name: 'origin', credentialsId: 'git-kamcknig']]], poll: false, changelog: true
             }
             post {
                 success {
@@ -39,7 +39,7 @@ pipeline {
         stage("UPLOAD") {
             steps {
                 withAWS(credentials: "jenkins-s3-publisher") {
-                    s3Upload(bucket:"turkeysunite-foundry-modules", path:"pick-up-stix/releases/", includePathPattern:'**/*.zip', workingDir:"package", acl: "PublicRead")
+                    s3Upload(bucket:"turkeysunite-foundry-modules", path:"pick-up-stix/releases/", includePathPattern:"package/pick-up-stix-v${params.TAG}*.zip", workingDir:"package", acl: "PublicRead")
                 }
             }
             post {

@@ -498,12 +498,20 @@ function gitTag() {
 }
 
 function gitPushTags() {
-	return git.push('origin', 'master', { args: '--tags' }, function(err) {
-		if (err) throw err;
-	});
+	return new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			resolve
+		}, 4000);
+
+		git.push('origin', 'master', { args: '--tags' }, function(err) {
+			clearTimeout(timeout);
+			resolve();
+			if (err) throw err;
+		});
+	})
 }
 
-function jenkinsBuild() {
+async function jenkinsBuild() {
 	const manifest = getManifest();
 	return new Promise((resolve, reject) => {
 		axios({
@@ -511,11 +519,13 @@ function jenkinsBuild() {
 			url: `${JENKINS_BUILD_URL}&TAG=${manifest.file.version}`
 		})
 		.then(response => {
-			console.log(response);
 			resolve();
 		})
 		.catch(err => {
 			reject(err);
+		})
+		.finally(() => {
+			resolve();
 		})
 	});
 }

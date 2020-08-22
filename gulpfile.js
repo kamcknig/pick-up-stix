@@ -470,21 +470,27 @@ function updateManifest(cb) {
 	}
 }
 
-// function gitAdd() {
-// 	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
-// }
+ function gitAdd() {
+ 	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
+ }
 
-// function gitCommit() {
-// 		return Promise.resolve();
-// 	}
+function gitCommit() {
+	return gulp.src('./*').pipe(
+		git.commit(`v${getManifest().file.version}`, {
+			args: '-a',
+			disableAppendPaths: true,
+		})
+	);
+}
 
-// 	return gulp.src('./*').pipe(
-// 		git.commit(`v${getManifest().file.version}`, {
-// 			args: '-a',
-// 			disableAppendPaths: true,
-// 		})
-// 	);
-// }
+function gitPush() {
+	return git.push('origin', 'master', function(err) {
+		if (err) {
+			console.log(err);
+			throw err
+		};
+	})
+}
 
 function gitTag() {
 	const manifest = getManifest();
@@ -492,7 +498,10 @@ function gitTag() {
 		`v${manifest.file.version}`,
 		`Updated to ${manifest.file.version}`,
 		(err) => {
-			if (err) throw err;
+			if (err) {
+				console.log(err);
+				throw err
+			};
 		}
 	);
 }
@@ -500,13 +509,18 @@ function gitTag() {
 function gitPushTags() {
 	return new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => {
-			resolve
+			//resolve();
 		}, 4000);
 
 		git.push('origin', 'master', { args: '--tags' }, function(err) {
 			clearTimeout(timeout);
+			if (err) {
+				console.log(err);
+				reject();
+				throw err
+			};
+
 			resolve();
-			if (err) throw err;
 		});
 	})
 }
@@ -523,14 +537,13 @@ async function jenkinsBuild() {
 		})
 		.catch(err => {
 			reject(err);
-		})
-		.finally(() => {
-			resolve();
-		})
+		});
 	});
 }
 
 const execBuild = gulp.parallel(buildTS, buildLess, buildSASS, copyFiles);
+
+const execGit = gulp.series(gitAdd, gitCommit, gitPush, gitTag, gitPushTags);
 
 exports.build = gulp.series(clean, execBuild);
 exports.watch = buildWatch;
@@ -540,7 +553,6 @@ exports.package = packageBuild;
 exports.update = updateManifest;
 exports.publish = gulp.series(
 	updateManifest,
-	gitTag,
-	gitPushTags,
+	execGit,
 	jenkinsBuild
 );

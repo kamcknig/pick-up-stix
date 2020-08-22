@@ -483,13 +483,18 @@ function gitCommit() {
 	);
 }
 
-function gitPush() {
-	return git.push('origin', 'master', function(err) {
-		if (err) {
-			console.log(err);
-			throw err
-		};
-	})
+async function gitPush() {
+	return new Promise((resolve, reject) => {
+		git.push('origin', 'master', function(err) {
+			if (err) {
+				console.log(err);
+				reject();
+				throw err
+			};
+
+			resolve();
+		});
+	});
 }
 
 function gitTag() {
@@ -508,12 +513,7 @@ function gitTag() {
 
 function gitPushTags() {
 	return new Promise((resolve, reject) => {
-		const timeout = setTimeout(() => {
-			//resolve();
-		}, 4000);
-
 		git.push('origin', 'master', { args: '--tags' }, function(err) {
-			clearTimeout(timeout);
 			if (err) {
 				console.log(err);
 				reject();
@@ -530,7 +530,7 @@ async function jenkinsBuild() {
 	return new Promise((resolve, reject) => {
 		axios({
 			method: 'get',
-			url: `${JENKINS_BUILD_URL}&TAG=${manifest.file.version}`
+			url: `${JENKINS_BUILD_URL}&TAG=v${manifest.file.version}`
 		})
 		.then(response => {
 			resolve();

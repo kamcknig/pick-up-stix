@@ -6,22 +6,26 @@ pipeline {
     }
 
     stages {
+        stage("CLONE") {
+            echo "======== executing CLONE ==========="
+            git credentialsId: 'git-kamcknig', branch: '${env.TAG}', poll: false, url: 'https://github.com/kamcknig/pick-up-stix'
+        }
         stage("BUILD") {
             steps {
-                echo "========executing BUILD========"
+                echo "======== executing BUILD ========"
                 sh 'npm ci'
                 sh 'npm run build'
                 sh 'npm run package'
             }
             post{
                 always {
-                    echo "========always========"
+                    echo "======== always ========"
                 }
                 success {
-                    echo "========A executed successfully========"
+                    echo "======== A executed successfully ========"
                 }
                 failure {
-                    echo "========A execution failed========"
+                    echo "======== A execution failed ========"
                 }
             }
         }
@@ -33,10 +37,10 @@ pipeline {
             }
             post {
                 success {
-                    echo "========Publish to S3 Success========"
+                    echo "======== Publish to S3 Success ========"
                 }
                 failure {
-                    echo "========Failed to upload to S3=========="
+                    echo "======== Failed to upload to S3 =========="
                 }
             }
         }

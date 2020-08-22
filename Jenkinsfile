@@ -2,13 +2,23 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'VERSION', description: 'Version to publish')
+        string(name: 'TAG', description: 'Tag to checkout and version to publish')
     }
 
     stages {
         stage("CLONE") {
-            echo "======== executing CLONE ==========="
-            git credentialsId: 'git-kamcknig', branch: '${env.TAG}', poll: false, url: 'https://github.com/kamcknig/pick-up-stix'
+            steps {
+                echo "======== executing CLONE ==========="
+                git credentialsId: 'git-kamcknig', branch: "${params.TAG}", poll: false, url: 'https://github.com/kamcknig/pick-up-stix'
+            }
+            post {
+                success {
+                    echo "=========== Clone executed successfully ========"
+                }
+                failure {
+                    echo "========== Clone failed ==========="
+                }
+            }
         }
         stage("BUILD") {
             steps {
@@ -18,9 +28,6 @@ pipeline {
                 sh 'npm run package'
             }
             post{
-                always {
-                    echo "======== always ========"
-                }
                 success {
                     echo "======== A executed successfully ========"
                 }

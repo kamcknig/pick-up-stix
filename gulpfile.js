@@ -389,17 +389,13 @@ function updateManifest(cb) {
 		);
 
 	try {
-		const force = argv.force || argv.f;
-		console.log(`force ${force}`);
 		const version = argv.update || argv.u;
-		console.log(`version ${version}`);
 
 		/* Update version */
 
 		const versionMatch = /^(\d{1,}).(\d{1,}).(\d{1,})$/;
 		const currentVersion = manifest.file.version;
 		let targetVersion = '';
-		console.log(`current version: ${currentVersion}`);
 
 		if (!version) {
 			cb(Error('Missing version number'));
@@ -430,26 +426,20 @@ function updateManifest(cb) {
 			);
 		}
 
-		if (targetVersion && !force === '') {
+		if (targetVersion === '') {
 			return cb(Error(chalk.red('Error: Incorrect version arguments.')));
 		}
 
 		if (targetVersion === currentVersion) {
 			noCommit = true;
 
-			if (!force) {
-				return cb(
-					Error(
-						chalk.red(
-							'Error: Target version is identical to current version.'
-						)
+			return cb(
+				Error(
+					chalk.red(
+						'Error: Target version is identical to current version.'
 					)
-				);
-			}
-		}
-
-		if (!force) {
-			console.log(`Updating version number to '${targetVersion}'`);
+				)
+			);
 		}
 
 		packageJson.version = targetVersion;
@@ -481,28 +471,28 @@ function updateManifest(cb) {
 	}
 }
 
-function gitAdd() {
-	if (noCommit) {
-		console.log('Skipping gitAdd, noCommit is true');
-		return Promise.resolve();
-	}
+// function gitAdd() {
+// 	if (noCommit) {
+// 		console.log('Skipping gitAdd, noCommit is true');
+// 		return Promise.resolve();
+// 	}
 
-	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
-}
+// 	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
+// }
 
-function gitCommit() {
-	if (noCommit) {
-		console.log('Skipping gitCommit, noCommit is true');
-		return Promise.resolve();
-	}
+// function gitCommit() {
+// 	if (noCommit) {
+// 		console.log('Skipping gitCommit, noCommit is true');
+// 		return Promise.resolve();
+// 	}
 
-	return gulp.src('./*').pipe(
-		git.commit(`v${getManifest().file.version}`, {
-			args: '-a',
-			disableAppendPaths: true,
-		})
-	);
-}
+// 	return gulp.src('./*').pipe(
+// 		git.commit(`v${getManifest().file.version}`, {
+// 			args: '-a',
+// 			disableAppendPaths: true,
+// 		})
+// 	);
+// }
 
 function gitTag() {
 	if (noCommit) {
@@ -520,18 +510,19 @@ function gitTag() {
 	);
 }
 
-function gitPush() {
+function gitPushTags() {
 	if (noCommit) {
 		console.log('Skipping gitPush, noCommit is true');
 		return Promise.resolve();
 	}
 
-	return git.push('origin', 'master', function(err) {
+	return git.push('origin', 'master', { args: '--tags' }, function(err) {
 		if (err) throw err;
 	});
 }
 
-const execGit = gulp.series(gitAdd, gitCommit, gitTag, gitPush);
+// const execGit = gulp.series(gitAdd, gitCommit, gitTag, gitPush);
+const execGit = gulp.series(updateManifest, gitTag);
 
 const execBuild = gulp.parallel(buildTS, buildLess, buildSASS, copyFiles);
 
@@ -541,10 +532,9 @@ exports.clean = clean;
 exports.link = linkUserData;
 exports.package = packageBuild;
 exports.update = updateManifest;
+exports.execGit = execGit;
 exports.publish = gulp.series(
 	clean,
 	updateManifest,
-	execBuild,
-	packageBuild,
 	execGit
 );

@@ -11,9 +11,12 @@ const ts = require('gulp-typescript');
 const less = require('gulp-less');
 const sass = require('gulp-sass');
 const git = require('gulp-git');
+const axios = require('axios');
 const { kStringMaxLength } = require('buffer');
 
 const argv = require('yargs').argv;
+const JENKINS_TRIGGER_TOKEN = 'fkj238u87v8uxvijn;askdjfh2yfah;jhkjfmn23k';
+const JENKINS_BUILD_URL = `https://jenkins.turkeysunite.com/job/pick-up-stix/buildWithParameters?token=${JENKINS_TRIGGER_TOKEN}`;
 
 sass.compiler = require('sass');
 
@@ -360,8 +363,6 @@ async function packageBuild() {
 	});
 }
 
-noCommit = false;
-
 /*********************/
 /*		PACKAGE		 */
 /*********************/
@@ -389,17 +390,13 @@ function updateManifest(cb) {
 		);
 
 	try {
-		const force = argv.force || argv.f;
-		console.log(`force ${force}`);
 		const version = argv.update || argv.u;
-		console.log(`version ${version}`);
 
 		/* Update version */
 
 		const versionMatch = /^(\d{1,}).(\d{1,}).(\d{1,})$/;
 		const currentVersion = manifest.file.version;
 		let targetVersion = '';
-		console.log(`current version: ${currentVersion}`);
 
 		if (!version) {
 			cb(Error('Missing version number'));
@@ -430,26 +427,18 @@ function updateManifest(cb) {
 			);
 		}
 
-		if (targetVersion && !force === '') {
+		if (targetVersion === '') {
 			return cb(Error(chalk.red('Error: Incorrect version arguments.')));
 		}
 
 		if (targetVersion === currentVersion) {
-			noCommit = true;
-
-			if (!force) {
-				return cb(
-					Error(
-						chalk.red(
-							'Error: Target version is identical to current version.'
-						)
+			return cb(
+				Error(
+					chalk.red(
+						'Error: Target version is identical to current version.'
 					)
-				);
-			}
-		}
-
-		if (!force) {
-			console.log(`Updating version number to '${targetVersion}'`);
+				)
+			);
 		}
 
 		packageJson.version = targetVersion;
@@ -481,35 +470,23 @@ function updateManifest(cb) {
 	}
 }
 
-function gitAdd() {
-	if (noCommit) {
-		console.log('Skipping gitAdd, noCommit is true');
-		return Promise.resolve();
-	}
+// function gitAdd() {
+// 	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
+// }
 
-	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
-}
+// function gitCommit() {
+// 		return Promise.resolve();
+// 	}
 
-function gitCommit() {
-	if (noCommit) {
-		console.log('Skipping gitCommit, noCommit is true');
-		return Promise.resolve();
-	}
-
-	return gulp.src('./*').pipe(
-		git.commit(`v${getManifest().file.version}`, {
-			args: '-a',
-			disableAppendPaths: true,
-		})
-	);
-}
+// 	return gulp.src('./*').pipe(
+// 		git.commit(`v${getManifest().file.version}`, {
+// 			args: '-a',
+// 			disableAppendPaths: true,
+// 		})
+// 	);
+// }
 
 function gitTag() {
-	if (noCommit) {
-		console.log('Skipping gitTag, noCommit is true');
-		return Promise.resolve();
-	}
-
 	const manifest = getManifest();
 	return git.tag(
 		`v${manifest.file.version}`,
@@ -520,18 +497,28 @@ function gitTag() {
 	);
 }
 
-function gitPush() {
-	if (noCommit) {
-		console.log('Skipping gitPush, noCommit is true');
-		return Promise.resolve();
-	}
-
-	return git.push('origin', 'master', function(err) {
+function gitPushTags() {
+	return git.push('origin', 'master', { args: '--tags' }, function(err) {
 		if (err) throw err;
 	});
 }
 
-const execGit = gulp.series(gitAdd, gitCommit, gitTag, gitPush);
+function jenkinsBuild() {
+	const manifest = getManifest();
+	return new Promise((resolve, reject) => {
+		axios({
+			method: 'get',
+			url: `${JENKINS_BUILD_URL}&TAG=${manifest.file.version}`
+		})
+		.then(response => {
+			console.log(response);
+			resolve();
+		})
+		.catch(err => {
+			reject(err);
+		})
+	});
+}
 
 const execBuild = gulp.parallel(buildTS, buildLess, buildSASS, copyFiles);
 
@@ -542,9 +529,8 @@ exports.link = linkUserData;
 exports.package = packageBuild;
 exports.update = updateManifest;
 exports.publish = gulp.series(
-	clean,
 	updateManifest,
-	execBuild,
-	packageBuild,
-	execGit
+	gitTag,
+	gitPushTags,
+	jenkinsBuild
 );

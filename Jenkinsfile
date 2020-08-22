@@ -2,26 +2,37 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'VERSION', description: 'Version to publish')
+        string(name: 'TAG', description: 'Tag to checkout and version to publish')
     }
 
     stages {
+        stage("CLONE") {
+            steps {
+                echo "======== executing CLONE ==========="
+                git credentialsId: 'git-kamcknig', branch: "${params.TAG}", poll: false, url: 'https://github.com/kamcknig/pick-up-stix'
+            }
+            post {
+                success {
+                    echo "=========== Clone executed successfully ========"
+                }
+                failure {
+                    echo "========== Clone failed ==========="
+                }
+            }
+        }
         stage("BUILD") {
             steps {
-                echo "========executing BUILD========"
+                echo "======== executing BUILD ========"
                 sh 'npm ci'
                 sh 'npm run build'
                 sh 'npm run package'
             }
             post{
-                always {
-                    echo "========always========"
-                }
                 success {
-                    echo "========A executed successfully========"
+                    echo "======== A executed successfully ========"
                 }
                 failure {
-                    echo "========A execution failed========"
+                    echo "======== A execution failed ========"
                 }
             }
         }
@@ -33,10 +44,10 @@ pipeline {
             }
             post {
                 success {
-                    echo "========Publish to S3 Success========"
+                    echo "======== Publish to S3 Success ========"
                 }
                 failure {
-                    echo "========Failed to upload to S3=========="
+                    echo "======== Failed to upload to S3 =========="
                 }
             }
         }

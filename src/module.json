@@ -14,7 +14,7 @@
 	],
 	"scripts": [],
 	"esmodules": ["pick-up-stix.js"],
-	"styles": ["pick-up-stix.css"],
+	"styles": ["styles/pick-up-stix.css", "styles/loot-hud.css"],
 	"packs": [],
 	"languages": [],
 	"minimumCoreVersion": "0.6.5",

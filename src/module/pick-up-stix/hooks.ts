@@ -9,9 +9,10 @@ import {
 	updateActor
 } from "./main";
 import { ItemType, PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType } from "./models";
-import { handleOnDrop } from "./overrides";
+import { handleOnDrop, tokenRelease } from "./overrides";
 import { preloadTemplates } from "./preloadTemplates";
 import { DefaultSetttingKeys, registerSettings } from "./settings";
+import { LootHud } from "./loot-hud-application";
 
 /**
  * TODO: This should be removed once 0.7.0 becomes stable
@@ -61,7 +62,7 @@ export async function initHook() {
 		return `${input[0].toUpperCase()} ${input.slice(1)}`;
 	});
 
-	// Register custom sheets (if any)
+	Token.prototype.release = tokenRelease(Token.prototype.release);
 };
 
 export async function setupHook() {
@@ -178,6 +179,8 @@ export async function onCanvasReady(...args) {
 		boardDropListener = handleOnDrop.bind(canvas);
 		board.addEventListener('drop', boardDropListener);
 	}
+
+	canvas.hud.pickUpStixLootHud = new LootHud();
 }
 
 export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options: any, userId: string) {
@@ -230,12 +233,8 @@ export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: an
 			}
 			else {
 				console.log(`pick-up-stix | onUpdateToken | token is not locked, check for locked image`);
-				token.children.forEach(c => console.log(c.name));
-
 				const lock = token.getChildByName('pick-up-stix-lock');
-
 				console.log(`pick-up-stix | onUpdateToken | lock image ${!!lock ? ' found' : ' not found'}`);
-
 				if (lock) {
 					token.removeChild(lock);
 					lock.destroy();
@@ -320,4 +319,10 @@ export async function onCreateActor(actor: Actor, userId: string) {
 	];
 	console.log(updates);
 	await actor.updateOwnedItem(updates)
+}
+
+export function onRenderLootHud(hud: LootHud, hudHtml, tokenData) {
+	console.log(`pick-up-stix | onRenderLootHud | called with args:`);
+	console.log([hud, hudHtml, tokenData]);
+	document.getElementById('hud').appendChild(hud.element[0]);
 }

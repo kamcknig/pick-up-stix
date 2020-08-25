@@ -250,6 +250,7 @@ export function setupMouseManager(): void {
 		clickLeft: () => true,
 		clickLeft2: () => game.user.isGM,
 		clickRight: () => game.user.isGM,
+		clickRight2: () => game.user.isGM,
 		dragStart: this._canDrag
 	};
 
@@ -257,7 +258,8 @@ export function setupMouseManager(): void {
 	const callbacks = {
 		clickLeft: handleTokenItemClicked.bind(this),
 		clickLeft2: handleTokenItemConfig.bind(this),
-		clickRight: toggleItemLocked.bind(this),
+		clickRight: handleTokenRightClick.bind(this),
+		clickRight2: handleTokenItemConfig.bind(this),
 		dragLeftStart: this._onDragLeftStart,
 		dragLeftMove: this._onDragLeftMove,
 		dragLeftDrop: this._onDragLeftDrop,
@@ -291,7 +293,16 @@ function handleTokenItemConfig(e?, controlledToken?: Token) {
 	const f = new ItemConfigApplication(clickedToken, controlledToken).render(true);
 }
 
-async function toggleItemLocked(e): Promise<any> {
+async function handleTokenRightClick(e) {
+	const hud = canvas.hud.pickUpStixLootHud;
+	if (hud) {
+		this.control({releaseOthers: true});
+		if (hud.object === this) hud.clear();
+		else hud.bind(this);
+	}
+}
+
+export async function toggleItemLocked(e): Promise<any> {
 	console.log(`pick-up-stix | toggleItemLocked`);
 
 	const clickedToken: Token = this;
@@ -410,7 +421,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 				return;
 			}
 
-			handleTokenItemConfig.bind(this)(null, controlledToken);
+			handleTokenItemConfig.bind(this)(e, controlledToken);
 			return;
 		}
 

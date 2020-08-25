@@ -1,0 +1,25 @@
+.pick-up-stix.loot-hud {
+  .col {
+    height: calc(100% + 100px);
+    top: -50px;
+  }
+
+  & .col.middle {
+    width: 100%;
+  }
+
+  .col.left {
+    justify-content: center;
+    left: -70px;
+  }
+
+  .col.right {
+    justify-content: center;
+    right: -70px;
+  }
+
+  .col {
+    height: calc(100% + 100px);
+    top: -50px;
+  }
+}

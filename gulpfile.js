@@ -144,7 +144,7 @@ function buildTS() {
 	return gulp.src('src/**/*.ts')
 		.pipe(sourcemaps.init())
 		.pipe(tsConfig())
-		.pipe(sourcemaps.write('../maps'))
+		.pipe(sourcemaps.write('maps'))
 		.pipe(gulp.dest('dist'))
 }
 
@@ -160,7 +160,7 @@ function buildLess() {
  */
 function buildSASS() {
 	return gulp
-		.src('src/*.scss')
+		.src('src/**/*.scss')
 		.pipe(sass().on('error', sass.logError))
 		.pipe(gulp.dest('dist'));
 }
@@ -177,7 +177,7 @@ async function copyFiles() {
 		'module.json',
 		'system.json',
 		'template.json',
-		'pick-up-stix.css'
+		'styles'
 	];
 	try {
 		for (const file of statics) {
@@ -199,7 +199,7 @@ function buildWatch() {
 	gulp.watch('src/**/*.less', { ignoreInitial: false }, buildLess);
 	gulp.watch('src/**/*.scss', { ignoreInitial: false }, buildSASS);
 	gulp.watch(
-		['src/fonts', 'src/lang', 'src/module/**/*.html', 'src/*.json', 'src/*.css', 'src/*.scss'],
+		['src/fonts', 'src/lang', 'src/module/**/*.html', 'src/*.json', 'src/*.css', 'src/styles/*.scss'],
 		{ ignoreInitial: false },
 		copyFiles
 	);

@@ -124,7 +124,21 @@ export default class ItemConfigApplication extends FormApplication {
 				return prev;
 			}
 
-			const items = lootItems.map(i => ({ ...i, price: (+i?.qty ?? 0) * (+i.data?.price ?? 0) })).filter(i => +i.price > 0)
+			const items = lootItems.map(i => {
+				if (!i.data?.hasOwnProperty('price')) {
+					i.data.price = 0;
+				}
+
+				if (!i.hasOwnProperty('qty')) {
+					i.qty = 0;
+				}
+
+				return {
+					...i,
+					price: +i.qty * +i.data?.price
+				}
+			});
+
 			if (items.length) {
 				prev[lootKey] = items;
 			}

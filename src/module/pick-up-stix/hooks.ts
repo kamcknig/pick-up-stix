@@ -162,14 +162,14 @@ export async function onCanvasReady(...args) {
   });
 
 	const coreVersion: string = game.data.version;
-	if (isNewerVersion(coreVersion, '0.6.5')) {
-    console.log(`pick-up-stix | onCanvasReady | Foundry version newer than 0.6.5. Using dropCanvasData hook`);
+	if (isNewerVersion(coreVersion, '0.6.9')) {
+    console.log(`pick-up-stix | onCanvasReady | Foundry version newer than 0.6.9. Using dropCanvasData hook`);
 
 		Hooks.off('dropCanvasData', dropCanvasHandler);
 		Hooks.on('dropCanvasData', dropCanvasHandler);
 	}
 	else {
-		console.log(`pick-up-stix | onCanvasReady | Foundry version is 0.6.5 or below. Overriding Canvas._onDrop`);
+		console.log(`pick-up-stix | onCanvasReady | Foundry version is 0.6.9 or below. Overriding Canvas._onDrop`);
 
 		const board = document.getElementById('board');
 		if (boardDropListener) {

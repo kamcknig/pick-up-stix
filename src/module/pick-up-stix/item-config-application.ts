@@ -168,7 +168,7 @@ export default class ItemConfigApplication extends FormApplication {
 			ui.notifications.error('You must be controlling only one token to pick up an item');
 			return;
 		}
-		const currentCurrency = { ...getProperty(actor, 'data.data.currency') };
+		const currentCurrency = { ...getProperty(actor, 'data.data.currency') ?? {} };
 		const lootCurrencies = this._loot['currency'];
 		if (!Object.values(lootCurrencies).some(c => c > 0)) {
 			console.log(`pick-up-stix | ItemCOnfigApplication ${this.appId} | _onTakeCurrency | No currency to loot`);

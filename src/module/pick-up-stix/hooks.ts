@@ -75,7 +75,7 @@ export function readyHook() {
 	console.log(`pick-up-stix | readyHook`);
 
 	for (let item of game.items.values()) {
-		if (getProperty(item.data, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
+		if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
 			item.data.type = 'container';
 		}
 	}
@@ -188,16 +188,16 @@ export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options:
 	console.log([actor, itemData, options, userId]);
 
 	let owner: { actorId: string, itemId: string };
-	if (owner = getProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner')) {
+	if (owner = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner')) {
 		// if the item is already owned by someone else, set the new actor as the owner and
 		// delete the item from the old owner
-		setProperty(itemData.flags, 'pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
+		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner', { actorId: actor.id });
 		const ownerActor = game.actors.get(owner.actorId);
 		await ownerActor.deleteOwnedItem(itemData._id);
 		return;
 	}
 
-	setProperty(itemData.flags, 'pick-up-stix.pick-up-stix', {
+	setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', {
 		owner: {
 			actorId: actor.id
 		},
@@ -278,7 +278,7 @@ export async function onCreateItem(item: Item, options: any, userId: string) {
 
 	// change the type back to 'container' so that our item config sheet works. When the item is created, we created it with
 	// the 'backpack' type because we are forced to use an existing item type. but then after we make it just switch it back.
-	if (getProperty(item.data, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
+	if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
 		item.data.type = 'container';
 	}
 }

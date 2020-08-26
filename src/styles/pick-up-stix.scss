@@ -37,27 +37,27 @@ $groove-color: #eeede0;
 
     & .plat {
       margin-right: 5px;
-      background: url(assets/currency-sprite.png);
+      background: url(../assets/currency-sprite.png);
     }
 
     & .gold {
       margin-right: 5px;
-      background: url(assets/currency-sprite.png) -34px 0px;
+      background: url(../assets/currency-sprite.png) -34px 0px;
     }
 
     & .electrum {
       margin-right: 5px;
-      background: url(assets/currency-sprite.png) -66px 0px;
+      background: url(../assets/currency-sprite.png) -66px 0px;
     }
 
     & .silver {
       margin-right: 5px;
-      background: url(assets/currency-sprite.png) -98px 0px;
+      background: url(../assets/currency-sprite.png) -98px 0px;
     }
 
     & .copper {
       margin-right: 5px;
-      background: url(assets/currency-sprite.png) -130px 0px;
+      background: url(../assets/currency-sprite.png) -130px 0px;
     }
   }
 
@@ -280,21 +280,21 @@ span.pick-up-stix-chat-currency {
 }
 
 span.pick-up-stix-chat-currency.pp {
-  background: url(assets/currency-sprite.png);
+  background: url(../assets/currency-sprite.png);
 }
 
 span.pick-up-stix-chat-currency.gp {
-  background: url(assets/currency-sprite.png) -34px 0px;
+  background: url(../assets/currency-sprite.png) -34px 0px;
 }
 
 span.pick-up-stix-chat-currency.ep {
-  background: url(assets/currency-sprite.png) -66px 0px;
+  background: url(../assets/currency-sprite.png) -66px 0px;
 }
 
 span.pick-up-stix-chat-currency.sp {
-  background: url(assets/currency-sprite.png) -98px 0px;
+  background: url(../assets/currency-sprite.png) -98px 0px;
 }
 
 span.pick-up-stix-chat-currency.cp {
-  background: url(assets/currency-sprite.png) -130px 0px;
+  background: url(../assets/currency-sprite.png) -130px 0px;
 }

@@ -82,9 +82,17 @@
               </div>
 
               <div class="item-details item-controls">
+                <!-- hand icon to take loot -->
                 <a data-id="{{loot._id}}" class="item-take" title="Take Item">
                   <i class="fas fa-hand-paper"></i>
                 </a>
+
+                {{#if ../../user.isGM}}
+                <!-- trash icon to delete loot -->
+                <a data-id="{{loot._id}}" class="item-delete" title="Delete Item">
+                  <i class="fas fa-trash"></i>
+                </a>
+                {{/if}}
               </div>
             </li>
           {{/each}}

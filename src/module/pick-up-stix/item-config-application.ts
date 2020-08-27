@@ -91,6 +91,9 @@ export default class ItemConfigApplication extends FormApplication {
 		// set click listeners on the buttons to pick up individual items
 		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
 
+		// set click listeners on the buttons to pick up individual items
+		$(html).find(`a.item-delete`).click(e => this._onDeleteItem(e));
+
 		// set click listener for taking currency
 		$(html).find(`a.currency-take`).click(e => this._onTakeCurrency(e));
 
@@ -159,6 +162,21 @@ export default class ItemConfigApplication extends FormApplication {
 		};
 		console.log(data);
 		return data;
+	}
+
+	protected async _onDeleteItem(e) {
+		console.log(`pick-up-stix | ItemConfigApplication | _onDeleteItem`);
+		const itemId = e.currentTarget.dataset.id;
+
+		Object.entries(this._loot).forEach(([lootKey, loot]) => {
+			if (lootKey === 'currency') {
+				return;
+			}
+
+			loot.findSplice(l => l._id === itemId);
+		});
+
+		this.submit({});
 	}
 
 	protected async _onTakeCurrency(e) {

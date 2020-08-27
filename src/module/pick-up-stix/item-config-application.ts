@@ -193,10 +193,8 @@ export default class ItemConfigApplication extends FormApplication {
 		const itemId = e.currentTarget.dataset.id;
 
 		Object.entries(this._loot).forEach(([lootKey, loot]) => {
-			if (this._currencyEnabled) {
-				if (lootKey === 'currency') {
-					return;
-				}
+			if (lootKey === 'currency') {
+				return;
 			}
 
 			loot.findSplice(l => l._id === itemId);

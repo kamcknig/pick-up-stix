@@ -562,6 +562,11 @@ export async function drawLockIcon(p: PlaceableObject): Promise<any> {
 	console.log(`pick-up-stix | drawLockIcon | called with args:`);
 	console.log(p);
 
+	if (!game.user.isGM) {
+		console.log(`pick-up-stix | drawLockIcon | user is not GM, not drawing lock`);
+		return;
+	}
+
 	const lock = p.getChildByName('pick-up-stix-lock');
 	if (lock) {
 		console.log(`pick-up-stix | drawLockIcon | found previous lock icon, removing it`)

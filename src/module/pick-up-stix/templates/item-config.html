@@ -39,58 +39,68 @@
     </section>
   </header>
 
-  {{#if isContainer}}
   <!-- display currencies -->
-  <section class="currency-details sheet-section flexrow">
-    <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
-    <ul class="currency-list flexrow">
-      {{#each currencyTypes as | currencyOb |}}
-        <label>{{currencyOb.long}}</label>
-        {{#with (lookup (lookup ../loot 'currency') currencyOb.short)}}
-          <input name="flags.pick-up-stix.pick-up-stix.containerLoot.currency.{{currencyOb.short}}" type="text" data-itemType="currency" data-dtype="Number" data-currency-input value="{{this}}">
-        {{/with}}
-      {{/each}}
-      <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
-    </ul>
-  </section>
-
-  <!-- display loot -->
-  <section class="inventory-details">
-    <h3>Loot <i class="fas fa-box"></i></h3>
-
-    <ol class="inventory-list flexcol">
-      {{#each lootTypes as | lootType |}}
-        <li class="inventory-header flexrow">
-            <h3 class="item-name flexrow">{{lootType}}</h3>
-            <div class="item-details item-qty">Qty</div>
-            <div class="item-details item-value">Value</div>
-            <div class="item-details"></div>
-        </li>
-
-        <ol data-itemType="{{lootType}}" class="item-list">
-          {{#each (lookup ../loot lootType) as | loot |}}
-            <li class="item flexrow">
-              <div class="item-name flexrow">
-                <div class="item-image" style="background-image: url({{loot.img}});"></div>
-                <h4>{{loot.name}}</h4>
-              </div>
-
-              <input class="item-details" name="flags.pick-up-stix.pick-up-stix.containerLoot.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
-
-              <div class="item-details item-value">
-                {{loot.price}}
-              </div>
-
-              <div class="item-details item-controls">
-                <a data-id="{{loot._id}}" class="item-take" title="Take Item">
-                  <i class="fas fa-hand-paper"></i>
-                </a>
-              </div>
-            </li>
+  {{#if isContainer}}
+    {{#if currencyEnabled}}
+      <section class="currency-details sheet-section flexrow">
+        <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
+        <ul class="currency-list flexrow">
+          {{#each currencyTypes as | currencyOb |}}
+            <label>{{currencyOb.long}}</label>
+            {{#with (lookup (lookup ../loot 'currency') currencyOb.short)}}
+              <input name="flags.pick-up-stix.pick-up-stix.containerLoot.currency.{{currencyOb.short}}" type="text" data-itemType="currency" data-dtype="Number" data-currency-input value="{{this}}">
+            {{/with}}
           {{/each}}
-        </ol>
-      {{/each}}
-    </ol>
-  </section>
+          <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
+        </ul>
+      </section>
+    {{/if}}
+
+    <!-- display loot -->
+    <section class="inventory-details">
+      <h3>Loot <i class="fas fa-box"></i></h3>
+
+      <ol class="inventory-list flexcol">
+        {{#each lootTypes as | lootType |}}
+          <li class="inventory-header flexrow">
+              <h3 class="item-name flexrow">{{lootType}}</h3>
+              <div class="item-details item-qty">Qty</div>
+              <div class="item-details item-value">Value</div>
+              <div class="item-details"></div>
+          </li>
+
+          <ol data-itemType="{{lootType}}" class="item-list">
+            {{#each (lookup ../loot lootType) as | loot |}}
+              <li class="item flexrow">
+                <div class="item-name flexrow">
+                  <div class="item-image" style="background-image: url('{{loot.img}}');"></div>
+                  <h4>{{loot.name}}</h4>
+                </div>
+
+                <input class="item-details" name="flags.pick-up-stix.pick-up-stix.containerLoot.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
+
+                <div class="item-details item-value">
+                  {{loot.price}}
+                </div>
+
+                <div class="item-details item-controls">
+                  <!-- hand icon to take loot -->
+                  <a data-id="{{loot._id}}" class="item-take" title="Take Item">
+                    <i class="fas fa-hand-paper"></i>
+                  </a>
+
+                  {{#if ../../user.isGM}}
+                  <!-- trash icon to delete loot -->
+                  <a data-id="{{loot._id}}" class="item-delete" title="Delete Item">
+                    <i class="fas fa-trash"></i>
+                  </a>
+                  {{/if}}
+                </div>
+              </li>
+            {{/each}}
+          </ol>
+        {{/each}}
+      </ol>
+    </section>
   {{/if}}
 </form>

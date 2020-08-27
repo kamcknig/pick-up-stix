@@ -180,7 +180,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 		currencyCollected(this._controlledToken, Object.entries(lootCurrencies).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
 
-		Object.values(this._loot['currency'])?.forEach(k => this._loot['currency'][k] = 0);
+		Object.keys(this._loot['currency'])?.forEach(k => this._loot['currency'][k] = 0);
 		$(this._html).find('[data-currency-input').val(0);
 		await this.submit({});
 	}
@@ -279,6 +279,13 @@ export default class ItemConfigApplication extends FormApplication {
 				}, []));
 			}
 		});
+
+		// when the user is a GM the currency is taken from the inputs on the form, but when the user NOT a GM, there are no inputs
+		if (!game.user.isGM) {
+			if (this._loot.currency) {
+				setProperty(formData, `flags.pick-up-stix.pick-up-stix.containerLoot.currency`, { ...this._loot.currency });
+			}
+		}
 
 		if (formData.width !== undefined) {
 			// we only collect the one size and store it as the width, so here we also store the height to be the same

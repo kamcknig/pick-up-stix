@@ -1,7 +1,12 @@
 export enum DefaultSetttingKeys {
 	openImagePath = 'default-container-opened-image-path',
-	closeImagePath = 'default-container-closed-image-path'
+	closeImagePath = 'default-container-closed-image-path',
+	disableCurrencyLoot = 'disable-currency-loot'
 }
+
+const systemCurrenciesImplemented = [
+	'dnd5e'
+];
 
 export const registerSettings = function() {
 	console.log(`pick-up-stix | registerSettings`);
@@ -27,6 +32,14 @@ export const registerSettings = function() {
 		config: true,
 		type: typeFunc,
 		default: 'modules/pick-up-stix/assets/chest-closed.png'
+	});
+	game.settings.register('pick-up-stix', DefaultSetttingKeys.disableCurrencyLoot, {
+		name: 'Disable Currency Loot',
+		hint: `This option is enabled by default for systems that have not been implemented in Pick-Up-Stix yet. You can also use it to manually disable currency if you don't wish to have currency as loot.`,
+		scope: 'world',
+		config: true,
+		type: Boolean,
+		default: systemCurrenciesImplemented.includes(game.system.id)
 	});
 }
 

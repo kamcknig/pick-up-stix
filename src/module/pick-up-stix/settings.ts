@@ -1,7 +1,9 @@
 export enum DefaultSetttingKeys {
 	openImagePath = 'default-container-opened-image-path',
 	closeImagePath = 'default-container-closed-image-path',
-	disableCurrencyLoot = 'disable-currency-loot'
+	disableCurrencyLoot = 'disable-currency-loot',
+	defaultContainerCloseSound = 'default-container-close-sound',
+	defaultContainerOpenSound = 'default-container-open-sound'
 }
 
 const systemCurrenciesImplemented = [
@@ -11,10 +13,15 @@ const systemCurrenciesImplemented = [
 export const registerSettings = function() {
 	console.log(`pick-up-stix | registerSettings`);
 	// Register any custom module settings here
-	const typeFunc = (val) => {
+	const imageTypeFunc = (val) => {
 		return val;
 	}
-	Object.defineProperty(typeFunc, 'name', {value: 'pick-up-stix-settings-image'});
+	Object.defineProperty(imageTypeFunc, 'name', {value: 'pick-up-stix-settings-image'});
+
+	const audioTypeFunc = (val) => {
+		return val;
+	}
+	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
 	// Register any custom module settings here
 	game.settings.register('pick-up-stix', DefaultSetttingKeys.openImagePath, {
@@ -22,7 +29,7 @@ export const registerSettings = function() {
 		hint: 'Sets the path for the default image to use for opened containers',
 		scope: 'world',
 		config: true,
-		type: typeFunc,
+		type: imageTypeFunc,
 		default: 'modules/pick-up-stix/assets/chest-opened.png'
 	});
 	game.settings.register('pick-up-stix', DefaultSetttingKeys.closeImagePath, {
@@ -30,7 +37,7 @@ export const registerSettings = function() {
 		hint: 'Sets the path for the default image to use for closed containers',
 		scope: 'world',
 		config: true,
-		type: typeFunc,
+		type: imageTypeFunc,
 		default: 'modules/pick-up-stix/assets/chest-closed.png'
 	});
 
@@ -42,6 +49,22 @@ export const registerSettings = function() {
 		type: Boolean,
 		default: !systemCurrenciesImplemented.includes(game.system.id)
 	});
+
+	game.settings.register('pick-up-stix', DefaultSetttingKeys.defaultContainerOpenSound, {
+		name: 'Default Container Open Sound',
+		hint: 'The default sound to play when opening a container.',
+		scope: 'world',
+		type: audioTypeFunc,
+		config: true
+	});
+
+	game.settings.register('pick-up-stix', DefaultSetttingKeys.defaultContainerCloseSound, {
+		name: 'Default Container Close Sound',
+		hint: 'The default sound to play when closing a container.',
+		scope: 'world',
+		type: audioTypeFunc,
+		config: true
+	});
 }
 
 export function processHtml(html) {
@@ -52,7 +75,26 @@ export function processHtml(html) {
 			console.log(settingName);
 
 			let picker = new FilePicker({
-				type: 'Image',
+				type: 'image',
+				current: game.settings.get('pick-up-stix', settingName),
+				field: $(this)[0]
+			});
+
+			let pickerButton = $('<button type="button" class="file-picker" title="Pick image"><i class="fas fa-file-import fa-fw"></i></button>');
+			pickerButton.on("click", function () {
+				picker.render(true);
+			});
+			$(this).parent().append(pickerButton);
+		});
+
+		$(html)
+		.find('input[data-dtype="pick-up-stix-settings-audio"')
+		.each(function() {
+			const settingName = $(this).attr('name').split('.')[1];
+			console.log(settingName);
+
+			let picker = new FilePicker({
+				type: 'audio',
 				current: game.settings.get('pick-up-stix', settingName),
 				field: $(this)[0]
 			});

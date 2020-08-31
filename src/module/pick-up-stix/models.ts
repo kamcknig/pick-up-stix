@@ -9,6 +9,8 @@ export interface PickUpStixFlags {
 	initialState: ItemData;
 	imageContainerClosedPath: string;
 	imageContainerOpenPath: string;
+	containerOpenSoundPath: string;
+	containerCloseSoundPath: string;
 	isOpen: boolean;
 	isLocked: boolean;
 	containerLoot: {

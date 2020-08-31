@@ -9,6 +9,7 @@ import {
 } from './main';
 import { ItemType } from "./models";
 import { DefaultSetttingKeys } from './settings';
+import { ContainerSoundConfig } from './container-sound-config-application';
 
 /**
  * Application class to display to select an item that the token is
@@ -47,7 +48,8 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	constructor(private _token: Token, private _controlledToken: Token) {
-		super({});
+		super(_token, {});
+
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
 		console.log([this._token, this._controlledToken]);
 
@@ -101,8 +103,11 @@ export default class ItemConfigApplication extends FormApplication {
 		super.activateListeners(this._html);
 
 		// set the click listener on the image
-		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
-			$(html).find(`[data-edit="img"]`).click(e => this._onEditImage(e));
+		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER && game.user.isGM) {
+			$(html)
+				.find(`[data-edit="img"]`)
+				.click(e => this._onEditImage(e))
+				.css('cursor', 'pointer');
 		}
 
 		// set click listeners on the buttons to pick up individual items
@@ -110,6 +115,13 @@ export default class ItemConfigApplication extends FormApplication {
 
 		// set click listeners on the buttons to pick up individual items
 		$(html).find(`a.item-delete`).click(e => this._onDeleteItem(e));
+
+		if (game.user.isGM) {
+			$(html)
+				.find('.configure-sound')
+				.click(e => this._onConfigureSound(e))
+				.css('cursor', 'pointer');
+		}
 
 		if (this._currencyEnabled) {
 			// set click listener for taking currency
@@ -134,6 +146,12 @@ export default class ItemConfigApplication extends FormApplication {
 		if (!game.user.isGM) {
 			$(html).find(`input[type="text"]`).addClass('isNotGM');
 		}
+	}
+
+	private _onConfigureSound(e): void {
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onConfigureSound`);
+
+		const f = new ContainerSoundConfig(this.object, {}).render(true);
 	}
 
 	getData() {

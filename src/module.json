@@ -16,7 +16,8 @@
 	"esmodules": ["pick-up-stix.js"],
 	"styles": [
 		"styles/pick-up-stix.css",
-		"styles/loot-hud.css"
+		"styles/loot-hud.css",
+		"styles/container-sound-config.css"
 	],
 	"packs": [],
 	"languages": [],

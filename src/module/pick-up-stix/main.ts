@@ -2,6 +2,7 @@ import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType }
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
 import { dist } from '../../utils'
+import { DefaultSetttingKeys } from "./settings";
 
 export const lootTokens: string[] = [];
 
@@ -367,7 +368,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 	// if it's locked then it can't be opened
 	if (flags.isLocked) {
 		console.log(`pick-up-stix | handleTokenItemClicked | item is locked`);
-		var audio = new Audio('sounds/lock.wav');
+		var audio = new Audio(CONFIG.sounds.lock);
 		audio.play();
 		return;
 	}
@@ -413,6 +414,18 @@ async function handleTokenItemClicked(e): Promise<void> {
 							}
 						}
 					});
+					const a = new Audio(
+						flags.isOpen ?
+							(clickedToken.getFlag('pick-up-stix', 'pick-up-stix.containerOpenSoundPath') || game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerOpenSound)) :
+							(clickedToken.getFlag('pick-up-stix', 'pick-up-stix.containerCloseSoundPath') || game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerCloseSound))
+					);
+					try {
+						a.play();
+					}
+					catch (e) {
+						// it's ok to error here
+					}
+
 					resolve();
 				}, 200);
 			});

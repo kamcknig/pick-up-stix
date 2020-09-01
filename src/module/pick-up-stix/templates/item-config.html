@@ -1,5 +1,4 @@
 <form>
-    <!-- container image, name, and description-->
   <header class="sheet-header sheet-section flexrow">
     <!-- display the image -->
     <img class="profile" src="{{profileImage}}" title="chest" data-edit="img">
@@ -39,11 +38,29 @@
         {{/if}}
       </div>
 
-      {{#if user.isGM}}
-        <textarea style="resize: none;" class="container-description" id="description" name="flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value"></textarea>
-      {{else}}
-        <span id="description" class="container-description">{{{containerDescription}}}</span>
-      {{/if}}
+      <div class="flexrow">
+        {{#unless isContainer}}
+        {{#if user.isGM}}
+          <div class="flexcol" style="border-right: 2px groove #eeede0; align-items: flex-start; flex: 0 0 120px;">
+            <div class="flexrow" style="flex: unset; align-items: center;">
+              <label style="font-weight: bold; flex: 0 0 60px">Weight</label>
+              <input type="text" style="flex: 0 0 60px; text-align: right; width: unset;" name="flags.pick-up-stix.pick-up-stix.initialState.itemData.data.weight" data-dtype="Number" value="{{object.flags.[pick-up-stix].[pick-up-stix].initialState.itemData.data.weight}}">
+            </div>
+
+            <div class="flexrow" style="flex: unset; align-items: center;">
+              <label style="font-weight: bold; flex: 0 0 60px">Price</label>
+              <input type="text" style="flex: 0 0 60px; text-align: right; width: unset;" name="flags.pick-up-stix.pick-up-stix.initialState.itemData.data.price" data-dtype="Number" value="{{object.flags.[pick-up-stix].[pick-up-stix].initialState.itemData.data.price}}">
+            </div>
+          </div>
+        {{/if}}
+        {{/unless}}
+
+        {{#if user.isGM}}
+          <textarea style="resize: none;" class="container-description" id="description" name="flags.pick-up-stix.pick-up-stix.initialState.itemData.data.description.value"></textarea>
+        {{else}}
+          <span id="description" class="container-description">{{{containerDescription}}}</span>
+        {{/if}}
+      </div>
     </section>
   </header>
 

@@ -291,6 +291,8 @@ function handleTokenItemConfig(e?, controlledToken?: Token) {
 		controlledToken = null;
 	}
 
+	console.log(clickedToken.sheet)
+
 	const f = new ItemConfigApplication(clickedToken, controlledToken).render(true);
 }
 

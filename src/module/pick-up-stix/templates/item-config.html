@@ -56,7 +56,7 @@
           {{#each currencyTypes as | currencyOb |}}
             <label>{{currencyOb.long}}</label>
             {{#with (lookup (lookup ../loot 'currency') currencyOb.short)}}
-              <input name="flags.pick-up-stix.pick-up-stix.container.currency.{{currencyOb.short}}" type="text" data-itemType="currency" data-dtype="Number" data-currency-input value="{{this}}">
+              <input name="flags.pick-up-stix.pick-up-stix.containerLoot.currency.{{currencyOb.short}}" type="text" data-itemType="currency" data-dtype="Number" data-currency-input value="{{this}}">
             {{/with}}
           {{/each}}
           <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
@@ -85,7 +85,7 @@
                   <h4>{{loot.name}}</h4>
                 </div>
 
-                <input class="item-details" name="flags.pick-up-stix.pick-up-stix.container.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
+                <input class="item-details" name="flags.pick-up-stix.pick-up-stix.containerLoot.{{@lootType}}.[{{@index}}].qty" type="text" data-loot-type="{{lootType}}" data-loot-id="{{loot._id}}" data-quantity-input data-dtype="Number" class="item-qty" value="{{loot.qty}}">
 
                 <div class="item-details item-value">
                   {{loot.price}}

@@ -55,15 +55,18 @@ export default class ItemConfigApplication extends FormApplication {
 
 		this._currencyEnabled = !game.settings.get('pick-up-stix', DefaultSetttingKeys.disableCurrencyLoot);
 
-		this._loot = {
-			...duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {})
-		}
+		this._loot = {};
 
 		if (this._currencyEnabled) {
 			this._loot['currency'] = Object.keys(getCurrencies()).reduce((prev, k) => {
 				prev[k] = 0;
 				return prev;
 			}, {});
+		}
+
+		this._loot = {
+			...this._loot,
+			...duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.containerLoot') ?? {})
 		}
 
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor | initial loot:`);

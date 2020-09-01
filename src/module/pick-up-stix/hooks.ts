@@ -80,7 +80,10 @@ export function readyHook() {
 		}
 	}
 
+	// this adds the 'container' type to the game system's entity type.
 	game.system.entityTypes.Item.push('container');
+
+	// add the default sheet to the container Item type
 	CONFIG.Item.sheetClasses['container'] = {
 		'pick-up-stix.ItemConfigApplication': {
 			cls: ItemConfigApplication,
@@ -269,7 +272,7 @@ export async function onRenderDialog(dialog: Dialog, html, dialogOptions) {
 	}
 
 	console.log(`pick-up-stix | onRenderDialog | Dialog is the create new item dialog`);
-	$(html).find('select[name="type"]').append(`<option value="Container">Container</option>`);
+	// $(html).find('select[name="type"]').append(`<option value="Container">Container</option>`);
 }
 
 export async function onCreateItem(item: Item, options: any, userId: string) {

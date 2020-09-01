@@ -1,5 +1,6 @@
 import ItemConfigApplication from "./item-config-application";
 import { toggleItemLocked } from "./main";
+import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
 
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
@@ -15,28 +16,37 @@ export class LootHud extends BasePlaceableHUD {
 
   constructor() {
     super({});
-    console.log(`pick-up-stix | LootHud | constructor called with args`);
+    console.log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
     console.log(LootHud.defaultOptions);
   }
 
   activateListeners(html) {
-    console.log(`pick-up-stix | LootHud | activateListeners called with args`);
+    console.log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
     console.log(html);
     super.activateListeners(html);
     html.find(".config").click(this._onTokenConfig.bind(this.object));
     html.find(".locked").click(this._onToggleItemLocked.bind(this.object));
+    html.find(".emit-light").click(this._onConfigureLightEmission.bind(this.object));
+  }
+
+  private async _onConfigureLightEmission(event) {
+    console.log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
+    const f = new LootEmitLightConfigApplication(this, {}).render(true);
   }
 
   private async _onToggleItemLocked(event) {
+    console.log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
     await toggleItemLocked.call(this, event);
     this.render();
   }
 
   private _onTokenConfig(event) {
+    console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
     const f = new ItemConfigApplication((this as any), (this as any)).render(true);
   }
 
   getData(options) {
+    console.log(`pick-up-stix | LootHud ${this.appId} | getData`);
     const data = super.getData();
     return mergeObject(data, {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),

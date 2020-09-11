@@ -12,7 +12,7 @@ export const lootTokens: string[] = [];
  */
 export async function handleDropItem(dropData: { actorId?: string, pack?: string, id?: string, data?: any, x: number, y: number }) {
 	console.log(`pick-up-stix | handleDropItem | called with args:`);
-	console.log(dropData);
+	console.log(duplicate(dropData));
 
 	// if the item came from an actor's inventory, then it'll have an actorId property, we'll need to remove the item from that actor
 	const sourceActorId: string = dropData.actorId;
@@ -26,10 +26,10 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 	if (sourceActorId) {
 		console.log(`pick-up-stix | handleDropItem | actor '${sourceActorId}' dropped item, get item data from the dropped item's original item data`);
 		itemData = {
-			...dropData.data.flags?.['pick-up-stix']?.['pick-up-stix']?.['initialState']?.['itemData'] ?? {}
+			...dropData.data
 		};
-		itemId = itemData._id;
-
+		itemId = getProperty(dropData, 'data.flags.pick-up-stix.pick-up-stix.itemId');
+		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', { itemId });
 		await game.actors.get(sourceActorId).deleteOwnedItem(dropData.data._id);
 	}
 	else {
@@ -43,7 +43,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		}
 		itemData = {
 			...item.data
-		}
+		};
 	}
 
 	console.log(`pick-up-stix | handleDropItem | itemData:`);
@@ -53,14 +53,16 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 
 	let targetToken: Token;
 	let p: PlaceableObject;
+	// loop through placeables on the map and see if it's being dropped onto a token
 	for (p of canvas.tokens.placeables) {
 		if (dropData.x < p.x + p.width && dropData.x > p.x && dropData.y < p.y + p.height && dropData.y > p.y && p instanceof Token) {
+			// dropped it onto a token, set the targetToken
 			targetToken = p;
 			break;
 		}
 	}
 
-	// if the drop was ont another token, check what type of token it was dropped on
+	// if the drop was on another token, check what type of token it was dropped on
 	if (targetToken) {
 		if (droppedItemIsContainer) {
 			ui.notifications.error('Cannot drop container onto target');
@@ -74,30 +76,35 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		if (targetTokenFlags?.itemType === ItemType.CONTAINER) {
 			// if the target is a container, then add the item to the container's data
 			console.log(`pick-up-stix | handleDropItem | target token is a container`);
-			const existingLoot = { ...duplicate(targetTokenFlags.containerLoot) };
+			const existingLoot = { ...duplicate(targetTokenFlags.container.loot) };
 			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === itemId);
 			if (existingItem) {
 				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemId}`);
 				console.log(existingItem);
 
-				if(!existingItem.qty) existingItem.qty = 1;
-
-				existingItem.qty++;
+				if(!existingItem.data.quantity){
+					existingItem.data.quantity = 1;
+				}
+				else {
+					existingItem.data.quantity++;
+				}
 			}
 			else {
 				console.log(`pick-up-stix | handleDropItem | Could not find existing item from '${itemId}`);
 				if (!existingLoot[itemData.type]) {
 					existingLoot[itemData.type] = [];
 				}
-				(existingLoot[itemData.type] as any).push({ ...itemData, qty: 1 });
+				(existingLoot[itemData.type] as any).push({ ...itemData });
 			}
 
 			const update = {
 				flags: {
 					'pick-up-stix': {
 						'pick-up-stix': {
-							'containerLoot': {
-								...existingLoot
+							container: {
+								loot: {
+									...existingLoot
+								}
 							}
 						}
 					}
@@ -109,18 +116,12 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		}
 		else if (targetToken.actor) {
 			// if the token it was dropped on was an actor, add the item to the new actor
-			await createOwnedEntity(targetToken.actor, [{
-				...itemData,
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							initialState: { id: itemData._id, count: 1, itemData: { ...itemData } },
-							itemType: ItemType.ITEM,
-							isLocked: false
-						}
-					}
-				}
-			}]);
+			await createOwnedItem(
+				targetToken.actor,
+				[{
+					...itemData
+				}]
+			);
 			return;
 		}
 	}
@@ -140,22 +141,11 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 	if (droppedItemIsContainer) {
 		console.log(`pick-up-stix | handleDropItem | dropped item is a container`);
 		tokenId = await createItemToken({
-			img: itemData.flags['pick-up-stix']['pick-up-stix']['imageContainerClosedPath'],
-			name: itemData.name,
+			...itemData,
+			img: itemData.flags['pick-up-stix']['pick-up-stix']['container']['imageClosePath'],
 			x: dropData.x,
 			y: dropData.y,
-			disposition: 0,
-			flags: {
-				'pick-up-stix': {
-					'pick-up-stix': {
-						canClose: true,
-						isLocked: false,
-						isOpen: false,
-						itemType: ItemType.CONTAINER,
-						...itemData.flags['pick-up-stix']['pick-up-stix'],
-					}
-				}
-			}
+			disposition: 0
 		});
 
 		return;
@@ -163,11 +153,24 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 
 	let updates: any = {};
 
+	const createDefaultItem = () => updates = {
+		img: itemData.img,
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					itemType: ItemType.ITEM,
+					itemData: {
+						...itemData,
+						_id: getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemId')
+					}
+				}
+			}
+		}
+	}
+
 	// if a Token was successfully created
 	if (!sourceActorId) {
 		await new Promise(resolve => {
-			// get a reference to the Token
-			const token: Token = canvas.tokens.placeables.find(p => p.id === tokenId);
 			// render the item type selection form
 			new Dialog({
 				content: 'What kind of loot is this?',
@@ -178,30 +181,26 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 					one: {
 						icon: '<i class="fas fa-box"></i>',
 						label: 'Item',
-						callback: () => updates = {
-							img: itemData.img,
-							flags: {
-								'pick-up-stix': {
-									'pick-up-stix': {
-										itemType: ItemType.ITEM,
-										isLocked: false
-									}
-								}
-							}
-						}
+						callback: createDefaultItem
 					},
 					two: {
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
 						callback: () => updates = {
-							img: game.settings.get('pick-up-stix', 'default-container-closed-image-path'),
+							img: game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath),
 							flags: {
 								'pick-up-stix': {
 									'pick-up-stix': {
-										imageContainerClosedPath: game.settings.get('pick-up-stix', 'default-container-closed-image-path'),
-										imageContainerOpenPath: game.settings.get('pick-up-stix', 'default-container-opened-image-path'),
 										itemType: ItemType.CONTAINER,
-										isLocked: false
+										isLocked: false,
+										container: {
+											canOpen: true,
+											isOpen: false,
+											imageClosePath: game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath),
+											imageOpenPath: game.settings.get('pick-up-stix', DefaultSetttingKeys.openImagePath),
+											soundOpenPath: game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerOpenSound),
+											soundClosePath: game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerCloseSound)
+										}
 									}
 								}
 							}
@@ -214,17 +213,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		});
 	}
 	else {
-		updates = {
-			...itemData,
-			flags: {
-				'pick-up-stix': {
-					'pick-up-stix': {
-						itemType: ItemType.ITEM,
-						isLocked: false
-					}
-				}
-			}
-		}
+		createDefaultItem();
 	}
 
 	tokenId = await createItemToken({
@@ -232,15 +221,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		name: itemData.name,
 		x: dropData.x,
 		y: dropData.y,
-		disposition: 0,
-		flags: {
-			'pick-up-stix': {
-				'pick-up-stix': {
-					...updates?.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {},
-					initialState: { id: itemData._id, count: 1, itemData: { ...itemData } }
-				}
-			}
-		}
+		disposition: 0
 	});
 }
 
@@ -375,7 +356,9 @@ async function handleTokenItemClicked(e): Promise<void> {
 		return;
 	}
 
+	// checking for double click, the double click handler clears this timeout
 	clickTimeout = setTimeout(async () => {
+		// if the user controls one token use it, otherwise ask which token to use
 		const controlledToken: Token =
 			controlledTokens.length === 1 ?
 			controlledTokens[0] :
@@ -396,18 +379,18 @@ async function handleTokenItemClicked(e): Promise<void> {
 			console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
 
 			// if it's a container and it's open and can't be closed then don't do anything
-			if (flags.isOpen && !(flags.canClose ?? true)) {
+			if (flags.container?.isOpen && !(flags.container?.canClose ?? true)) {
 				console.log(`pick-up-stix | handleTokenItemClicked | container is open and can't be closed`);
 				return;
 			}
 
-			flags.isOpen = !flags.isOpen;
+			flags.container.isOpen = !flags.container?.isOpen;
 
 			// if there are any container updates then update the container
 			await new Promise(resolve => {
 				setTimeout(async () => {
 					await updateToken(clickedToken, {
-						img: flags.isOpen ? flags.imageContainerOpenPath : flags.imageContainerClosedPath,
+						img: flags.container?.isOpen ? flags.container.imageOpenPath : flags.container.imageClosePath,
 						flags: {
 							'pick-up-stix': {
 								'pick-up-stix': {
@@ -417,9 +400,9 @@ async function handleTokenItemClicked(e): Promise<void> {
 						}
 					});
 					const a = new Audio(
-						flags.isOpen ?
-							(clickedToken.getFlag('pick-up-stix', 'pick-up-stix.containerOpenSoundPath') || game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerOpenSound)) :
-							(clickedToken.getFlag('pick-up-stix', 'pick-up-stix.containerCloseSoundPath') || game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerCloseSound))
+						flags.container.isOpen ?
+							clickedToken.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') :
+							clickedToken.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath')
 					);
 					try {
 						a.play();
@@ -432,7 +415,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 				}, 200);
 			});
 
-			if (!flags.isOpen) {
+			if (!flags.container?.isOpen) {
 				return;
 			}
 
@@ -444,13 +427,10 @@ async function handleTokenItemClicked(e): Promise<void> {
 
 		// if it's just a single item, delete the map token and create an new item on the player
 		await deleteToken(clickedToken);
-		await createOwnedEntity(controlledToken.actor, {
-			...flags.initialState.itemData,
-			flags: {
-				...clickedToken.data.flags
-			}
-		});
-		itemCollected(controlledToken, { ...flags.initialState.itemData });
+		await createOwnedItem(controlledToken.actor, [{
+			...flags.itemData
+		}]);
+		itemCollected(controlledToken, { ...flags.itemData });
 	}, 250);
 
 	this.mouseInteractionManager?._deactivateDragEvents();
@@ -514,7 +494,7 @@ export async function updateActor(actor, updates): Promise<void> {
 	socket.emit('module.pick-up-stix', msg);
 }
 
-export async function createOwnedEntity(actor: Actor, items: any[]) {
+export async function createOwnedItem(actor: Actor, items: any[]) {
 	if (game.user.isGM) {
 		await actor.createOwnedItem(items);
 		return;
@@ -537,6 +517,7 @@ export async function createOwnedEntity(actor: Actor, items: any[]) {
 async function createItemToken(data: any): Promise<string> {
 	console.log(`pick-up-stix | createItemToken | called with args:`);
 	console.log(data);
+
 	if (game.user.isGM) {
 		console.log(`pick-up-stix | createItemToken | current user is GM, creating token`);
 		const t = await Token.create({

@@ -61,10 +61,10 @@ export default class ContainerImageSelectionApplication extends FormApplication 
   }
 
   _updateObject(e, formData) {
-    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.imageContainerOpenPath', formData.imageContainerOpenPath);
-    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.imageContainerClosedPath', formData.imageContainerClosedPath);
-    delete formData.imageContainerOpenPath;
-    delete formData.imageContainerClosedPath;
+    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.container.imageOpenPath', formData.imageOpenPath);
+    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.container.imageClosePath', formData.imageClosePath);
+    delete formData.imageOpenPath;
+    delete formData.imageClosePath;
     return this.object.update(formData);
   }
 }

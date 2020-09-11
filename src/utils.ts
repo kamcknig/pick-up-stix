@@ -6,7 +6,7 @@ export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 };
 
-export const getCurrencies = (): any =>  {
+export const getCurrencyTypes = (): { [short: string]: string } =>  {
   console.log(`pick-up-stix | utils | getCurrencies`);
   if (game.system.id === 'dnd5e') {
     console.log(`pick-up-stix | utils | getCurrencies | using system 'dnd5e'`);

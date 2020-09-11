@@ -4,7 +4,7 @@ export type ItemData = {
 	count: number;
 };
 
-export interface PickUpStixFlags {
+/* export interface PickUpStixFlags {
 	itemType: ItemType;
 	initialState: ItemData;
 	imageContainerClosedPath: string;
@@ -13,11 +13,30 @@ export interface PickUpStixFlags {
 	containerCloseSoundPath: string;
 	isOpen: boolean;
 	isLocked: boolean;
-	containerLoot: {
-		currency: {};
-		[key: string]: any[] | {};
-	}
+	containerLoot: ContainerLoot;
 	canClose?: boolean;
+} */
+
+export interface PickUpStixFlags {
+	itemType: ItemType;
+	itemData?: ItemData;
+	isLocked?: boolean;
+	itemId: string;
+	container?: {
+		soundOpenPath: string;
+		soundClosePath: string;
+		imageClosePath: string;
+		imageOpenPath: string;
+		canClose: boolean;
+		isOpen: boolean;
+		loot?: ContainerLoot;
+		currency?: any;
+		description?: string;
+	}
+}
+
+export interface ContainerLoot {
+	[key: string]: any[];
 }
 
 export enum SocketMessageType {

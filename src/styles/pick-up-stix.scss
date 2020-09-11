@@ -13,6 +13,10 @@ $groove-color: #eeede0;
     font-family: "Font Awesome 5 Free";
   }
 
+  &.item-config-sheet {
+    min-height: 500px;
+  }
+
   & .currency-wrapper {
     margin-bottom: 10px;
     display: flex;

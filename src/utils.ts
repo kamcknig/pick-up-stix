@@ -26,3 +26,16 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
     cp: 'Copper'
   };
 }
+
+export const versionDiff = (v1: string, v2: string): number => {
+  const v1Parts: number[] = v1.split('.').map(v => Number(v));
+  const v2Parts: number[] = v2.split('.').map(v => Number(v));
+
+  if (v1Parts[0] === v2Parts[0]) {
+    if (v1Parts[1] === v2Parts[1]) {
+      return v1Parts[2] - v2Parts[2];
+    }
+    return v1Parts[1] - v2Parts[1];
+  }
+  return v1Parts[0] - v2Parts[0];
+}

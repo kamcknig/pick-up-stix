@@ -1,10 +1,16 @@
 import { SocketMessageType, PickUpStixSocketMessage, ItemType } from "../models";
 import ItemConfigApplication from "../item-config-application";
+import { SetttingKeys } from "../settings";
+import { versionDiff } from "../../../utils";
 
 /* ------------------------------------ */
 export function readyHook() {
 	// Do anything once the module is ready
 	console.log(`pick-up-stix | readyHook`);
+
+	const activeVersion = game.modules.get('pick-up-stix').data.version;
+	const previousVersion = game.settings.get('pick-up-stix', SetttingKeys.version);
+	const diff = versionDiff(activeVersion, previousVersion);
 
 	for (let item of game.items.values()) {
 		if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {

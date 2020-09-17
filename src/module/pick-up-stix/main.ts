@@ -2,7 +2,7 @@ import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType }
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
 import { dist } from '../../utils'
-import { DefaultSetttingKeys } from "./settings";
+import { SetttingKeys } from "./settings";
 
 export const lootTokens: string[] = [];
 
@@ -187,7 +187,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
 						callback: () => updates = {
-							img: game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath),
+							img: game.settings.get('pick-up-stix', SetttingKeys.closeImagePath),
 							flags: {
 								'pick-up-stix': {
 									'pick-up-stix': {
@@ -196,10 +196,10 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 										container: {
 											canOpen: true,
 											isOpen: false,
-											imageClosePath: game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath),
-											imageOpenPath: game.settings.get('pick-up-stix', DefaultSetttingKeys.openImagePath),
-											soundOpenPath: game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerOpenSound),
-											soundClosePath: game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerCloseSound)
+											imageClosePath: game.settings.get('pick-up-stix', SetttingKeys.closeImagePath),
+											imageOpenPath: game.settings.get('pick-up-stix', SetttingKeys.openImagePath),
+											soundOpenPath: game.settings.get('pick-up-stix', SetttingKeys.defaultContainerOpenSound),
+											soundClosePath: game.settings.get('pick-up-stix', SetttingKeys.defaultContainerCloseSound)
 										}
 									}
 								}

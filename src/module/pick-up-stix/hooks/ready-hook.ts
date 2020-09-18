@@ -66,11 +66,38 @@ async function migrate000To0110() {
 		for (let tokenData of (scene.data as any)?.tokens) {
 			oldFlags = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix');
 
-			if (!oldFlags || getProperty(tokenData, 'flags.pick-up-stix.version') === '0.11.0') {
+			// if the token doesn't have flags or the version is already current
+			if ((!oldFlags || getProperty(tokenData, 'flags.pick-up-stix.version') === '0.11.0') && !tokenData.actorData?.items) {
 				continue;
 			}
 
-			const update: { _id: string, flags: { 'pick-up-stix': { version: string, 'pick-up-stix': PickUpStixFlags } } } = {} as any;
+			let update: any;
+
+			// if the token represents an actor but isn't linked to the actor, we'll have to update it
+			if (tokenData.actorData?.items) {
+				update = {
+					_id: tokenData._id,
+					actorData: {
+						items: [
+							...tokenData.actorData?.items.filter(i => getProperty(i, 'flags.pick-up-stix.version') !== '0.11.0').map(i => ({
+								...i,
+								flags: {
+									'pick-up-stix': {
+										version: '0.11.0',
+										'pick-up-stix': {
+											itemId: i.flags['pick-up-stix']['pick-up-stix'].initialState.itemData._id,
+											owner: tokenData.actorId
+										}
+									}
+								}
+							}))
+						]
+					}
+				};
+				updates.push(update);
+				continue
+			}
+
 			update._id = tokenData._id;
 			update.flags = {
 				'pick-up-stix': {

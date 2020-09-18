@@ -4,6 +4,7 @@ import { SettingKeys } from "../settings";
 import { versionDiff } from "../../../utils";
 
 async function migrate000To0110() {
+	// conver items in the items directory
 	for (let item of game.items.entities) {
 		const oldFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
 		if (!oldFlags || item.getFlag('pick-up-stix', 'version') === '0.11.0') {
@@ -46,8 +47,6 @@ async function migrate000To0110() {
 			}
 		}
 		await item.setFlag('pick-up-stix', 'pick-up-stix', newFlags);
-		console.log(item);
-		return;
 	}
 }
 
@@ -89,7 +88,25 @@ export async function readyHook() {
 	console.log(`pick-up-stix | readyHook`);
 
 	// this adds the 'container' type to the game system's entity type.
-	game.system.entityTypes.Item.push('container');
+	game.system.entityTypes.Item.push(ItemType.CONTAINER);
+
+	for (let item of game.items.values()) {
+		if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
+			item.data.type = ItemType.CONTAINER;
+		}
+	}
+
+	console.log(game.ready);
+	// add the default sheet to the container Item type
+	CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
+		'pick-up-stix.ItemConfigApplication': {
+			cls: ItemConfigApplication,
+			default: true,
+			id: 'pick-up-stix.ItemConfigApplication'
+		}
+	};
+
+	EntitySheetConfig.registerSheet(Item, 'pick-up-stix', ItemConfigApplication, { types: [ 'container' ], makeDefault: true });
 
 	const activeVersion = game.modules.get('pick-up-stix').data.version;
 	const previousVersion = game.settings.get('pick-up-stix', SettingKeys.version);
@@ -112,6 +129,7 @@ export async function readyHook() {
 						for (let fn of migrations.values()) {
 							await fn();
 						}
+						resolve();
 					},
 					no: () => resolve()
 				});
@@ -132,22 +150,6 @@ export async function readyHook() {
 
 	// TODO: add this back in, for now I want to keep getting other flow
 	// game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
-
-	for (let item of game.items.values()) {
-		if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
-			item.data.type = 'container';
-		}
-	}
-
-	// add the default sheet to the container Item type
-	CONFIG.Item.sheetClasses['container'] = {
-		'pick-up-stix.ItemConfigApplication': {
-			cls: ItemConfigApplication,
-			default: true,
-			id: 'pick-up-stix.ItemConfigApplication'
-		}
-	};
-	EntitySheetConfig.registerSheet(Item, 'pick-up-stix', ItemConfigApplication, { types: [ 'container' ], makeDefault: true });
 
 	socket = game.socket;
 

@@ -27,7 +27,7 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
   };
 }
 
-export const versionDiff = (v1: string, v2: string): number => {
+export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number => {
   const v1Parts: number[] = v1.split('.').map(v => Number(v));
   const v2Parts: number[] = v2.split('.').map(v => Number(v));
 

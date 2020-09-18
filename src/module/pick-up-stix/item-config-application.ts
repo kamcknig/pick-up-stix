@@ -5,10 +5,10 @@ import {
 	currencyCollected,
 	itemCollected,
 	updateActor,
-	updateToken
+	updateEntity
 } from './main';
 import { ItemType, ContainerLoot } from "./models";
-import { SetttingKeys } from './settings';
+import { SettingKeys } from './settings';
 import { ContainerSoundConfig } from './container-sound-config-application';
 
 /**
@@ -43,7 +43,7 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
 		console.log([this._token, this._controlledToken]);
 
-		this._currencyEnabled = !game.settings.get('pick-up-stix', SetttingKeys.disableCurrencyLoot);
+		this._currencyEnabled = !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
 
 		this._tokenDeletedHandler = Hooks.on('deleteToken', this._tokenDeleted.bind(this));
 		this._tokenUpdatedHandler = Hooks.on('updateToken', this._tokenUpdated.bind(this));
@@ -396,7 +396,7 @@ export default class ItemConfigApplication extends FormApplication {
 		const flattendOb = flattenObject(formData);
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | flattend 'formData' object:`);
 		console.log(flattendOb);
-		await updateToken(this._token, flattendOb);
+		await updateEntity(this._token, flattendOb);
 		this.render();
 	}
 

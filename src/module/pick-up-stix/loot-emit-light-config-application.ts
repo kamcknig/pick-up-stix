@@ -1,4 +1,4 @@
-import { updateToken } from "./main";
+import { updateEntity } from "./main";
 
 export class LootEmitLightConfigApplication extends FormApplication {
   static get defaultOptions() {
@@ -28,6 +28,6 @@ export class LootEmitLightConfigApplication extends FormApplication {
   }
 
   async _updateObject(e, formData) {
-    await updateToken(this.object, formData);
+    await updateEntity(this.object, formData);
   }
 }

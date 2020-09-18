@@ -2,7 +2,7 @@ import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType }
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
 import { dist } from '../../utils'
-import { SetttingKeys } from "./settings";
+import { SettingKeys } from "./settings";
 
 export const lootTokens: string[] = [];
 
@@ -111,7 +111,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				}
 			};
 
-			await updateToken(targetToken, update);
+			await updateEntity(targetToken, update);
 			return;
 		}
 		else if (targetToken.actor) {
@@ -187,7 +187,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
 						callback: () => updates = {
-							img: game.settings.get('pick-up-stix', SetttingKeys.closeImagePath),
+							img: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
 							flags: {
 								'pick-up-stix': {
 									'pick-up-stix': {
@@ -196,10 +196,10 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 										container: {
 											canOpen: true,
 											isOpen: false,
-											imageClosePath: game.settings.get('pick-up-stix', SetttingKeys.closeImagePath),
-											imageOpenPath: game.settings.get('pick-up-stix', SetttingKeys.openImagePath),
-											soundOpenPath: game.settings.get('pick-up-stix', SetttingKeys.defaultContainerOpenSound),
-											soundClosePath: game.settings.get('pick-up-stix', SetttingKeys.defaultContainerCloseSound)
+											imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
+											imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
+											soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
+											soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
 										}
 									}
 								}
@@ -389,7 +389,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 			// if there are any container updates then update the container
 			await new Promise(resolve => {
 				setTimeout(async () => {
-					await updateToken(clickedToken, {
+					await updateEntity(clickedToken, {
 						img: flags.container?.isOpen ? flags.container.imageOpenPath : flags.container.imageClosePath,
 						flags: {
 							'pick-up-stix': {
@@ -453,20 +453,20 @@ async function deleteToken(token: Token): Promise<void> {
 	socket.emit('module.pick-up-stix', msg);
 }
 
-export async function updateToken(token: Token, updates): Promise<void> {
+export async function updateEntity(entity: { id: string, update: (data, options?) => void }, updates): Promise<void> {
 	console.log(`pick-up-stix | updateToken with args:`);
-	console.log([token, updates]);
+	console.log([entity, updates]);
 
 	if (game.user.isGM) {
-		await token.update(updates);
+		await entity.update(updates);
 		return;
 	}
 
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
-		type: SocketMessageType.updateToken,
+		type: SocketMessageType.updateEntity,
 		data: {
-			tokenId: token.id,
+			tokenId: entity.id,
 			updates
 		}
 	};

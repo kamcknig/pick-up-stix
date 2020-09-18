@@ -1,12 +1,12 @@
 export interface PickUpStixFlags {
 	itemType: ItemType;
+	itemId: string;
 
 	// used to store information about an item while it is represented by a token
 	// should only exist on token instances
 	itemData?: any;
 
 	isLocked?: boolean;
-	itemId: string;
 	container?: {
 		soundOpenPath: string;
 		soundClosePath: string;
@@ -26,7 +26,7 @@ export interface ContainerLoot {
 
 export enum SocketMessageType {
 	deleteToken,
-	updateToken,
+	updateEntity,
 	updateActor,
 	createOwnedEntity,
 	createItemToken

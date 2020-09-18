@@ -1,5 +1,5 @@
 import { ItemType } from "../models";
-import { SetttingKeys } from "../settings";
+import { SettingKeys } from "../settings";
 import { getCurrencyTypes } from "../../../utils";
 
 export async function onPreCreateItem(itemData: any, options: any, userId: string) {
@@ -14,10 +14,10 @@ export async function onPreCreateItem(itemData: any, options: any, userId: strin
 		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', {
 			container: {
 				currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}),
-				imageOpenPath: game.settings.get('pick-up-stix', SetttingKeys.openImagePath),
-				imageClosePath: game.settings.get('pick-up-stix', SetttingKeys.closeImagePath),
-				soundClosePath: game.settings.get('pick-up-stix', SetttingKeys.defaultContainerCloseSound),
-				soundOpenPath: game.settings.get('pick-up-stix', SetttingKeys.defaultContainerOpenSound),
+				imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
+				imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
+				soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound),
+				soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
 				canOpen: true,
 				isOpen: false
 			},
@@ -25,7 +25,7 @@ export async function onPreCreateItem(itemData: any, options: any, userId: strin
 			itemType: ItemType.CONTAINER
 		});
 
-		setProperty(itemData, 'img', game.settings.get('pick-up-stix', SetttingKeys.closeImagePath));
+		setProperty(itemData, 'img', game.settings.get('pick-up-stix', SettingKeys.closeImagePath));
 	}
 
 	console.log(`pick-up-stix | onPreCreateItem | final data:`);

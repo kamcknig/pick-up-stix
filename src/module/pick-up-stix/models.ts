@@ -1,6 +1,12 @@
 export interface PickUpStixFlags {
 	itemType: ItemType;
-	itemId: string;
+
+	// itemId is used when an Item is added to an Actor's inventory. When an Item in
+	// Foundry is added to an Actor's inventory, then it ceases to be an Item and
+	// becomes an OwnedItem and loses it's original id, the OwnedItem then has a new
+	// id. So this keeps track of what the original Item id was so that it can be
+	// used elsewhere
+	itemId?: string;
 
 	// used to store information about an item while it is represented by a token
 	// should only exist on token instances

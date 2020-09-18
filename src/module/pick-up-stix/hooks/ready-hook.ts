@@ -4,9 +4,12 @@ import { SettingKeys } from "../settings";
 import { versionDiff } from "../../../utils";
 
 async function migrate000To0110() {
-	// conver items in the items directory
+	let oldFlags;
+	let newFlags: PickUpStixFlags;
+
+	// convert items in the items directory
 	for (let item of game.items.entities) {
-		const oldFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
+		oldFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
 		if (!oldFlags || item.getFlag('pick-up-stix', 'version') === '0.11.0') {
 			continue;
 		}
@@ -20,14 +23,13 @@ async function migrate000To0110() {
 		// set the version flag
 		await item.setFlag('pick-up-stix', 'version', '0.11.0');
 
-		const newFlags: PickUpStixFlags = {
-			itemId: e.id,
+		newFlags = {
 			itemType: oldFlags.itemType.toLowerCase(),
 			isLocked: oldFlags.isLocked
 		};
 		if (oldFlags.initialState?.itemData?.data) {
 			newFlags.itemData = {
-				...oldFlags.initialState?.itemData?.data
+				...oldFlags.initialState?.itemData?.data ?? {}
 			}
 		}
 		if (oldFlags.itemType.toLowerCase() === ItemType.CONTAINER) {
@@ -42,11 +44,106 @@ async function migrate000To0110() {
 					...oldFlags.containerLoot?.currency ?? {}
 				},
 				loot: {
-					...Object.entries<any[]>(oldFlags.containerLoot ?? {}).filter(([k,]) => k !== 'currency').reduce((acc, [k, v]) => { acc[k] = [...v]; return acc; }, {})
+					...
+						Object.entries<any[]>(oldFlags.containerLoot ?? {})
+							.filter(([k,]) => k !== 'currency')
+							.reduce((acc, [k, v]) => {
+								acc[k] = [
+									...v.map(lootItem => ({ ...lootItem, data: { ...lootItem.data, quantity: lootItem.qty } }))
+								];
+								return acc;
+							}, {})
 				}
 			}
 		}
 		await item.setFlag('pick-up-stix', 'pick-up-stix', newFlags);
+	}
+
+	let scene: Scene;
+	// convert any loot tokens
+	for (scene of game.scenes.entities) {
+		const updates = [];
+		for (let tokenData of (scene.data as any)?.tokens) {
+			oldFlags = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix');
+
+			if (!oldFlags || getProperty(tokenData, 'flags.pick-up-stix.version') === '0.11.0') {
+				continue;
+			}
+
+			const update: { _id: string, flags: { 'pick-up-stix': { version: string, 'pick-up-stix': PickUpStixFlags } } } = {} as any;
+			update._id = tokenData._id;
+			update.flags = {
+				'pick-up-stix': {
+					version: '0.11.0',
+					'pick-up-stix': {
+						itemType: oldFlags.itemType.toLowerCase(),
+						itemData: {
+							...oldFlags.initialState?.itemData?.data ?? {}
+						}
+					}
+				}
+			};
+
+			if (oldFlags.itemType.toLowerCase() === ItemType.CONTAINER) {
+				update.flags['pick-up-stix']['pick-up-stix'].isLocked = oldFlags.isLocked;
+				update.flags['pick-up-stix']['pick-up-stix'].container = {
+					soundClosePath: oldFlags.containerCloseSoundPath,
+					soundOpenPath: oldFlags.containerOpenSoundPath,
+					imageClosePath: oldFlags.imageContainerClosedPath,
+					imageOpenPath: oldFlags.imageContainerOpenPath,
+					canClose: oldFlags.canClose,
+					isOpen: oldFlags.isOpen,
+					currency: {
+						...oldFlags.containerLoot?.currency ?? {}
+					},
+					loot: {
+						...
+							Object.entries<any[]>(oldFlags.containerLoot ?? {})
+								.filter(([k,]) => k !== 'currency')
+								.reduce((acc, [k, v]) => {
+									acc[k] = [
+										...v.map(lootItem => ({ ...lootItem, data: { ...lootItem.data, quantity: lootItem.qty } }))
+									];
+									return acc;
+								}, {})
+					}
+				}
+			}
+
+			updates.push(update);
+		}
+
+		await scene.updateEmbeddedEntity('Token', updates);
+	}
+
+	let actor: Actor;
+	for(actor of game.actors.entities) {
+		const updates = [];
+		for(let itemData of actor.items.values()) {
+			const oldFlags = getProperty(itemData, 'data.flags.pick-up-stix.pick-up-stix');
+
+			if (!oldFlags || getProperty(itemData, 'data.flags.pick-up-stix.version') === '0.11.0' || !game.system.entityTypes.Item.includes(getProperty(itemData, 'data.type'))) {
+				continue;
+			}
+
+			await itemData.unsetFlag('pick-up-stix', 'pick-up-stix');
+
+			const update: any = {
+				_id: itemData.id,
+				flags: {
+					'pick-up-stix': {
+						version: '0.11.0',
+						'pick-up-stix': {
+							itemId: getProperty(oldFlags, 'initialState.itemData._id'),
+							owner: actor.id
+						}
+					}
+				}
+			}
+
+			updates.push(update);
+		}
+		actor.updateOwnedItem(updates);
 	}
 }
 
@@ -96,7 +193,6 @@ export async function readyHook() {
 		}
 	}
 
-	console.log(game.ready);
 	// add the default sheet to the container Item type
 	CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
 		'pick-up-stix.ItemConfigApplication': {

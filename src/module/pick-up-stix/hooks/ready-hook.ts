@@ -85,7 +85,6 @@ async function migrate000To0110() {
 									'pick-up-stix': {
 										version: '0.11.0',
 										'pick-up-stix': {
-											itemId: i.flags['pick-up-stix']['pick-up-stix'].initialState.itemData._id,
 											owner: tokenData.actorId
 										}
 									}
@@ -161,7 +160,6 @@ async function migrate000To0110() {
 					'pick-up-stix': {
 						version: '0.11.0',
 						'pick-up-stix': {
-							itemId: getProperty(oldFlags, 'initialState.itemData._id'),
 							owner: actor.id
 						}
 					}
@@ -185,7 +183,7 @@ function dataMigrationNeeded(minVersion: string, maxVersion: string): Function[]
 			game.items.entities.some(i => !!getProperty(i, 'flags.pick-up-stix.pick-up-stix')) ||
 			game.scenes.entities.some(s => (s.data as any).tokens.some(t => !!getProperty(t, 'flags.pick-up-stix.pick-up-stix'))) ||
 			game.actors.entities.some(a => {
-				for (let [k, i] of a.items.entries()) {
+				for (let i of a.items) {
 					if (!!getProperty(i, 'data.flags.pick-up-stix.pick-up-stix')) {
 						return true;
 					}
@@ -242,10 +240,10 @@ export async function readyHook() {
 			await new Promise(resolve => {
 				const d = Dialog.confirm({
 					content: `
-						It appears you are upgrade to a version that requires data migration. If you wish to continue with the migration
-						please press 'yes'. Otherwise press 'no'. If you choose not to migrate data, you should downgrade back to version
-						${previousVersion}. Note that there is no guarantee that data migration will work; I have no way to test most things
-						by myself.
+						<p>It appears you are upgrading to a version that requires data migration.</p>
+						<p>If you wish to continue with the migration please press 'yes'. Otherwise press 'no'.</p>
+						<p>If you choose not to migrate data, you should downgrade back to version ${previousVersion}.</p>
+						<p>Note that there is no guarantee that data migration will work; I have no way to test most things by myself.</p>
 					`,
 					title: 'Data Migration',
 					yes: async () => {
@@ -263,12 +261,18 @@ export async function readyHook() {
 	else if (diff < 0) {
 		console.log('pick-up-stix | readyHook | Version has been downgraded');
 		await new Promise(resolve => {
-			const d = Dialog.confirm({
-				content: `It's possible that you are downgrading from version ${previousVersion} to version ${activeVersion}. Be aware, if this is the case, any previous items created with Pick-Up-Stix could be invalidated and no longer function properly.`,
+			let e = new Dialog({
+				buttons: {
+					OK: {
+						label: 'OK',
+						callback: () => resolve()
+					}
+				},
+				content: `
+					<p>It's possible that you are downgrading from version ${previousVersion} to version ${activeVersion}.</p>
+					<p>Be aware, if this is the case, any previous items created with Pick-Up-Stix could be invalidated and no longer function properly.</p>`,
 				title: 'Downgrade Warning',
-				yes: () => resolve(),
-				no: () => resolve()
-			});
+			}).render(true);
 		});
 	}
 

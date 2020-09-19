@@ -26,6 +26,7 @@ export async function onPreCreateItem(itemData: any, options: any, userId: strin
 		});
 
 		setProperty(itemData, 'img', game.settings.get('pick-up-stix', SettingKeys.closeImagePath));
+		setProperty(itemData, 'flags.pick-up-stix', game.settings.get('pick-up-stix', SettingKeys.version));
 	}
 
 	console.log(`pick-up-stix | onPreCreateItem | final data:`);

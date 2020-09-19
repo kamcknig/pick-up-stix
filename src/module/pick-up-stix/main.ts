@@ -18,7 +18,6 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 	const sourceActorId: string = dropData.actorId;
 
 	let pack: string;
-	let itemId: string;
 	let itemData: any;
 
 	// if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
@@ -28,15 +27,13 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		itemData = {
 			...dropData.data
 		};
-		itemId = getProperty(dropData, 'data.flags.pick-up-stix.pick-up-stix.itemId');
-		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', { itemId });
 		await game.actors.get(sourceActorId).deleteOwnedItem(dropData.data._id);
 	}
 	else {
 		console.log(`pick-up-stix | handleDropItem | item comes from directory or compendium, item data comes from directory or compendium`);
 		pack = dropData.pack;
-		itemId = dropData.id;
-		const item: Item = await game.packs.get(pack)?.getEntity(itemId) ?? game.items.get(itemId);
+		const id = dropData.id;
+		const item: Item = await game.packs.get(pack)?.getEntity(id) ?? game.items.get(id);
 		if (!item) {
 			console.log(`pick-up-stix | handleDropItem | item '${dropData.id}' not found in game items or compendium`);
 			return;
@@ -77,9 +74,9 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 			// if the target is a container, then add the item to the container's data
 			console.log(`pick-up-stix | handleDropItem | target token is a container`);
 			const existingLoot = { ...duplicate(targetTokenFlags.container.loot) };
-			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === itemId);
+			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === itemData._id);
 			if (existingItem) {
-				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemId}`);
+				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemData._id}`);
 				console.log(existingItem);
 
 				if(!existingItem.data.quantity){
@@ -90,7 +87,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				}
 			}
 			else {
-				console.log(`pick-up-stix | handleDropItem | Could not find existing item from '${itemId}`);
+				console.log(`pick-up-stix | handleDropItem | Could not find existing item from '${itemData._id}`);
 				if (!existingLoot[itemData.type]) {
 					existingLoot[itemData.type] = [];
 				}
@@ -157,11 +154,11 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		img: itemData.img,
 		flags: {
 			'pick-up-stix': {
+				version: game.settings.get('pick-up-stix', SettingKeys.version),
 				'pick-up-stix': {
 					itemType: ItemType.ITEM,
 					itemData: {
-						...itemData,
-						_id: getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemId')
+						...itemData
 					}
 				}
 			}
@@ -190,6 +187,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 							img: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
 							flags: {
 								'pick-up-stix': {
+									version: game.settings.get('pick-up-stix', SettingKeys.version),
 									'pick-up-stix': {
 										itemType: ItemType.CONTAINER,
 										isLocked: false,

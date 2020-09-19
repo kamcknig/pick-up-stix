@@ -1,3 +1,5 @@
+import { SettingKeys } from "../settings";
+
 export async function onCreateActor(actor: Actor, userId: string) {
 	console.log(`pick-up-stix | onCreateActor | called with args:`);
 	console.log([actor, userId]);
@@ -6,13 +8,9 @@ export async function onCreateActor(actor: Actor, userId: string) {
 			_id: ownedItem.id,
 			flags: {
 				'pick-up-stix': {
+					version: game.settings.get('pick-up-stix', SettingKeys.version),
 					'pick-up-stix': {
-						initialState: {
-							count: 1,
-							itemData: {
-								...ownedItem.data
-							}
-						}
+						owner: actor.id
 					}
 				}
 			}

@@ -252,6 +252,7 @@ export async function readyHook() {
 						for (let fn of migrations.values()) {
 							await fn();
 						}
+						await game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
 						resolve();
 					},
 					no: () => resolve()
@@ -270,9 +271,6 @@ export async function readyHook() {
 			});
 		});
 	}
-
-	// TODO: add this back in, for now I want to keep getting other flow
-	// game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
 
 	socket = game.socket;
 

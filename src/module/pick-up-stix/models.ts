@@ -1,27 +1,18 @@
-export type ItemData = {
-	id?: string;
-	itemData: any;
-	count: number;
-};
-
-/* export interface PickUpStixFlags {
-	itemType: ItemType;
-	initialState: ItemData;
-	imageContainerClosedPath: string;
-	imageContainerOpenPath: string;
-	containerOpenSoundPath: string;
-	containerCloseSoundPath: string;
-	isOpen: boolean;
-	isLocked: boolean;
-	containerLoot: ContainerLoot;
-	canClose?: boolean;
-} */
-
 export interface PickUpStixFlags {
 	itemType: ItemType;
-	itemData?: ItemData;
+
+	// itemId is used when an Item is added to an Actor's inventory. When an Item in
+	// Foundry is added to an Actor's inventory, then it ceases to be an Item and
+	// becomes an OwnedItem and loses it's original id, the OwnedItem then has a new
+	// id. So this keeps track of what the original Item id was so that it can be
+	// used elsewhere
+	itemId?: string;
+
+	// used to store information about an item while it is represented by a token
+	// should only exist on token instances
+	itemData?: any;
+
 	isLocked?: boolean;
-	itemId: string;
 	container?: {
 		soundOpenPath: string;
 		soundClosePath: string;
@@ -41,7 +32,7 @@ export interface ContainerLoot {
 
 export enum SocketMessageType {
 	deleteToken,
-	updateToken,
+	updateEntity,
 	updateActor,
 	createOwnedEntity,
 	createItemToken
@@ -55,7 +46,7 @@ export interface PickUpStixSocketMessage {
 }
 
 export enum ItemType {
-	NONE = 'None',
-	ITEM = 'Item',
-	CONTAINER = 'Container'
+	NONE = 'none',
+	ITEM = 'item',
+	CONTAINER = 'container'
 }

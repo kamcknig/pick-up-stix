@@ -1,4 +1,4 @@
-import { updateToken } from "./main";
+import { updateEntity } from "./main";
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {
@@ -35,7 +35,7 @@ export class ContainerSoundConfig extends FormApplication {
   async _updateObject(e, formData) {
     console.log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
     console.log(formData);
-    await updateToken(this.object, formData);
+    await updateEntity(this.object, formData);
   }
 
   getData(options) {

@@ -5,10 +5,10 @@ import {
 	currencyCollected,
 	itemCollected,
 	updateActor,
-	updateToken
+	updateEntity
 } from './main';
 import { ItemType, ContainerLoot } from "./models";
-import { DefaultSetttingKeys } from './settings';
+import { SettingKeys } from './settings';
 import { ContainerSoundConfig } from './container-sound-config-application';
 
 /**
@@ -43,7 +43,7 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
 		console.log([this._token, this._controlledToken]);
 
-		this._currencyEnabled = !game.settings.get('pick-up-stix', DefaultSetttingKeys.disableCurrencyLoot);
+		this._currencyEnabled = !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
 
 		this._tokenDeletedHandler = Hooks.on('deleteToken', this._tokenDeleted.bind(this));
 		this._tokenUpdatedHandler = Hooks.on('updateToken', this._tokenUpdated.bind(this));
@@ -303,12 +303,15 @@ export default class ItemConfigApplication extends FormApplication {
 			return;
 		}
 
-		let itemData = droppedData.data ?? await game.items.get(droppedData.id)?.data ?? await game.packs.get(droppedData.pack).getEntry(droppedData.id);
+		let itemData;
 
 		if (droppedData.actorId) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | drop data contains actor ID '${droppedData.actorId}', delete item from actor`);
+			itemData = droppedData.data;
 			await game.actors.get(droppedData.actorId).deleteOwnedItem(droppedData.data._id);
-			setProperty(itemData, '_id', getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemId'));
+		}
+		else {
+			itemData = await game.items.get(droppedData.id)?.data ?? await game.packs.get(droppedData.pack).getEntry(droppedData.id);
 		}
 
 		const itemType = itemData.type;
@@ -327,14 +330,7 @@ export default class ItemConfigApplication extends FormApplication {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for item '${itemData._id}' does not exist, set quantity to 1 and add to slot`);
 			itemData.data.quantity = 1;
 			loot[itemType].push({
-				...itemData,
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							itemId: itemData._id
-						}
-					}
-				}
+				...itemData
 			});
 		}
 
@@ -396,7 +392,7 @@ export default class ItemConfigApplication extends FormApplication {
 		const flattendOb = flattenObject(formData);
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | flattend 'formData' object:`);
 		console.log(flattendOb);
-		await updateToken(this._token, flattendOb);
+		await updateEntity(this._token, flattendOb);
 		this.render();
 	}
 

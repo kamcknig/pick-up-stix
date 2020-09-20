@@ -1,8 +1,8 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
-import { dist } from '../../utils'
-import { DefaultSetttingKeys } from "./settings";
+import { dist, getCurrencyTypes } from '../../utils'
+import { SettingKeys } from "./settings";
 
 export const lootTokens: string[] = [];
 
@@ -18,7 +18,6 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 	const sourceActorId: string = dropData.actorId;
 
 	let pack: string;
-	let itemId: string;
 	let itemData: any;
 
 	// if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
@@ -28,15 +27,13 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		itemData = {
 			...dropData.data
 		};
-		itemId = getProperty(dropData, 'data.flags.pick-up-stix.pick-up-stix.itemId');
-		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix', { itemId });
 		await game.actors.get(sourceActorId).deleteOwnedItem(dropData.data._id);
 	}
 	else {
 		console.log(`pick-up-stix | handleDropItem | item comes from directory or compendium, item data comes from directory or compendium`);
 		pack = dropData.pack;
-		itemId = dropData.id;
-		const item: Item = await game.packs.get(pack)?.getEntity(itemId) ?? game.items.get(itemId);
+		const id = dropData.id;
+		const item: Item = await game.packs.get(pack)?.getEntity(id) ?? game.items.get(id);
 		if (!item) {
 			console.log(`pick-up-stix | handleDropItem | item '${dropData.id}' not found in game items or compendium`);
 			return;
@@ -77,9 +74,9 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 			// if the target is a container, then add the item to the container's data
 			console.log(`pick-up-stix | handleDropItem | target token is a container`);
 			const existingLoot = { ...duplicate(targetTokenFlags.container.loot) };
-			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === itemId);
+			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === itemData._id);
 			if (existingItem) {
-				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemId}`);
+				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemData._id}`);
 				console.log(existingItem);
 
 				if(!existingItem.data.quantity){
@@ -90,7 +87,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				}
 			}
 			else {
-				console.log(`pick-up-stix | handleDropItem | Could not find existing item from '${itemId}`);
+				console.log(`pick-up-stix | handleDropItem | Could not find existing item from '${itemData._id}`);
 				if (!existingLoot[itemData.type]) {
 					existingLoot[itemData.type] = [];
 				}
@@ -111,7 +108,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				}
 			};
 
-			await updateToken(targetToken, update);
+			await updateEntity(targetToken, update);
 			return;
 		}
 		else if (targetToken.actor) {
@@ -157,11 +154,11 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		img: itemData.img,
 		flags: {
 			'pick-up-stix': {
+				version: game.settings.get('pick-up-stix', SettingKeys.version),
 				'pick-up-stix': {
 					itemType: ItemType.ITEM,
 					itemData: {
-						...itemData,
-						_id: getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemId')
+						...itemData
 					}
 				}
 			}
@@ -187,19 +184,21 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
 						callback: () => updates = {
-							img: game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath),
+							img: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
 							flags: {
 								'pick-up-stix': {
+									version: game.settings.get('pick-up-stix', SettingKeys.version),
 									'pick-up-stix': {
 										itemType: ItemType.CONTAINER,
 										isLocked: false,
 										container: {
+											currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}),
 											canOpen: true,
 											isOpen: false,
-											imageClosePath: game.settings.get('pick-up-stix', DefaultSetttingKeys.closeImagePath),
-											imageOpenPath: game.settings.get('pick-up-stix', DefaultSetttingKeys.openImagePath),
-											soundOpenPath: game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerOpenSound),
-											soundClosePath: game.settings.get('pick-up-stix', DefaultSetttingKeys.defaultContainerCloseSound)
+											imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
+											imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
+											soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
+											soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
 										}
 									}
 								}
@@ -389,7 +388,7 @@ async function handleTokenItemClicked(e): Promise<void> {
 			// if there are any container updates then update the container
 			await new Promise(resolve => {
 				setTimeout(async () => {
-					await updateToken(clickedToken, {
+					await updateEntity(clickedToken, {
 						img: flags.container?.isOpen ? flags.container.imageOpenPath : flags.container.imageClosePath,
 						flags: {
 							'pick-up-stix': {
@@ -453,20 +452,20 @@ async function deleteToken(token: Token): Promise<void> {
 	socket.emit('module.pick-up-stix', msg);
 }
 
-export async function updateToken(token: Token, updates): Promise<void> {
+export async function updateEntity(entity: { id: string, update: (data, options?) => void }, updates): Promise<void> {
 	console.log(`pick-up-stix | updateToken with args:`);
-	console.log([token, updates]);
+	console.log([entity, updates]);
 
 	if (game.user.isGM) {
-		await token.update(updates);
+		await entity.update(updates);
 		return;
 	}
 
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
-		type: SocketMessageType.updateToken,
+		type: SocketMessageType.updateEntity,
 		data: {
-			tokenId: token.id,
+			tokenId: entity.id,
 			updates
 		}
 	};

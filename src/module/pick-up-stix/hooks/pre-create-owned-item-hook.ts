@@ -11,7 +11,6 @@ export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options:
 		await ownerActor.deleteOwnedItem(itemData._id);
 	}
 
-	setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemId', itemData._id);
 	setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner', actor.id);
 
 	console.log('pick-up-stix | onPreCreateOwnedItem | final itemData:');

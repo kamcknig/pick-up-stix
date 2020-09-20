@@ -1,7 +1,7 @@
 import { SocketMessageType, PickUpStixSocketMessage, ItemType, PickUpStixFlags } from "../models";
 import ItemConfigApplication from "../item-config-application";
 import { SettingKeys } from "../settings";
-import { versionDiff } from "../../../utils";
+import { getCurrencyTypes, versionDiff } from "../../../utils";
 
 async function migrate000To0110() {
 	let oldFlags;
@@ -41,7 +41,7 @@ async function migrate000To0110() {
 				canClose: oldFlags.canClose,
 				isOpen: oldFlags.isOpen,
 				currency: {
-					...oldFlags.containerLoot?.currency ?? {}
+					...oldFlags.containerLoot?.currency ?? Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}) ?? {}
 				},
 				loot: {
 					...
@@ -120,7 +120,7 @@ async function migrate000To0110() {
 					canClose: oldFlags.canClose,
 					isOpen: oldFlags.isOpen,
 					currency: {
-						...oldFlags.containerLoot?.currency ?? {}
+						...oldFlags.containerLoot?.currency ?? Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}) ?? {}
 					},
 					loot: {
 						...

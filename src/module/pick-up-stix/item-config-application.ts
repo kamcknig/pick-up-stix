@@ -1,4 +1,4 @@
-import { getCurrencyTypes } from '../../utils';
+import { getCurrencyTypes, _onChangeInputDelta } from '../../utils';
 import ContainerImageSelectionApplication from "./container-image-selection-application.js";
 import {
 	createOwnedItem,
@@ -71,11 +71,18 @@ export default class ItemConfigApplication extends FormApplication {
 		this._html = html;
 		super.activateListeners(this._html);
 
+		$(html)
+			.find('input')
+			.on('focus', e => e.currentTarget.select())
+			.addBack()
+			.find('[data-dtype="Number"]')
+			.on('change', _onChangeInputDelta.bind(this.object));
+
 		// set the click listener on the image
 		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER && game.user.isGM) {
 			$(html)
 				.find(`[data-edit="img"]`)
-				.click(e => this._onEditImage(e))
+				.on('click', e => this._onEditImage(e))
 				.css('cursor', 'pointer');
 		}
 

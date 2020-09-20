@@ -1,7 +1,7 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
-import { dist } from '../../utils'
+import { dist, getCurrencyTypes } from '../../utils'
 import { SettingKeys } from "./settings";
 
 export const lootTokens: string[] = [];
@@ -192,6 +192,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 										itemType: ItemType.CONTAINER,
 										isLocked: false,
 										container: {
+											currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}),
 											canOpen: true,
 											isOpen: false,
 											imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),

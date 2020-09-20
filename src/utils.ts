@@ -1,5 +1,5 @@
 //@ts-ignore
-// import { DND5E } from "../../systems/dnd5e/module/config.js";
+// import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
@@ -38,4 +38,15 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
     return v1Parts[1] - v2Parts[1];
   }
   return v1Parts[0] - v2Parts[0];
+}
+
+export function _onChangeInputDelta(event) {
+  const input = event.target;
+  const value = input.value;
+  if ( ['+', '-'].includes(value[0]) ) {
+    let delta = parseFloat(value);
+    input.value = getProperty(this.data, input.name) + delta;
+  } else if ( value[0] === '=' ) {
+    input.value = value.slice(1);
+  }
 }

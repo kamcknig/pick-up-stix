@@ -3,6 +3,15 @@ import ItemConfigApplication from "../item-config-application";
 import { SettingKeys } from "../settings";
 import { getCurrencyTypes, versionDiff } from "../../../utils";
 
+declare class EntitySheetConfig {
+	static registerSheet(
+    entityClass,
+    scope,
+    sheetClass,
+    { types, makeDefault }?: { types?: string[], makeDefault?: boolean }
+  );
+}
+
 async function migrate000To0110() {
 	let oldFlags;
 	let newFlags: PickUpStixFlags;

@@ -106,7 +106,6 @@ async function migrate000To0110() {
 				continue
 			}
 
-			update._id = tokenData._id;
 			update.flags = {
 				'pick-up-stix': {
 					version: '0.11.0',
@@ -118,6 +117,7 @@ async function migrate000To0110() {
 					}
 				}
 			};
+			update._id = tokenData._id;
 
 			if (oldFlags.itemType.toLowerCase() === ItemType.CONTAINER) {
 				update.flags['pick-up-stix']['pick-up-stix'].isLocked = oldFlags.isLocked;

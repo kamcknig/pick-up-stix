@@ -83,7 +83,7 @@ async function migrate000To0110() {
 			let update: any;
 
 			// if the token represents an actor but isn't linked to the actor, we'll have to update it
-			if (tokenData.actorData?.items) {
+			if (tokenData.actorData?.items?.length) {
 				update = {
 					_id: tokenData._id,
 					actorData: {
@@ -148,11 +148,13 @@ async function migrate000To0110() {
 			updates.push(update);
 		}
 
-		await scene.updateEmbeddedEntity('Token', updates);
+		if (updates.length) {
+			await scene.updateEmbeddedEntity('Token', updates);
+		}
 	}
 
 	let actor: Actor;
-	for(actor of game.actors.entities) {
+	for(actor of game.actors?.entities) {
 		const updates = [];
 		for(let itemData of actor.items.values()) {
 			const oldFlags = getProperty(itemData, 'data.flags.pick-up-stix.pick-up-stix');
@@ -177,7 +179,10 @@ async function migrate000To0110() {
 
 			updates.push(update);
 		}
-		actor.updateOwnedItem(updates);
+
+		if (updates.length) {
+			await actor.updateOwnedItem(updates);
+		}
 	}
 }
 

@@ -106,18 +106,20 @@ async function migrate000To0110() {
 				continue
 			}
 
-			update.flags = {
-				'pick-up-stix': {
-					version: '0.11.0',
+			update = {
+				_id: tokenData._id,
+				flags: {
 					'pick-up-stix': {
-						itemType: oldFlags.itemType.toLowerCase(),
-						itemData: {
-							...oldFlags.initialState?.itemData?.data ?? {}
+						version: '0.11.0',
+						'pick-up-stix': {
+							itemType: oldFlags.itemType.toLowerCase(),
+							itemData: {
+								...oldFlags.initialState?.itemData?.data ?? {}
+							}
 						}
 					}
 				}
 			};
-			update._id = tokenData._id;
 
 			if (oldFlags.itemType.toLowerCase() === ItemType.CONTAINER) {
 				update.flags['pick-up-stix']['pick-up-stix'].isLocked = oldFlags.isLocked;

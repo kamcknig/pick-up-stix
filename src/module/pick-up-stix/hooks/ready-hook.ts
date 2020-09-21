@@ -121,7 +121,7 @@ async function migrate000To0110() {
 				}
 			};
 
-			if (oldFlags.itemType.toLowerCase() === ItemType.CONTAINER) {
+			if (oldFlags.isContainer || oldFlags.itemType?.toLowerCase() === ItemType.CONTAINER) {
 				update.flags['pick-up-stix']['pick-up-stix'].isLocked = oldFlags.isLocked;
 				update.flags['pick-up-stix']['pick-up-stix'].container = {
 					soundClosePath: oldFlags.containerCloseSoundPath,

@@ -112,7 +112,7 @@ async function migrate000To0110() {
 					'pick-up-stix': {
 						version: '0.11.0',
 						'pick-up-stix': {
-							itemType: oldFlags.itemType.toLowerCase(),
+							itemType: oldFlags.isContainer ? ItemType.CONTAINER : oldFlags.itemType?.toLowerCase(),
 							itemData: {
 								...oldFlags.initialState?.itemData?.data ?? {}
 							}

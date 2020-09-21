@@ -76,7 +76,7 @@ async function migrate000To0110() {
 			oldFlags = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix');
 
 			// if the token doesn't have flags or the version is already current
-			if ((!oldFlags || getProperty(tokenData, 'flags.pick-up-stix.version') === '0.11.0') && !tokenData.actorData?.items) {
+			if ((!oldFlags || getProperty(tokenData, 'flags.pick-up-stix.version') === '0.11.0') && !tokenData.actorData?.items?.length) {
 				continue;
 			}
 

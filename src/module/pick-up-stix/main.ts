@@ -73,7 +73,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 		if (targetTokenFlags?.itemType === ItemType.CONTAINER) {
 			// if the target is a container, then add the item to the container's data
 			console.log(`pick-up-stix | handleDropItem | target token is a container`);
-			const existingLoot = { ...duplicate(targetTokenFlags.container.loot) };
+			const existingLoot = { ...duplicate(targetTokenFlags.container.loot ?? {}) };
 			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === itemData._id);
 			if (existingItem) {
 				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemData._id}`);

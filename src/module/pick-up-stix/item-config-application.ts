@@ -296,7 +296,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 		Hooks.once('closeContainerImageSelectionApplication', () => {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | closeContainerImageSelectionApplication hook`);
-			this.submit({});
+			this.render();
 		});
 	}
 

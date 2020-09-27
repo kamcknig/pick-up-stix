@@ -449,7 +449,7 @@ function updateManifest(cb) {
 		const result = `https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/releases/${manifest.file.name}-v${manifest.file.version}.zip`;
 
 		manifest.file.url = repoURL;
-		manifest.file.manifest = `${rawURL}/v${manifest.file.version}/src/module.json`;
+		manifest.file.manifest = `${rawURL}/master/src/module.json`;
 		manifest.file.download = result;
 
 		const prettyProjectJson = stringify(manifest.file, {

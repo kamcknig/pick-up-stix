@@ -20,7 +20,7 @@
 	"minimumCoreVersion": "0.6.5",
 	"compatibleCoreVersion": "0.7.10",
 	"url": "git@github.com:kamcknig/pick-up-stix.git",
-	"manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/v0.8.1/src/module.json",
+	"manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",
 	"download": "https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/releases/pick-up-stix-v0.8.1.zip",
 	"license": "",
 	"readme": "",

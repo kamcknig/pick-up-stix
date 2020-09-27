@@ -79,7 +79,7 @@ export default class ItemConfigApplication extends FormApplication {
 			.on('change', _onChangeInputDelta.bind(this.object));
 
 		// set the click listener on the image
-		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER && game.user.isGM) {
+		if (game.user.isGM) {
 			$(html)
 				.find(`[data-edit="img"]`)
 				.on('click', e => this._onEditImage(e))
@@ -292,12 +292,35 @@ export default class ItemConfigApplication extends FormApplication {
 
 	protected _onEditImage(e) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onEditImage`);
-		const f = new ContainerImageSelectionApplication(this._token).render(true);
 
-		Hooks.once('closeContainerImageSelectionApplication', () => {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | closeContainerImageSelectionApplication hook`);
-			this.submit({});
-		});
+		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
+			const f = new ContainerImageSelectionApplication(this._token).render(true);
+			Hooks.once('closeContainerImageSelectionApplication', () => {
+				console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | closeContainerImageSelectionApplication hook`);
+				const img =
+					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.isOpen') ?
+					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') :
+					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath');
+				this._token.update({ img });
+			});
+			return;
+		}
+
+		const attr = e.currentTarget.dataset.edit;
+    const current = getProperty(this.object.data, attr);
+    const fp = new FilePicker({
+      type: "image",
+      current: current,
+      callback: path => {
+        e.currentTarget.src = path;
+        if (this.options.submitOnChange) {
+          this._onSubmit(e);
+        }
+      },
+      top: this.position.top + 40,
+      left: this.position.left + 10
+    });
+    fp.browse(current);
 	}
 
 	protected async _onDrop(e) {
@@ -360,7 +383,10 @@ export default class ItemConfigApplication extends FormApplication {
 	protected async _updateObject(e, formData) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject called with args:`);
 		console.log([e, duplicate(formData)]);
-		formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.container.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.conatiner.imageClosePath');
+
+		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
+			formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.container.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.conatiner.imageClosePath');
+		}
 
 		const tokenLoot: ContainerLoot = duplicate(this.object.getFlag('pick-up-stix', `pick-up-stix.container.loot`) ?? {});
 

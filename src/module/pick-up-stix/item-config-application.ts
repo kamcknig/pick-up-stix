@@ -300,7 +300,7 @@ export default class ItemConfigApplication extends FormApplication {
 				const img =
 					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.isOpen') ?
 					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') :
-					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath');
+					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageClosePath');
 				this._token.update({ img });
 			});
 			return;

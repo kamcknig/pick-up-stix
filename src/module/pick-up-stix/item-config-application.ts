@@ -1,4 +1,4 @@
-import { getCurrencyTypes, _onChangeInputDelta } from '../../utils';
+import { getCurrencyTypes, getPriceDataPath, getQuantityDataPath, _onChangeInputDelta } from '../../utils';
 import ContainerImageSelectionApplication from "./container-image-selection-application.js";
 import {
 	createOwnedItem,
@@ -127,22 +127,19 @@ export default class ItemConfigApplication extends FormApplication {
 	getData() {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | getData:`);
 		const itemType = this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType');
-
+		const quantityDataPath = getQuantityDataPath();
+		const priceDataPath = getPriceDataPath();
 		const tokenLoot: ContainerLoot = duplicate(this.object.getFlag('pick-up-stix', `pick-up-stix.container.loot`) ?? {});
 		const loot = Object.entries(tokenLoot).reduce((prev, [lootKey, lootItems]) => {
 			const items = lootItems.map(i => {
-				if (!i.data?.hasOwnProperty('price')) {
-					i.data.price = 0;
-				}
-
 				if (!i.data.hasOwnProperty('quantity')) {
-					i.data.quantity = 0;
+					setProperty(i.data, quantityDataPath, 0);
 				}
 
 				return {
 					...i,
-					price: +i.data.quantity * +i.data.price,
-					qty: i.data.quantity
+					price: +getProperty(i.data, quantityDataPath) * +parseFloat(getProperty(i.data, priceDataPath) ?? 0),
+					qty: +getProperty(i.data, quantityDataPath)
 				}
 			});
 
@@ -162,7 +159,7 @@ export default class ItemConfigApplication extends FormApplication {
 			currencyEnabled: this._currencyEnabled,
 			currencyTypes: Object.entries(currencyTypes).map(([k, v]) => ({ short: k, long: v })),
 			currency: duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.container.currency') ?? {}),
-			lootTypes: Object.keys(loot).filter(lootKey => lootKey !== 'currency'),
+			lootTypes: Object.keys(loot),
 			loot,
 			profileImage: itemType === ItemType.CONTAINER ? this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') : this._token.data.img,
 			isContainer: itemType === ItemType.CONTAINER,
@@ -170,9 +167,7 @@ export default class ItemConfigApplication extends FormApplication {
 			isToken: this._token instanceof Token,
 			object: this._token.data,
 			user: game.user,
-			test: [
-				'a', 'b', 'c'
-			]
+			quantityDataPath
 		};
 
 		if (this._currencyEnabled) {
@@ -255,23 +250,25 @@ export default class ItemConfigApplication extends FormApplication {
 			return;
 		}
 		const loot: ContainerLoot = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix.container.loot') ?? {});
-		console.log(duplicate(loot));
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemId = e.currentTarget.dataset.id;
 		const itemData = loot?.[itemType]?.find(i => i._id === itemId);
-		console.log(duplicate(itemData));
-		if (--itemData.data.quantity <= 0) {
+		const oldQty = getProperty(itemData.data, getQuantityDataPath());
+
+		if (oldQty - 1 <= 0) {
 			loot?.[itemType]?.findSplice(v => v._id === itemId);
+		}
+		else {
+			setProperty(itemData.data, getQuantityDataPath(), oldQty - 1);
 		}
 
 		await createOwnedItem(actor, [{
 			...duplicate(itemData),
 			data: {
 				...duplicate(itemData.data),
-				quantity: 1
+				[getQuantityDataPath()]: 1
 			}
 		}]);
-		console.log(duplicate(itemData));
 
 		itemCollected(this._controlledToken, itemData);
 
@@ -354,11 +351,11 @@ export default class ItemConfigApplication extends FormApplication {
 		const existingItem = loot?.[itemType]?.find(i => i._id === itemData._id);
 		if (existingItem) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
-			existingItem.data.quantity++;
+			setProperty(existingItem.data, getQuantityDataPath(), getProperty(existingItem.data, getQuantityDataPath()) + 1)
 		}
 		else {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for item '${itemData._id}' does not exist, set quantity to 1 and add to slot`);
-			itemData.data.quantity = 1;
+			setProperty(itemData.data, getQuantityDataPath(), 1);
 			loot[itemType].push({
 				...itemData
 			});
@@ -396,15 +393,16 @@ export default class ItemConfigApplication extends FormApplication {
 					return;
 				}
 
-				setProperty(formData, `flags.pick-up-stix.pick-up-stix.container.loot.${lootType}`, v.map(itemData => ({
-					...itemData,
-					data: {
-						...itemData.data,
-						quantity: e.type === 'change' && $(e.currentTarget).hasClass('quantity-input') && e.currentTarget.dataset.lootType === itemData.type && e.currentTarget.dataset.lootId === itemData._id ?
+				setProperty(formData, `flags.pick-up-stix.pick-up-stix.container.loot.${lootType}`, v.map(itemData => {
+					setProperty(
+						itemData.data,
+						getQuantityDataPath(),
+						$(e.currentTarget).hasClass('quantity-input') && e.currentTarget.dataset.lootType === itemData.type && e.currentTarget.dataset.lootId === itemData._id ?
 							+$(e.currentTarget).val() :
-							+itemData.data.quantity
-					}
-				})));
+							+getProperty(itemData.data, getQuantityDataPath())
+					);
+					return itemData;
+				}));
 			});
 		}
 

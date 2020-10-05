@@ -1,7 +1,7 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
-import { dist, getCurrencyTypes } from '../../utils'
+import { dist, getCurrencyTypes, getQuantityDataPath } from '../../utils'
 import { SettingKeys } from "./settings";
 
 export const lootTokens: string[] = [];
@@ -79,11 +79,13 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemData._id}`);
 				console.log(existingItem);
 
-				if(!existingItem.data.quantity){
-					existingItem.data.quantity = 1;
+				const quantityDataPath = getQuantityDataPath();
+
+				if(!getProperty(existingItem.data, quantityDataPath)) {
+					setProperty(existingItem.data, quantityDataPath, 1);
 				}
 				else {
-					existingItem.data.quantity++;
+					setProperty(existingItem.data, quantityDataPath, getProperty(existingItem.data, quantityDataPath) + 1)
 				}
 			}
 			else {

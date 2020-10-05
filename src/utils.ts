@@ -50,3 +50,39 @@ export function _onChangeInputDelta(event) {
     input.value = value.slice(1);
   }
 }
+
+export function getQuantityDataPath(): string {
+  let path;
+
+  switch (game.system.id) {
+    case 'dnd5e':
+      path = 'quantity'
+      break;
+    case 'pf2e':
+      path = 'quantity.value'
+      break;
+    default:
+      path = 'quantity';
+      break;
+  }
+
+  return path;
+}
+
+export function getPriceDataPath(): string {
+  let path;
+
+  switch (game.system.id) {
+    case 'dnd5e':
+      path = 'price'
+      break;
+    case 'pf2e':
+      path = 'price.value'
+      break;
+    default:
+      path = 'price';
+      break;
+  }
+
+  return path;
+}

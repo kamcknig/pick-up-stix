@@ -1,6 +1,7 @@
 import ItemConfigApplication from "./item-config-application";
 import { toggleItemLocked } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
+import { ItemType } from "./models";
 
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
@@ -24,7 +25,7 @@ export class LootHud extends BasePlaceableHUD {
     console.log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
     console.log(html);
     super.activateListeners(html);
-    html.find(".config").click(this._onTokenConfig.bind(this.object));
+    html.find(".config").click(this._onTokenConfig.bind(this));
     html.find(".locked").click(this._onToggleItemLocked.bind(this.object));
     html.find(".emit-light").click(this._onConfigureLightEmission.bind(this.object));
   }
@@ -40,9 +41,36 @@ export class LootHud extends BasePlaceableHUD {
     this.render();
   }
 
-  private _onTokenConfig(event) {
+  private async _onTokenConfig(event) {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
-    const f = new ItemConfigApplication((this as any), (this as any)).render(true);
+    if (this.object.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
+      new ItemConfigApplication(this.object as Token, this.object as Token).render(true);
+      return;
+    }
+
+    const data = this.object.getFlag('pick-up-stix', 'pick-up-stix.itemData');
+
+    const i = await Item.create(data, {submitOnChange: true});
+    const app = i.sheet.render(true);
+
+    const hook = Hooks.on('updateItem', async (item, data, options) => {
+      console.log('pick-up-stix | loot-hud-application | _onTokenConfig | updateItem hook');
+      if (data._id !== i.id) {
+        return;
+      }
+
+      await this.object.setFlag('pick-up-stix', 'pick-up-stix.itemData', { ...item.data });
+    });
+
+    Hooks.once('closeItemSheet', async (sheet, html) => {
+      console.log('pick-up-stix | loot-hud-application | _onTokenConfig | closeItemSheet hook');
+      if (sheet.appId !== app.appId) {
+        return;
+      }
+
+      await i.delete();
+      Hooks.off('updateItem', hook as any);
+    });
   }
 
   getData(options) {

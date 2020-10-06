@@ -258,7 +258,7 @@ export function setupMouseManager(): void {
 	this.mouseInteractionManager = new MouseInteractionManager(this, canvas.stage, permissions, callbacks, options).activate();
 }
 
-function handleTokenItemConfig(e?, controlledToken?: Token) {
+async function handleTokenItemConfig(e?, controlledToken?: Token) {
 	console.log(`pick-up-stix | handleTokenItemConfig called with args`);
 	clearTimeout(clickTimeout);
 	const clickedToken: Token = this;
@@ -273,9 +273,29 @@ function handleTokenItemConfig(e?, controlledToken?: Token) {
 		controlledToken = null;
 	}
 
-	console.log(clickedToken.sheet)
+	if (this.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
+    new ItemConfigApplication(clickedToken, controlledToken).render(true);
+    return;
+  }
 
-	const f = new ItemConfigApplication(clickedToken, controlledToken).render(true);
+  const data = this.getFlag('pick-up-stix', 'pick-up-stix.itemData');
+  const i = await Item.create(data, { submitOnChange: true });
+  const app = i.sheet.render(true);
+  const hook = Hooks.on('updateItem', async (item, data, options) => {
+    console.log('pick-up-stix | main | handleTokenItemConfig | updateItem hook');
+    if (data._id !== i.id) {
+      return;
+    }
+    await this.setFlag('pick-up-stix', 'pick-up-stix.itemData', { ...item.data });
+  });
+  Hooks.once('closeItemSheet', async (sheet, html) => {
+    console.log('pick-up-stix | main | handleTokenItemConfig | closeItemSheet hook');
+    if (sheet.appId !== app.appId) {
+      return;
+    }
+    await i.delete();
+    Hooks.off('updateItem', hook as any);
+  });
 }
 
 async function handleTokenRightClick(e) {

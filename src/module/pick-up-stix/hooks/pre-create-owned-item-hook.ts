@@ -6,12 +6,15 @@ export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options:
 	if (owner) {
 		// if the item is already owned by someone else, set the new actor as the owner and
 		// delete the item from the old owner
+
+		// TODO: will this work if the token/actor is unlinked?
 		setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner', actor.id);
 		const ownerActor = game.actors.get(owner);
 		await ownerActor.deleteOwnedItem(itemData._id);
 	}
 
 	setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner', actor.id);
+	setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId', itemData._id);
 
 	console.log('pick-up-stix | onPreCreateOwnedItem | final itemData:');
 	console.log(itemData);

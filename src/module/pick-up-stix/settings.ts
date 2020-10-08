@@ -24,6 +24,13 @@ export const registerSettings = function() {
 	}
 	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
+	game.settings.register('pick-up-stix', 'notify-db-issue', {
+		name: 'DB issue notification',
+		scope: 'world',
+		type: Boolean,
+		config: false
+	});
+
 	game.settings.register('pick-up-stix', SettingKeys.version, {
 		name: 'Version',
 		hint: 'Used to track which version is last loaded, so that we can give updates to users',

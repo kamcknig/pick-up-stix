@@ -10,24 +10,52 @@ export const lootTokens: string[] = [];
  * Handles data dropped onto the canvas.
  * @param dropData
  */
-export async function handleDropItem(dropData: { actorId?: string, pack?: string, id?: string, data?: any, x: number, y: number }) {
+export async function handleDropItem(dropData: { tokenId?: string; sceneId?: string; actorId?: string, pack?: string, id?: string, data?: any, x: number, y: number }) {
 	console.log(`pick-up-stix | handleDropItem | called with args:`);
 	console.log(duplicate(dropData));
 
-	// if the item came from an actor's inventory, then it'll have an actorId property, we'll need to remove the item from that actor
-	const sourceActorId: string = dropData.actorId;
+  const coreVersion = game.data.verson;
+  const is7Newer = isNewerVersion(coreVersion, '0.6.9');
 
-	let pack: string;
-	let itemData: any;
+  // if the item came from an actor's inventory, then it'll have an actorId property,
+  // we'll need to remove the item from that actor
+	const actor =
+		dropData.actorId ?
+		(
+			is7Newer ?
+				(
+					dropData.tokenId ?
+						game.actors.tokens[dropData.tokenId] :
+						game.actors.get(dropData.actorId)
+				) :
+				canvas.tokens?.controlled?.[0]?.actor
+		) :
+		null;
 
-	// if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
+  // ensure we have a controlled token so that we know which token's actor if need be that we will
+  // be interacting with. We only need to do this for versions lower than 0.7.0 because 0.7.0
+  // contains more data in the drop data that we need
+	if (actor && canvas.tokens.controlled.length !== 1 && !is7Newer) {
+    ui.notifications.error(`Please ensure you are only controlling the token (and only the one token) for the character you're working with.`);
+    return;
+	}
+
+	if (!actor && dropData.actorId) {
+		ui.notifications.error(`No valid actor found for actor '${dropData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
+		return;
+	}
+
+  let pack: string;
+  let itemData: any;
+
+  // if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
 	// in a data property on the dropData parameter rather than on the top-level of the dropData
-	if (sourceActorId) {
-		console.log(`pick-up-stix | handleDropItem | actor '${sourceActorId}' dropped item, get item data from the dropped item's original item data`);
+	if (actor) {
+		console.log(`pick-up-stix | handleDropItem | actor '${actor.id}' dropped item, get item data from the dropped item's original item data`);
 		itemData = {
 			...dropData.data
 		};
-		await game.actors.get(sourceActorId).deleteOwnedItem(dropData.data._id);
+		await actor.deleteOwnedItem(dropData.data._id);
 	}
 	else {
 		console.log(`pick-up-stix | handleDropItem | item comes from directory or compendium, item data comes from directory or compendium`);
@@ -74,7 +102,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 			// if the target is a container, then add the item to the container's data
 			console.log(`pick-up-stix | handleDropItem | target token is a container`);
 			const existingLoot = { ...duplicate(targetTokenFlags.container.loot ?? {}) };
-			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === itemData._id);
+			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === (actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id));
 			if (existingItem) {
 				console.log(`pick-up-stix | handleDropItem | found existing item for item '${itemData._id}`);
 				console.log(existingItem);
@@ -168,7 +196,7 @@ export async function handleDropItem(dropData: { actorId?: string, pack?: string
 	}
 
 	// if a Token was successfully created
-	if (!sourceActorId) {
+	if (!actor) {
 		await new Promise(resolve => {
 			// render the item type selection form
 			new Dialog({

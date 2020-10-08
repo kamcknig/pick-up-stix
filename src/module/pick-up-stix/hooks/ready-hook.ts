@@ -261,7 +261,7 @@ export async function readyHook() {
 						<p>If you choose not to migrate data, you should downgrade back to version ${previousVersion}.</p>
 						<p>Note that there is no guarantee that data migration will work; I have no way to test most things by myself.</p>
 					`,
-					title: 'Data Migration',
+					title: 'Pick-Up-Stix Data Migration',
 					yes: async () => {
 						for (let fn of migrations.values()) {
 							await fn();

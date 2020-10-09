@@ -1,7 +1,6 @@
-import { onCanvasReady } from "./module/pick-up-stix/hooks/canvas-ready-hook";
+import { canvasReadyHook } from "./module/pick-up-stix/hooks/canvas-ready-hook";
 import { onCreateActor } from "./module/pick-up-stix/hooks/create-actor-hook";
 import { onCreateItem } from "./module/pick-up-stix/hooks/create-item-hook";
-import { onCreateToken } from "./module/pick-up-stix/hooks/create-token-hook";
 import { onDeleteToken } from "./module/pick-up-stix/hooks/delete-token-hook";
 import { initHook } from "./module/pick-up-stix/hooks/init-hook";
 import { onPreCreateOwnedItem } from "./module/pick-up-stix/hooks/pre-create-owned-item-hook";
@@ -13,7 +12,7 @@ import { processHtml } from "./module/pick-up-stix/settings";
 
 // game startup hooks
 Hooks.once('init', initHook);
-Hooks.on('canvasReady', onCanvasReady);
+Hooks.on('canvasReady', canvasReadyHook);
 Hooks.on('ready', readyHook);
 
 // item hooks
@@ -25,7 +24,6 @@ Hooks.on('createActor', onCreateActor);
 Hooks.on('preCreateOwnedItem', onPreCreateOwnedItem);
 
 // token hooks
-Hooks.on('createToken', onCreateToken);
 Hooks.on('updateToken', onUpdateToken);
 Hooks.on('deleteToken', onDeleteToken);
 

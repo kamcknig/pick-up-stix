@@ -1,4 +1,4 @@
-import { drawLockIcon, setupMouseManager } from "../main";
+import { drawLockIcon, } from "../main";
 
 export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {
   console.log(`pick-up-stix | onUpdateToken | called with args:`)
@@ -29,7 +29,7 @@ export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: an
 				}
 			}
 
-			token.mouseInteractionManager = setupMouseManager.bind(token)();
-			token.activateListeners = setupMouseManager.bind(token);
+			//token.mouseInteractionManager = setupMouseManager.bind(token)();
+			//token.activateListeners = setupMouseManager.bind(token);
 	}
 };

@@ -1,3 +1,34 @@
+export interface DropData {
+	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
+	// If the item being dropped comes from an actor token, then the tokenId will be available
+	tokenId?: string;
+
+	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
+	// If the item being dropped comes from an actor token, then the sceneId that the token
+	// is on will be included.
+	sceneId?: string;
+
+	// If the item being dropped comes from an actor sheet, then the actorId will be included
+	actorId?: string,
+
+	// If the item being droppped comes from a compendium then the pack name will be included
+	pack?: string,
+
+	// The ID of the item Entity being dropped
+	id?: string,
+
+	// The item Entity's data
+	data?:any,
+
+	// If the item Entity being dropped comes from an actor, this will be a reference
+	// to the actor Entity it belongs to
+	actor?: Actor;
+
+	// x and y postion where the item was dropped, this would need to be converted into world coordinates
+	x: number,
+	y: number
+}
+
 export interface PickUpStixFlags {
 	itemType: ItemType;
 

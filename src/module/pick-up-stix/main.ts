@@ -1,4 +1,4 @@
-import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType } from "./models";
+import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
 import { dist, getCurrencyTypes, getQuantityDataPath } from '../../utils'
@@ -8,54 +8,32 @@ export const lootTokens: string[] = [];
 
 /**
  * Handles data dropped onto the canvas.
+ *
  * @param dropData
  */
-export async function handleDropItem(dropData: { tokenId?: string; sceneId?: string; actorId?: string, pack?: string, id?: string, data?: any, x: number, y: number }) {
+export async function handleItemDropped(dropData: DropData) {
 	console.log(`pick-up-stix | handleDropItem | called with args:`);
-	console.log(duplicate(dropData));
+	console.log(dropData);
 
-  const coreVersion = game.data.verson;
-  const is7Newer = isNewerVersion(coreVersion, '0.6.9');
-
-  // if the item came from an actor's inventory, then it'll have an actorId property,
-  // we'll need to remove the item from that actor
-	const actor =
-		dropData.actorId ?
-		(
-			is7Newer ?
-				(
-					dropData.tokenId ?
-						game.actors.tokens[dropData.tokenId] :
-						game.actors.get(dropData.actorId)
-				) :
-				canvas.tokens?.controlled?.[0]?.actor
-		) :
-		null;
-
-  // ensure we have a controlled token so that we know which token's actor if need be that we will
-  // be interacting with. We only need to do this for versions lower than 0.7.0 because 0.7.0
-  // contains more data in the drop data that we need
-	if (actor && canvas.tokens.controlled.length !== 1 && !is7Newer) {
+	// The data here should already be normalized, meaning that if we were able to determine the actor reference,
+	// it should exist here. So if we have an actor ID but no actor, that means we weren't able to figure out
+	// which actor this item might have come from.
+  if (dropData.actorId && !dropData.actor) {
     ui.notifications.error(`Please ensure you are only controlling the token (and only the one token) for the character you're working with.`);
     return;
 	}
 
-	if (!actor && dropData.actorId) {
-		ui.notifications.error(`No valid actor found for actor '${dropData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
-		return;
-	}
-
-  let pack: string;
+	let pack: string;
   let itemData: any;
 
   // if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
 	// in a data property on the dropData parameter rather than on the top-level of the dropData
-	if (actor) {
-		console.log(`pick-up-stix | handleDropItem | actor '${actor.id}' dropped item, get item data from the dropped item's original item data`);
+	if (dropData.actor) {
+		console.log(`pick-up-stix | handleDropItem | actor '${dropData.actor.id}' dropped item, get item data from the dropped item's original item data`);
 		itemData = {
 			...dropData.data
 		};
-		await actor.deleteOwnedItem(dropData.data._id);
+		await dropData.actor.deleteOwnedItem(dropData.data._id);
 	}
 	else {
 		console.log(`pick-up-stix | handleDropItem | item comes from directory or compendium, item data comes from directory or compendium`);
@@ -196,7 +174,7 @@ export async function handleDropItem(dropData: { tokenId?: string; sceneId?: str
 	}
 
 	// if a Token was successfully created
-	if (!actor) {
+	if (!dropData.actor) {
 		await new Promise(resolve => {
 			// render the item type selection form
 			new Dialog({

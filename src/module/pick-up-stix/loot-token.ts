@@ -15,7 +15,9 @@ export class LootToken {
       ...tokenData
     });
 
-    return new LootToken(tokenId, lootData);
+    const t = new LootToken(tokenId, lootData);
+    t.activateListeners();
+    return t;
   }
 
   static get lootTokens(): any {
@@ -28,10 +30,36 @@ export class LootToken {
 
   constructor(
     private _tokenId: string,
-    public lootData?: any
+    private _lootData?: any
   ) {
+    this.save();
+  }
+
+  private deleteTokenHook = (scene, token, options, userId) => {
+    if (token._id !== this._tokenId) {
+      return;
+    }
+
+    console.log(`pick-up-stix | LootToken | deleteTokenHook`);
+    this.remove();
+  }
+
+  save = async () => {
+    console.log(`pick-up-stix | LootToken | save`);
     const tokens = LootToken.lootTokens;
-    tokens[_tokenId] = lootData;
-    game.settings.set('pick-up-stix', SettingKeys.lootTokens, tokens);
+    tokens[this._tokenId] = { ...this._lootData };
+    await game.settings.set('pick-up-stix', SettingKeys.lootTokens, tokens);
+  }
+
+  activateListeners() {
+    Hooks.on('deleteToken', this.deleteTokenHook);
+  }
+
+  remove = async () => {
+    console.log(`pick-up-stix | LootToken | removeToken`);
+    Hooks.off('deleteToken', this.deleteTokenHook);
+    const tokens = LootToken.lootTokens;
+    delete tokens[this._tokenId];
+    await game.settings.set('pick-up-stix', SettingKeys.lootTokens, tokens);
   }
 }

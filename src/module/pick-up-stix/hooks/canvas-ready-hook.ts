@@ -1,6 +1,7 @@
-import { handleItemDropped, setupMouseManager, drawLockIcon } from "../main";
+import { handleItemDropped, drawLockIcon } from "../main";
 import { DropData, PickUpStixFlags } from "../models";
 import { LootHud } from "../loot-hud-application";
+import { LootToken } from "../loot-token";
 
 const normalizeDropData = (data: DropData, event?: any): any => {
 	console.log('pick-up-stix | normalizeDropData called with args:');
@@ -88,19 +89,25 @@ const handleOnDrop = async (event) => {
 	handleItemDropped(normalizeDropData(data, event));
 }
 
-export async function canvasReadyHook(...args) {
-	console.log(`pick-up-stix | canvasReadyHook | call width args:`);
-	console.log(args);
-	console.log(game.user);
+export async function canvasReadyHook(canvas) {
+  console.log(`pick-up-stix | canvasReadyHook`);
+  console.log([canvas]);
+
+  const lootTokenData = LootToken.lootTokenData;
+  const tokens = lootTokenData[canvas.scene.id];
+  for (let [tokenId, data] of Object.entries(tokens ?? {})) {
+    const token = canvas.tokens.placeables.find(p => p.id === tokenId);
+    //LootToken.create(), )
+  }
 
 	// loop through the canvas' tokens and ensure that any that are locked
 	// have the lock icon drawn and set up the mouse interactions
   canvas?.tokens?.placeables?.forEach(async (p: PlaceableObject) => {
 		const flags: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
 
-		if (flags) {
-			console.log(`pick-up-stix | canvasReadyHook | found token ${p.id} with itemData`);
-			p.mouseInteractionManager = setupMouseManager.bind(p)();
+		if (!!LootToken.lootTokenData[p.id]) {
+      console.log(`pick-up-stix | canvasReadyHook | found token ${p.id} with loot data`);
+			//p.mouseInteractionManager = setupMouseManager.bind(p)();
 
 			if (flags.isLocked) {
 				console.log(`pick-up-stix | canvasReadyHook | loot is locked, draw lock icon`);

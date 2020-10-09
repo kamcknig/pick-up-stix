@@ -1,7 +1,7 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
 import ItemConfigApplication from "./item-config-application";
 import ChooseTokenApplication from "./choose-token-application";
-import { dist, getCurrencyTypes, getQuantityDataPath } from '../../utils'
+import { deleteToken, dist, getCurrencyTypes, getQuantityDataPath } from '../../utils'
 import { SettingKeys } from "./settings";
 import { LootToken } from "./loot-token";
 
@@ -148,7 +148,7 @@ export async function handleItemDropped(dropData: DropData) {
 		return;
 	}
 
-	let data = {
+	let tokenData = {
 		name: itemData.name,
 		disposition: 0,
 		x,
@@ -176,70 +176,47 @@ export async function handleItemDropped(dropData: DropData) {
 					one: {
 						icon: '<i class="fas fa-box"></i>',
 						label: 'Item',
-						callback: () => LootToken.create(data, lootData)
+            callback: async () => {
+              const tokenId = await createToken({
+                ...tokenData
+              });
+
+              const t = new LootToken(tokenId, lootData);
+            }
 					},
 					two: {
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
-						callback: () => LootToken.create(
-							{
-								...data,
-								img: game.settings.get('pick-up-stix', SettingKeys.closeImagePath)
-							},
-							{
-								itemType: ItemType.CONTAINER,
-								isLocked: false,
-								container: {
-									currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}),
-									canOpen: true,
-									isOpen: false,
-									imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
-									imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
-									soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
-									soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
-								}
-							}
-						)
+            callback: async () => {
+              const tokenId = await createToken({
+                ...tokenData,
+                img: game.settings.get('pick-up-stix', SettingKeys.closeImagePath)
+              });
+              const t = new LootToken(tokenId, {
+                itemType: ItemType.CONTAINER,
+                isLocked: false,
+                container: {
+                  currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
+                  canOpen: true,
+                  isOpen: false,
+                  imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
+                  imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
+                  soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
+                  soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
+                }
+              });
+            }
 					}
 				}
 			}).render(true);
 		});
 	}
-	else {
-		LootToken.create(data, lootData);
+  else {
+    const tokenId = await createToken({
+      ...tokenData
+    });
+		new LootToken(tokenId, lootData);
 	}
-}
-
-export function setupMouseManager(): void {
-	console.log(`pick-up-stix | setupMouseManager`);
-
-	const permissions = {
-		clickLeft: () => true,
-		clickLeft2: () => game.user.isGM,
-		clickRight: () => game.user.isGM,
-		clickRight2: () => game.user.isGM,
-		dragStart: this._canDrag
-	};
-
-	// Define callback functions for each workflow step
-	const callbacks = {
-		clickLeft: handleTokenItemClicked.bind(this),
-		clickLeft2: handleTokenItemConfig.bind(this),
-		clickRight: handleTokenRightClick.bind(this),
-		clickRight2: handleTokenItemConfig.bind(this),
-		dragLeftStart: this._onDragLeftStart,
-		dragLeftMove: this._onDragLeftMove,
-		dragLeftDrop: this._onDragLeftDrop,
-		dragLeftCancel: this._onDragLeftCancel
-	};
-
-	// Define options
-	const options = {
-		target: this.controlIcon ? "controlIcon" : null
-	};
-
-	// Create the interaction manager
-	this.mouseInteractionManager = new MouseInteractionManager(this, canvas.stage, permissions, callbacks, options).activate();
 }
 
 async function handleTokenItemConfig(e?, controlledToken?: Token) {
@@ -300,163 +277,6 @@ export async function toggleItemLocked(e): Promise<any> {
 }
 
 let clickTimeout;
-async function handleTokenItemClicked(e): Promise<void> {
-	console.log(`pick-up-stix | handleTokenItemClicked | ${this.id}`);
-
-	const clickedToken: Token = this;
-
-	// if the token is hidden just do a normal click
-	if (e.currentTarget.data.hidden) {
-		console.log(`pick-up-stix | handleTokenItemClicked | token is hidden, handle normal click`);
-		(clickedToken as any)._onClickLeft(e);
-		return;
-	}
-
-	// if the item isn't visible can't pick it up
-	if (!clickedToken.isVisible) {
-		console.log(`pick-up-stix | handleTokenItemClicked | item is not visible to user`);
-		return;
-	}
-
-	// get the tokens that the user controls
-  let controlledTokens: Token[] = canvas.tokens.controlled;
-
-	// gm special stuff
-	if (game.user.isGM) {
-		console.log(`pick-up-stix | handleTokenItemClicked | user is GM`);
-
-		if (!controlledTokens.length) {
-			console.log(`pick-up-stix | handleTokenItemClicked | no controlled tokens, handle normal click`);
-			(clickedToken as any)._onClickLeft(e);
-			return;
-		}
-
-		// if only controlling the item itself, handle a normal click
-		if (controlledTokens.every(t => clickedToken === t)) {
-			console.log(`pick-up-stix | handleTokenItemClicked | only controlling the item, handle normal click`);
-			(clickedToken as any)._onClickLeft(e);
-			return;
-		}
-	}
-
-	// get only the tokens that are within the right distance
-	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-	controlledTokens = controlledTokens.filter(t => dist(t, clickedToken) < (maxDist + 20) && t.getFlag('pick-up-stix', 'pick-up-stix') === undefined);
-
-	// if there are no controlled tokens within reach, show an error
-	if (!controlledTokens.length) {
-		console.log(`pick-up-stix | handleTokenItemClicked | item is out of reach`);
-		ui.notifications.error('You are too far away to interact with that');
-		return;
-	}
-
-	// get the flags on the clicked token
-	const flags: PickUpStixFlags = duplicate(clickedToken.getFlag('pick-up-stix', 'pick-up-stix'));
-
-	// if it's locked then it can't be opened
-	if (flags.isLocked) {
-		console.log(`pick-up-stix | handleTokenItemClicked | item is locked`);
-		var audio = new Audio(CONFIG.sounds.lock);
-		audio.play();
-		return;
-	}
-
-	// checking for double click, the double click handler clears this timeout
-	clickTimeout = setTimeout(async () => {
-		// if the user controls one token use it, otherwise ask which token to use
-		const controlledToken: Token =
-			controlledTokens.length === 1 ?
-			controlledTokens[0] :
-			await new Promise(resolve => {
-				const d = new ChooseTokenApplication(controlledTokens).render(true);
-				Hooks.once('closeChooseTokenApplication', () => {
-					resolve(d.getData().selectedToken);
-				});
-			});
-
-		if (!controlledToken) {
-			console.log(`pick-up-stix | handleTokenItemClicked | No token selected from dialog`);
-			ui.notifications.error('You must control at least one token.');
-			return;
-		}
-
-		if(flags.itemType === ItemType.CONTAINER) {
-			console.log(`pick-up-stix | handleTokenItemClicked | item is a container`);
-
-			// if it's a container and it's open and can't be closed then don't do anything
-			if (flags.container?.isOpen && !(flags.container?.canClose ?? true)) {
-				console.log(`pick-up-stix | handleTokenItemClicked | container is open and can't be closed`);
-				return;
-			}
-
-			flags.container.isOpen = !flags.container?.isOpen;
-
-			// if there are any container updates then update the container
-			await new Promise(resolve => {
-				setTimeout(async () => {
-					await updateEntity(clickedToken, {
-						img: flags.container?.isOpen ? flags.container.imageOpenPath : flags.container.imageClosePath,
-						flags: {
-							'pick-up-stix': {
-								'pick-up-stix': {
-									...flags
-								}
-							}
-						}
-					});
-					const a = new Audio(
-						flags.container.isOpen ?
-							clickedToken.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') :
-							clickedToken.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath')
-					);
-					try {
-						a.play();
-					}
-					catch (e) {
-						// it's ok to error here
-					}
-
-					resolve();
-				}, 200);
-			});
-
-			if (!flags.container?.isOpen) {
-				return;
-			}
-
-			handleTokenItemConfig.bind(this)(e, controlledToken);
-			return;
-		}
-
-		console.log(`pick-up-stix | handleTokenItemClicked | token is an ItemType.ITEM`);
-
-		// if it's just a single item, delete the map token and create an new item on the player
-		await deleteToken(clickedToken);
-		await createOwnedItem(controlledToken.actor, [{
-			...flags.itemData
-		}]);
-		itemCollected(controlledToken, { ...flags.itemData });
-	}, 250);
-
-	this.mouseInteractionManager?._deactivateDragEvents();
-}
-
-async function deleteToken(token: Token): Promise<void> {
-	console.log(`pick-up-stix | deleteToken with args:`);
-	console.log(token);
-
-	if (game.user.isGM) {
-		await canvas.scene.deleteEmbeddedEntity('Token', token.id);
-		return;
-	}
-
-	const msg: PickUpStixSocketMessage = {
-		sender: game.user.id,
-		type: SocketMessageType.deleteToken,
-		data: token.id
-	}
-	socket.emit('module.pick-up-stix', msg);
-}
 
 export async function updateEntity(entity: { id: string, update: (data, options?) => void }, updates): Promise<void> {
 	console.log(`pick-up-stix | updateToken with args:`);

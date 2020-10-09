@@ -1,6 +1,8 @@
 //@ts-ignore
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
+import { PickUpStixSocketMessage, SocketMessageType } from './module/pick-up-stix/models.js';
+
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
@@ -85,4 +87,21 @@ export function getPriceDataPath(): string {
   }
 
   return path;
+}
+
+export const deleteToken = async (token: Token): Promise<void> => {
+  console.log(`pick-up-stix | deleteToken with args:`);
+  console.log(token);
+
+  if (game.user.isGM) {
+    await canvas.scene.deleteEmbeddedEntity('Token', token.id);
+    return;
+  }
+
+  const msg: PickUpStixSocketMessage = {
+    sender: game.user.id,
+    type: SocketMessageType.deleteToken,
+    data: token.id
+  }
+  socket.emit('module.pick-up-stix', msg);
 }

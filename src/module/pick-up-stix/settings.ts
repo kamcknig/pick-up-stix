@@ -5,7 +5,7 @@ export enum SettingKeys {
 	defaultContainerCloseSound = 'default-container-close-sound',
 	defaultContainerOpenSound = 'default-container-open-sound',
 	version = 'version',
-	lootTokens = 'lootTokens'
+	lootTokenData = 'lootTokenData'
 }
 
 const systemCurrenciesImplemented = [
@@ -25,7 +25,7 @@ export const registerSettings = function() {
 	}
 	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
-	game.settings.register('pick-up-stix', SettingKeys.lootTokens, {
+	game.settings.register('pick-up-stix', SettingKeys.lootTokenData, {
 		name: 'Loot Tokens',
 		hint: 'An object that represents the loot tokens in the world',
 		type: Object,

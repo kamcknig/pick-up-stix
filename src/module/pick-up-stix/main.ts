@@ -1,6 +1,6 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
 import ItemConfigApplication from "./item-config-application";
-import { dist, getCurrencyTypes, getQuantityDataPath } from '../../utils'
+import { getCurrencyTypes, getQuantityDataPath } from '../../utils'
 import { SettingKeys } from "./settings";
 import { LootToken } from "./loot-token";
 
@@ -215,7 +215,7 @@ export async function handleItemDropped(dropData: DropData) {
 								isLocked: false,
 								container: {
 									currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
-									canOpen: true,
+									canClose: true,
 									isOpen: false,
 									imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
 									imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
@@ -242,48 +242,10 @@ async function handleTokenItemConfig(e?, controlledToken?: Token) {
 	clearTimeout(clickTimeout);
 	const clickedToken: Token = this;
 
-	try {
-		const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-		if (!controlledToken && game.user.isGM) {
-			controlledToken = canvas.tokens.controlled?.filter((t: Token) => dist(t, clickedToken) < maxDist && t.getFlag('pick-up-stix', 'pick-up-stix') === undefined)[0]
-		}
-	}
-	catch (e) {
-		controlledToken = null;
-	}
-
 	if (this.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
-    new ItemConfigApplication(clickedToken, controlledToken).render(true);
+    new ItemConfigApplication(clickedToken).render(true);
     return;
   }
-
-  const data = this.getFlag('pick-up-stix', 'pick-up-stix.itemData');
-  const i = await Item.create(data, { submitOnChange: true });
-  const app = i.sheet.render(true);
-  const hook = Hooks.on('updateItem', async (item, data, options) => {
-    console.log('pick-up-stix | main | handleTokenItemConfig | updateItem hook');
-    if (data._id !== i.id) {
-      return;
-    }
-    await this.setFlag('pick-up-stix', 'pick-up-stix.itemData', { ...item.data });
-  });
-  Hooks.once('closeItemSheet', async (sheet, html) => {
-    console.log('pick-up-stix | main | handleTokenItemConfig | closeItemSheet hook');
-    if (sheet.appId !== app.appId) {
-      return;
-    }
-    await i.delete();
-    Hooks.off('updateItem', hook as any);
-  });
-}
-
-async function handleTokenRightClick(e) {
-	const hud = canvas.hud.pickUpStixLootHud;
-	if (hud) {
-		this.control({releaseOthers: true});
-		if (hud.object === this) hud.clear();
-		else hud.bind(this);
-	}
 }
 
 export async function toggleItemLocked(e): Promise<any> {

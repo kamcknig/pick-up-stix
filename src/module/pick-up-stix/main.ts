@@ -1,9 +1,36 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
 import ItemConfigApplication from "./item-config-application";
-import ChooseTokenApplication from "./choose-token-application";
-import { deleteToken, dist, getCurrencyTypes, getQuantityDataPath } from '../../utils'
+import { dist, getCurrencyTypes, getQuantityDataPath } from '../../utils'
 import { SettingKeys } from "./settings";
 import { LootToken } from "./loot-token";
+
+export interface LootTokenData {
+	[sceneId: string]: {
+		[tokenId: string]: PickUpStixFlags
+	}
+}
+
+export const lootTokens: LootToken[] = [];
+
+let _lootTokenData: LootTokenData;
+export const getLootTokenData = (): LootTokenData => {
+	if (_lootTokenData) {
+		return _lootTokenData;
+	}
+
+	console.log('pick-up-stix | getLootTokenData | creating initial copy of loot token data from settings DB');
+	_lootTokenData = duplicate(game.settings.get('pick-up-stix', SettingKeys.lootTokenData));
+	return _lootTokenData;
+}
+
+export const getLootToken = (sceneId, tokenId): LootToken => {
+	return lootTokens.find(lt => lt.sceneId === sceneId && lt.tokenId === tokenId);
+}
+
+export const saveLootTokenData = async (): Promise<void> => {
+	console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
+	await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, _lootTokenData);
+}
 
 /**
  * Handles data dropped onto the canvas.
@@ -128,11 +155,8 @@ export async function handleItemDropped(dropData: DropData) {
 	}
 
 	// if it's not a container, then we can assume it's an item. Create the item token
-	/* const hg = canvas.dimensions.size / 2;
-	dropData.x -= (hg);
-	dropData.y -= (hg); */
-
-	const { x, y } = canvas.grid.getSnappedPosition(dropData.x, dropData.y, 1);
+	const hg = canvas.dimensions.size * .5;
+	const { x, y } = canvas.grid.getSnappedPosition(dropData.x - hg, dropData.y - hg, 1);
 
 	// if the item being dropped is a container, just create the empty container
 	if (droppedItemIsContainer) {
@@ -163,6 +187,8 @@ export async function handleItemDropped(dropData: DropData) {
 		}
 	}
 
+	let lootToken: LootToken;
+
 	// if a Token was successfully created
 	if (!dropData.actor) {
 		await new Promise(resolve => {
@@ -171,52 +197,44 @@ export async function handleItemDropped(dropData: DropData) {
 				content: 'What kind of loot is this?',
 				default: 'one',
 				title: 'Loot Type',
-				close: (...args) => resolve(),
 				buttons: {
 					one: {
 						icon: '<i class="fas fa-box"></i>',
 						label: 'Item',
             callback: async () => {
-              const tokenId = await createToken({
-                ...tokenData
-              });
-
-              const t = new LootToken(tokenId, lootData);
+							lootToken = await LootToken.create(tokenData, lootData);
+							resolve();
             }
 					},
 					two: {
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
-            callback: async () => {
-              const tokenId = await createToken({
-                ...tokenData,
-                img: game.settings.get('pick-up-stix', SettingKeys.closeImagePath)
-              });
-              const t = new LootToken(tokenId, {
-                itemType: ItemType.CONTAINER,
-                isLocked: false,
-                container: {
-                  currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
-                  canOpen: true,
-                  isOpen: false,
-                  imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
-                  imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
-                  soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
-                  soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
-                }
-              });
-            }
+						callback: async () => {
+							lootToken = await LootToken.create(tokenData, {
+								itemType: ItemType.CONTAINER,
+								isLocked: false,
+								container: {
+									currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
+									canOpen: true,
+									isOpen: false,
+									imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
+									imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
+									soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
+									soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
+								}
+							});
+							resolve();
+						}
 					}
 				}
 			}).render(true);
 		});
 	}
   else {
-    const tokenId = await createToken({
-      ...tokenData
-    });
-		new LootToken(tokenId, lootData);
+		lootToken = await LootToken.create(tokenData, lootData);
 	}
+
+	lootTokens.push(lootToken);
 }
 
 async function handleTokenItemConfig(e?, controlledToken?: Token) {

@@ -1,8 +1,7 @@
 import { deleteToken, dist } from "../../utils";
 import ChooseTokenApplication from "./choose-token-application";
-import { createOwnedItem, itemCollected, updateEntity } from "./main";
-import { ItemType } from "./models";
-import { SettingKeys } from "./settings";
+import { createOwnedItem, createToken, getLootTokenData, itemCollected, saveLootTokenData, updateEntity } from "./main";
+import { ItemType, PickUpStixFlags } from "./models";
 
 export interface TokenData {
   name: string;
@@ -10,11 +9,33 @@ export interface TokenData {
   x: number;
   y: number;
   img: string;
+  id?: string;
 }
 
 export class LootToken {
-  static get lootTokenData(): any {
-    return duplicate(game.settings.get('pick-up-stix', SettingKeys.lootTokenData));
+  static async create(tokenData: TokenData, lootData): Promise<LootToken> {
+    let tokenId: string;
+
+    if (tokenData.id === undefined) {
+      console.log('pick-up-stix | LootToken | create | creating new Token instance');
+      tokenId = await createToken({
+        ...tokenData
+      });
+    }
+    else {
+      console.log(`pick-up-stix | LootToken | create | token ID '${tokenId} provided, looking for pre-existing Token instance'`);
+      tokenId = tokenData.id;
+    }
+
+    const token = canvas.tokens.placeables.find(p => p.id === tokenId);
+
+    if (!token) {
+      ui.notifications.error(`Could not find or create Token '${tokenId} to create LootToken for`);
+      return null;
+    }
+
+    const t = new LootToken(tokenId, lootData);
+    return t;
   }
 
   private _sceneId: string;
@@ -26,22 +47,26 @@ export class LootToken {
     return canvas.tokens.placeables.find(p => p.id === this._tokenId);
   }
 
+  get tokenId(): string {
+    return this._tokenId;
+  }
+
   constructor(
     private _tokenId: string,
-    private _lootData?: any
+    private _lootData?: PickUpStixFlags
   ) {
     this._sceneId = this.token.scene.id;
     this.save();
     this.activateListeners();
   }
 
-  private deleteTokenHook = (scene, token, options, userId) => {
+  private deleteTokenHook = async (scene, token, options, userId) => {
     if (token._id !== this._tokenId) {
       return;
     }
 
     console.log(`pick-up-stix | LootToken | deleteTokenHook`);
-    this.remove();
+    await this.remove();
   }
 
   private updateTokenHook = (token, data, userId) => {
@@ -52,9 +77,16 @@ export class LootToken {
     console.log(`pick-up-stix | LootToken | updateTokenHook`);
   }
 
+  /**
+   * Save the token's current loot data to the settings db.
+   *
+   * Data is first keyed off of the scene ID the tokens belong
+   * to and then keyed off of the token IDs within each scene
+   * object
+   */
   save = async () => {
     console.log(`pick-up-stix | LootToken | save`);
-    const lootTokenData = LootToken.lootTokenData;
+    const lootTokenData = getLootTokenData();
     if (!lootTokenData[this.sceneId]) {
       console.log(`pick-up-stix | LootToken | save | no data found for scene '${this.sceneId}', create empty scene data`);
       lootTokenData[this.sceneId] = {};
@@ -65,12 +97,16 @@ export class LootToken {
       return;
     }
     lootTokenData[this.sceneId][this._tokenId] = { ...this._lootData };
-    await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, lootTokenData);
+    saveLootTokenData();
   }
 
   activateListeners() {
+    Hooks.off('deleteToken', this.deleteTokenHook);
     Hooks.on('deleteToken', this.deleteTokenHook);
+
+    Hooks.off('updateToken', this.updateTokenHook);
     Hooks.on('updateToken', this.updateTokenHook);
+
     this.token.mouseInteractionManager = this.setupMouseManager();
     this.token.activateListeners = this.setupMouseManager;
   }
@@ -79,9 +115,9 @@ export class LootToken {
     console.log(`pick-up-stix | LootToken | removeToken`);
     Hooks.off('deleteToken', this.deleteTokenHook);
     Hooks.off('updateToken', this.updateTokenHook);
-    const lootTokenData = LootToken.lootTokenData;
+    const lootTokenData = getLootTokenData();
     delete lootTokenData[this.sceneId]?.[this._tokenId];
-    await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, lootTokenData);
+    saveLootTokenData();
   }
 
   setupMouseManager = (): MouseInteractionManager => {
@@ -156,7 +192,7 @@ export class LootToken {
     const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
     controlledTokens = controlledTokens.filter(t => {
       const d = dist(t, this.token);
-      return d < (maxDist + 20) && !LootToken.lootTokenData[this.sceneId][t.id];
+      return d < (maxDist + 20) && !getLootTokenData()[this.sceneId][t.id];
     });
 
     // if there are no controlled tokens within reach, show an error

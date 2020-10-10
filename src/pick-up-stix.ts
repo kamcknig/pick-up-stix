@@ -1,7 +1,7 @@
 import { canvasReadyHook } from "./module/pick-up-stix/hooks/canvas-ready-hook";
 import { onCreateActor } from "./module/pick-up-stix/hooks/create-actor-hook";
 import { onCreateItem } from "./module/pick-up-stix/hooks/create-item-hook";
-import { onDeleteToken } from "./module/pick-up-stix/hooks/delete-token-hook";
+import { deleteTokenHook } from "./module/pick-up-stix/hooks/delete-token-hook";
 import { initHook } from "./module/pick-up-stix/hooks/init-hook";
 import { onPreCreateOwnedItem } from "./module/pick-up-stix/hooks/pre-create-owned-item-hook";
 import { readyHook } from "./module/pick-up-stix/hooks/ready-hook";
@@ -25,7 +25,7 @@ Hooks.on('preCreateOwnedItem', onPreCreateOwnedItem);
 
 // token hooks
 Hooks.on('updateToken', onUpdateToken);
-Hooks.on('deleteToken', onDeleteToken);
+Hooks.on('deleteToken', deleteTokenHook);
 
 // render hooks
 Hooks.on("renderSettingsConfig", (app, html, user) => {

@@ -1,6 +1,7 @@
-import { handleItemDropped, drawLockIcon } from "../main";
+import { handleItemDropped, drawLockIcon, getLootToken } from "../main";
 import { DropData, PickUpStixFlags } from "../models";
 import { LootHud } from "../loot-hud-application";
+import { getLootTokenData } from "../main";
 import { LootToken } from "../loot-token";
 
 const normalizeDropData = (data: DropData, event?: any): any => {
@@ -93,11 +94,24 @@ export async function canvasReadyHook(canvas) {
   console.log(`pick-up-stix | canvasReadyHook`);
   console.log([canvas]);
 
-  const lootTokenData = LootToken.lootTokenData;
+  const lootTokenData = getLootTokenData();
   const tokens = lootTokenData[canvas.scene.id];
   for (let [tokenId, data] of Object.entries(tokens ?? {})) {
-    const token = canvas.tokens.placeables.find(p => p.id === tokenId);
-    //LootToken.create(), )
+		let token: Token;
+		let lootToken = getLootToken(canvas.scene.id, tokenId);
+
+		if (!lootToken) {
+			console.log(`pick-up-stix | canvasReadyHook | LootToken instance not found for scene '${canvas.scene.id}' token '${tokenId}'`);
+			token = canvas.tokens?.placeables?.find(p => p.id === tokenId);
+			if (!token) {
+				console.log(`pick-up-stix | canvasReadyHook | Could not find Token '${tokenId}' on scene '${canvas.scene.id}' but it exists in loot token data`);
+				continue;
+			}
+			lootToken = await LootToken.create({ ...token.data, id: tokenId }, data);
+		}
+		else {
+			lootToken.activateListeners();
+		}
   }
 
 	// loop through the canvas' tokens and ensure that any that are locked
@@ -105,7 +119,7 @@ export async function canvasReadyHook(canvas) {
   canvas?.tokens?.placeables?.forEach(async (p: PlaceableObject) => {
 		const flags: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
 
-		if (!!LootToken.lootTokenData[p.id]) {
+		if (!!getLootTokenData()[p.id]) {
       console.log(`pick-up-stix | canvasReadyHook | found token ${p.id} with loot data`);
 			//p.mouseInteractionManager = setupMouseManager.bind(p)();
 

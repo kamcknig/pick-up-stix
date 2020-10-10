@@ -1,4 +1,4 @@
-import { handleItemDropped, drawLockIcon, getLootToken } from "../main";
+import { handleItemDropped, drawLockIcon, getLootToken, lootTokens } from "../main";
 import { DropData, PickUpStixFlags } from "../models";
 import { LootHud } from "../loot-hud-application";
 import { getLootTokenData } from "../main";
@@ -108,6 +108,7 @@ export async function canvasReadyHook(canvas) {
 				continue;
 			}
 			lootToken = await LootToken.create({ ...token.data, id: tokenId }, data);
+			lootTokens.push(lootToken);
 		}
 		else {
 			lootToken.activateListeners();

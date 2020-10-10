@@ -13,7 +13,15 @@ export interface TokenData {
 }
 
 export class LootToken {
-  static async create(tokenData: TokenData, lootData): Promise<LootToken> {
+  /**
+   * Creates a new LootToken instance. A new Token instance may or may not be created
+   * depending on the parameters passed
+   *
+   * @param tokenData The token data to use when creating a new Token instance. If an
+   * id is provided in this data, then a new Token will not be created.
+   * @param {PickUpStixFlags} lootData The loot data
+   */
+  static async create(tokenData: TokenData, lootData: PickUpStixFlags): Promise<LootToken> {
     let tokenId: string;
 
     if (tokenData.id === undefined) {
@@ -23,7 +31,7 @@ export class LootToken {
       });
     }
     else {
-      console.log(`pick-up-stix | LootToken | create | token ID '${tokenId} provided, looking for pre-existing Token instance'`);
+      console.log(`pick-up-stix | LootToken | create | token ID '${tokenData.id}' provided, looking for pre-existing Token instance'`);
       tokenId = tokenData.id;
     }
 
@@ -38,7 +46,18 @@ export class LootToken {
     return t;
   }
 
+  get itemType(): ItemType {
+    return this._lootData.itemType;
+  }
+
+  get itemData(): any {
+    return duplicate(this._lootData.itemData);
+  }
+
   private _sceneId: string;
+  /**
+   * The Scene ID that the Token this LootToken instance represents belongs to
+   */
   get sceneId(): string {
     return this._sceneId;
   }
@@ -47,6 +66,9 @@ export class LootToken {
     return canvas.tokens.placeables.find(p => p.id === this._tokenId);
   }
 
+  /**
+   * The Token ID this LootToken instance represents.
+   */
   get tokenId(): string {
     return this._tokenId;
   }
@@ -293,13 +315,47 @@ export class LootToken {
     await deleteToken(this.token);
   }
 
-  private handleTokenItemConfig = () => {
+  private handleTokenItemConfig = async () => {
+    console.log('pick-up-stix | LootToken | handleTokenItemConfig');
+    clearTimeout(this._clickTimeout);
+    this.openLootTokenConfig();
+  }
 
+  openLootTokenConfig = async (): Promise<void> => {
+    console.log('pick-up-stix | LootToken | openLootTokenConfig');
+
+    const data = this._lootData.itemData;
+    const i = await Item.create(data, { submitOnChange: true });
+    const app = i.sheet.render(true);
+    const hook = Hooks.on('updateItem', async (item, data, options) => {
+      console.log('pick-up-stix | LootToken | openLootTokenConfig | updateItem hook');
+      if (data._id !== i.id) {
+        return;
+      }
+      this._lootData.itemData = { ...item.data };
+      this.save();
+    });
+    Hooks.once('closeItemSheet', async (sheet, html) => {
+      console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
+      if (sheet.appId !== app.appId) {
+        return;
+      }
+      await i.delete();
+      Hooks.off('updateItem', hook as any);
+    });
   }
 
   private _clickTimeout;
   private handleTokenRightClick = () => {
     clearTimeout(this._clickTimeout);
 
+    const hud = canvas.hud.pickUpStixLootHud;
+    if (hud) {
+      this.token?.control({releaseOthers: true});
+      if (hud.object === this.token) {
+        hud.clear();
+      }
+      else hud.bind(this.token);
+    }
   }
 }

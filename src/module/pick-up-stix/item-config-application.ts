@@ -37,11 +37,13 @@ export default class ItemConfigApplication extends FormApplication {
 		});
 	}
 
-	constructor(private _token: Token, private _controlledToken: Token) {
+	private _controlledToken;
+
+	constructor(private _token: Token) {
 		super(_token, {});
 
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
-		console.log([this._token, this._controlledToken]);
+		console.log([this._token]);
 
 		this._currencyEnabled = !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
 

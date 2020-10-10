@@ -161,14 +161,21 @@ export async function handleItemDropped(dropData: DropData) {
 	// if the item being dropped is a container, just create the empty container
 	if (droppedItemIsContainer) {
 		console.log(`pick-up-stix | handleItemDropped | dropped item is a container`);
-		await createToken({
-			...itemData,
-			img: itemData.flags['pick-up-stix']['pick-up-stix']['container']['imageClosePath'],
-			x,
-			y,
-			disposition: 0
-		});
+		const lootToken = await LootToken.create(
+			{
+				name: itemData.name,
+				img: itemData.flags['pick-up-stix']['pick-up-stix']['container']['imageClosePath'],
+				x,
+				y,
+				disposition: 0
+			},
+			{
+				itemType: ItemType.CONTAINER,
+				itemData
+			}
+		);
 
+		lootTokens.push(lootToken);
 		return;
 	}
 
@@ -210,14 +217,15 @@ export async function handleItemDropped(dropData: DropData) {
 						icon: '<i class="fas fa-boxes"></i>',
 						label: 'Container',
 						callback: async () => {
-							lootToken = await LootToken.create(tokenData, {
+							const img: string = game.settings.get('pick-up-stix', SettingKeys.closeImagePath);
+							lootToken = await LootToken.create({ ...tokenData, img }, {
 								itemType: ItemType.CONTAINER,
 								isLocked: false,
 								container: {
 									currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
 									canClose: true,
 									isOpen: false,
-									imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
+									imageClosePath: img,
 									imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
 									soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
 									soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)

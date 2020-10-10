@@ -65,7 +65,7 @@ export async function handleItemDropped(dropData: DropData) {
 		console.log(`pick-up-stix | handleItemDropped | item comes from directory or compendium, item data comes from directory or compendium`);
 		pack = dropData.pack;
 		const id = dropData.id;
-		const item: Item = await game.items.get(id) ?? game.packs.get(pack)?.getEntity(id);
+		const item: Item = await game.items.get(id) ?? await game.packs.get(pack)?.getEntity(id);
 		if (!item) {
 			console.log(`pick-up-stix | handleItemDropped | item '${id}' not found in game items or compendium`);
 			return;

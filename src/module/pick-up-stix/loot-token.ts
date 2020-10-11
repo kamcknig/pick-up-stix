@@ -1,4 +1,4 @@
-import { deleteToken, dist } from "../../utils";
+import { deleteToken, dist, getQuantityDataPath } from "../../utils";
 import ChooseTokenApplication from "./choose-token-application";
 import { createOwnedItem, createToken, getLootTokenData, itemCollected, saveLootTokenData, updateEntity } from "./main";
 import { ItemType, PickUpStixFlags } from "./models";
@@ -109,7 +109,7 @@ export class LootToken {
       console.log(`pick-up-stix | LootToken | save | no data found for scene '${this.sceneId}', create empty scene data`);
       lootTokenData[this.sceneId] = {};
     }
-    lootTokenData[this.sceneId][this._tokenId] = { ...this._lootData };
+    lootTokenData[this.sceneId][this._tokenId] = duplicate(this._lootData);
     saveLootTokenData();
   }
 
@@ -131,6 +131,32 @@ export class LootToken {
     const lootTokenData = getLootTokenData();
     delete lootTokenData[this.sceneId]?.[this._tokenId];
     saveLootTokenData();
+  }
+
+  addItem = (data: any, id: string): any => {
+    if (this.itemType !== ItemType.CONTAINER) {
+      return;
+    }
+
+    const existingItem: any = Object.values(this._lootData?.container?.loot?.[data.type] ?? [])?.find(i => (i as any)._id === id);
+    if (existingItem) {
+      console.log(`pick-up-stix | LootToken | addItem | found existing item for item '${id}`);
+      const quantityDataPath = getQuantityDataPath();
+      if(!getProperty(existingItem.data, quantityDataPath)) {
+        setProperty(existingItem.data, quantityDataPath, 1);
+      }
+      else {
+        setProperty(existingItem.data, quantityDataPath, getProperty(existingItem.data, quantityDataPath) + 1)
+      }
+    }
+    else {
+      if (!this._lootData.container.loot[data.type]) {
+        this._lootData.container.loot[data.type] = [];
+      }
+      this._lootData.container.loot[data.type].push(duplicate(data));
+    }
+
+    this.save();
   }
 
   setupMouseManager = (): MouseInteractionManager => {

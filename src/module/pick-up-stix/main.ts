@@ -94,9 +94,7 @@ export async function handleItemDropped(dropData: DropData) {
 	// in a data property on the dropData parameter rather than on the top-level of the dropData
 	if (dropData.actor) {
 		console.log(`pick-up-stix | handleItemDropped | actor '${dropData.actor.id}' dropped item, get item data from the dropped item's original item data`);
-		itemData = {
-			...dropData.data
-		};
+		itemData = duplicate(dropData.data);
 		await dropData.actor.deleteOwnedItem(dropData.data._id);
 	}
 	else {
@@ -108,9 +106,7 @@ export async function handleItemDropped(dropData: DropData) {
 			console.log(`pick-up-stix | handleItemDropped | item '${id}' not found in game items or compendium`);
 			return;
 		}
-		itemData = {
-			...item.data
-		};
+		itemData = duplicate(item.data);
 	}
 
 	const droppedItemIsContainer = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER;
@@ -133,61 +129,26 @@ export async function handleItemDropped(dropData: DropData) {
 			return;
 		}
 
-		console.log(`pick-up-stix | handleItemDropped | item dropped onto target token '${targetToken.id}'`);
-
-		const targetTokenFlags: PickUpStixFlags = targetToken.getFlag('pick-up-stix', 'pick-up-stix');
-
-		if (targetTokenFlags?.itemType === ItemType.CONTAINER) {
-			// if the target is a container, then add the item to the container's data
-			console.log(`pick-up-stix | handleItemDropped | target token is a container`);
-			const existingLoot = { ...duplicate(targetTokenFlags.container.loot ?? {}) };
-			const existingItem: any = Object.values(existingLoot[itemData.type] ?? [])?.find(i => (i as any)._id === (dropData.actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id));
-			if (existingItem) {
-				console.log(`pick-up-stix | handleItemDropped | found existing item for item '${itemData._id}`);
-				console.log(existingItem);
-
-				const quantityDataPath = getQuantityDataPath();
-
-				if(!getProperty(existingItem.data, quantityDataPath)) {
-					setProperty(existingItem.data, quantityDataPath, 1);
-				}
-				else {
-					setProperty(existingItem.data, quantityDataPath, getProperty(existingItem.data, quantityDataPath) + 1)
-				}
-			}
-			else {
-				console.log(`pick-up-stix | handleItemDropped | Could not find existing item from '${itemData._id}`);
-				if (!existingLoot[itemData.type]) {
-					existingLoot[itemData.type] = [];
-				}
-				(existingLoot[itemData.type] as any).push({ ...itemData });
-			}
-
-			const update = {
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							container: {
-								loot: {
-									...existingLoot
-								}
-							}
-						}
-					}
-				}
-			};
-
-			await updateEntity(targetToken, update);
-			return;
-		}
-		else if (targetToken.actor) {
+		if (targetToken.actor) {
 			// if the token it was dropped on was an actor, add the item to the new actor
 			await createOwnedItem(
 				targetToken.actor,
-				[{
-					...itemData
-				}]
+				[duplicate(itemData)]
 			);
+			return;
+		}
+
+		console.log(`pick-up-stix | handleItemDropped | item dropped onto target token '${targetToken.id}'`);
+		const lootToken: LootToken = getLootToken(canvas.scene.id, targetToken.id);
+
+		if (!lootToken) {
+			console.error(`pick-up-stix | handleItemDroped | LootToken instance not found for token ${targetToken.id} on scene ${canvas.scene.id}`);
+			return;
+		}
+
+		if (lootToken.itemType === ItemType.CONTAINER) {
+			const id = dropData.actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id
+			lootToken.addItem(itemData, id);
 			return;
 		}
 	}
@@ -207,9 +168,7 @@ export async function handleItemDropped(dropData: DropData) {
 				y,
 				disposition: 0
 			},
-			{
-				...duplicate(itemData.flags['pick-up-stix']['pick-up-stix'])
-			}
+			duplicate(itemData.flags['pick-up-stix']['pick-up-stix'])
 		);
 
 		lootTokens.push(lootToken);

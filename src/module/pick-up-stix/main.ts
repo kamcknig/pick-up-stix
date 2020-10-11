@@ -1,5 +1,4 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
-import ItemConfigApplication from "./item-config-application";
 import { getCurrencyTypes, getQuantityDataPath } from '../../utils'
 import { SettingKeys } from "./settings";
 import { LootToken } from "./loot-token";
@@ -11,9 +10,10 @@ export interface LootTokenData {
 }
 
 export const lootTokens: LootToken[] = [];
+window['lootTokens'] = lootTokens;
 
 let _lootTokenData: LootTokenData;
-export const getLootTokenData = (): LootTokenData => {
+window['getLootTokenData'] = (): LootTokenData => {
 	if (_lootTokenData) {
 		return _lootTokenData;
 	}
@@ -23,13 +23,51 @@ export const getLootTokenData = (): LootTokenData => {
 	return _lootTokenData;
 }
 
+export const getLootTokenData: () => LootTokenData = window['getLootTokenData'];
+
 export const getLootToken = (sceneId, tokenId): LootToken => {
 	return lootTokens.find(lt => lt.sceneId === sceneId && lt.tokenId === tokenId);
 }
 
 export const saveLootTokenData = async (): Promise<void> => {
 	console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
-	await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, _lootTokenData);
+	await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, duplicate(_lootTokenData));
+}
+
+export const normalizeDropData = (data: DropData, event?: any): any => {
+	console.log('pick-up-stix | normalizeDropData called with args:');
+	console.log([data, event]);
+
+	// TODO: in version 0.7.0 and above, are the x and y already correct?
+	if (event) {
+		// Acquire the cursor position transformed to Canvas coordinates
+		const [x, y] = [event.clientX, event.clientY];
+		const t = canvas.stage.worldTransform;
+		data.x = (x - t.tx) / canvas.stage.scale.x;
+		data.y = (y - t.ty) / canvas.stage.scale.y;
+	}
+
+	const coreVersion = game.data.verson;
+	const is7Newer = isNewerVersion(coreVersion, '0.6.9');
+
+	if (data.actorId) {
+		let actor;
+
+		if (is7Newer) {
+			actor = data.tokenId ? game.actors.tokens[data.tokenId] : game.actors.get(data.actorId);
+		}
+		else {
+			// if Foundry is 0.6.9 or lower then there is no good way to tell which user-controlled token
+			// that the item comes from. We only have the actor ID and multiple tokens could be associated with
+			// the same actor. So we check if the user is controlling only one token and use that token's actor
+			// reference, otherwise we say there is no actor.
+			actor = canvas?.tokens?.controlled?.length === 1 ? canvas.tokens?.controlled?.[0]?.actor : null;
+		}
+
+		data.actor = actor;
+	}
+
+	return data;
 }
 
 /**
@@ -164,14 +202,13 @@ export async function handleItemDropped(dropData: DropData) {
 		const lootToken = await LootToken.create(
 			{
 				name: itemData.name,
-				img: itemData.flags['pick-up-stix']['pick-up-stix']['container']['imageClosePath'],
+				img: itemData.img,
 				x,
 				y,
 				disposition: 0
 			},
 			{
-				itemType: ItemType.CONTAINER,
-				itemData
+				...duplicate(itemData.flags['pick-up-stix']['pick-up-stix'])
 			}
 		);
 
@@ -245,17 +282,6 @@ export async function handleItemDropped(dropData: DropData) {
 	lootTokens.push(lootToken);
 }
 
-async function handleTokenItemConfig(e?, controlledToken?: Token) {
-	console.log(`pick-up-stix | handleTokenItemConfig called with args`);
-	clearTimeout(clickTimeout);
-	const clickedToken: Token = this;
-
-	if (this.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
-    new ItemConfigApplication(clickedToken).render(true);
-    return;
-  }
-}
-
 export async function toggleItemLocked(e): Promise<any> {
 	console.log(`pick-up-stix | toggleItemLocked`);
 
@@ -264,10 +290,8 @@ export async function toggleItemLocked(e): Promise<any> {
 	await clickedToken.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !flags.isLocked);
 }
 
-let clickTimeout;
-
 export async function updateEntity(entity: { id: string, update: (data, options?) => void }, updates): Promise<void> {
-	console.log(`pick-up-stix | updateToken with args:`);
+	console.log(`pick-up-stix | updateEntity with args:`);
 	console.log([entity, updates]);
 
 	if (game.user.isGM) {
@@ -285,7 +309,7 @@ export async function updateEntity(entity: { id: string, update: (data, options?
 	};
 
 	socket.emit('module.pick-up-stix', msg, () => {
-		console.log(`pick-up-stix | updateToken | socket message handled`);
+		console.log(`pick-up-stix | updateEntity | socket message handled`);
 	});
 }
 

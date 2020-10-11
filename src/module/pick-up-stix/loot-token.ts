@@ -50,10 +50,6 @@ export class LootToken {
     return this._lootData.itemType;
   }
 
-  get itemData(): any {
-    return duplicate(this._lootData.itemData);
-  }
-
   private _sceneId: string;
   /**
    * The Scene ID that the Token this LootToken instance represents belongs to
@@ -112,11 +108,6 @@ export class LootToken {
     if (!lootTokenData[this.sceneId]) {
       console.log(`pick-up-stix | LootToken | save | no data found for scene '${this.sceneId}', create empty scene data`);
       lootTokenData[this.sceneId] = {};
-    }
-    const lootData = lootTokenData[this.sceneId][this._tokenId];
-    if (isObjectEmpty(diffObject(lootData ?? {}, this._lootData))) {
-      console.log('pick-up-stix | LootToken | save | identical token data from in scene, not saving');
-      return;
     }
     lootTokenData[this.sceneId][this._tokenId] = { ...this._lootData };
     saveLootTokenData();
@@ -318,31 +309,61 @@ export class LootToken {
   private handleTokenItemConfig = async () => {
     console.log('pick-up-stix | LootToken | handleTokenItemConfig');
     clearTimeout(this._clickTimeout);
-    this.openLootTokenConfig();
+    this.openConfigSheet();
   }
 
-  openLootTokenConfig = async (): Promise<void> => {
+  openConfigSheet = async (): Promise<void> => {
     console.log('pick-up-stix | LootToken | openLootTokenConfig');
 
-    const data = this._lootData.itemData;
+    const data = this.itemType === ItemType.CONTAINER
+      ?  {
+        type: ItemType.CONTAINER,
+        name: this.token.name,
+        img: this.token.data.img,
+        flags: {
+          'pick-up-stix': {
+            'pick-up-stix': {
+              ...this._lootData
+            }
+          }
+        }
+      }
+      : {
+        ...this._lootData.itemData
+      };
+
     const i = await Item.create(data, { submitOnChange: true });
     const app = i.sheet.render(true);
     const hook = Hooks.on('updateItem', async (item, data, options) => {
-      console.log('pick-up-stix | LootToken | openLootTokenConfig | updateItem hook');
       if (data._id !== i.id) {
         return;
       }
-      this._lootData.itemData = { ...item.data };
+      console.log('pick-up-stix | LootToken | openLootTokenConfig | updateItem hook');
+      if (this.itemType === ItemType.CONTAINER) {
+        this._lootData = {
+          ...mergeObject(this._lootData, data.flags['pick-up-stix']['pick-up-stix'])
+        }
+      }
+      else {
+        this._lootData.itemData = { ...item.data };
+      }
+
       this.save();
     });
-    Hooks.once('closeItemSheet', async (sheet, html) => {
-      console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
+
+    const sheetCloseHandler = async (sheet, html) => {
       if (sheet.appId !== app.appId) {
         return;
       }
+      console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
       await i.delete();
       Hooks.off('updateItem', hook as any);
-    });
+      Hooks.off('closeItemSheet', sheetCloseHandler);
+      Hooks.off('closeItemConfigApplication', sheetCloseHandler);
+    }
+
+    Hooks.once('closeItemConfigApplication', sheetCloseHandler);
+    Hooks.once('closeItemSheet', sheetCloseHandler);
   }
 
   private _clickTimeout;

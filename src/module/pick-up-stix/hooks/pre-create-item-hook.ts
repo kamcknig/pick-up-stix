@@ -16,8 +16,7 @@ export async function preCreateItemHook(itemData: any, options: any, userId: str
 		// anywhere else anyway
 		setProperty(itemData, 'type', game.system.entityTypes.Item.includes('backpack') ? 'backpack' : game.system.entityTypes.Item[0]);
 
-		setProperty(itemData, 'flags.pick-up-stix', {
-			version: game.settings.get('pick-up-stix', SettingKeys.version),
+		const defaultContainerFlags = {
 			'pick-up-stix': {
 				container: {
 					currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}),
@@ -31,7 +30,15 @@ export async function preCreateItemHook(itemData: any, options: any, userId: str
 				isLocked: false,
 				itemType: ItemType.CONTAINER
 			}
-		});
+		};
+
+		const flags = getProperty(itemData, 'flags.pick-up-stix');
+		if (!flags) {
+			options.renderSheet = false;
+			setProperty(itemData, 'flags.pick-up-stix', {
+				...defaultContainerFlags
+			});
+		}
 
 		setProperty(itemData, 'img', game.settings.get('pick-up-stix', SettingKeys.closeImagePath));
 	}

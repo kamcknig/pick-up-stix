@@ -4,10 +4,11 @@ import {
 	createOwnedItem,
 	currencyCollected,
 	itemCollected,
+	normalizeDropData,
 	updateActor,
 	updateEntity
 } from './main';
-import { ItemType, ContainerLoot, PickUpStixFlags } from "./models";
+import { ItemType, ContainerLoot, PickUpStixFlags, DropData } from "./models";
 import { SettingKeys } from './settings';
 import { ContainerSoundConfig } from './container-sound-config-application';
 
@@ -324,10 +325,10 @@ export default class ItemConfigApplication extends FormApplication {
 
 	protected async _onDrop(e) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop with data:`);
-		const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
-		console.log(droppedData);
+		const dropData: DropData = normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
+		console.log(dropData);
 
-		if (droppedData.type !== "Item") {
+		if (dropData.type !== "Item") {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | item is not 'Item' type`);
 			return;
 		}
@@ -336,42 +337,27 @@ export default class ItemConfigApplication extends FormApplication {
 		const coreVersion = game.data.verson;
 		const is7Newer = isNewerVersion(coreVersion, '0.6.9');
 
-		// if the item came from an actor's inventory, then it'll have an actorId property,
-		// we'll need to remove the item from that actor
-		const actor =
-			droppedData.actorId ?
-			(
-				is7Newer ?
-					(
-						droppedData.tokenId ?
-							game.actors.tokens[droppedData.tokenId] :
-							game.actors.get(droppedData.actorId)
-					) :
-					canvas.tokens?.controlled?.[0]?.actor
-			) :
-			null;
-
 		// ensure we have a controlled token so that we know which token's actor if need be that we will
 		// be interacting with. We only need to do this for versions lower than 0.7.0 because 0.7.0
 		// contains more data in the drop data that we need
-		if (actor && canvas.tokens.controlled.length !== 1 && !is7Newer) {
+		if (dropData.actor && canvas.tokens.controlled.length !== 1 && !is7Newer) {
 			ui.notifications.error(`Please ensure you are only controlling the token (and only the one token) for the character you're working with.`);
 			return;
 		}
 
-		if (!actor && droppedData.actorId) {
-			ui.notifications.error(`No valid actor found for actor '${droppedData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
+		if (!dropData.actor && dropData.actorId) {
+			ui.notifications.error(`No valid actor found for actor '${dropData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
 			return;
 		}
 
 		// if the dropped item comes from an actor, we need to delete the item from that actor
-		if (actor) {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | drop data contains actor ID '${actor.id}', delete item from actor`);
-			itemData = duplicate(droppedData.data);
-			await actor.deleteOwnedItem(itemData._id);
+		if (dropData.actor) {
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | drop data contains actor ID '${dropData.actorId}', delete item from actor`);
+			itemData = duplicate(dropData.data);
+			await dropData.actor.deleteOwnedItem(itemData._id);
 		}
 		else {
-			itemData = await game.items.get(droppedData.id)?.data ?? await game.packs.get(droppedData.pack).getEntry(droppedData.id);
+			itemData = await game.items.get(dropData.id)?.data ?? await game.packs.get(dropData.pack).getEntry(dropData.id);
 		}
 
 		const itemType = itemData.type;
@@ -382,7 +368,7 @@ export default class ItemConfigApplication extends FormApplication {
 			loot[itemType] = [];
 		}
 		const qtyDataPath = getQuantityDataPath();
-		const existingItem = loot[itemType]?.find(i => i._id === (actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id));
+		const existingItem = loot[itemType]?.find(i => i._id === (dropData.actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id));
 		if (existingItem) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
 			setProperty(existingItem.data, qtyDataPath, getProperty(existingItem.data, qtyDataPath) + 1)

@@ -26,7 +26,11 @@ export interface DropData {
 
 	// x and y postion where the item was dropped, this would need to be converted into world coordinates
 	x: number,
-	y: number
+	y: number,
+
+	// this is the type that comes from foundry. We'll test for this when dropping on the item config
+	// application to ensure we are only accepting the "Item" types
+	type?: string
 }
 
 export interface PickUpStixFlags {

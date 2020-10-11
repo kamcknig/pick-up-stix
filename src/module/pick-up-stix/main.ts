@@ -214,7 +214,7 @@ export async function handleItemDropped(dropData: DropData) {
 						label: 'Container',
 						callback: async () => {
 							const img: string = game.settings.get('pick-up-stix', SettingKeys.closeImagePath);
-							lootToken = await LootToken.create({ ...tokenData, img }, {
+							lootToken = await LootToken.create(duplicate({ ...tokenData, img }), {
 								itemType: ItemType.CONTAINER,
 								isLocked: false,
 								container: {

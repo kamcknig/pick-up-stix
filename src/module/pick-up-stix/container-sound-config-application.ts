@@ -41,8 +41,8 @@ export class ContainerSoundConfig extends FormApplication {
   getData(options) {
     console.log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
     const data = {
-      openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.containerOpenSoundPath') ?? '',
-      closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.containerCloseSoundPath') ?? ''
+      openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
+      closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
     }
     console.log(data);
     return data;

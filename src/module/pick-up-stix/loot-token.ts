@@ -150,6 +150,9 @@ export class LootToken {
       }
     }
     else {
+      if (!this._lootData.container.loot) {
+        this._lootData.container.loot = {};
+      }
       if (!this._lootData.container.loot[data.type]) {
         this._lootData.container.loot[data.type] = [];
       }
@@ -286,19 +289,12 @@ export class LootToken {
       await new Promise(resolve => {
         setTimeout(async () => {
           await updateEntity(this.token, {
-            img: this._lootData.container?.isOpen ? this._lootData.container.imageOpenPath : this._lootData.container.imageClosePath,
-            flags: {
-              'pick-up-stix': {
-                'pick-up-stix': {
-                  ...this._lootData
-                }
-              }
-            }
+            img: this._lootData.container?.isOpen ? this._lootData.container.imageOpenPath : this._lootData.container.imageClosePath
           });
           const a = new Audio(
             this._lootData.container.isOpen ?
-              this.token.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') :
-              this.token.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath')
+              this._lootData.container.soundOpenPath:
+              this._lootData.container.soundClosePath
           );
           try {
             a.play();

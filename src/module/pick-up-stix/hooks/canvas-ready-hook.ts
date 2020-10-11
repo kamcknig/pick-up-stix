@@ -1,44 +1,8 @@
-import { handleItemDropped, drawLockIcon, getLootToken, lootTokens } from "../main";
+import { handleItemDropped, drawLockIcon, getLootToken, lootTokens, normalizeDropData } from "../main";
 import { DropData, PickUpStixFlags } from "../models";
 import { LootHud } from "../loot-hud-application";
 import { getLootTokenData } from "../main";
 import { LootToken } from "../loot-token";
-
-const normalizeDropData = (data: DropData, event?: any): any => {
-	console.log('pick-up-stix | normalizeDropData called with args:');
-	console.log([data, event]);
-
-	// TODO: in version 0.7.0 and above, are the x and y already correct?
-	if (event) {
-		// Acquire the cursor position transformed to Canvas coordinates
-		const [x, y] = [event.clientX, event.clientY];
-		const t = canvas.stage.worldTransform;
-		data.x = (x - t.tx) / canvas.stage.scale.x;
-		data.y = (y - t.ty) / canvas.stage.scale.y;
-	}
-
-	const coreVersion = game.data.verson;
-	const is7Newer = isNewerVersion(coreVersion, '0.6.9');
-
-	if (data.actorId) {
-		let actor;
-
-		if (is7Newer) {
-			actor = data.tokenId ? game.actors.tokens[data.tokenId] : game.actors.get(data.actorId);
-		}
-		else {
-			// if Foundry is 0.6.9 or lower then there is no good way to tell which user-controlled token
-			// that the item comes from. We only have the actor ID and multiple tokens could be associated with
-			// the same actor. So we check if the user is controlling only one token and use that token's actor
-			// reference, otherwise we say there is no actor.
-			actor = canvas?.tokens?.controlled?.length === 1 ? canvas.tokens?.controlled?.[0]?.actor : null;
-		}
-
-		data.actor = actor;
-	}
-
-	return data;
-}
 
 /**
  * Handler for the dropCanvasData Foundry hook. This is used

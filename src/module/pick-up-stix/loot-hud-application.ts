@@ -45,7 +45,7 @@ export class LootHud extends BasePlaceableHUD {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
 
     const lootToken = getLootToken(canvas.scene.id, this.object.id);
-    lootToken?.openLootTokenConfig();
+    lootToken?.openConfigSheet();
   }
 
   getData(options) {

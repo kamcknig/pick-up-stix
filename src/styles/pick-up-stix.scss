@@ -15,6 +15,86 @@ $groove-color: #eeede0;
 
   &.item-config-sheet {
     min-height: 500px;
+
+    /**
+    * Sheet header styles
+    */
+    & .sheet-section {
+      border-bottom: 2px groove $groove-color;
+    }
+
+    & .sheet-section-left {
+      border-left: 2px groove $groove-color;
+    }
+
+    & .sheet-section-right {
+      border-right: 2px groove $groove-color;
+      margin-right: 5px;
+    }
+
+    /**
+    * Header profile styles
+    */
+    & .sheet-header {
+      & .profile {
+        border: unset;
+        max-width: 160px;
+        height: auto;
+      }
+
+      /**
+      * Header details section styles
+      */
+      & .header-details {
+        padding: 5px;
+        border-left: 2px groove $groove-color;
+
+        & .container-name {
+          font-family: "Modesto Condensed", "Palatino Linotype", serif;
+          height: 60px;
+          font-size: 3em;
+        }
+
+        & .container-description {
+          font-family: "Signika", sans-serif;
+          font-weight: 400;
+        }
+      }
+    }
+
+    & .character-selection {
+      max-width: 200px;
+
+      & > * {
+        flex: unset;
+      }
+
+      & .row {
+        cursor: pointer;
+        margin-bottom: -2px;
+        align-items: center;
+        border: 2px solid rgba(0, 0, 0, .2);
+
+        &:hover {
+          background-color: rgba(0, 0, 0, .3);
+        }
+
+        &.active {
+          background-color: rgba(0, 0, 0, .2);
+
+          &:hover {
+            background-color: rgba(0, 0, 0, .3);
+          }
+        }
+      }
+
+      & .profile {
+        max-width: 60px;
+        height: auto;
+        flex: unset;
+        border: unset;
+      }
+    }
   }
 
   & .currency-wrapper {
@@ -62,43 +142,6 @@ $groove-color: #eeede0;
     & .copper {
       margin-right: 5px;
       background: url(../assets/currency-sprite.png) -130px 0px;
-    }
-  }
-
-  /**
-   * Sheet header styles
-   */
-  & .sheet-section {
-    border-bottom: 2px groove $groove-color;
-  }
-
-  /**
-   * Header profile styles
-   */
-  & .sheet-header {
-    & .profile {
-      border: unset;
-      max-width: 160px;
-      height: auto;
-    }
-
-    /**
-     * Header details section styles
-     */
-    & .header-details {
-      padding: 5px;
-      border-left: 2px groove $groove-color;
-
-      & .container-name {
-        font-family: "Modesto Condensed", "Palatino Linotype", serif;
-        height: 60px;
-        font-size: 3em;
-      }
-
-      & .container-description {
-        font-family: "Signika", sans-serif;
-        font-weight: 400;
-      }
     }
   }
 

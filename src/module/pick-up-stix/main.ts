@@ -29,9 +29,32 @@ export const getLootToken = (sceneId, tokenId): LootToken => {
 	return lootTokens.find(lt => lt.sceneId === sceneId && lt.tokenId === tokenId);
 }
 
-export const saveLootTokenData = async (): Promise<void> => {
+export const saveLootTokenData = async (sceneId: string, tokenId: string, lootData: PickUpStixFlags): Promise<void> => {
 	console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
-	await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, duplicate(_lootTokenData));
+	const data = mergeObject(duplicate(getLootTokenData()), { [sceneId]: { [tokenId]: lootData } });
+
+	if (Hooks.call('pick-up-stix.preSaveLootTokenData', lootData) === false) {
+		console.log('pick-up-stix | saveLootTokenData | preSaveLootTokenData has returned false, not saving');
+		return;
+	}
+
+	await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, data);
+	Hooks.call('pick-up-stix.saveLootTokenData', duplicate(data));
+}
+
+export const deleteLootTokenData = async (sceneId: string, tokenId: string): Promise<void> => {
+	console.log(`pick-up-stix | deleteLootTokenData | deleteting loot for token '${tokenId} from scene ${sceneId}`);
+	const lootTokenData = duplicate(getLootTokenData());
+	const data = lootTokenData?.[sceneId]?.[tokenId];
+
+	if (Hooks.call('pick-up-stix.preDeleteLootTokenData', sceneId, tokenId, data) === false) {
+		console.log('pick-up-stix | deleteLootTokenData | preDeleteLootTokenData has returned false, not deleting');
+		return;
+	}
+
+	delete lootTokenData?.[sceneId]?.[tokenId];
+	await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, lootTokenData);
+	Hooks.call('pick-up-stix.deleteLootTokenData', duplicate(lootTokenData));
 }
 
 export const normalizeDropData = (data: DropData, event?: any): any => {
@@ -148,7 +171,7 @@ export async function handleItemDropped(dropData: DropData) {
 
 		if (lootToken.itemType === ItemType.CONTAINER) {
 			const id = dropData.actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id
-			lootToken.addItem(itemData, id);
+			await lootToken.addItem(itemData, id);
 			return;
 		}
 	}

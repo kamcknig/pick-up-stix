@@ -1,7 +1,6 @@
-import { SocketMessageType, PickUpStixSocketMessage, ItemType, PickUpStixFlags } from "../models";
+import { SocketMessageType, PickUpStixSocketMessage, ItemType } from "../models";
 import ItemConfigApplication from "../item-config-application";
 import { SettingKeys } from "../settings";
-import { getCurrencyTypes, versionDiff } from "../../../utils";
 
 declare class EntitySheetConfig {
 	static registerSheet(

@@ -21,6 +21,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	private _updateItemHook;
 	private _preDeleteItemHook;
 	private _updateTokenHook;
+	private _controlTokenHook;
 	private _html: any;
 	private _currencyEnabled: boolean;
 	private _token: Token;
@@ -87,9 +88,15 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			this._updateTokenHook = null;
 		}
 
+		if (this._controlTokenHook) {
+			Hooks.off('controlToken', this._controlTokenHook);
+			this._controlTokenHook = null;
+		}
+
 		this._updateItemHook = Hooks.on('updateItem', this.updateItemHook.bind(this));
 		this._preDeleteItemHook = Hooks.on('preDeleteItem', this.preDeleteItemHook.bind(this));
 		this._updateTokenHook = Hooks.on('updateToken', this.updateTokenHook.bind(this));
+		this._controlTokenHook = Hooks.on('controlToken', this.controlTokenHook.bind(this));
 
 		$(html)
 			.find('input')
@@ -137,6 +144,12 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		if (!game.user.isGM) {
 			$(html).find(`input[type="text"]`).addClass('isNotGM');
 		}
+	}
+
+	private controlTokenHook(token, controlled): void {
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
+		this._selectedTokenId;
+		setTimeout(this.render.bind(this), 100);
 	}
 
 	private updateTokenHook(scene, data, diff, options): void {
@@ -195,7 +208,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		const currencyTypes = getCurrencyTypes();
 		const tokens = getValidControlledTokens(this._token).map(t => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' })).filter(t => !!t.token).sort((a, b) => {if (a.token.name < b.token.name) return -1; if (a.token.name > b.token.name) return 1; return 0;});
-		if (!this._selectedTokenId) {
+		if (!this._selectedTokenId && tokens.length) {
 			this._selectedTokenId = tokens[0].token.id;
 			tokens[0].class = 'active';
 		}
@@ -478,6 +491,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		Hooks.off('preDeleteItem', this._preDeleteItemHook);
 		Hooks.off('updateItem', this._updateItemHook);
 		Hooks.off('updateToken', this._updateTokenHook);
+		Hooks.off('controlToken', this._controlTokenHook);
 		return super.close();
 	}
 }

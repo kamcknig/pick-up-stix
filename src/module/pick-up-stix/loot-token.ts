@@ -1,5 +1,15 @@
 import { deleteToken, getQuantityDataPath } from "../../utils";
-import { createEntity, createOwnedItem, createToken, deleteEntity, deleteLootTokenData, getValidControlledTokens, itemCollected, saveLootTokenData, updateEntity } from "./main";
+import {
+  createEntity,
+  createOwnedItem,
+  createToken,
+  deleteEntity,
+  deleteLootTokenData,
+  getValidControlledTokens,
+  itemCollected,
+  saveLootTokenData,
+  updateEntity
+} from "./main";
 import { ItemType, PickUpStixFlags } from "./models";
 
 export interface TokenData {
@@ -83,23 +93,6 @@ export class LootToken {
     this._sceneId = this.token.scene.id;
   }
 
-  private deleteTokenHook = async (scene, token, options, userId) => {
-    if (token._id !== this._tokenId) {
-      return;
-    }
-
-    console.log(`pick-up-stix | LootToken | deleteTokenHook`);
-    await this.remove();
-  }
-
-  private updateTokenHook = (token, data, userId) => {
-    if (token._id !== this._tokenId) {
-      return;
-    }
-
-    console.log(`pick-up-stix | LootToken | updateTokenHook`);
-  }
-
   private saveLootTokenDataHook = (lootTokenData, sceneId, tokenId, data) => {
     console.log(`pick-up-stix | LootToken | saveLootTokenData hook:`);
     console.log([lootTokenData, sceneId, tokenId, data]);
@@ -154,12 +147,6 @@ export class LootToken {
   }
 
   activateListeners() {
-    Hooks.off('deleteToken', this.deleteTokenHook);
-    Hooks.on('deleteToken', this.deleteTokenHook);
-
-    Hooks.off('updateToken', this.updateTokenHook);
-    Hooks.on('updateToken', this.updateTokenHook);
-
     Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
     Hooks.on('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
 
@@ -169,9 +156,8 @@ export class LootToken {
 
   remove = async () => {
     console.log(`pick-up-stix | LootToken | removeToken`);
-    Hooks.off('deleteToken', this.deleteTokenHook);
-    Hooks.off('updateToken', this.updateTokenHook);
     Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
+    await deleteToken(this.token);
     deleteLootTokenData(this.sceneId, this.tokenId);
   }
 
@@ -235,10 +221,10 @@ export class LootToken {
     // Define callback functions for each workflow step
     const callbacks = {
       clickLeft: this.handleClickLeft,
-      clickLeft2: this.handleTokenItemConfig,
-      clickRight: this.handleTokenRightClick,
-      clickRight2: this.handleTokenItemConfig,
-      dragLeftStart: this.token._onDragLeftStart,
+      clickLeft2: this.handleClickLeft2,
+      clickRight: this.handleClickRight,
+      clickRight2: this.handleClickRight2,
+      dragLeftStart: () => { clearTimeout(this._clickTimeout); this.token._onDragLeftStart(); },
       dragLeftMove: this.token._onDragLeftMove,
       dragLeftDrop: this.token._onDragLeftDrop,
       dragLeftCancel: this.token._onDragLeftCancel
@@ -255,7 +241,7 @@ export class LootToken {
 
   private handleClickLeft = (event) => {
     if (event.currentTarget.data.hidden) {
-      console.log(`pick-up-stix | LootToken | handleClicked | token is hidden`);
+      console.log(`pick-up-stix | LootToken | handleClickLeft | token is hidden`);
       // if the loot token is hidden, pass the click on
       // to the token's normal left click method for Foundry
       // to handle
@@ -265,50 +251,72 @@ export class LootToken {
 
     // if the item isn't visible can't pick it up
     if (!this.token.isVisible) {
-      console.log(`pick-up-stix | LootToken | handleClicked | token is not visible to user`);
+      console.log(`pick-up-stix | LootToken | handleClickLeft | token is not visible to user`);
       return;
     }
 
-    let controlledTokens: Token[] = getValidControlledTokens(this.token);
+    /* let controlledTokens: Token[] = getValidControlledTokens(this.token);
+    console.log('pick-up-stix | LootToken | handleClickLeft | controlled tokens:');
+    console.log([controlledTokens]); */
 
     // gm special stuff
     if (game.user.isGM) {
-      console.log(`pick-up-stix | LootToken | handleClicked | user is GM`);
+      /* console.log(`pick-up-stix | LootToken | handleClickLeft | user is GM`); */
 
-      if (!controlledTokens.length) {
-        console.log(`pick-up-stix | LootToken | handleClicked | no controlled tokens, handle normal click`);
+      /* if (!controlledTokens.length) {
+        console.log(`pick-up-stix | LootToken | handleClickLeft | no controlled tokens, handle normal click`);
         this.token._onClickLeft(event);
         return;
-      }
+      } */
 
       // if only controlling the item itself, handle a normal click
-      if (controlledTokens.every(t => this.token === t)) {
-        console.log(`pick-up-stix | LootToken | handleClicked | only controlling the item, handle normal click`);
+      /* if (controlledTokens.every(t => this.token === t)) {
+        console.log(`pick-up-stix | LootToken | handleClickLeft | only controlling the item, handle normal click`);
         this.token._onClickLeft(event);
         return;
-      }
+      } */
     }
 
     // if there are no controlled tokens within reach, show an error
-    if (!controlledTokens.length) {
+    /* if (!controlledTokens.length) {
       ui.notifications.error('You must control at least one token that is close enough in order to interact with this token.');
       return;
-    }
+    } */
 
     // if it's locked then it can't be opened
     if (this._lootData.isLocked) {
-      console.log(`pick-up-stix | LootToken | handleClicked | item is locked`);
+      console.log(`pick-up-stix | LootToken | handleClickLeft | item is locked`);
       var audio = new Audio(CONFIG.sounds.lock);
       audio.play();
       return;
     }
 
     // checking for double click, the double click handler clears this timeout
-    this._clickTimeout = setTimeout(this.finalizeClickLeft, 250, event, controlledTokens);
+    this._clickTimeout = setTimeout(this.finalizeClickLeft, 250, event);
   }
 
-  private finalizeClickLeft = async (event, controlledTokens) => {
+  private finalizeClickLeft = async (event) => {
     console.log('pick-up-stix | LootToken | finalizeClickLeft');
+
+    const tokens = getValidControlledTokens(this.token);
+
+    if (this._lootData.itemType === ItemType.ITEM) {
+      console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
+
+      if (!tokens.length) {
+        ui.notifications.error(`Please ensure you have at least one token controlled that is close enough to the loot token.`);
+        return;
+      }
+
+      // TODO: add token selection
+      // if it's just a single item, delete the map token and create an new item on the player
+      const data = duplicate(this._lootData.itemData);
+      itemCollected(tokens[0], data);
+      await createOwnedItem(tokens[0].actor, [data]);
+      this.token.mouseInteractionManager?._deactivateDragEvents();
+      this.remove();
+      // await deleteToken(this.token);
+      }
 
     if (this._lootData.itemType === ItemType.CONTAINER) {
       console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
@@ -349,32 +357,16 @@ export class LootToken {
 
       return;
     }
-
-    // onto the section if the item is NOT a container
-
-    console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
-
-    // if the user controls one token use it, otherwise ask which token to use
-    // TODO: calcluate proper valid tokens
-    const controlledToken: Token = controlledTokens[0];
-
-    if (!controlledToken) {
-      console.log(`pick-up-stix | LootToken | finalizeClickLeft | no token selected from dialog`);
-      ui.notifications.error('You must control at least one token that is close enough in order to interact with this token.');
-      return;
-    }
-
-    // if it's just a single item, delete the map token and create an new item on the player
-    itemCollected(controlledToken, { ...this._lootData.itemData });
-    await createOwnedItem(controlledToken.actor, [{
-      ...this._lootData.itemData
-    }]);
-    this.token.mouseInteractionManager?._deactivateDragEvents();
-    await deleteToken(this.token);
   }
 
-  private handleTokenItemConfig = async () => {
-    console.log('pick-up-stix | LootToken | handleTokenItemConfig');
+  private handleClickLeft2 = (event) => {
+    console.log('pick-up-stix | LootToken | handleClickLeft2');
+    clearTimeout(this._clickTimeout);
+    this.openConfigSheet();
+  }
+
+  private handleClickRight2 = (event) => {
+    console.log('pick-up-stix | LootToken | handleClickRight2');
     clearTimeout(this._clickTimeout);
     this.openConfigSheet();
   }
@@ -438,7 +430,7 @@ export class LootToken {
   }
 
   private _clickTimeout;
-  private handleTokenRightClick = () => {
+  private handleClickRight = () => {
     clearTimeout(this._clickTimeout);
 
     const hud = canvas.hud.pickUpStixLootHud;

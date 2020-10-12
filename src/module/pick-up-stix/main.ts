@@ -90,7 +90,7 @@ export const deleteLootTokenData = async (sceneId: string, tokenId: string): Pro
 
 export const getValidControlledTokens = (token): Token[] => {
 	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-	const controlled = canvas.tokens.ownedTokens.filter(t => {
+	const controlled = canvas.tokens.controlled.filter(t => {
 		const d = dist(t, token);
 		console.log(`${t.actor.name} at ${t.x}, ${t.y}`);
 		console.log(`${t.actor.name} is ${d} units from ${token.name}. Max dist ${maxDist}`);

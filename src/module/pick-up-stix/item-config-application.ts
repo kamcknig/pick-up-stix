@@ -128,7 +128,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		$(html).find(`input[type="text"]`).prop('readonly', !game.user.isGM);
 		$(html).find(`input[type="text"]`).prop('disabled', 	!game.user.isGM);
 
-		$(html).find('input#canCloseCheckbox').prop('checked', this.object.getFlag('pick-up-stix', 'pick-up-stix.conatiner.canClose') ?? true);
+		$(html).find('input#canCloseCheckbox').prop('checked', this.object.getFlag('pick-up-stix', 'pick-up-stix.container.canClose') ?? true);
 
 		if (this.object) {
 			$(html).find('input#scale').val(this.object?.data?.width ?? 1);

@@ -2,6 +2,7 @@ import { SocketMessageType, PickUpStixSocketMessage, ItemType } from "../models"
 import ItemConfigApplication from "../item-config-application";
 import { SettingKeys } from "../settings";
 import { versionDiff } from "../../../utils";
+import { createEntity, deleteEntity, deleteLootTokenData, saveLootTokenData } from "../main";
 
 declare class EntitySheetConfig {
 	static registerSheet(
@@ -71,7 +72,10 @@ export async function readyHook() {
 
 	const activeVersion = game.modules.get('pick-up-stix').data.version;
 	const previousVersion = game.settings.get('pick-up-stix', SettingKeys.version);
-	await game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
+
+	if (game.user.isGM) {
+		await game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
+	}
 
 	const diff = versionDiff(activeVersion, previousVersion);
 	if (diff < 0) {
@@ -138,6 +142,18 @@ export async function readyHook() {
 				break;
 			case SocketMessageType.createItemToken:
 				await Token.create(msg.data);
+				break;
+			case SocketMessageType.saveLootTokenData:
+				saveLootTokenData(msg.data.sceneId, msg.data.tokenid, msg.data.lootData);
+				break;
+			case SocketMessageType.deleteLootTokenData:
+				deleteLootTokenData(msg.data.sceneId, msg.data.tokenId);
+				break;
+			case SocketMessageType.createEntity:
+				createEntity(msg.data.data, msg.data.options);
+				break;
+			case SocketMessageType.deleteEntity:
+				deleteEntity(msg.data.uuid);
 				break;
 		}
 	});

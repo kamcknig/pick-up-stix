@@ -34,6 +34,10 @@ export interface DropData {
 }
 
 export interface PickUpStixFlags {
+	// when creating a new Item Entity to configure for tokens, it's marked as a template
+	// these are dummy items that shouldn't live after the token is gone.
+	isTemplate?: boolean;
+
 	itemType: ItemType;
 
 	// if the item becomes an owned item, then we need to know who the owner is

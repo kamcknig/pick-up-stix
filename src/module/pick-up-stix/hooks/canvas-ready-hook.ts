@@ -77,6 +77,13 @@ export async function canvasReadyHook(canvas) {
 		else {
 			lootToken.activateListeners();
 		}
+
+		for (let i of game.items.values()) {
+			if (i.getFlag('pick-up-stix', 'pick-up-stix.isTemplate') === true) {
+				console.log('pick-up-stix | canvasReadyHook | founnd template Item, removing it');
+				await i.delete();
+			}
+		}
   }
 
 	// loop through the canvas' tokens and ensure that any that are locked

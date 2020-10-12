@@ -1,5 +1,5 @@
 import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
-import { getCurrencyTypes, getQuantityDataPath } from '../../utils'
+import { dist, getCurrencyTypes } from '../../utils'
 import { SettingKeys } from "./settings";
 import { LootToken } from "./loot-token";
 
@@ -12,18 +12,9 @@ export interface LootTokenData {
 export const lootTokens: LootToken[] = [];
 window['lootTokens'] = lootTokens;
 
-let _lootTokenData: LootTokenData;
-window['getLootTokenData'] = (): LootTokenData => {
-	if (_lootTokenData) {
-		return _lootTokenData;
-	}
-
-	console.log('pick-up-stix | getLootTokenData | creating initial copy of loot token data from settings DB');
-	_lootTokenData = duplicate(game.settings.get('pick-up-stix', SettingKeys.lootTokenData));
-	return _lootTokenData;
+export const getLootTokenData = (): LootTokenData => {
+	return duplicate(game.settings.get('pick-up-stix', SettingKeys.lootTokenData));
 }
-
-export const getLootTokenData: () => LootTokenData = window['getLootTokenData'];
 
 export const getLootToken = (sceneId, tokenId): LootToken => {
 	return lootTokens.find(lt => lt.sceneId === sceneId && lt.tokenId === tokenId);
@@ -55,6 +46,19 @@ export const deleteLootTokenData = async (sceneId: string, tokenId: string): Pro
 	delete lootTokenData?.[sceneId]?.[tokenId];
 	await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, lootTokenData);
 	Hooks.call('pick-up-stix.deleteLootTokenData', duplicate(lootTokenData));
+}
+
+export const getValidControlledTokens = (token): Token[] => {
+	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
+	const controlled = canvas.tokens.ownedTokens.filter(t => {
+		const d = dist(t, token);
+		console.log(`${t.actor.name} at ${t.x}, ${t.y}`);
+		console.log(`${t.actor.name} is ${d} units from ${token.name}. Max dist ${maxDist}`);
+		const lootData = getLootTokenData()[t.scene.id]?.[t.id];
+		return !lootData && d < (maxDist + 20)
+	});
+
+	return controlled;
 }
 
 export const normalizeDropData = (data: DropData, event?: any): any => {

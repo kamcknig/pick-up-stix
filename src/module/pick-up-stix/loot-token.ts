@@ -1,6 +1,6 @@
 import { deleteToken, dist, getQuantityDataPath } from "../../utils";
 import ChooseTokenApplication from "./choose-token-application";
-import { createOwnedItem, createToken, deleteLootTokenData, getLootTokenData, itemCollected, saveLootTokenData, updateEntity } from "./main";
+import { createOwnedItem, createToken, deleteLootTokenData, getLootTokenData, getValidControlledTokens, itemCollected, saveLootTokenData, updateEntity } from "./main";
 import { ItemType, PickUpStixFlags } from "./models";
 
 export interface TokenData {
@@ -215,7 +215,7 @@ export class LootToken {
       return;
     }
 
-    let controlledTokens: Token[] = [ ...canvas.tokens.controlled ];
+    let controlledTokens: Token[] = getValidControlledTokens(this.token);
 
     // gm special stuff
     if (game.user.isGM) {
@@ -234,13 +234,6 @@ export class LootToken {
         return;
       }
     }
-
-    // get only the tokens that are within the right distance
-    const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-    controlledTokens = controlledTokens.filter(t => {
-      const d = dist(t, this.token);
-      return d < (maxDist + 20) && !getLootTokenData()[this.sceneId][t.id];
-    });
 
     // if there are no controlled tokens within reach, show an error
     if (!controlledTokens.length) {

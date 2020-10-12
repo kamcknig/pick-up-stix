@@ -83,14 +83,18 @@ export enum SocketMessageType {
 	updateEntity,
 	updateActor,
 	createOwnedEntity,
-	createItemToken
+	createItemToken,
+	saveLootTokenData,
+	deleteLootTokenData,
+	createEntity,
+	deleteEntity
 }
 
 export interface PickUpStixSocketMessage {
 	// user ID of the sender
 	sender: string;
 	type: SocketMessageType;
-	data: any;
+	data?: any;
 }
 
 export enum ItemType {

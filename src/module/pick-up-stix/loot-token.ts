@@ -1,6 +1,5 @@
-import { deleteToken, dist, getQuantityDataPath } from "../../utils";
-import ChooseTokenApplication from "./choose-token-application";
-import { createOwnedItem, createToken, deleteLootTokenData, getLootTokenData, getValidControlledTokens, itemCollected, saveLootTokenData, updateEntity } from "./main";
+import { deleteToken, getQuantityDataPath } from "../../utils";
+import { createEntity, createOwnedItem, createToken, deleteEntity, deleteLootTokenData, getValidControlledTokens, itemCollected, saveLootTokenData, updateEntity } from "./main";
 import { ItemType, PickUpStixFlags } from "./models";
 
 export interface TokenData {
@@ -43,6 +42,8 @@ export class LootToken {
     }
 
     const t = new LootToken(tokenId, lootData);
+    t.save();
+    t.activateListeners();
     return t;
   }
 
@@ -76,8 +77,6 @@ export class LootToken {
     private _lootData?: PickUpStixFlags
   ) {
     this._sceneId = this.token.scene.id;
-    this.save();
-    this.activateListeners();
   }
 
   private deleteTokenHook = async (scene, token, options, userId) => {
@@ -97,6 +96,12 @@ export class LootToken {
     console.log(`pick-up-stix | LootToken | updateTokenHook`);
   }
 
+  private saveLootTokenDataHook = (lootTokenData, sceneId, tokenId, data) => {
+    console.log(`pick-up-stix | LootToken | saveLootTokenData hook:`);
+    console.log([lootTokenData, sceneId, tokenId, data]);
+    this._lootData = data;
+  }
+
   /**
    * Save the token's current loot data to the settings db.
    *
@@ -106,7 +111,7 @@ export class LootToken {
    */
   save = async () => {
     console.log(`pick-up-stix | LootToken | save`);
-    saveLootTokenData(this.sceneId, this.tokenId, this._lootData);
+    await saveLootTokenData(this.sceneId, this.tokenId, this._lootData);
   }
 
   activateListeners() {
@@ -116,6 +121,9 @@ export class LootToken {
     Hooks.off('updateToken', this.updateTokenHook);
     Hooks.on('updateToken', this.updateTokenHook);
 
+    Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
+    Hooks.on('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
+
     this.token.mouseInteractionManager = this.setupMouseManager();
     this.token.activateListeners = this.setupMouseManager;
   }
@@ -124,6 +132,7 @@ export class LootToken {
     console.log(`pick-up-stix | LootToken | removeToken`);
     Hooks.off('deleteToken', this.deleteTokenHook);
     Hooks.off('updateToken', this.updateTokenHook);
+    Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
     deleteLootTokenData(this.sceneId, this.tokenId);
   }
 
@@ -349,7 +358,7 @@ export class LootToken {
       }
       : duplicate(this._lootData.itemData);
 
-    const i = await Item.create(data, { submitOnChange: true });
+    const i = await createEntity(data, { submitOnChange: true });
     this._config = i.sheet.render(true, { renderData: { tokenId: this.tokenId } }) as FormApplication;
 
     const hook = Hooks.on('updateItem', async (item, data, options) => {
@@ -364,7 +373,7 @@ export class LootToken {
         this._lootData.itemData = duplicate(item.data);
       }
 
-      this.save();
+      await this.save();
     });
 
     const sheetCloseHandler = async (sheet, html) => {
@@ -372,7 +381,7 @@ export class LootToken {
         return;
       }
       console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
-      await i.delete();
+      await deleteEntity(i.uuid);
       this._config = null;
       Hooks.off('updateItem', hook as any);
       Hooks.off('closeItemSheet', sheetCloseHandler);

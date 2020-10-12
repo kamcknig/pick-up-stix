@@ -46,7 +46,8 @@ export const registerSettings = function() {
 		hint: 'Used to track which version is last loaded, so that we can give updates to users',
 		scope: 'world',
 		config: false,
-		default: undefined
+		type: String,
+		default: '0.0.0'
 	});
 
 	// Register any custom module settings here

@@ -1,9 +1,9 @@
-import { dist, getCurrencyTypes, getPriceDataPath, getQuantityDataPath, _onChangeInputDelta } from '../../utils';
+import { getCurrencyTypes, getPriceDataPath, getQuantityDataPath, _onChangeInputDelta } from '../../utils';
 import ContainerImageSelectionApplication from "./container-image-selection-application.js";
 import {
 	createOwnedItem,
 	currencyCollected,
-	getLootTokenData,
+	getValidControlledTokens,
 	itemCollected,
 	normalizeDropData,
 	updateActor,
@@ -141,6 +141,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 	private updateTokenHook(scene, data, diff, options): void {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateTokenHook`);
+		this._selectedTokenId = null;
 		setTimeout(this.render.bind(this), 100);
 	}
 
@@ -193,7 +194,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
 		const currencyTypes = getCurrencyTypes();
-		const tokens = this.getValidControlledTokens().map(t => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' })).filter(t => !!t.token);
+		const tokens = getValidControlledTokens(this._token).map(t => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' })).filter(t => !!t.token).sort((a, b) => {if (a.token.name < b.token.name) return -1; if (a.token.name > b.token.name) return 1; return 0;});
+		if (!this._selectedTokenId) {
+			this._selectedTokenId = tokens[0].token.id;
+			tokens[0].class = 'active';
+		}
 
 		const data = {
 			currencyEnabled: this._currencyEnabled,
@@ -209,7 +214,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			user: game.user,
 			quantityDataPath,
 			hasToken: !!this._token,
-			tokens: tokens.map((t, index, arr) => index === 0  && !arr.some(e => e.class === 'active') ? { ...t, class: 'active' } : { ...t } )
+			tokens
 		};
 
 		console.log(data);
@@ -280,22 +285,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 				}
 			}
 		});
-	}
-
-	getValidControlledTokens(): Token[] {
-		if (!this._token) {
-			return [];
-		}
-
-		const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
-		const controlled = canvas.tokens.ownedTokens.filter(t => {
-			const d = dist(t, this._token);
-			console.log(`${t.actor.name} at ${t.x}, ${t.y}`);
-			console.log(`${t.actor.name} is ${d} units from ${this._token.name}. Max dist ${maxDist}`);
-			return d < (maxDist + 20) && !getLootTokenData()[t.scene.id][t.id];
-		});
-
-		return controlled;
 	}
 
 	protected async _onTakeItem(e) {

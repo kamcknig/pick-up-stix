@@ -1,5 +1,3 @@
-import { drawLockIcon, } from "../main";
-
 export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: any, userId: string) {
   console.log(`pick-up-stix | onUpdateToken | called with args:`)
   console.log([scene, tokenData, tokenFlags, userId]);
@@ -14,7 +12,8 @@ export async function onUpdateToken(scene: Scene, tokenData: any, tokenFlags: an
 				console.log(`pick-up-stix | onUpdateToken | token is locked, draw lock icon`);
 				await new Promise(resolve => {
 					setTimeout(() => {
-            drawLockIcon(token);
+						// TODO: update
+            // drawLockIcon(token);
             resolve();
 					}, 0);
 				});

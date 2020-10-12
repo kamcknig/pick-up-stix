@@ -1,8 +1,13 @@
-import { handleItemDropped, drawLockIcon, getLootToken, lootTokens, normalizeDropData } from "../main";
-import { DropData, PickUpStixFlags } from "../models";
 import { LootHud } from "../loot-hud-application";
-import { getLootTokenData } from "../main";
 import { LootToken } from "../loot-token";
+import {
+	deleteEntity,
+	getLootToken,
+	getLootTokenData,
+	handleItemDropped,
+	lootTokens,
+	normalizeDropData
+} from "../main";
 
 /**
  * Handler for the dropCanvasData Foundry hook. This is used
@@ -62,8 +67,10 @@ export async function canvasReadyHook(canvas) {
   const tokens = lootTokenData[canvas.scene.id];
   for (let [tokenId, data] of Object.entries(tokens ?? {})) {
 		let token: Token;
+		// find an instance of LootToken for the given data
 		let lootToken = getLootToken(canvas.scene.id, tokenId);
 
+		// if we haven't yet created a LootToken for it, create the LootToken instance now
 		if (!lootToken) {
 			console.log(`pick-up-stix | canvasReadyHook | LootToken instance not found for scene '${canvas.scene.id}' token '${tokenId}'`);
 			token = canvas.tokens?.placeables?.find(p => p.id === tokenId);
@@ -77,30 +84,16 @@ export async function canvasReadyHook(canvas) {
 		else {
 			lootToken.activateListeners();
 		}
+	}
 
+	if (game.user.isGM) {
 		for (let i of game.items.values()) {
 			if (i.getFlag('pick-up-stix', 'pick-up-stix.isTemplate') === true) {
-				console.log('pick-up-stix | canvasReadyHook | founnd template Item, removing it');
-				await i.delete();
+				console.log('pick-up-stix | canvasReadyHook | found template Item, removing it');
+				await deleteEntity(i.uuid);
 			}
 		}
-  }
-
-	// loop through the canvas' tokens and ensure that any that are locked
-	// have the lock icon drawn and set up the mouse interactions
-  canvas?.tokens?.placeables?.forEach(async (p: PlaceableObject) => {
-		const flags: PickUpStixFlags = p.getFlag('pick-up-stix', 'pick-up-stix');
-
-		if (!!getLootTokenData()[p.id]) {
-      console.log(`pick-up-stix | canvasReadyHook | found token ${p.id} with loot data`);
-			//p.mouseInteractionManager = setupMouseManager.bind(p)();
-
-			if (flags.isLocked) {
-				console.log(`pick-up-stix | canvasReadyHook | loot is locked, draw lock icon`);
-				await drawLockIcon(p);
-			}
-		}
-  });
+	}
 
 	const coreVersion: string = game.data.version;
 	if (isNewerVersion(coreVersion, '0.6.9')) {

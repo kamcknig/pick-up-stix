@@ -1,4 +1,4 @@
-import { getLootToken, toggleItemLocked } from "./main";
+import { getLootToken } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
 
 export class LootHud extends BasePlaceableHUD {
@@ -24,20 +24,26 @@ export class LootHud extends BasePlaceableHUD {
     console.log(html);
     super.activateListeners(html);
     html.find(".config").click(this._onTokenConfig.bind(this));
-    html.find(".locked").click(this._onToggleItemLocked.bind(this.object));
-    html.find(".emit-light").click(this._onConfigureLightEmission.bind(this.object));
+    html.find(".locked").click(this._onToggleItemLocked.bind(this));
+    html.find(".emit-light").click(this._onConfigureLightEmission.bind(this));
   }
 
   private async _onConfigureLightEmission(event) {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
     // TODO: look into this
-    const f = new LootEmitLightConfigApplication(this, {}).render(true);
+    const f = new LootEmitLightConfigApplication(this.object, {}).render(true);
   }
 
   private async _onToggleItemLocked(event) {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
-    // TODO: look into this
-    await toggleItemLocked.call(this, event);
+    const lootToken = getLootToken(this.object.scene.id, this.object.id);
+
+    if (!lootToken) {
+      console.error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
+      return;
+    }
+
+    await lootToken.toggleLocked();
     this.render();
   }
 
@@ -51,10 +57,16 @@ export class LootHud extends BasePlaceableHUD {
   getData(options) {
     console.log(`pick-up-stix | LootHud ${this.appId} | getData`);
     const data = super.getData();
+
+    const lootData = getLootToken(this.object.scene.id, this.object.id);
+    if (!lootData) {
+      console.error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
+    }
+
     return mergeObject(data, {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),
       visibilityClass: data.hidden ? 'active' : '',
-      lockedClass: this.object.getFlag('pick-up-stix', 'pick-up-stix.isLocked') ? 'active' : ''
+      lockedClass: lootData.isLocked ? 'active' : ''
     });
   }
 }

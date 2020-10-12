@@ -12,7 +12,7 @@ export interface TokenData {
 }
 
 export class LootToken {
-  /**
+	/**
    * Creates a new LootToken instance. A new Token instance may or may not be created
    * depending on the parameters passed
    *
@@ -42,9 +42,13 @@ export class LootToken {
     }
 
     const t = new LootToken(tokenId, lootData);
-    t.save();
     t.activateListeners();
+    t.save();
     return t;
+  }
+
+  get isLocked(): boolean {
+    return !!this._lootData.isLocked;
   }
 
   get itemType(): ItemType {
@@ -100,6 +104,41 @@ export class LootToken {
     console.log(`pick-up-stix | LootToken | saveLootTokenData hook:`);
     console.log([lootTokenData, sceneId, tokenId, data]);
     this._lootData = data;
+
+    if (this._lootData.isLocked) {
+      this.drawLock();
+    }
+    else {
+      const lock = this.token.getChildByName('pick-up-stix-lock');
+      if (lock) {
+        this.token.removeChild(lock);
+        lock.destroy();
+      }
+    }
+  }
+
+  private async drawLock() {
+    console.log(`pick-up-stix | LootToken | drawLockIcon`);
+
+    if (!game.user.isGM) {
+      console.log(`pick-up-stix | LootToken | drawLockIcon | user is not GM, not drawing lock`);
+      return;
+    }
+
+    const token = this.token;
+    const lock = this.token.getChildByName('pick-up-stix-lock');
+    if (lock) {
+      console.log(`pick-up-stix | LootToken | drawLock | found previous lock icon, removing it`)
+      token.removeChild(lock);
+      lock.destroy();
+    }
+
+    const tex = await loadTexture('icons/svg/padlock.svg');
+    const icon = token.addChild(new PIXI.Sprite(tex));
+    icon.name = 'pick-up-stix-lock';
+    icon.width = icon.height = 40;
+    icon.alpha = .5;
+    icon.position.set(token.width * .5 - icon.width * .5, token.height * .5 - icon.height * .5);
   }
 
   /**
@@ -134,6 +173,12 @@ export class LootToken {
     Hooks.off('updateToken', this.updateTokenHook);
     Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
     deleteLootTokenData(this.sceneId, this.tokenId);
+  }
+
+  toggleLocked = async () => {
+    console.log(`pick-up-stix | LootToken | toggleLocked`);
+    this._lootData.isLocked  = !this._lootData.isLocked;
+    this.save();
   }
 
   addItem = async (data: any, id: string): Promise<void> => {
@@ -189,7 +234,7 @@ export class LootToken {
 
     // Define callback functions for each workflow step
     const callbacks = {
-      clickLeft: this.handleClicked,
+      clickLeft: this.handleClickLeft,
       clickLeft2: this.handleTokenItemConfig,
       clickRight: this.handleTokenRightClick,
       clickRight2: this.handleTokenItemConfig,
@@ -208,7 +253,7 @@ export class LootToken {
     return new MouseInteractionManager(this.token, canvas.stage, permissions, callbacks, options).activate();
   }
 
-  private handleClicked = (event) => {
+  private handleClickLeft = (event) => {
     if (event.currentTarget.data.hidden) {
       console.log(`pick-up-stix | LootToken | handleClicked | token is hidden`);
       // if the loot token is hidden, pass the click on

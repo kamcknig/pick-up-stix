@@ -1,14 +1,13 @@
 import { canvasReadyHook } from "./module/pick-up-stix/hooks/canvas-ready-hook";
 import { onCreateActor } from "./module/pick-up-stix/hooks/create-actor-hook";
 import { onCreateItem } from "./module/pick-up-stix/hooks/create-item-hook";
-import { deleteLootTokenDataHook } from "./module/pick-up-stix/hooks/delete-loot-token-data-hook";
 import { initHook } from "./module/pick-up-stix/hooks/init-hook";
 import { onPreCreateOwnedItem } from "./module/pick-up-stix/hooks/pre-create-owned-item-hook";
 import { readyHook } from "./module/pick-up-stix/hooks/ready-hook";
 import { preCreateItemHook } from "./module/pick-up-stix/hooks/pre-create-item-hook";
 import { onRenderLootHud } from "./module/pick-up-stix/hooks/render-loot-hud-hook";
-import { onUpdateToken } from "./module/pick-up-stix/hooks/update-token-hook";
 import { processHtml } from "./module/pick-up-stix/settings";
+import { deleteTokenHook } from "./module/pick-up-stix/hooks/delete-token-hook";
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -24,8 +23,7 @@ Hooks.on('createActor', onCreateActor);
 Hooks.on('preCreateOwnedItem', onPreCreateOwnedItem);
 
 // token hooks
-Hooks.on('updateToken', onUpdateToken);
-Hooks.on('pick-up-stix.deleteLootTokenData', deleteLootTokenDataHook);
+Hooks.on('deleteToken', deleteTokenHook);
 
 // render hooks
 Hooks.on("renderSettingsConfig", (app, html, user) => {

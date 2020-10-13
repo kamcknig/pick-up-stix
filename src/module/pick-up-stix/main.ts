@@ -24,16 +24,13 @@ export const getLootToken = (sceneId, tokenId): LootToken => {
 
 export const saveLootTokenData = async (sceneId: string, tokenId: string, lootData: PickUpStixFlags): Promise<void> => {
 	console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
-	const data = mergeObject(duplicate(getLootTokenData()), { [sceneId]: { [tokenId]: lootData } });
+	const currentData = duplicate(getLootTokenData());
 
-	if (Hooks.call('pick-up-stix.preSaveLootTokenData', lootData) === false) {
-		console.log('pick-up-stix | saveLootTokenData | preSaveLootTokenData has returned false, not saving');
-		return;
-	}
+	mergeObject(currentData, { [sceneId]: { [tokenId]: lootData } });
 
 	if (game.user.isGM) {
-		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, data);
-		Hooks.call('pick-up-stix.saveLootTokenData', duplicate(data), sceneId, tokenId, duplicate(lootData));
+		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, currentData);
+		Hooks.callAll('pick-up-stix.saveLootTokenData', sceneId, tokenId, duplicate(lootData));
 		return;
 	}
 
@@ -48,29 +45,31 @@ export const saveLootTokenData = async (sceneId: string, tokenId: string, lootDa
 	};
 
 	game.socket.emit('module.pick-up-stix', msg, () => {
-		console.log(`pick-up-stix | updateEntity | socket message handled`);
+		console.log(`pick-up-stix | saveLootTokenData | socket message handled`);
 	});
 }
 
 export const deleteLootTokenData = async (sceneId: string, tokenId: string): Promise<void> => {
 	console.log(`pick-up-stix | deleteLootTokenData | deleteting loot for token '${tokenId} from scene ${sceneId}`);
 	const lootTokenData = duplicate(getLootTokenData());
-	const data = lootTokenData?.[sceneId]?.[tokenId];
+
+	let data;
+	try {
+		data = duplicate(lootTokenData?.[sceneId]?.[tokenId]);
+	}
+	catch (e) {
+		data = null;
+	}
 
 	if (!data) {
 		console.log('pick-up-stix | deleteLootTokenData | data not found, no need to delete');
 		return;
 	}
 
-	if (Hooks.call('pick-up-stix.preDeleteLootTokenData', sceneId, tokenId, data) === false) {
-		console.log('pick-up-stix | deleteLootTokenData | preDeleteLootTokenData has returned false, not deleting');
-		return;
-	}
-
 	if (game.user.isGM) {
 		delete lootTokenData?.[sceneId]?.[tokenId];
 		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, lootTokenData);
-		Hooks.call('pick-up-stix.deleteLootTokenData', lootTokenData, sceneId, tokenId, duplicate(data));
+		lootTokens.findSplice(t => t.sceneId === sceneId && t.tokenId === tokenId);
 		return;
 	}
 
@@ -91,6 +90,10 @@ export const deleteLootTokenData = async (sceneId: string, tokenId: string): Pro
 export const getValidControlledTokens = (token): Token[] => {
 	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
 	const controlled = canvas.tokens.controlled.filter(t => {
+		if (!t.actor) {
+			return false;
+		}
+
 		const d = dist(t, token);
 		console.log(`${t.actor.name} at ${t.x}, ${t.y}`);
 		console.log(`${t.actor.name} is ${d} units from ${token.name}. Max dist ${maxDist}`);
@@ -492,24 +495,9 @@ export const createToken = async (data: any): Promise<string> => {
 	});
 }
 
-export const itemCollected = (actorToken, item) => {
-	ChatMessage.create({
-		content: `
-			<p>Picked up ${item.name}</p>
-			<img src="${item.img}" style="width: 40px;" />
-		`,
-		speaker: {
-			alias: actorToken.actor.name,
-			scene: (game.scenes as any).active.id,
-			actor: actorToken.actor.id,
-			token: actorToken.id
-		}
-	});
-}
-
-export const currencyCollected = (actorToken, currency) => {
+export const currencyCollected = (token, currency) => {
 	console.log(`pick-up-stix | currencyCollected | called with args:`);
-	console.log([actorToken, currency]);
+	console.log([token, currency]);
 	let chatContent = '';
 	Object.entries(currency).forEach(([k, v]) => {
 		chatContent += `<span class="pick-up-stix-chat-currency ${k}"></span><span>(${k}) ${v}</span><br />`;
@@ -518,10 +506,25 @@ export const currencyCollected = (actorToken, currency) => {
 	ChatMessage.create({
 		content,
 		speaker: {
-			alias: actorToken.actor.name,
-			scene: (game.scenes as any).active.id,
-			actor: actorToken.actor.id,
-			token: actorToken.id
+			alias: token.actor.name,
+			scene: token.scene.id,
+			actor: token.actor.id,
+			token: token.id
+		}
+	});
+}
+
+export const itemCollected = (token, item): void => {
+	ChatMessage.create({
+		content: `
+			<p>Picked up ${item.name}</p>
+			<img src="${item.img}" style="width: 40px;" />
+		`,
+		speaker: {
+			alias: token.actor.name,
+			scene: token.scene.id,
+			actor: token.actor.id,
+			token: token.id
 		}
 	});
 }

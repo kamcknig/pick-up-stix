@@ -8,6 +8,7 @@ import {
 	lootTokens,
 	normalizeDropData
 } from "../main";
+import { SettingKeys } from "../settings";
 
 /**
  * Handler for the dropCanvasData Foundry hook. This is used
@@ -63,19 +64,23 @@ export async function canvasReadyHook(canvas) {
   console.log(`pick-up-stix | canvasReadyHook`);
   console.log([canvas]);
 
-  const lootTokenData = getLootTokenData();
-  const tokens = lootTokenData[canvas.scene.id];
+	const lootTokenData = getLootTokenData();
+	const sceneId = canvas.scene.id;
+	const tokens = lootTokenData[sceneId];
+	let lootTokenUpdates = false;
   for (let [tokenId, data] of Object.entries(tokens ?? {})) {
 		let token: Token;
 		// find an instance of LootToken for the given data
-		let lootToken = getLootToken(canvas.scene.id, tokenId);
+		let lootToken = getLootToken(sceneId, tokenId);
 
 		// if we haven't yet created a LootToken for it, create the LootToken instance now
 		if (!lootToken) {
-			console.log(`pick-up-stix | canvasReadyHook | LootToken instance not found for scene '${canvas.scene.id}' token '${tokenId}'`);
+			console.log(`pick-up-stix | canvasReadyHook | LootToken instance not found for scene '${sceneId}' token '${tokenId}'`);
 			token = canvas.tokens?.placeables?.find(p => p.id === tokenId);
 			if (!token) {
-				console.log(`pick-up-stix | canvasReadyHook | Could not find Token '${tokenId}' on scene '${canvas.scene.id}' but it exists in loot token data`);
+				console.log(`pick-up-stix | canvasReadyHook | Could not find Token '${tokenId}' on scene '${sceneId}' but it exists in loot token data`);
+				delete lootTokenData[sceneId][tokenId];
+				lootTokenUpdates = true;
 				continue;
 			}
 			lootToken = await LootToken.create({ ...token.data, id: tokenId }, data);
@@ -84,6 +89,10 @@ export async function canvasReadyHook(canvas) {
 		else {
 			lootToken.activateListeners();
 		}
+	}
+
+	if (game.user.isGM && lootTokenUpdates) {
+		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, lootTokenData);
 	}
 
 	if (game.user.isGM) {

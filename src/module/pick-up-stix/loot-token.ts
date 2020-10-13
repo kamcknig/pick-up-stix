@@ -1,4 +1,4 @@
-import { deleteToken, getQuantityDataPath } from "../../utils";
+import { getQuantityDataPath } from "../../utils";
 import {
   createEntity,
   createOwnedItem,
@@ -53,7 +53,7 @@ export class LootToken {
 
     const t = new LootToken(tokenId, lootData);
     t.activateListeners();
-    t.save();
+    await t.save();
     return t;
   }
 
@@ -90,19 +90,37 @@ export class LootToken {
     private _tokenId: string,
     private _lootData?: PickUpStixFlags
   ) {
+    console.log('pick-up-stix | LootToken | constructor:');
+    console.log([this._tokenId, this._lootData]);
     this._sceneId = this.token.scene.id;
   }
 
-  private saveLootTokenDataHook = (lootTokenData, sceneId, tokenId, data) => {
+  private deleteTokenHook = async (scene, tokenData, options, userId) => {
+    if (scene.id !== this.sceneId || tokenData._id !== this.tokenId) {
+      return;
+    }
+
+    console.log('pick-up-stix | LootToken | deleteTokenHook');
+    console.log([scene, tokenData, options, userId]);
+
+    this.deactivateListeners();
+  }
+
+  private saveLootTokenDataHook = (sceneId, tokenId, data) => {
+    if (sceneId !== this.sceneId || this.tokenId !== tokenId) {
+      return;
+    }
+
     console.log(`pick-up-stix | LootToken | saveLootTokenData hook:`);
-    console.log([lootTokenData, sceneId, tokenId, data]);
+    console.log([sceneId, tokenId, data]);
+
     this._lootData = data;
 
     if (this._lootData.isLocked) {
       this.drawLock();
     }
     else {
-      const lock = this.token.getChildByName('pick-up-stix-lock');
+      const lock = this.token?.getChildByName('pick-up-stix-lock');
       if (lock) {
         this.token.removeChild(lock);
         lock.destroy();
@@ -119,7 +137,7 @@ export class LootToken {
     }
 
     const token = this.token;
-    const lock = this.token.getChildByName('pick-up-stix-lock');
+    const lock = this.token?.getChildByName('pick-up-stix-lock');
     if (lock) {
       console.log(`pick-up-stix | LootToken | drawLock | found previous lock icon, removing it`)
       token.removeChild(lock);
@@ -150,15 +168,23 @@ export class LootToken {
     Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
     Hooks.on('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
 
+    Hooks.off('deleteToken', this.deleteTokenHook);
+    Hooks.on('deleteToken', this.deleteTokenHook);
+
     this.token.mouseInteractionManager = this.setupMouseManager();
     this.token.activateListeners = this.setupMouseManager;
   }
 
-  remove = async () => {
-    console.log(`pick-up-stix | LootToken | removeToken`);
+  private deactivateListeners(): void {
     Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
-    await deleteToken(this.token);
-    deleteLootTokenData(this.sceneId, this.tokenId);
+    Hooks.off('deleteToken', this.deleteTokenHook);
+  }
+
+  remove = async () => {
+    console.log(`pick-up-stix | LootToken | remove`);
+    this.token.mouseInteractionManager?._deactivateDragEvents();
+    await this.token.delete();
+    await deleteLootTokenData(this.sceneId, this.tokenId);
   }
 
   toggleLocked = async () => {
@@ -224,7 +250,7 @@ export class LootToken {
       clickLeft2: this.handleClickLeft2,
       clickRight: this.handleClickRight,
       clickRight2: this.handleClickRight2,
-      dragLeftStart: () => { clearTimeout(this._clickTimeout); this.token._onDragLeftStart(); },
+      dragLeftStart: (e) => { clearTimeout(this._clickTimeout); this.token._onDragLeftStart(e); },
       dragLeftMove: this.token._onDragLeftMove,
       dragLeftDrop: this.token._onDragLeftDrop,
       dragLeftCancel: this.token._onDragLeftCancel
@@ -283,22 +309,24 @@ export class LootToken {
       return;
     } */
 
+    const tokens = getValidControlledTokens(this.token);
+
+    // checking for double click, the double click handler clears this timeout
+    this._clickTimeout = setTimeout(this.finalizeClickLeft, 250, event, tokens);
+
+    this.token._onClickLeft(event);
+  }
+
+  private finalizeClickLeft = async (event, tokens) => {
+    console.log('pick-up-stix | LootToken | finalizeClickLeft');
+
     // if it's locked then it can't be opened
     if (this._lootData.isLocked) {
-      console.log(`pick-up-stix | LootToken | handleClickLeft | item is locked`);
+      console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is locked`);
       var audio = new Audio(CONFIG.sounds.lock);
       audio.play();
       return;
     }
-
-    // checking for double click, the double click handler clears this timeout
-    this._clickTimeout = setTimeout(this.finalizeClickLeft, 250, event);
-  }
-
-  private finalizeClickLeft = async (event) => {
-    console.log('pick-up-stix | LootToken | finalizeClickLeft');
-
-    const tokens = getValidControlledTokens(this.token);
 
     if (this._lootData.itemType === ItemType.ITEM) {
       console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
@@ -309,14 +337,8 @@ export class LootToken {
       }
 
       // TODO: add token selection
-      // if it's just a single item, delete the map token and create an new item on the player
-      const data = duplicate(this._lootData.itemData);
-      itemCollected(tokens[0], data);
-      await createOwnedItem(tokens[0].actor, [data]);
-      this.token.mouseInteractionManager?._deactivateDragEvents();
-      this.remove();
-      // await deleteToken(this.token);
-      }
+      await this.collect(tokens[0]);
+    }
 
     if (this._lootData.itemType === ItemType.CONTAINER) {
       console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
@@ -357,6 +379,19 @@ export class LootToken {
 
       return;
     }
+  }
+
+  collect = async (token) => {
+    if (this._lootData.itemType !== ItemType.ITEM) {
+      return;
+    }
+
+    const data = duplicate(this._lootData.itemData);
+
+    console.log(`pick-up-stix | LootItem | collect | token ${token.id} is picking up token ${this.tokenId} on scene ${this.sceneId}`);
+    await createOwnedItem(token.actor, [data]);
+    itemCollected(token, data);
+    await this.remove();
   }
 
   private handleClickLeft2 = (event) => {

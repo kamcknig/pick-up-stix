@@ -88,6 +88,10 @@ export const deleteLootTokenData = async (sceneId: string, tokenId: string): Pro
 }
 
 export const getValidControlledTokens = (token): Token[] => {
+	if (!token) {
+		return [];
+	}
+
 	const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
 	const controlled = canvas.tokens.controlled.filter(t => {
 		if (!t.actor) {

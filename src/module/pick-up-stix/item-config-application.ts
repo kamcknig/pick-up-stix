@@ -5,6 +5,7 @@ import {
 	currencyCollected,
 	getValidControlledTokens,
 	itemCollected,
+	lootTokens,
 	normalizeDropData,
 	updateActor,
 	updateEntity
@@ -12,6 +13,7 @@ import {
 import { ItemType, ContainerLoot, PickUpStixFlags, DropData } from "./models";
 import { SettingKeys } from './settings';
 import { ContainerSoundConfig } from './container-sound-config-application';
+import { LootToken } from './loot-token';
 
 /**
  * Application class to display to select an item that the token is
@@ -24,7 +26,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	private _controlTokenHook;
 	private _html: any;
 	private _currencyEnabled: boolean;
-	private _token: Token;
 	private _selectedTokenId: string;
 
 	static get defaultOptions(): ApplicationOptions {
@@ -42,8 +43,8 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		});
 	}
 
-	constructor(object: any) {
-		super(object, {});
+	constructor(object: any, ...args) {
+		super(object, args);
 
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`);
 		console.log([object]);
@@ -169,16 +170,12 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		new ContainerSoundConfig(this.object, {}).render(true);
 	}
 
-	_render(force=false, options: any={}) {
-		if (options?.renderData?.tokenId) {
-			this._token = canvas.tokens.placeables.find(t => t.id === options.renderData.tokenId);
-		}
-
-		return super._render(force, options);
-	}
+	private _lootToken: LootToken;
 
 	getData(options?: any): any {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | getData:`);
+		this._lootToken = this._lootToken || canvas.tokens.placeables.find(t => t.id === options.renderData?.lootTokenId);
+		const actionTokens = options.renderData?.tokens ?? [];
 		const itemType = this.object.getFlag('pick-up-stix', 'pick-up-stix.itemType');
 		const quantityDataPath = getQuantityDataPath();
 		const priceDataPath = getPriceDataPath();
@@ -207,7 +204,23 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
 		const currencyTypes = getCurrencyTypes();
-		const tokens = getValidControlledTokens(this._token).map(t => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' })).filter(t => !!t.token).sort((a, b) => {if (a.token.name < b.token.name) return -1; if (a.token.name > b.token.name) return 1; return 0;});
+		const tokens = getValidControlledTokens(this._lootToken)
+			.concat(actionTokens)
+			.reduce((acc, next) => {
+				if (!next || acc.map(t => t.id).includes(next.id)) {
+					return acc;
+				}
+				acc.push(next);
+				return acc;
+			}, [])
+			.map(t => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' }))
+			.filter(t => !!t.token)
+			.sort((a, b) => {
+				if (a.token.name < b.token.name) return -1;
+				if (a.token.name > b.token.name) return 1;
+				return 0;
+			});
+
 		if (!this._selectedTokenId && tokens.length) {
 			this._selectedTokenId = tokens[0].token.id;
 			tokens[0].class = 'active';
@@ -226,7 +239,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			object: this.object.data,
 			user: game.user,
 			quantityDataPath,
-			hasToken: !!this._token,
+			hasToken: !!this._lootToken,
 			tokens
 		};
 

@@ -57,17 +57,29 @@ export class LootToken {
     return t;
   }
 
+  private _config: FormApplication;
+  private _sceneId: string;
+
+  get isOpen(): boolean {
+    return !!this._lootData?.container?.isOpen;
+  }
+
+  get soundClosePath(): string {
+    return this._lootData?.container?.soundClosePath;
+  }
+
+  get soundOpenPath(): string {
+    return this._lootData?.container?.soundOpenPath;
+  }
+
   get isLocked(): boolean {
-    return !!this._lootData.isLocked;
+    return !!this._lootData?.isLocked;
   }
 
   get itemType(): ItemType {
     return this._lootData.itemType;
   }
 
-  private _config: FormApplication;
-
-  private _sceneId: string;
   /**
    * The Scene ID that the Token this LootToken instance represents belongs to
    */
@@ -193,6 +205,35 @@ export class LootToken {
     this.save();
   }
 
+  toggleOpened = async (tokens: Token[]=[], renderSheet: boolean=true) => {
+    console.log('pick-up-stix | LootToken | toggleOpened');
+    this._lootData.container.isOpen = !this._lootData.container.isOpen;
+
+    // if there are any container updates then update the container
+    await new Promise(resolve => {
+      setTimeout(async () => {
+        await updateEntity(this.token, {
+          img: this._lootData.container?.isOpen ? this._lootData.container.imageOpenPath : this._lootData.container.imageClosePath
+        });
+        const a = new Audio(this.isOpen ? this.soundOpenPath : this.soundClosePath);
+        try {
+          a.play();
+        }
+        catch (e) {
+          // it's ok to error here
+        }
+
+        resolve();
+      }, 200);
+    });
+
+    if (renderSheet && this._lootData.container?.isOpen) {
+      this.openConfigSheet(tokens);
+    }
+
+    this.save();
+  }
+
   addItem = async (data: any, id: string): Promise<void> => {
     if (this.itemType !== ItemType.CONTAINER) {
       return;
@@ -309,16 +350,21 @@ export class LootToken {
       return;
     } */
 
+    const allControlled = canvas.tokens.controlled;
     const tokens = getValidControlledTokens(this.token);
 
     // checking for double click, the double click handler clears this timeout
-    this._clickTimeout = setTimeout(this.finalizeClickLeft, 250, event, tokens);
+    this._clickTimeout = setTimeout(this.finalizeClickLeft, 250, event, allControlled, tokens);
 
     this.token._onClickLeft(event);
   }
 
-  private finalizeClickLeft = async (event, tokens) => {
+  private finalizeClickLeft = async (event, allControlled, tokens) => {
     console.log('pick-up-stix | LootToken | finalizeClickLeft');
+
+    for (let t of allControlled) {
+      t.control({releaseOthers: false});
+    }
 
     // if it's locked then it can't be opened
     if (this._lootData.isLocked) {
@@ -328,13 +374,13 @@ export class LootToken {
       return;
     }
 
+    if (!tokens.length) {
+      ui.notifications.error(`Please ensure you have at least one token controlled that is close enough to the loot token.`);
+      return;
+    }
+
     if (this._lootData.itemType === ItemType.ITEM) {
       console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
-
-      if (!tokens.length) {
-        ui.notifications.error(`Please ensure you have at least one token controlled that is close enough to the loot token.`);
-        return;
-      }
 
       // TODO: add token selection
       await this.collect(tokens[0]);
@@ -349,34 +395,7 @@ export class LootToken {
         return;
       }
 
-      this._lootData.container.isOpen = !this._lootData.container?.isOpen;
-
-      // if there are any container updates then update the container
-      await new Promise(resolve => {
-        setTimeout(async () => {
-          await updateEntity(this.token, {
-            img: this._lootData.container?.isOpen ? this._lootData.container.imageOpenPath : this._lootData.container.imageClosePath
-          });
-          const a = new Audio(
-            this._lootData.container.isOpen ?
-              this._lootData.container.soundOpenPath:
-              this._lootData.container.soundClosePath
-          );
-          try {
-            a.play();
-          }
-          catch (e) {
-            // it's ok to error here
-          }
-
-          resolve();
-        }, 200);
-      });
-
-      if (this._lootData.container?.isOpen) {
-        this.openConfigSheet();
-      }
-
+      await this.toggleOpened(tokens);
       return;
     }
   }
@@ -406,7 +425,7 @@ export class LootToken {
     this.openConfigSheet();
   }
 
-  openConfigSheet = async (): Promise<void> => {
+  openConfigSheet = async (tokens: Token[]=[]): Promise<void> => {
     console.log('pick-up-stix | LootToken | openLootTokenConfig');
 
     if (this._config) {
@@ -431,7 +450,7 @@ export class LootToken {
       : duplicate(this._lootData.itemData);
 
     const i = await createEntity(data, { submitOnChange: true });
-    this._config = i.sheet.render(true, { renderData: { tokenId: this.tokenId } }) as FormApplication;
+    this._config = i.sheet.render(true, { renderData: { lootTokenId: this.tokenId, tokens } }) as FormApplication;
 
     const hook = Hooks.on('updateItem', async (item, data, options) => {
       if (data._id !== i.id) {

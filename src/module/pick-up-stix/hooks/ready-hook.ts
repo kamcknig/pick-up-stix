@@ -88,25 +88,26 @@ export async function readyHook() {
 		console.log(`pick-up-stix | readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
 	}
 
-	// one-time notification to the 12 series
-	if ((!previousVersion || versionDiff(previousVersion, '0.12.0') === -1) && /\d+\.12\.\d+/.test(activeVersion)) {
+	// one-time notification
+	if (!game.settings.get('pick-up-stix', SettingKeys.version_0_12_data_notification)) {
 		new Dialog({
 			title: `Pick-Up-Six`,
-			content: `<p>If you are upgrading from a previous version to the 0.12.x release, then any current loot that you may have
+			content: `<p>If you are upgrading from a previous version to this release, then any current loot that you may have
 			created will need to be recreated. I am hopeful that any releases in the future will have better migration scripts to help
 			with moving data from one format to another when needed.</p>
 			<p>I apologize for the inconvenience.</p>
 			<p>This message will not display again.</p>`,
 			buttons: {
 				ok: {
-					label: 'OK'
+					label: 'OK',
+					callback: () => game.settings.set('pick-up-stix', SettingKeys.version_0_12_data_notification, true)
 				}
 			},
 			default: 'ok'
-		})
+		}).render(true);
 	}
 
-	socket = game.socket;
+socket = game.socket;
 	socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
 		console.log(`pick-up-stix | socket.on | received socket message with args:`);
 		console.log(msg);
@@ -154,6 +155,9 @@ export async function readyHook() {
 				break;
 			case SocketMessageType.deleteEntity:
 				deleteEntity(msg.data.uuid);
+				break;
+			case SocketMessageType.lootTokenDataSaved:
+				Hooks.callAll('pick-up-stix.lootTokenDataSaved', msg.data.sceneId, msg.data.tokenId, msg.data.lootData);
 				break;
 		}
 	});

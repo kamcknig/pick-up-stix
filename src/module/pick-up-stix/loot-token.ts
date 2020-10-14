@@ -1,10 +1,9 @@
-import { getQuantityDataPath } from "../../utils";
+import { deleteToken, getQuantityDataPath } from "../../utils";
 import {
   createEntity,
   createOwnedItem,
   createToken,
   deleteEntity,
-  deleteLootTokenData,
   getValidControlledTokens,
   itemCollected,
   saveLootTokenData,
@@ -57,6 +56,7 @@ export class LootToken {
     return t;
   }
 
+  private _itemId: string;
   private _config: FormApplication;
   private _sceneId: string;
 
@@ -118,6 +118,24 @@ export class LootToken {
     this.deactivateListeners();
   }
 
+  private updateItemHook =  async (item, data, options, userId) => {
+    if (item.id !== this._itemId) {
+      return;
+    }
+
+    console.log(`pick-up-stix | LootToken | updateItemHook:`);
+    console.log([item, data, options, userId]);
+
+    if (this.itemType === ItemType.CONTAINER) {
+      this._lootData = duplicate(mergeObject(this._lootData, data.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {}))
+    }
+    else {
+      this._lootData.itemData = duplicate(item.data);
+    }
+
+    await this.save();
+  }
+
   private saveLootTokenDataHook = (sceneId, tokenId, data) => {
     if (sceneId !== this.sceneId || this.tokenId !== tokenId) {
       return;
@@ -177,6 +195,9 @@ export class LootToken {
   }
 
   activateListeners() {
+    Hooks.off('updateItem', this.updateItemHook);
+    Hooks.on('updateItem', this.updateItemHook);
+
     Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
     Hooks.on('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
 
@@ -190,13 +211,17 @@ export class LootToken {
   private deactivateListeners(): void {
     Hooks.off('pick-up-stix.saveLootTokenData', this.saveLootTokenDataHook);
     Hooks.off('deleteToken', this.deleteTokenHook);
+    Hooks.off('updateItem', this.updateItemHook);
+
+    if (this.token) {
+      this.token.mouseInteractionManager?._deactivateDragEvents();
+    }
   }
 
   remove = async () => {
     console.log(`pick-up-stix | LootToken | remove`);
     this.token.mouseInteractionManager?._deactivateDragEvents();
-    await this.token.delete();
-    await deleteLootTokenData(this.sceneId, this.tokenId);
+    await deleteToken(this.token);
   }
 
   toggleLocked = async () => {
@@ -249,7 +274,7 @@ export class LootToken {
         setProperty(existingItem.data, quantityDataPath, 1);
       }
       else {
-        setProperty(existingItem.data, quantityDataPath, getProperty(existingItem.data, quantityDataPath) + 1)
+        setProperty(existingItem.data, quantityDataPath, +getProperty(existingItem.data, quantityDataPath) + 1)
       }
     }
     else {
@@ -271,6 +296,7 @@ export class LootToken {
         }
       })
     }
+
     await this.save();
   }
 
@@ -304,6 +330,74 @@ export class LootToken {
 
     // Create the interaction manager
     return new MouseInteractionManager(this.token, canvas.stage, permissions, callbacks, options).activate();
+  }
+
+  collect = async (token) => {
+    if (this._lootData.itemType !== ItemType.ITEM) {
+      return;
+    }
+
+    const data = duplicate(this._lootData.itemData);
+
+    console.log(`pick-up-stix | LootItem | collect | token ${token.id} is picking up token ${this.tokenId} on scene ${this.sceneId}`);
+    await createOwnedItem(token.actor, [data]);
+    itemCollected(token, data);
+    await this.remove();
+  }
+
+  private handleClickLeft2 = (event) => {
+    console.log('pick-up-stix | LootToken | handleClickLeft2');
+    clearTimeout(this._clickTimeout);
+    this.openConfigSheet();
+  }
+
+  private handleClickRight2 = (event) => {
+    console.log('pick-up-stix | LootToken | handleClickRight2');
+    clearTimeout(this._clickTimeout);
+    this.openConfigSheet();
+  }
+
+  openConfigSheet = async (tokens: Token[]=[]): Promise<void> => {
+    console.log('pick-up-stix | LootToken | openLootTokenConfig');
+
+    if (this._config) {
+      this._config.render(false, { renderData: { tokenId: this.tokenId } });
+      return;
+    }
+
+    const data = this.itemType === ItemType.CONTAINER
+      ?  {
+        type: ItemType.CONTAINER,
+        name: this.token.name,
+        img: this.token.data.img,
+        flags: {
+          'pick-up-stix': {
+            'pick-up-stix': {
+              ...duplicate(this._lootData),
+              isTemplate: true
+            }
+          }
+        }
+      }
+      : duplicate(this._lootData.itemData);
+
+    const i = await createEntity(data, { submitOnChange: true });
+    this._itemId = i.id;
+    this._config = i.sheet.render(true, { renderData: { lootTokenId: this.tokenId, tokens } }) as FormApplication;
+
+    const sheetCloseHandler = async (sheet, html) => {
+      if (sheet.appId !== this._config.appId) {
+        return;
+      }
+      console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
+      await deleteEntity(i.uuid);
+      this._config = null;
+      Hooks.off('closeItemSheet', sheetCloseHandler);
+      Hooks.off('closeItemConfigApplication', sheetCloseHandler);
+    }
+
+    Hooks.once('closeItemConfigApplication', sheetCloseHandler);
+    Hooks.once('closeItemSheet', sheetCloseHandler);
   }
 
   private handleClickLeft = (event) => {
@@ -398,89 +492,6 @@ export class LootToken {
       await this.toggleOpened(tokens);
       return;
     }
-  }
-
-  collect = async (token) => {
-    if (this._lootData.itemType !== ItemType.ITEM) {
-      return;
-    }
-
-    const data = duplicate(this._lootData.itemData);
-
-    console.log(`pick-up-stix | LootItem | collect | token ${token.id} is picking up token ${this.tokenId} on scene ${this.sceneId}`);
-    await createOwnedItem(token.actor, [data]);
-    itemCollected(token, data);
-    await this.remove();
-  }
-
-  private handleClickLeft2 = (event) => {
-    console.log('pick-up-stix | LootToken | handleClickLeft2');
-    clearTimeout(this._clickTimeout);
-    this.openConfigSheet();
-  }
-
-  private handleClickRight2 = (event) => {
-    console.log('pick-up-stix | LootToken | handleClickRight2');
-    clearTimeout(this._clickTimeout);
-    this.openConfigSheet();
-  }
-
-  openConfigSheet = async (tokens: Token[]=[]): Promise<void> => {
-    console.log('pick-up-stix | LootToken | openLootTokenConfig');
-
-    if (this._config) {
-      this._config.render(false, { renderData: { tokenId: this.tokenId } });
-      return;
-    }
-
-    const data = this.itemType === ItemType.CONTAINER
-      ?  {
-        type: ItemType.CONTAINER,
-        name: this.token.name,
-        img: this.token.data.img,
-        flags: {
-          'pick-up-stix': {
-            'pick-up-stix': {
-              ...duplicate(this._lootData),
-              isTemplate: true
-            }
-          }
-        }
-      }
-      : duplicate(this._lootData.itemData);
-
-    const i = await createEntity(data, { submitOnChange: true });
-    this._config = i.sheet.render(true, { renderData: { lootTokenId: this.tokenId, tokens } }) as FormApplication;
-
-    const hook = Hooks.on('updateItem', async (item, data, options) => {
-      if (data._id !== i.id) {
-        return;
-      }
-      console.log('pick-up-stix | LootToken | openLootTokenConfig | updateItem hook');
-      if (this.itemType === ItemType.CONTAINER) {
-        this._lootData = duplicate(mergeObject(this._lootData, data.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {}))
-      }
-      else {
-        this._lootData.itemData = duplicate(item.data);
-      }
-
-      await this.save();
-    });
-
-    const sheetCloseHandler = async (sheet, html) => {
-      if (sheet.appId !== this._config.appId) {
-        return;
-      }
-      console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
-      await deleteEntity(i.uuid);
-      this._config = null;
-      Hooks.off('updateItem', hook as any);
-      Hooks.off('closeItemSheet', sheetCloseHandler);
-      Hooks.off('closeItemConfigApplication', sheetCloseHandler);
-    }
-
-    Hooks.once('closeItemConfigApplication', sheetCloseHandler);
-    Hooks.once('closeItemSheet', sheetCloseHandler);
   }
 
   private _clickTimeout;

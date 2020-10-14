@@ -5,7 +5,8 @@ export enum SettingKeys {
 	defaultContainerCloseSound = 'default-container-close-sound',
 	defaultContainerOpenSound = 'default-container-open-sound',
 	version = 'version',
-	lootTokenData = 'lootTokenData'
+	lootTokenData = 'lootTokenData',
+	version_0_12_data_notification = 'version_0_12_data_notification'
 }
 
 const systemCurrenciesImplemented = [
@@ -91,6 +92,15 @@ export const registerSettings = function() {
 		scope: 'world',
 		type: audioTypeFunc,
 		config: true
+	});
+
+	game.settings.register('pick-up-stix', SettingKeys.version_0_12_data_notification, {
+		name: 'Version 12 first notification',
+		hint: 'Used to track who has gotten the notification when moving to version 12',
+		scope: 'client',
+		type: Boolean,
+		default: false,
+		config: false
 	});
 }
 

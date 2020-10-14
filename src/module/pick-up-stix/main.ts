@@ -30,7 +30,16 @@ export const saveLootTokenData = async (sceneId: string, tokenId: string, lootDa
 
 	if (game.user.isGM) {
 		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, currentData);
-		Hooks.callAll('pick-up-stix.saveLootTokenData', sceneId, tokenId, duplicate(lootData));
+		game.socket.emit('module.pick-up-stix', {
+			sender: game.user.id,
+			type: SocketMessageType.lootTokenDataSaved,
+			data: {
+				sceneId,
+				tokenId,
+				lootData
+			}
+		});
+		Hooks.callAll('pick-up-stix.lootTokenDataSaved', sceneId, tokenId, duplicate(lootData));
 		return;
 	}
 
@@ -44,9 +53,7 @@ export const saveLootTokenData = async (sceneId: string, tokenId: string, lootDa
 		}
 	};
 
-	game.socket.emit('module.pick-up-stix', msg, () => {
-		console.log(`pick-up-stix | saveLootTokenData | socket message handled`);
-	});
+	game.socket.emit('module.pick-up-stix', msg);
 }
 
 export const deleteLootTokenData = async (sceneId: string, tokenId: string): Promise<void> => {
@@ -82,9 +89,7 @@ export const deleteLootTokenData = async (sceneId: string, tokenId: string): Pro
 		}
 	};
 
-	game.socket.emit('module.pick-up-stix', msg, () => {
-		console.log(`pick-up-stix | deleteLootTokenData | socket message handled`);
-	});
+	game.socket.emit('module.pick-up-stix', msg);
 }
 
 export const getValidControlledTokens = (token): Token[] => {
@@ -135,7 +140,8 @@ export const normalizeDropData = (data: DropData, event?: any): any => {
 			// that the item comes from. We only have the actor ID and multiple tokens could be associated with
 			// the same actor. So we check if the user is controlling only one token and use that token's actor
 			// reference, otherwise we say there is no actor.
-			actor = canvas?.tokens?.controlled?.length === 1 ? canvas.tokens?.controlled?.[0]?.actor : null;
+			const tokensMatchingActor = canvas.tokens.placeables.filter(t => t.actor?.id === data.actorId);
+			actor = tokensMatchingActor.length === 1 ? tokensMatchingActor[0]?.actor : null;
 		}
 
 		data.actor = actor;
@@ -315,23 +321,17 @@ export async function handleItemDropped(dropData: DropData) {
 	lootTokens.push(lootToken);
 }
 
-export async function toggleItemLocked(e): Promise<any> {
-	console.log(`pick-up-stix | toggleItemLocked`);
-
-	const clickedToken: Token = this;
-	const flags: PickUpStixFlags = clickedToken.getFlag('pick-up-stix', 'pick-up-stix');
-	await clickedToken.setFlag('pick-up-stix', 'pick-up-stix.isLocked', !flags.isLocked);
-}
-
 export async function updateEntity(entity: { id: string, update: (data, options?) => void }, updates): Promise<void> {
 	console.log(`pick-up-stix | updateEntity with args:`);
 	console.log([entity, updates]);
 
 	if (game.user.isGM) {
+		console.log('pick-up-stix | user is GM, making update');
 		await entity.update(updates);
 		return;
 	}
 
+	console.log('pick-up-stix | user is not GM, sending socket msg');
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
 		type: SocketMessageType.updateEntity,
@@ -341,16 +341,20 @@ export async function updateEntity(entity: { id: string, update: (data, options?
 		}
 	};
 
-	game.socket.emit('module.pick-up-stix', msg, () => {
-		console.log(`pick-up-stix | updateEntity | socket message handled`);
-	});
+	game.socket.emit('module.pick-up-stix', msg);
 }
 
 export async function updateActor(actor, updates): Promise<void> {
+	console.log('pick-up-stix | updateActor | called with args:');
+	console.log([actor, updates]);
+
 	if (game.user.isGM) {
+		console.log(`pick-up-stix | user is GM, udating actor`);
 		await actor.update(updates);
 		return;
 	}
+
+	console.log('pick-up-stix | user is not GM, sending socket msg');
 
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
@@ -365,10 +369,16 @@ export async function updateActor(actor, updates): Promise<void> {
 }
 
 export async function createOwnedItem(actor: Actor, items: any[]) {
+	console.log('pick-up-stix | createOwnedItem | called with args:');
+	console.log([actor, items]);
+
 	if (game.user.isGM) {
+		console.log(`pick-up-stix | user is GM, creating owned item`);
 		await actor.createOwnedItem(items);
 		return;
 	}
+
+	console.log('pick-up-stix | user is not GM, sending socket msg');
 
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
@@ -379,9 +389,7 @@ export async function createOwnedItem(actor: Actor, items: any[]) {
 		}
 	};
 
-	game.socket.emit('module.pick-up-stix', msg, () => {
-		console.log(`pick-up-stix | createOwnedEntity | socket message handled`);
-	});
+	game.socket.emit('module.pick-up-stix', msg);
 }
 
 export const createEntity = async (data: any, options: any = {}): Promise<Entity> => {
@@ -389,9 +397,12 @@ export const createEntity = async (data: any, options: any = {}): Promise<Entity
 	console.log([data]);
 
 	if (game.user.isGM) {
+		console.log(`pick-up-stix | user is GM, creating entity`);
 		const e = await Item.create(data, options);
 		return e
 	}
+
+	console.log('pick-up-stix | user is not GM, sending socket msg');
 
 	return new Promise((resolve, reject) => {
 		const timeout = setTimeout(() => {
@@ -407,14 +418,13 @@ export const createEntity = async (data: any, options: any = {}): Promise<Entity
 			}
 		};
 
-		game.socket.emit('module.pick-up-stix', msg, () => {
-			console.log('pick-up-stix | createEntity | socket message handled');
-			Hooks.once('createItem', (item, options, userId) => {
-				console.log(`pick-up-stix | createEntity | createItem hook | item '${item.id}' created`);
-				clearTimeout(timeout);
-				resolve(item);
-			});
+		Hooks.once('createItem', (item, options, userId) => {
+			console.log(`pick-up-stix | createEntity | createItem hook | item '${item.id}' created`);
+			clearTimeout(timeout);
+			resolve(item);
 		});
+
+		game.socket.emit('module.pick-up-stix', msg);
 	});
 }
 
@@ -430,11 +440,12 @@ export const deleteEntity = async (uuid: string) => {
 	}
 
 	if (game.user.isGM) {
-		console.log('pick-up-stix | deleteEntity | user is GM:');
+		console.log(`pick-up-stix | user is GM, deleting entity`);
 		return await e.delete();
 	}
 
-	console.log('pick-up-stix | deleteEntity | user is not GM:');
+	console.log('pick-up-stix | user is not GM, sending socket msg');
+
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
 		type: SocketMessageType.deleteEntity,
@@ -447,14 +458,14 @@ export const deleteEntity = async (uuid: string) => {
 		const timeout = setTimeout(() => {
 			reject(uuid);
 		}, 2000);
-		game.socket.emit('module.pick-up-stix', msg, () => {
-			console.log('pick-up-stix | deleteEntity | socket message handled');
-			Hooks.once('deleteItem', (item, options, userId) => {
-				console.log('pick-up-stix | deleteEntity | deleteItem hook');
-				clearTimeout(timeout);
-				resolve(item.id);
-			});
-		})
+
+		Hooks.once('deleteItem', (item, options, userId) => {
+			console.log('pick-up-stix | deleteEntity | deleteItem hook');
+			clearTimeout(timeout);
+			resolve(item.id);
+		});
+
+		game.socket.emit('module.pick-up-stix', msg);
 	})
 
 }
@@ -464,14 +475,15 @@ export const createToken = async (data: any): Promise<string> => {
 	console.log(data);
 
 	if (game.user.isGM) {
-		console.log(`pick-up-stix | createToken | current user is GM, creating token`);
+		console.log(`pick-up-stix | user is GM, creating token`);
 		const t = await Token.create({
 			...data
 		});
 		return t.id;
 	}
 
-	console.log(`pick-up-stix | createToken | current user is not GM, send socket message`);
+	console.log('pick-up-stix | user is not GM, sending socket msg');
+
 	const msg: PickUpStixSocketMessage = {
 		sender: game.user.id,
 		type: SocketMessageType.createItemToken,
@@ -483,19 +495,17 @@ export const createToken = async (data: any): Promise<string> => {
 			reject('Token never created');
 		}, 2000);
 
-		game.socket.emit('module.pick-up-stix', msg, () => {
-			console.log(`pick-up-stix | createToken | socket message handled`);
-
-			Hooks.once('createToken', (scene, data) => {
-				// TODO: could possibly add a custom authentication ID to the data we emit, then we can
-				// check that ID against this created token ID and make sure we are getting the right one. Seems
-				// like it could be rare, but there could be a race condition with other tokens being created
-				// near the same time we are creating this token. Maybe through other modules doing it.
-				console.log(`pick-up-stix | createToken | createToken hook | Token '${data.id}' created`);
-				clearTimeout(timeout);
-				resolve(data._id);
-			});
+		Hooks.once('createToken', (scene, data) => {
+			// TODO: could possibly add a custom authentication ID to the data we emit, then we can
+			// check that ID against this created token ID and make sure we are getting the right one. Seems
+			// like it could be rare, but there could be a race condition with other tokens being created
+			// near the same time we are creating this token. Maybe through other modules doing it.
+			console.log(`pick-up-stix | createToken | createToken hook | Token '${data.id}' created`);
+			clearTimeout(timeout);
+			resolve(data._id);
 		});
+
+		game.socket.emit('module.pick-up-stix', msg);
 	});
 }
 

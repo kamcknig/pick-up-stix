@@ -78,6 +78,7 @@ export interface ContainerLoot {
 	[key: string]: any[];
 }
 
+
 export enum SocketMessageType {
 	deleteToken,
 	updateEntity,
@@ -87,7 +88,8 @@ export enum SocketMessageType {
 	saveLootTokenData,
 	deleteLootTokenData,
 	createEntity,
-	deleteEntity
+	deleteEntity,
+	lootTokenDataSaved
 }
 
 export interface PickUpStixSocketMessage {

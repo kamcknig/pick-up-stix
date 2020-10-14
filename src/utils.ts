@@ -19,6 +19,9 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
       };
     });
   }
+  else {
+    console.warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
+  }
 
   return {
     pp: 'Platinum',
@@ -64,6 +67,7 @@ export function getQuantityDataPath(): string {
       path = 'quantity.value'
       break;
     default:
+      console.warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
       path = 'quantity';
       break;
   }
@@ -82,6 +86,7 @@ export function getPriceDataPath(): string {
       path = 'price.value'
       break;
     default:
+      console.warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
       path = 'price';
       break;
   }

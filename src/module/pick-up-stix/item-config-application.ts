@@ -5,7 +5,6 @@ import {
 	currencyCollected,
 	getValidControlledTokens,
 	itemCollected,
-	lootTokens,
 	normalizeDropData,
 	updateActor,
 	updateEntity
@@ -52,22 +51,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		this._currencyEnabled = !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
 	}
 
-	protected preDeleteItemHook(item): boolean {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | preDeleteItemHook:`);
-		console.log([item]);
-
-		if (item.id === this.object.id) {
-			ui.notifications.error('This Item is currently being edited. Close the config window to delete the item.');
-		}
-		return item.id !== this.object.id;
-	}
-
-	protected updateItemHook(item, data, options): void {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateItemHook | called with args:`);
-		console.log([item, data, options]);
-		this.render();
-	}
-
 	activateListeners(html) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | activateListeners`);
 		console.log([html]);
@@ -94,10 +77,10 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			this._controlTokenHook = null;
 		}
 
-		this._updateItemHook = Hooks.on('updateItem', this.updateItemHook.bind(this));
-		this._preDeleteItemHook = Hooks.on('preDeleteItem', this.preDeleteItemHook.bind(this));
-		this._updateTokenHook = Hooks.on('updateToken', this.updateTokenHook.bind(this));
-		this._controlTokenHook = Hooks.on('controlToken', this.controlTokenHook.bind(this));
+		this._updateItemHook = Hooks.on('updateItem', this.updateItemHook);
+		this._preDeleteItemHook = Hooks.on('preDeleteItem', this.preDeleteItemHook);
+		this._updateTokenHook = Hooks.on('updateToken', this.updateTokenHook);
+		this._controlTokenHook = Hooks.on('controlToken', this.controlTokenHook);
 
 		$(html)
 			.find('input')
@@ -157,6 +140,26 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateTokenHook`);
 		this._selectedTokenId = null;
 		setTimeout(this.render.bind(this), 100);
+	}
+
+	protected preDeleteItemHook = (item): boolean => {
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | preDeleteItemHook:`);
+		console.log([item]);
+
+		if (item.id === this.object.id) {
+			ui.notifications.error('This Item is currently being edited. Close the config window to delete the item.');
+		}
+		return item.id !== this.object.id;
+	}
+
+	protected updateItemHook = (item, data, options): void => {
+		if (this.object.id !== item.id) {
+			return;
+		}
+
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateItemHook | called with args:`);
+		console.log([item, data, options]);
+		this.render();
 	}
 
 	private _onActorSelect(e): void {
@@ -386,16 +389,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		}
 
 		let itemData;
-		const coreVersion = game.data.verson;
-		const is7Newer = isNewerVersion(coreVersion, '0.6.9');
-
-		// ensure we have a controlled token so that we know which token's actor if need be that we will
-		// be interacting with. We only need to do this for versions lower than 0.7.0 because 0.7.0
-		// contains more data in the drop data that we need
-		if (dropData.actor && canvas.tokens.controlled.length !== 1 && !is7Newer) {
-			ui.notifications.error(`Please ensure you are only controlling the token (and only the one token) for the character you're working with.`);
-			return;
-		}
 
 		if (!dropData.actor && dropData.actorId) {
 			ui.notifications.error(`No valid actor found for actor '${dropData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
@@ -423,7 +416,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const existingItem = loot[itemType]?.find(i => i._id === (dropData.actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id));
 		if (existingItem) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
-			setProperty(existingItem.data, qtyDataPath, getProperty(existingItem.data, qtyDataPath) + 1)
+			setProperty(existingItem.data, qtyDataPath, +getProperty(existingItem.data, qtyDataPath) + 1)
 		}
 		else {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for item '${itemData._id}' does not exist, set quantity to 1 and add to slot`);

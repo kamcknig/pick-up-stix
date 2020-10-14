@@ -24,8 +24,8 @@ export const getLootToken = (sceneId, tokenId): LootToken => {
 
 export const saveLootTokenData = async (sceneId: string, tokenId: string, lootData: PickUpStixFlags): Promise<void> => {
 	console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
-	const currentData = duplicate(getLootTokenData());
-
+	const currentData = getLootTokenData();
+	delete currentData?.sceneId?.tokenId;
 	mergeObject(currentData, { [sceneId]: { [tokenId]: lootData } });
 
 	if (game.user.isGM) {
@@ -58,7 +58,7 @@ export const saveLootTokenData = async (sceneId: string, tokenId: string, lootDa
 
 export const deleteLootTokenData = async (sceneId: string, tokenId: string): Promise<void> => {
 	console.log(`pick-up-stix | deleteLootTokenData | deleteting loot for token '${tokenId} from scene ${sceneId}`);
-	const lootTokenData = duplicate(getLootTokenData());
+	const lootTokenData = getLootTokenData();
 
 	let data;
 	try {

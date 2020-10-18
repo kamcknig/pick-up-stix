@@ -15,7 +15,7 @@ export const lootTokens: LootToken[] = [];
 window['lootTokens'] = lootTokens;
 
 export const getLootTokenData = (): LootTokenData => {
-	return duplicate(game.settings.get('pick-up-stix', SettingKeys.lootTokenData));
+  return duplicate(game.settings.get('pick-up-stix', SettingKeys.lootTokenData) ?? {});
 }
 
 export const getLootToken = (sceneId, tokenId): LootToken => {
@@ -23,10 +23,22 @@ export const getLootToken = (sceneId, tokenId): LootToken => {
 }
 
 export const saveLootTokenData = async (sceneId: string, tokenId: string, lootData: PickUpStixFlags): Promise<void> => {
-	console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
-	const currentData = getLootTokenData();
-	delete currentData?.sceneId?.tokenId;
-	mergeObject(currentData, { [sceneId]: { [tokenId]: lootData } });
+  console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
+  console.log([sceneId, tokenId, lootData]);
+  const currentData = getLootTokenData();
+  if (!currentData[sceneId]) {
+    console.log(`pick-up-stix | saveLootTokenData | creating new scene data for '${sceneId}'`);
+    currentData[sceneId] = {};
+  }
+  if (!currentData[sceneId][tokenId]) {
+    console.log(`pick-up-stix | saveLootTokenData | no current data for token '${tokenId}'`);
+    currentData[sceneId][tokenId] = {} as PickUpStixFlags;
+  }
+
+  mergeObject(currentData[sceneId][tokenId], lootData);
+  const newLootData = currentData[sceneId][tokenId];
+  console.log(`pick-up-stix | saveLootTokenData | new loot data:`);
+  console.log([newLootData]);
 
 	if (game.user.isGM) {
 		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, currentData);
@@ -36,10 +48,10 @@ export const saveLootTokenData = async (sceneId: string, tokenId: string, lootDa
 			data: {
 				sceneId,
 				tokenId,
-				lootData
+        lootData: newLootData
 			}
 		});
-		Hooks.callAll('pick-up-stix.lootTokenDataSaved', sceneId, tokenId, duplicate(lootData));
+		Hooks.callAll('pick-up-stix.lootTokenDataSaved', sceneId, tokenId, newLootData);
 		return;
 	}
 
@@ -54,6 +66,19 @@ export const saveLootTokenData = async (sceneId: string, tokenId: string, lootDa
 	};
 
 	game.socket.emit('module.pick-up-stix', msg);
+}
+
+export const lootTokenCreated = (tokenId: string, data: PickUpStixFlags) => {
+  const msg: PickUpStixSocketMessage = {
+    sender: game.user.id,
+    type: SocketMessageType.lootTokenCreated,
+    data: {
+      tokenId,
+      data
+    }
+  }
+  game.socket.emit('module.pick-up-stix', msg);
+  Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId, msg.data.data);
 }
 
 export const deleteLootTokenData = async (sceneId: string, tokenId: string): Promise<void> => {
@@ -251,7 +276,6 @@ export async function handleItemDropped(dropData: DropData) {
 			duplicate(itemData.flags['pick-up-stix']['pick-up-stix'])
 		);
 
-		lootTokens.push(lootToken);
 		return;
 	}
 
@@ -317,8 +341,23 @@ export async function handleItemDropped(dropData: DropData) {
   else {
 		lootToken = await LootToken.create(tokenData, lootData);
 	}
+}
 
-	lootTokens.push(lootToken);
+export const deleteToken = async (token: Token): Promise<void> => {
+  console.log(`pick-up-stix | deleteToken with args:`);
+  console.log(token);
+
+  if (game.user.isGM) {
+    await canvas.scene.deleteEmbeddedEntity('Token', token.id);
+    return;
+  }
+
+  const msg: PickUpStixSocketMessage = {
+    sender: game.user.id,
+    type: SocketMessageType.deleteToken,
+    data: token.id
+  }
+  socket.emit('module.pick-up-stix', msg);
 }
 
 export async function updateEntity(entity: { id: string, update: (data, options?) => void }, updates): Promise<void> {
@@ -392,14 +431,14 @@ export async function createOwnedItem(actor: Actor, items: any[]) {
 	game.socket.emit('module.pick-up-stix', msg);
 }
 
-export const createEntity = async (data: any, options: any = {}): Promise<Entity> => {
+export const createItem = async (data: any, options: any = {}): Promise<Item<any>> => {
 	console.log(`pick-up-stix | createEntity | called with args:`);
 	console.log([data]);
 
 	if (game.user.isGM) {
 		console.log(`pick-up-stix | user is GM, creating entity`);
 		const e = await Item.create(data, options);
-		return e
+		return e as Item<any>
 	}
 
 	console.log('pick-up-stix | user is not GM, sending socket msg');
@@ -472,7 +511,7 @@ export const deleteEntity = async (uuid: string) => {
 
 export const createToken = async (data: any): Promise<string> => {
 	console.log(`pick-up-stix | createToken | called with args:`);
-	console.log(data);
+	console.log([data]);
 
 	if (game.user.isGM) {
 		console.log(`pick-up-stix | user is GM, creating token`);

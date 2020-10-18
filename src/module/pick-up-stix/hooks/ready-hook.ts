@@ -2,7 +2,7 @@ import { SocketMessageType, PickUpStixSocketMessage, ItemType } from "../models"
 import ItemConfigApplication from "../item-config-application";
 import { SettingKeys } from "../settings";
 import { versionDiff } from "../../../utils";
-import { createEntity, deleteEntity, deleteLootTokenData, saveLootTokenData } from "../main";
+import { createItem, createOwnedItem, createToken, deleteEntity, deleteLootTokenData, deleteToken, saveLootTokenData, updateActor, updateEntity } from "../main";
 
 declare class EntitySheetConfig {
 	static registerSheet(
@@ -110,7 +110,11 @@ export async function readyHook() {
 socket = game.socket;
 	socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
 		console.log(`pick-up-stix | socket.on | received socket message with args:`);
-		console.log(msg);
+		console.log([msg]);
+
+    if (handleNonGMMessage(msg)) {
+      return;
+    }
 
 		if (msg.sender === game.user.id) {
 			console.log(`pick-up-stix | socket.on | i sent this, ignoring`);
@@ -123,42 +127,64 @@ socket = game.socket;
 		}
 
 		let actor;
-		let token;
+		let token: Token;
 
 		switch (msg.type) {
 			case SocketMessageType.updateActor:
 				actor = game.actors.get(msg.data.actorId);
-				await actor.update(msg.data.updates);
+				await updateActor(actor, msg.data.updates);
 				break;
 			case SocketMessageType.deleteToken:
-				await canvas.scene.deleteEmbeddedEntity('Token', msg.data);
+				token = canvas.tokens.placeables.find(p => p.id === msg.data);
+				if (token) {
+					await deleteToken(token);
+				}
 				break;
 			case SocketMessageType.updateEntity:
 				token = canvas.tokens.get(msg.data.tokenId);
-				await token.update(msg.data.updates);
+				if (token) {
+					await updateEntity(token, msg.data.updates);
+				}
 				break;
 			case SocketMessageType.createOwnedEntity:
 				actor = game.actors.get(msg.data.actorId);
-				await actor.createOwnedItem(msg.data.items);
+				await createOwnedItem(actor, msg.data.items);
 				break;
 			case SocketMessageType.createItemToken:
-				await Token.create(msg.data);
+				await createToken(msg.data);
 				break;
 			case SocketMessageType.saveLootTokenData:
-				saveLootTokenData(msg.data.sceneId, msg.data.tokenid, msg.data.lootData);
+				await saveLootTokenData(msg.data.sceneId, msg.data.tokenId, msg.data.lootData);
 				break;
 			case SocketMessageType.deleteLootTokenData:
-				deleteLootTokenData(msg.data.sceneId, msg.data.tokenId);
+				await deleteLootTokenData(msg.data.sceneId, msg.data.tokenId);
 				break;
 			case SocketMessageType.createEntity:
-				createEntity(msg.data.data, msg.data.options);
+				await createItem(msg.data.data, msg.data.options);
 				break;
 			case SocketMessageType.deleteEntity:
-				deleteEntity(msg.data.uuid);
+				await deleteEntity(msg.data.uuid);
 				break;
-			case SocketMessageType.lootTokenDataSaved:
-				Hooks.callAll('pick-up-stix.lootTokenDataSaved', msg.data.sceneId, msg.data.tokenId, msg.data.lootData);
-				break;
+			default:
+				console.error(`pick-up-stix | readyHook | No valid socket message handler for '${msg.type}' with arg:`);
+				console.log([msg])
 		}
 	});
 };
+
+const handleNonGMMessage = (msg: PickUpStixSocketMessage): boolean => {
+  let handled = false;
+
+  switch (msg.type) {
+    case SocketMessageType.lootTokenDataSaved:
+      Hooks.callAll('pick-up-stix.lootTokenDataSaved', msg.data.sceneId, msg.data.tokenId, msg.data.lootData);
+      handled = true;
+      break;
+    case SocketMessageType.lootTokenCreated:
+      Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId, msg.data.data);
+      handled = true;
+      break;
+  }
+
+  return handled;
+}

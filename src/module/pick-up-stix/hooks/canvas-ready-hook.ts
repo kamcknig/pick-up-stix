@@ -84,7 +84,6 @@ export async function canvasReadyHook(canvas) {
 				continue;
 			}
 			lootToken = await LootToken.create({ ...token.data, id: tokenId }, data);
-			lootTokens.push(lootToken);
 		}
 		else {
 			lootToken.activateListeners();
@@ -97,7 +96,7 @@ export async function canvasReadyHook(canvas) {
 
 	if (game.user.isGM) {
 		for (let i of game.items.values()) {
-			if (i.getFlag('pick-up-stix', 'pick-up-stix.isTemplate') === true) {
+			if (i.getFlag('pick-up-stix', 'pick-up-stix.temporary') === true) {
 				console.log('pick-up-stix | canvasReadyHook | found template Item, removing it');
 				await deleteEntity(i.uuid);
 			}

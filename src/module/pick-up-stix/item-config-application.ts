@@ -190,7 +190,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 				}, {});
 
 
-		let description = this._lootTokenData.container.description;
+		let description = this._lootTokenData.container.description ?? '';
 		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
 		const currencyTypes = getCurrencyTypes();

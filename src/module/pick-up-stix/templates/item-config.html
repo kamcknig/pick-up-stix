@@ -36,7 +36,12 @@
 
       <div class="flexrow">
         {{#if user.isGM}}
-          <textarea style="resize: none;" class="container-description" id="description" name="container.description">{{description}}</textarea>
+          <textarea
+            placeholder="Enter a description"
+            style="resize: none;"
+            class="container-description"
+            id="description"
+            name="container.description">{{description}}</textarea>
         {{else}}
           <span id="description" class="container-description">{{description}}</span>
         {{/if}}

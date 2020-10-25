@@ -59,7 +59,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	private _lootTokenData: PickUpStixFlags
 	private _sceneId;
 	private _tokenId;
-	private isToken(): boolean {
+	private get isToken(): boolean {
 		return !!this._tokenId;
 	}
 
@@ -195,7 +195,8 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 					return prev;
 				}, {});
 
-		let description = this.object.getFlag('pick-up-stix', 'pick-up-stix.container.description') ?? '';
+
+		let description = this._lootTokenData.container.description;
 		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
 		const currencyTypes = getCurrencyTypes();

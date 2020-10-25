@@ -169,8 +169,22 @@ export class LootToken {
         ? data.container.imageOpenPath
         : data.container.imageClosePath;
 
+      const updates = {};
+
       if (this.token.data.img !== img) {
-        await this.token.update({ img });
+        updates['img'] = img;
+      }
+
+      if (this.token.data.name !== (data as any).name) {
+        updates['name'] = (data as any).name;
+      }
+
+      // TODO: might want to look at this. The hook is called for all players
+      // so if there are multiple GMs then this will get called multiple times
+      if (game.user.isGM) {
+        if (Object.keys(updates).length > 0) {
+          await this.token.update(updates);
+        }
       }
     }
 	}

@@ -363,6 +363,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		if (!this.isToken) {
 			await updateEntity(this.object, {
+				name: formData.name,
 				'flags': {
 					'pick-up-stix': {
 						'pick-up-stix': expandedObject
@@ -371,6 +372,9 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			});
 		}
 		else {
+			await updateEntity(this.object, {
+				name: formData.name
+			});
 			await saveLootTokenData(this._sceneId, this._tokenId, expandedObject);
 		}
 	}

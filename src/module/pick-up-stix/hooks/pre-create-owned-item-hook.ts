@@ -1,4 +1,4 @@
-export async function onPreCreateOwnedItem(actor: Actor, itemData: any, options: any, userId: string) {
+export async function preCreateOwnedItemHook(actor: Actor, itemData: any, options: any, userId: string) {
 	console.log(`pick-up-stix | onPreCreateOwnedItem | called with args:`);
 	console.log([actor, duplicate(itemData), options, userId]);
 

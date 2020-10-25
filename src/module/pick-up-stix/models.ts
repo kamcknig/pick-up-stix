@@ -36,7 +36,14 @@ export interface DropData {
 export interface PickUpStixFlags {
 	// when creating a new Item Entity to configure for tokens, it's marked as a template
 	// these are dummy items that shouldn't live after the token is gone.
-	isTemplate?: boolean;
+  temporary?: boolean;
+
+  // when a loot token's config is opened, a new Item entity is created in order to edit
+  // the item data, when that Item is updated the loot data in the game settings is updated
+  // and we have to update any other open configs on other clients so we'll need a reference
+  // to the token ID that triggered the update
+	tokenId?: string;
+	sceneId?: string;
 
 	itemType: ItemType;
 
@@ -80,16 +87,17 @@ export interface ContainerLoot {
 
 
 export enum SocketMessageType {
-	deleteToken,
-	updateEntity,
-	updateActor,
-	createOwnedEntity,
-	createItemToken,
-	saveLootTokenData,
-	deleteLootTokenData,
-	createEntity,
-	deleteEntity,
-	lootTokenDataSaved
+	deleteToken = 'deleteToken',
+	updateEntity = 'updateEntity',
+	updateActor = 'updateActor',
+	createOwnedEntity = 'createOwnedEntity',
+	createItemToken = 'createItemToken',
+	saveLootTokenData = 'saveLootTokenData',
+	deleteLootTokenData = 'deleteLootTokenData',
+	createEntity = 'createEntity',
+	deleteEntity = 'deleteEntity',
+  lootTokenDataSaved = 'lootTokenDataSaved',
+  lootTokenCreated = 'lootTokenCreated'
 }
 
 export interface PickUpStixSocketMessage {

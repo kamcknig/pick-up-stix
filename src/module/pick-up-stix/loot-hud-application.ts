@@ -21,20 +21,20 @@ export class LootHud extends BasePlaceableHUD {
 
   activateListeners(html) {
     console.log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
-    console.log(html);
+    console.log([html]);
     super.activateListeners(html);
-    html.find(".config").click(this._onTokenConfig.bind(this));
-    html.find(".locked").click(this._onToggleItemLocked.bind(this));
-    html.find(".emit-light").click(this._onConfigureLightEmission.bind(this));
+    html.find(".config").click(this._onTokenConfig);
+    html.find(".locked").click(this._onToggleItemLocked);
+    html.find(".emit-light").click(this._onConfigureLightEmission);
   }
 
-  private async _onConfigureLightEmission(event) {
+  private _onConfigureLightEmission = async (event) => {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
     // TODO: look into this
     const f = new LootEmitLightConfigApplication(this.object, {}).render(true);
   }
 
-  private async _onToggleItemLocked(event) {
+  private _onToggleItemLocked = async (event) => {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
     const lootToken = getLootToken(this.object.scene.id, this.object.id);
 
@@ -47,7 +47,7 @@ export class LootHud extends BasePlaceableHUD {
     this.render();
   }
 
-  private async _onTokenConfig(event) {
+  private _onTokenConfig = async (event) => {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
 
     const lootToken = getLootToken(canvas.scene.id, this.object.id);

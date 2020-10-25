@@ -1,9 +1,21 @@
 <form>
   <div class="form-group" style="margin-bottom: 10px;">
     <label>Open Sound</label>
+
     <div class="form-fields">
-      <input type="text" name="flags.pick-up-stix.pick-up-stix.container.soundOpenPath" class="image" placeholder="sound/path" value="{{openSoundPath}}">
-      <button type="button" class="file-picker" data-type="audio" data-target="flags.pick-up-stix.pick-up-stix.container.soundOpenPath" title="Browse Files" tabindex="-1">
+      <input
+        type="text"
+        name="soundOpenPath"
+        class="image"
+        placeholder="sound/path"
+        value="{{openSoundPath}}">
+
+      <button
+        type="button"
+        class="file-picker"
+        data-type="audio"
+        data-target="soundOpenPath"
+        title="Browse Files">
         <i class="fas fa-file-import fa-fw"></i>
       </button>
     </div>
@@ -12,8 +24,19 @@
   <div class="form-group">
     <label for="closeSound">Close Sound</label>
     <div class="form-fields">
-      <input type="text" name="flags.pick-up-stix.pick-up-stix.container.soundClosePath" class="image" placeholder="sound/path" value="{{closeSoundPath}}">
-      <button type="button" class="file-picker" data-type="audio" data-target="flags.pick-up-stix.pick-up-stix.container.soundClosePath" title="Browse Files" tabindex="-1">
+      <input
+        type="text"
+        name="soundClosePath"
+        class="image"
+        placeholder="sound/path"
+        value="{{closeSoundPath}}">
+
+      <button
+        type="button"
+        class="file-picker"
+        data-type="audio"
+        data-target="soundClosePath"
+        title="Browse Files">
         <i class="fas fa-file-import fa-fw"></i>
       </button>
     </div>

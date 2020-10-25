@@ -45,7 +45,7 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
   return v1Parts[0] - v2Parts[0];
 }
 
-export function _onChangeInputDelta(event) {
+export function onChangeInputDelta(event) {
   const input = event.target;
   const value = input.value;
   if ( ['+', '-'].includes(value[0]) ) {
@@ -92,21 +92,4 @@ export function getPriceDataPath(): string {
   }
 
   return path;
-}
-
-export const deleteToken = async (token: Token): Promise<void> => {
-  console.log(`pick-up-stix | deleteToken with args:`);
-  console.log(token);
-
-  if (game.user.isGM) {
-    await canvas.scene.deleteEmbeddedEntity('Token', token.id);
-    return;
-  }
-
-  const msg: PickUpStixSocketMessage = {
-    sender: game.user.id,
-    type: SocketMessageType.deleteToken,
-    data: token.id
-  }
-  socket.emit('module.pick-up-stix', msg);
 }

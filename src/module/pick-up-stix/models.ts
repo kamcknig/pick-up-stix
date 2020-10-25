@@ -67,8 +67,12 @@ export interface PickUpStixFlags {
 	// should only exist on token instances
 	itemData?: any;
 
+  width?: number;
+  height?: number;
+  name?: string;
+
 	isLocked?: boolean;
-	container?: {
+  container?: {
 		soundOpenPath: string;
 		soundClosePath: string;
 		imageClosePath: string;

@@ -151,12 +151,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			.find('input#canCloseCheckbox')
 			.prop('checked', this._lootTokenData.container.canClose ?? true);
 
-		if (this.object) {
-			$(html)
-				.find('input#scale')
-				.val(this.object?.data?.width ?? 1);
-		}
-
 		if (!game.user.isGM) {
 			$(html)
 				.find(`input[type="text"]`)
@@ -232,6 +226,8 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			profileImage: this._lootTokenData.container.imageOpenPath,
 			description,
 			object: this.object.data,
+			width: this._lootTokenData.width ?? 1,
+			height: this._lootTokenData.height ?? 1,
 			user: game.user,
 			quantityDataPath,
 			hasToken: this.isToken,
@@ -351,11 +347,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 					setProperty(formData, `container.loot.currency`, { ...tokenLoot.currency });
 				}
 			}
-		}
-
-		if (formData.width !== undefined) {
-			// we only collect the one size and store it as the width, so here we also store the height to be the same
-			formData.height = formData.width;
 		}
 
 		const expandedObject = expandObject(flattenObject(formData));

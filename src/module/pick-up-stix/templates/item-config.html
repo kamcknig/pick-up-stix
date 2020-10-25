@@ -82,7 +82,13 @@
     {{#if hasToken}}
       <div class="flexcol character-selection sheet-section-right">
         {{#each tokens as | token |}}
-          <div class="flexrow row {{token.class}}" data-actor_select data-token_id="{{token.token.id}}"><img class="profile" src="{{token.token.actor.img}}" /><span>{{token.token.actor.name}}</span></div>
+          <div
+            class="flexrow row {{token.class}}"
+            data-actor_select
+            data-token_id="{{token.token.id}}">
+              <img class="profile" src="{{token.token.actor.img}}" />
+              <span>{{token.token.actor.name}}</span>
+            </div>
         {{/each}}
       </div>
     {{/if}}

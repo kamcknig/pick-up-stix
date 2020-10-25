@@ -49,7 +49,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	}
 
 	private _token: Token;
-	private token(): Token {
+	private get token(): Token {
 		if (!this._token) {
 			this._token = canvas.tokens.placeables.find(p => p.id === this._tokenId);
 		}
@@ -120,7 +120,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		$(html)
 			.find('[data-actor_select]')
-			.on('click', e => this._onSelectActor);
+			.on('click', this._onSelectActor);
 
 		if (this._currencyEnabled) {
 			// set click listener for taking currency
@@ -389,8 +389,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	 * @param controlled
 	 */
 	private controlTokenHook = (token, controlled): void => {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
-		setTimeout(this.render.bind(this), 100);
+    console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
+    const options = {};
+    if (this.isToken) {
+      options['renderData'] = { tokens: getValidControlledTokens(this.token) };
+    }
+    setTimeout((options) => {
+      this.render(true, options);
+    }, 100, options);
 	}
 
 	private lootTokenDataSavedHook = (sceneId, tokenId, data): void => {

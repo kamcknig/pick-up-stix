@@ -227,7 +227,19 @@ export class LootToken {
 	toggleOpened = async (tokens: Token[]=[], renderSheet: boolean=true) => {
 		console.log('pick-up-stix | LootToken | toggleOpened');
 		const data = this.lootData;
-		data.container.isOpen = !data.container.isOpen;
+
+    if (data.container.isOpen) {
+      let i = game.items.entities.find(item => {
+        return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
+      });
+
+      if (i) {
+        ui.notifications.error(`Another character is interacting with this item, it can not be closed.`);
+        return;
+      }
+    }
+
+    data.container.isOpen = !data.container.isOpen;
 
 		await new Promise(resolve => {
 			setTimeout(async () => {

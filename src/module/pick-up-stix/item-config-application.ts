@@ -89,12 +89,10 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		this._html = html;
 		super.activateListeners(this._html);
 
-		Hooks.off('preDeleteItem', this.preDeleteItemHook);
 		Hooks.off('updateToken', this.updateTokenHook);
 		Hooks.off('controlToken', this.controlTokenHook);
 		Hooks.off('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
 
-		Hooks.on('preDeleteItem', this.preDeleteItemHook);
 		Hooks.on('updateToken', this.updateTokenHook);
 		Hooks.on('controlToken', this.controlTokenHook);
 		Hooks.on('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
@@ -327,6 +325,13 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const tokenLoot: ContainerLoot = containerData?.loot;
 
 		if (e.type === 'change') {
+			if ($(e.currentTarget).hasClass('currency-input')) {
+				if (!e.currentTarget.value) {
+					const name = e.currentTarget.name;
+					setProperty(formData, name, 0);
+				}
+			}
+
 			Object.entries(tokenLoot ?? {}).forEach(([lootType, v]) => {
 				if (v.length === 0) {
 					return;
@@ -348,8 +353,8 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		if (this._currencyEnabled) {
 			// when the user is a GM the currency is taken from the inputs on the form, but when the user NOT a GM, there are no inputs
 			if (!game.user.isGM) {
-				if (tokenLoot.currency) {
-					setProperty(formData, `container.loot.currency`, { ...tokenLoot.currency });
+				if (containerData.currency) {
+					setProperty(formData, `container.currency`, { ...containerData.currency });
 				}
 			}
 		}
@@ -366,18 +371,10 @@ export default class ItemConfigApplication extends BaseEntitySheet {
             'pick-up-stix': expandedObject
           }
         }
-      })
-			/* await updateEntity(this.object, {
-				name: formData.name,
-				'flags': {
-					'pick-up-stix': {
-						'pick-up-stix': expandedObject
-					}
-				}
-			}); */
+      });
 		}
 		else {
-			await updateEntity(this.object, {
+			await this.object.update({
 				name: formData.name
 			});
 			await saveLootTokenData(this._sceneId, this._tokenId, expandedObject);
@@ -389,7 +386,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	 */
 	close = async () => {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | close`);
-		Hooks.off('preDeleteItem', this.preDeleteItemHook);
 		Hooks.off('updateToken', this.updateTokenHook);
 		Hooks.off('controlToken', this.controlTokenHook);
 		Hooks.off('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
@@ -433,17 +429,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		// eligible
 		this._selectedTokenId = null;
 		setTimeout(this.render.bind(this), 100);
-	}
-
-	protected preDeleteItemHook = (item): boolean => {
-		/* console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | preDeleteItemHook:`);
-		console.log([item]);
-
-		if (item.id === this.object.id) {
-			ui.notifications.error('This Item is currently being edited. Close the config window to delete the item.');
-		}
-		return item.id !== this.object.id; */
-		return true;
 	}
 
 	private _onSelectActor = (e): void => {

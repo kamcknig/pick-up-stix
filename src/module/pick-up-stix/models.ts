@@ -1,4 +1,50 @@
+export interface DropData {
+	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
+	// If the item being dropped comes from an actor token, then the tokenId will be available
+	tokenId?: string;
+
+	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
+	// If the item being dropped comes from an actor token, then the sceneId that the token
+	// is on will be included.
+	sceneId?: string;
+
+	// If the item being dropped comes from an actor sheet, then the actorId will be included
+	actorId?: string,
+
+	// If the item being droppped comes from a compendium then the pack name will be included
+	pack?: string,
+
+	// The ID of the item Entity being dropped
+	id?: string,
+
+	// The item Entity's data
+	data?:any,
+
+	// If the item Entity being dropped comes from an actor, this will be a reference
+	// to the actor Entity it belongs to
+	actor?: Actor;
+
+	// x and y postion where the item was dropped, this would need to be converted into world coordinates
+	x: number,
+	y: number,
+
+	// this is the type that comes from foundry. We'll test for this when dropping on the item config
+	// application to ensure we are only accepting the "Item" types
+	type?: string
+}
+
 export interface PickUpStixFlags {
+	// when creating a new Item Entity to configure for tokens, it's marked as a template
+	// these are dummy items that shouldn't live after the token is gone.
+  temporary?: boolean;
+
+  // when a loot token's config is opened, a new Item entity is created in order to edit
+  // the item data, when that Item is updated the loot data in the game settings is updated
+  // and we have to update any other open configs on other clients so we'll need a reference
+  // to the token ID that triggered the update
+	tokenId?: string;
+	sceneId?: string;
+
 	itemType: ItemType;
 
 	// if the item becomes an owned item, then we need to know who the owner is
@@ -21,8 +67,12 @@ export interface PickUpStixFlags {
 	// should only exist on token instances
 	itemData?: any;
 
+  width?: number;
+  height?: number;
+  name?: string;
+
 	isLocked?: boolean;
-	container?: {
+  container?: {
 		soundOpenPath: string;
 		soundClosePath: string;
 		imageClosePath: string;
@@ -39,19 +89,26 @@ export interface ContainerLoot {
 	[key: string]: any[];
 }
 
+
 export enum SocketMessageType {
-	deleteToken,
-	updateEntity,
-	updateActor,
-	createOwnedEntity,
-	createItemToken
+	deleteToken = 'deleteToken',
+	updateEntity = 'updateEntity',
+	updateActor = 'updateActor',
+	createOwnedEntity = 'createOwnedEntity',
+	createItemToken = 'createItemToken',
+	saveLootTokenData = 'saveLootTokenData',
+	deleteLootTokenData = 'deleteLootTokenData',
+	createEntity = 'createEntity',
+	deleteEntity = 'deleteEntity',
+  lootTokenDataSaved = 'lootTokenDataSaved',
+  lootTokenCreated = 'lootTokenCreated'
 }
 
 export interface PickUpStixSocketMessage {
 	// user ID of the sender
 	sender: string;
 	type: SocketMessageType;
-	data: any;
+	data?: any;
 }
 
 export enum ItemType {

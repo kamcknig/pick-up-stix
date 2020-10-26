@@ -1,7 +1,5 @@
-import ItemConfigApplication from "./item-config-application";
-import { toggleItemLocked } from "./main";
+import { getLootToken } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
-import { ItemType } from "./models";
 
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
@@ -23,63 +21,52 @@ export class LootHud extends BasePlaceableHUD {
 
   activateListeners(html) {
     console.log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
-    console.log(html);
+    console.log([html]);
     super.activateListeners(html);
-    html.find(".config").click(this._onTokenConfig.bind(this));
-    html.find(".locked").click(this._onToggleItemLocked.bind(this.object));
-    html.find(".emit-light").click(this._onConfigureLightEmission.bind(this.object));
+    html.find(".config").click(this._onTokenConfig);
+    html.find(".locked").click(this._onToggleItemLocked);
+    html.find(".emit-light").click(this._onConfigureLightEmission);
   }
 
-  private async _onConfigureLightEmission(event) {
+  private _onConfigureLightEmission = async (event) => {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
-    const f = new LootEmitLightConfigApplication(this, {}).render(true);
+    // TODO: look into this
+    const f = new LootEmitLightConfigApplication(this.object, {}).render(true);
   }
 
-  private async _onToggleItemLocked(event) {
+  private _onToggleItemLocked = async (event) => {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
-    await toggleItemLocked.call(this, event);
-    this.render();
-  }
+    const lootToken = getLootToken(this.object.scene.id, this.object.id);
 
-  private async _onTokenConfig(event) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
-    if (this.object.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
-      new ItemConfigApplication(this.object as Token, this.object as Token).render(true);
+    if (!lootToken) {
+      console.error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
       return;
     }
 
-    const data = this.object.getFlag('pick-up-stix', 'pick-up-stix.itemData');
+    await lootToken.toggleLocked();
+    this.render();
+  }
 
-    const i = await Item.create(data, {submitOnChange: true});
-    const app = i.sheet.render(true);
+  private _onTokenConfig = async (event) => {
+    console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
 
-    const hook = Hooks.on('updateItem', async (item, data, options) => {
-      console.log('pick-up-stix | loot-hud-application | _onTokenConfig | updateItem hook');
-      if (data._id !== i.id) {
-        return;
-      }
-
-      await this.object.setFlag('pick-up-stix', 'pick-up-stix.itemData', { ...item.data });
-    });
-
-    Hooks.once('closeItemSheet', async (sheet, html) => {
-      console.log('pick-up-stix | loot-hud-application | _onTokenConfig | closeItemSheet hook');
-      if (sheet.appId !== app.appId) {
-        return;
-      }
-
-      await i.delete();
-      Hooks.off('updateItem', hook as any);
-    });
+    const lootToken = getLootToken(canvas.scene.id, this.object.id);
+    await lootToken?.openConfigSheet([], { configureOnly: true });
   }
 
   getData(options) {
     console.log(`pick-up-stix | LootHud ${this.appId} | getData`);
     const data = super.getData();
+
+    const lootData = getLootToken(this.object.scene.id, this.object.id);
+    if (!lootData) {
+      console.error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
+    }
+
     return mergeObject(data, {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),
       visibilityClass: data.hidden ? 'active' : '',
-      lockedClass: this.object.getFlag('pick-up-stix', 'pick-up-stix.isLocked') ? 'active' : ''
+      lockedClass: lootData.isLocked ? 'active' : ''
     });
   }
 }

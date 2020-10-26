@@ -1,6 +1,8 @@
 //@ts-ignore
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
+import { PickUpStixSocketMessage, SocketMessageType } from './module/pick-up-stix/models.js';
+
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
@@ -16,6 +18,9 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
         ...r.DND5E.currencies
       };
     });
+  }
+  else {
+    console.warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
   }
 
   return {
@@ -40,7 +45,7 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
   return v1Parts[0] - v2Parts[0];
 }
 
-export function _onChangeInputDelta(event) {
+export function onChangeInputDelta(event) {
   const input = event.target;
   const value = input.value;
   if ( ['+', '-'].includes(value[0]) ) {
@@ -62,6 +67,7 @@ export function getQuantityDataPath(): string {
       path = 'quantity.value'
       break;
     default:
+      console.warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
       path = 'quantity';
       break;
   }
@@ -80,6 +86,7 @@ export function getPriceDataPath(): string {
       path = 'price.value'
       break;
     default:
+      console.warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
       path = 'price';
       break;
   }

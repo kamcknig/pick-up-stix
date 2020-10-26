@@ -4,7 +4,9 @@ export enum SettingKeys {
 	disableCurrencyLoot = 'disable-currency-loot',
 	defaultContainerCloseSound = 'default-container-close-sound',
 	defaultContainerOpenSound = 'default-container-open-sound',
-	version = 'version'
+	version = 'version',
+	lootTokenData = 'lootTokenData',
+	version_0_12_data_notification = 'version_0_12_data_notification'
 }
 
 const systemCurrenciesImplemented = [
@@ -24,6 +26,15 @@ export const registerSettings = function() {
 	}
 	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
+	game.settings.register('pick-up-stix', SettingKeys.lootTokenData, {
+		name: 'Loot Tokens',
+		hint: 'An object that represents the loot tokens in the world',
+		type: Object,
+		config: false,
+		scope: 'world',
+		default: {}
+	});
+
 	game.settings.register('pick-up-stix', 'notify-db-issue', {
 		name: 'DB issue notification',
 		scope: 'world',
@@ -36,7 +47,8 @@ export const registerSettings = function() {
 		hint: 'Used to track which version is last loaded, so that we can give updates to users',
 		scope: 'world',
 		config: false,
-		default: undefined
+		type: String,
+		default: '0.0.0'
 	});
 
 	// Register any custom module settings here
@@ -80,6 +92,15 @@ export const registerSettings = function() {
 		scope: 'world',
 		type: audioTypeFunc,
 		config: true
+	});
+
+	game.settings.register('pick-up-stix', SettingKeys.version_0_12_data_notification, {
+		name: 'Version 12 first notification',
+		hint: 'Used to track who has gotten the notification when moving to version 12',
+		scope: 'client',
+		type: Boolean,
+		default: false,
+		config: false
 	});
 }
 

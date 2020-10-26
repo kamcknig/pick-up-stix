@@ -86,7 +86,11 @@ export class LootToken {
 
 	get itemType(): ItemType {
 		return this.lootData.itemType;
-	}
+  }
+
+  get canClose(): boolean {
+    return this.lootData.container?.canClose;
+  }
 
 	/**
 	 * The Scene ID that the Token this LootToken instance represents belongs to
@@ -241,7 +245,7 @@ export class LootToken {
       });
 
       if (i) {
-        ui.notifications.error(`Another character is interacting with this item, it can not be closed.`);
+        ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
         return;
       }
     }
@@ -258,7 +262,8 @@ export class LootToken {
 					a.play();
 				}
 				catch (e) {
-					// it's ok to error here
+          // it's ok to error here
+          console.error(e)
 				}
 
 				resolve();
@@ -268,7 +273,7 @@ export class LootToken {
 		await this.save(data);
 
 		if (renderSheet && data.container?.isOpen) {
-			this.openConfigSheet(tokens);
+			await this.openConfigSheet(tokens);
 		}
 	}
 
@@ -320,7 +325,7 @@ export class LootToken {
 		await this.remove();
 	}
 
-	openConfigSheet = async (tokens: Token[]=[]): Promise<void> => {
+  openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
     console.log('pick-up-stix | LootToken | openLootTokenConfig:');
     console.log([tokens]);
 
@@ -330,27 +335,31 @@ export class LootToken {
 			return;
 		}
 
-		const data = this.itemType === ItemType.CONTAINER
-			?  {
-				type: ItemType.CONTAINER,
-				name: this.token.name,
-				img: this.token.data.img,
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							...this.lootData,
-							temporary: true,
-							tokenId: this.tokenId,
-							sceneId: this.sceneId
-						}
-					}
-				}
-			}
-			: this.lootData.itemData;
-
 		let i = game.items.entities.find(item => {
 			return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
 		});
+
+    const data = this.itemType === ItemType.CONTAINER
+      ? {
+        type: ItemType.CONTAINER,
+        name: this.token.name,
+        img: this.token.data.img,
+        flags: {
+          'pick-up-stix': {
+            'pick-up-stix': {
+              ...this.lootData,
+              temporary: true,
+              tokenId: this.tokenId,
+              sceneId: this.sceneId
+            }
+          }
+        }
+      }
+      : this.lootData.itemData;
+
+    data['permission'] = {
+      default: 2
+    }
 
 		if (!i) {
 			console.log('pick-up-stix | LootToken | openConfigSheet | no item template found, constructing new Item');
@@ -359,20 +368,23 @@ export class LootToken {
 
 		this._config = i.sheet.render(true, { renderData: { tokens } }) as FormApplication;
 
-		const sheetCloseHandler = async (sheet, html) => {
-			if (sheet.appId !== this._config.appId) {
-				return;
-			}
-			console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
-			console.log(i.apps);
-			await deleteEntity(i.uuid);
-			this._config = null;
-			Hooks.off('closeItemSheet', sheetCloseHandler);
-			Hooks.off('closeItemConfigApplication', sheetCloseHandler);
-		}
+    const sheetCloseHandler = async (sheet, html) => {
+      if (sheet.appId !== this._config.appId) {
+        return;
+      }
+      console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
+      console.log([i.apps]);
+      await deleteEntity(i.uuid);
+      this._config = null;
+      if (!options.configureOnly && this.lootData.container.canClose) {
+        await this.toggleOpened();
+      }
+      Hooks.off('closeItemSheet', sheetCloseHandler);
+      Hooks.off('closeItemConfigApplication', sheetCloseHandler);
+    }
 
-		Hooks.once('closeItemConfigApplication', sheetCloseHandler);
-		Hooks.once('closeItemSheet', sheetCloseHandler);
+    Hooks.once('closeItemConfigApplication', sheetCloseHandler);
+    Hooks.once('closeItemSheet', sheetCloseHandler);
 	}
 
 
@@ -434,16 +446,24 @@ export class LootToken {
 
 		// checking for double click, the double click handler clears this timeout
 		this._clickTimeout = setTimeout(this.finalizeClickLeft, 250, event, allControlled, tokens);
-
-		this.token._onClickLeft(event);
 	}
 
 	private finalizeClickLeft = async (event, allControlled: Token[], tokens: Token[]) => {
-		console.log('pick-up-stix | LootToken | finalizeClickLeft');
+    console.log('pick-up-stix | LootToken | finalizeClickLeft');
+    console.log([event, allControlled, tokens]);
 
-		for (let t of allControlled) {
-      t.control({ releaseOthers: false });
+    let i = game.items.entities.find(item => {
+      return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
+    });
+
+    if (i) {
+      ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
+      return;
     }
+
+		/* for (let t of allControlled) {
+      t.control({ releaseOthers: false });
+    } */
 
 		// if it's locked then it can't be opened
 		if (this.lootData.isLocked) {
@@ -457,28 +477,41 @@ export class LootToken {
       if (!game.user.isGM) {
         ui.notifications.error(`Please ensure you have at least one token controlled that is close enough to the loot token.`);
       }
+      else {
+        this.token._onClickLeft(event);
+      }
       return;
     }
 
-    this.token.release();
+    this.token._onClickLeft(event);
+
+    for (let t of allControlled) {
+      t.control({ releaseOthers: false });
+    }
 
 		if (this.lootData.itemType === ItemType.ITEM) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
 
 			// TODO: add token selection when multiple tokens are controlled
-			await this.collect(tokens[0]);
+      await this.collect(tokens[0]);
+      return;
 		}
 
 		if (this.lootData.itemType === ItemType.CONTAINER) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
 
-			// if it's a container and it's open and can't be closed then don't do anything
-			if (this.lootData.container?.isOpen && !(this.lootData.container?.canClose ?? true)) {
-				console.log(`pick-up-stix | LootToken | finalizeClickLeft | container is open and can't be closed`);
-				return;
-			}
+      if (this.isOpen) {
+        if (this.canClose) {
+          await this.toggleOpened(tokens);
+        }
+        else {
+          await this.openConfigSheet(tokens);
+        }
+      }
+      else {
+        await this.toggleOpened(tokens);
+      }
 
-			await this.toggleOpened(tokens);
 			return;
 		}
 	}
@@ -497,15 +530,31 @@ export class LootToken {
 		}
 	}
 
-	private handleClickLeft2 = (event) => {
-		console.log('pick-up-stix | LootToken | handleClickLeft2');
-		clearTimeout(this._clickTimeout);
-		this.openConfigSheet();
+	private handleClickLeft2 = async (event) => {
+    console.log('pick-up-stix | LootToken | handleClickLeft2');
+    clearTimeout(this._clickTimeout);
+    let i = game.items.entities.find(item => {
+      return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
+    });
+
+    if (i) {
+      ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
+      return;
+    }
+		await this.openConfigSheet([], { configureOnly: true });
 	}
 
-	private handleClickRight2 = (event) => {
-		console.log('pick-up-stix | LootToken | handleClickRight2');
-		clearTimeout(this._clickTimeout);
-		this.openConfigSheet();
+	private handleClickRight2 = async (event) => {
+    console.log('pick-up-stix | LootToken | handleClickRight2');
+    clearTimeout(this._clickTimeout);
+    let i = game.items.entities.find(item => {
+      return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
+    });
+
+    if (i) {
+      ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
+      return;
+    }
+    await this.openConfigSheet([], { configureOnly: true });
 	}
 }

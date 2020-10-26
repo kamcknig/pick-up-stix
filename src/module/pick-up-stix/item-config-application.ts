@@ -274,7 +274,12 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const itemType = droppedItemData.type;
 		const containerData = this._lootTokenData?.container;
 
-		const loot: ContainerLoot = containerData?.loot ?? {};
+    let loot: ContainerLoot = containerData?.loot;
+    if (!loot) {
+      containerData.loot = {};
+      loot = containerData.loot;
+    }
+
 		if (!loot[itemType]) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
 			loot[itemType] = [];
@@ -353,15 +358,23 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
 		console.log(expandedObject);
 
-		if (!this.isToken) {
-			await updateEntity(this.object, {
+    if (!this.isToken) {
+      await this.object.update({
+        name: formData.name,
+        'flags': {
+          'pick-up-stix': {
+            'pick-up-stix': expandedObject
+          }
+        }
+      })
+			/* await updateEntity(this.object, {
 				name: formData.name,
 				'flags': {
 					'pick-up-stix': {
 						'pick-up-stix': expandedObject
 					}
 				}
-			});
+			}); */
 		}
 		else {
 			await updateEntity(this.object, {
@@ -486,7 +499,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +actorCurrency[k] + +currency[k]);
 		await updateActor(token.actor, {'data.currency': actorCurrency});
 
-		currencyCollected(token, Object.entries(currency).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
+		await currencyCollected(token, Object.entries(currency).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
 
 		Object.keys(currency)?.forEach(k => currency[k] = 0);
 
@@ -526,14 +539,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
 
 		await createOwnedItem(token.actor, [{
-			...duplicate(itemData),
+			...itemData,
 			data: {
-				...duplicate(itemData.data),
+				...itemData.data,
 				[getQuantityDataPath()]: 1
 			}
 		}]);
 
-		itemCollected(token, itemData);
+		await itemCollected(token, itemData);
 
 		if (this.isToken) {
 			await saveLootTokenData(this._sceneId, this._tokenId, this._lootTokenData);

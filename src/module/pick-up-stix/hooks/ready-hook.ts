@@ -39,7 +39,7 @@ export async function readyHook() {
 	const activeVersion = game.modules.get('pick-up-stix').data.version;
 	const previousVersion = game.settings.get('pick-up-stix', SettingKeys.version);
 
-	if (game.user.isGM) {
+	if (game.user.isGM && activeVersion !== previousVersion) {
 		await game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
 	}
 

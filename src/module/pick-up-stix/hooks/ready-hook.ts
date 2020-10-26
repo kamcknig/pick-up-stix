@@ -36,40 +36,6 @@ export async function readyHook() {
 		}
 	};
 
-	//EntitySheetConfig.registerSheet(Item, 'pick-up-stix', ItemConfigApplication, { types: [ 'container' ], makeDefault: true });
-
-	if (!game.settings.get('pick-up-stix', 'notify-db-issue')) {
-		await new Promise(resolve => {
-			new Dialog({
-				title: 'Pick-Up-Stix WARNING!',
-				content: `
-					<p>
-					It has been bought to my attention that while my module is enabled, eventually it is possible
-					that some of the data files used by Foundry can become quite large. This issue is caused by a combination
-					of how the database works and how this module stores data.
-					</p>
-					<p>
-					I am working on a release that will alleviate this issue and I appreciate your patience and support.
-					</p>
-				`,
-				buttons: {
-					ok: {
-						label: 'OK',
-						callback: () => resolve()
-					},
-					dismiss: {
-						label: `DON'T SHOW AGAIN`,
-						callback: () => {
-							game.settings.set('pick-up-stix', 'notify-db-issue', true);
-							resolve();
-						}
-					}
-				},
-				default: 'ok'
-			}).render(true);
-		});
-	}
-
 	const activeVersion = game.modules.get('pick-up-stix').data.version;
 	const previousVersion = game.settings.get('pick-up-stix', SettingKeys.version);
 

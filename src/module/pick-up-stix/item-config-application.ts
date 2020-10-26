@@ -49,7 +49,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	}
 
 	private _token: Token;
-	private token(): Token {
+	private get token(): Token {
 		if (!this._token) {
 			this._token = canvas.tokens.placeables.find(p => p.id === this._tokenId);
 		}
@@ -120,7 +120,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		$(html)
 			.find('[data-actor_select]')
-			.on('click', e => this._onSelectActor);
+			.on('click', this._onSelectActor);
 
 		if (this._currencyEnabled) {
 			// set click listener for taking currency
@@ -190,7 +190,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 				}, {});
 
 
-		let description = this._lootTokenData.container.description;
+		let description = this._lootTokenData.container.description ?? '';
 		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
 		const currencyTypes = getCurrencyTypes();
@@ -274,7 +274,12 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const itemType = droppedItemData.type;
 		const containerData = this._lootTokenData?.container;
 
-		const loot: ContainerLoot = containerData?.loot ?? {};
+    let loot: ContainerLoot = containerData?.loot;
+    if (!loot) {
+      containerData.loot = {};
+      loot = containerData.loot;
+    }
+
 		if (!loot[itemType]) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
 			loot[itemType] = [];
@@ -353,15 +358,23 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
 		console.log(expandedObject);
 
-		if (!this.isToken) {
-			await updateEntity(this.object, {
+    if (!this.isToken) {
+      await this.object.update({
+        name: formData.name,
+        'flags': {
+          'pick-up-stix': {
+            'pick-up-stix': expandedObject
+          }
+        }
+      })
+			/* await updateEntity(this.object, {
 				name: formData.name,
 				'flags': {
 					'pick-up-stix': {
 						'pick-up-stix': expandedObject
 					}
 				}
-			});
+			}); */
 		}
 		else {
 			await updateEntity(this.object, {
@@ -389,8 +402,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	 * @param controlled
 	 */
 	private controlTokenHook = (token, controlled): void => {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
-		setTimeout(this.render.bind(this), 100);
+    console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
+    const options = {};
+    if (this.isToken) {
+      options['renderData'] = { tokens: getValidControlledTokens(this.token) };
+    }
+    setTimeout((options) => {
+      this.render(true, options);
+    }, 100, options);
 	}
 
 	private lootTokenDataSavedHook = (sceneId, tokenId, data): void => {
@@ -480,7 +499,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +actorCurrency[k] + +currency[k]);
 		await updateActor(token.actor, {'data.currency': actorCurrency});
 
-		currencyCollected(token, Object.entries(currency).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
+		await currencyCollected(token, Object.entries(currency).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
 
 		Object.keys(currency)?.forEach(k => currency[k] = 0);
 
@@ -520,14 +539,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
 
 		await createOwnedItem(token.actor, [{
-			...duplicate(itemData),
+			...itemData,
 			data: {
-				...duplicate(itemData.data),
+				...itemData.data,
 				[getQuantityDataPath()]: 1
 			}
 		}]);
 
-		itemCollected(token, itemData);
+		await itemCollected(token, itemData);
 
 		if (this.isToken) {
 			await saveLootTokenData(this._sceneId, this._tokenId, this._lootTokenData);

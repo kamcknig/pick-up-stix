@@ -16,6 +16,7 @@ I mainly play Dungeons and Dragons 5th and therefore I develop and test with tha
 - Only one player at a time may interact with a container. This is due to the complicated nature of syncing the data between clients and the limitations of Foundry at the current time.
 - You might notice a slight delay when looting items, usually this is no more than a couple hundred milliseconds or less. This again is due to the nature of syncing the data across all clients.
 - Currently, to interact with an item or container token, a player's token must be within one square of the token.
+- Container/item tokens cannot be copied/pasted
 
 ## Future Considrations and Plans
 - Using roll tables to fill loot container

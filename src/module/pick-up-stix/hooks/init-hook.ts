@@ -9,7 +9,7 @@ import { tokenRelease } from "../overrides";
 export async function initHook() {
 	console.log('pick-up-stix | initHook');
 
-	CONFIG.debug.hooks = true;
+	// CONFIG.debug.hooks = true;
 
 	// Assign custom classes and constants here
 

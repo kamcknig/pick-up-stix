@@ -1,8 +1,6 @@
 //@ts-ignore
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
-import { PickUpStixSocketMessage, SocketMessageType } from './module/pick-up-stix/models.js';
-
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
@@ -46,13 +44,15 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
 }
 
 export function onChangeInputDelta(event) {
+  console.log(`pick-up-stix | onChangeInputDelta`);
+  console.log([event]);
   const input = event.target;
   const value = input.value;
   if ( ['+', '-'].includes(value[0]) ) {
     let delta = parseFloat(value);
-    input.value = getProperty(this.data, input.name) + delta;
+    input.value = Math.max(+getProperty(this, input.name) + +delta, 0);
   } else if ( value[0] === '=' ) {
-    input.value = value.slice(1);
+    input.value = Math.max(+value.slice(1), 0);
   }
 }
 

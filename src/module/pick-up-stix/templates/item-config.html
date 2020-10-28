@@ -99,10 +99,17 @@
           <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
           <ul class="currency-list flexrow">
             {{#each currencyTypes as | currencyOb |}}
-              <label>{{currencyOb.long}}</label>
-              {{#with (lookup ../currency currencyOb.short)}}
-                <input name="container.currency.{{currencyOb.short}}" class="currency-input" type="text" data-itemType="currency" value="{{this}}">
-              {{/with}}
+              <div class="flexrow item">
+                <span class="item-label">{{currencyOb.long}}</span>
+                {{#with (lookup ../currency currencyOb.short)}}
+                  <input
+                    name="container.currency.{{currencyOb.short}}"
+                    class="currency-input"
+                    type="text"
+                    data-itemType="currency"
+                    value="{{this}}">
+                {{/with}}
+            </div>
             {{/each}}
 
             {{#if hasToken}}

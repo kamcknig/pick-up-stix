@@ -185,12 +185,28 @@ $groove-color: #eeede0;
    */
   & .currency-details {
     & h3 {
-      flex: 0 0 120px;
+      flex: 0 0 85px;
     }
 
     & .currency-list {
       list-style: none;
       align-items: center;
+      flex-wrap: nowrap;
+
+      & .item {
+        align-items: center;
+        flex: 0 1 auto;
+        flex-wrap: nowrap;
+
+        & .item-label {
+          text-align: right;
+          flex: 0 1 auto;
+        }
+
+        & .currency-input {
+          flex: 0 1 60px;
+        }
+      }
     }
 
     & .currency-list input[type="text"] {

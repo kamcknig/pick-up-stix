@@ -160,7 +160,7 @@ export const normalizeDropData = (data: DropData, event?: any): any => {
 		data.y = (y - t.ty) / canvas.stage.scale.y;
 	}
 
-	const coreVersion = game.data.verson;
+	const coreVersion = game.data.version;
 	const is7Newer = isNewerVersion(coreVersion, '0.6.9');
 
 	if (data.actorId) {

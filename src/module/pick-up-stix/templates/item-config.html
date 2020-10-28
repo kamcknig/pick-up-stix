@@ -99,12 +99,22 @@
           <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
           <ul class="currency-list flexrow">
             {{#each currencyTypes as | currencyOb |}}
-              <label>{{currencyOb.long}}</label>
-              {{#with (lookup ../currency currencyOb.short)}}
-                <input name="container.currency.{{currencyOb.short}}" class="currency-input" type="text" data-itemType="currency" data-dtype="Number" value="{{this}}">
-              {{/with}}
+              <div class="flexrow item">
+                <span class="item-label">{{currencyOb.long}}</span>
+                {{#with (lookup ../currency currencyOb.short)}}
+                  <input
+                    name="container.currency.{{currencyOb.short}}"
+                    class="currency-input"
+                    type="text"
+                    data-itemType="currency"
+                    value="{{this}}">
+                {{/with}}
+            </div>
             {{/each}}
-            <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
+
+            {{#if hasToken}}
+              <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
+            {{/if}}
           </ul>
         </section>
       {{/if}}
@@ -136,7 +146,6 @@
                     type="text"
                     data-loot-type="{{lootType}}"
                     data-loot-id="{{loot._id}}"
-                    data-dtype="Number"
                     class="item-qty"
                     value="{{loot.qty}}"
                   >
@@ -147,9 +156,11 @@
 
                   <div class="item-details item-controls">
                     <!-- hand icon to take loot -->
-                    <a data-id="{{loot._id}}" class="item-take" title="Take Item">
-                      <i class="fas fa-hand-paper"></i>
-                    </a>
+                    {{#if ../../hasToken}}
+                      <a data-id="{{loot._id}}" class="item-take" title="Take Item">
+                        <i class="fas fa-hand-paper"></i>
+                      </a>
+                    {{/if}}
 
                     {{#if ../../user.isGM}}
                     <!-- trash icon to delete loot -->

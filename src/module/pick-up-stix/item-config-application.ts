@@ -13,8 +13,7 @@ import {
 	itemCollected,
 	normalizeDropData,
 	saveLootTokenData,
-	updateActor,
-	updateEntity
+	updateActor
 } from './main';
 import {
 	ContainerLoot,
@@ -40,7 +39,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			submitOnChange: true,
 			id: "pick-up-stix-item-config",
 			template: "modules/pick-up-stix/module/pick-up-stix/templates/item-config.html",
-			width: 850,
+			width: 900,
 			title: `${game.user.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
 			resizable: true,
 			classes: ['pick-up-stix', 'item-config-sheet'],
@@ -81,6 +80,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			: duplicate(flags);
 
 		this._currencyEnabled = !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
+
+		Hooks.on('updateItem', this.updateItemHook);
+		Hooks.on('updateToken', this.updateTokenHook);
+		Hooks.on('controlToken', this.controlTokenHook);
+		Hooks.on('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
 	}
 
 	activateListeners(html) {
@@ -89,20 +93,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		this._html = html;
 		super.activateListeners(this._html);
 
-		Hooks.off('updateToken', this.updateTokenHook);
-		Hooks.off('controlToken', this.controlTokenHook);
-		Hooks.off('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
-
-		Hooks.on('updateToken', this.updateTokenHook);
-		Hooks.on('controlToken', this.controlTokenHook);
-		Hooks.on('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
-
 		$(html)
 			.find('input')
 			.on('focus', e => e.currentTarget.select())
 			.addBack()
-			.find('[data-dtype="Number"]')
-			.on('change', onChangeInputDelta.bind(this.object));
+			.on('change', onChangeInputDelta.bind(this._lootTokenData));
 
 		if (game.user.isGM) {
 			$(html)
@@ -272,11 +267,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const itemType = droppedItemData.type;
 		const containerData = this._lootTokenData?.container;
 
-    let loot: ContainerLoot = containerData?.loot;
-    if (!loot) {
-      containerData.loot = {};
-      loot = containerData.loot;
-    }
+		let loot: ContainerLoot = containerData?.loot;
+		if (!loot) {
+			containerData.loot = {};
+			loot = containerData.loot;
+		}
 
 		if (!loot[itemType]) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
@@ -303,7 +298,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			await saveLootTokenData(this._sceneId, this._tokenId, this._lootTokenData);
 		}
 		else {
-			await this.submit({ updateData: { container: { ...containerData, loot }}});
+			await this.submit({ updateData: { ...this._lootTokenData }});
 		}
 	}
 
@@ -363,21 +358,23 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
 		console.log(expandedObject);
 
-    if (!this.isToken) {
-      await this.object.update({
-        name: formData.name,
-        'flags': {
-          'pick-up-stix': {
-            'pick-up-stix': expandedObject
-          }
-        }
-      });
+		if (!this.isToken) {
+			await this.object.update({
+				name: formData.name,
+				'flags': {
+					'pick-up-stix': {
+						'pick-up-stix': {
+							...expandedObject
+						}
+					}
+				}
+			});
 		}
 		else {
 			await this.object.update({
 				name: formData.name
 			});
-			await saveLootTokenData(this._sceneId, this._tokenId, expandedObject);
+			await saveLootTokenData(this._sceneId, this._tokenId, {...expandedObject});
 		}
 	}
 
@@ -388,8 +385,15 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | close`);
 		Hooks.off('updateToken', this.updateTokenHook);
 		Hooks.off('controlToken', this.controlTokenHook);
+		Hooks.off('updateItem', this.updateItemHook);
 		Hooks.off('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
 		return super.close();
+	}
+
+	private updateItemHook = (item, data, options, userId): void => {
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateItemHook`);
+		console.log([item, data, options, userId]);
+		this._lootTokenData = duplicate(mergeObject(this._lootTokenData, data.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {}));
 	}
 
 	/**
@@ -398,14 +402,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	 * @param controlled
 	 */
 	private controlTokenHook = (token, controlled): void => {
-    console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
-    const options = {};
-    if (this.isToken) {
-      options['renderData'] = { tokens: getValidControlledTokens(this.token) };
-    }
-    setTimeout((options) => {
-      this.render(true, options);
-    }, 100, options);
+		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
+		const options = {};
+		if (this.isToken) {
+			options['renderData'] = { tokens: getValidControlledTokens(this.token) };
+		}
+		setTimeout((options) => {
+			this.render(true, options);
+		}, 100, options);
 	}
 
 	private lootTokenDataSavedHook = (sceneId, tokenId, data): void => {

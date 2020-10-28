@@ -101,8 +101,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			.find('input')
 			.on('focus', e => e.currentTarget.select())
 			.addBack()
-			.find('[data-dtype="Number"]')
-			.on('change', onChangeInputDelta.bind(this.object));
+			.on('change', onChangeInputDelta.bind(this._lootTokenData));
 
 		if (game.user.isGM) {
 			$(html)

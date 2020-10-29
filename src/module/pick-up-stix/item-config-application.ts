@@ -27,7 +27,7 @@ import { ContainerSoundConfig } from './container-sound-config-application';
  * Application class to display to select an item that the token is
  * associated with
  */
-export default class ItemConfigApplication extends BaseEntitySheet {
+export default class ItemConfigApplication extends FormApplication {
 	private _html: any;
 	private _currencyEnabled: boolean;
 	private _selectedTokenId: string;
@@ -96,7 +96,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		$(html)
 			.find('input')
 			.on('focus', e => e.currentTarget.select())
-			.addBack()
 			.on('change', onChangeInputDelta.bind(this._lootTokenData));
 
 		if (game.user.isGM) {
@@ -390,10 +389,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		return super.close();
 	}
 
-	private updateItemHook = (item, data, options, userId): void => {
+	private updateItemHook = async (item, data, options, userId) => {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateItemHook`);
 		console.log([item, data, options, userId]);
-		this._lootTokenData = duplicate(mergeObject(this._lootTokenData, data.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {}));
+    this._lootTokenData = duplicate(mergeObject(this._lootTokenData, data.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {}));
+    await this.render(true)
 	}
 
 	/**

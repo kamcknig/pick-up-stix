@@ -73,7 +73,8 @@ export async function readyHook() {
 		}).render(true);
 	}
 
-socket = game.socket;
+  socket = game.socket;
+
 	socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
 		console.log(`pick-up-stix | socket.on | received socket message with args:`);
 		console.log([msg]);

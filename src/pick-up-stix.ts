@@ -34,35 +34,39 @@ Hooks.on('renderLootHud', onRenderLootHud);
 
 Hooks.on('pick-up-stix.lootTokenCreated', lootTokenCreatedHook);
 
-Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
-  console.log(`pick-up-stix | renderItemSheet5e`);
-  console.log([app, protoHtml, data]);
+Hooks.once('ready', () => {
+  if (game.system.id === 'dnd5e') {
+    Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
+      console.log(`pick-up-stix | renderItemSheet5e`);
+      console.log([app, protoHtml, data]);
 
-  const item = app.object;
-  const itemData = item.data.data;
+      const item = app.object;
+      const itemData = item.data.data;
 
-  // can't edit the size of owned items
-  if (item.actor) return;
+      // can't edit the size of owned items
+      if (item.actor) return;
 
-  let html = protoHtml;
+      let html = protoHtml;
 
-  if (html[0].localName !== "div") {
-    html = $(html[0].parentElement.parentElement);
+      if (html[0].localName !== "div") {
+        html = $(html[0].parentElement.parentElement);
+      }
+
+      const content = `
+      <div class="form-group">
+        <label>Width</label>
+        <input type="text" name="flags.pick-up-stix.pick-up-stix.width" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.width ?? 1}" data-dtype="Number">
+      </div>
+
+      <div class="form-group">
+        <label>Height</label>
+        <input type="text" name="flags.pick-up-stix.pick-up-stix.height" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.height ?? 1}" data-dtype="Number">
+      </div>
+    `
+      $(html)
+        .find('div.item-properties div.form-group')
+        .last()
+        .after(content);
+    });
   }
-
-  const content = `
-    <div class="form-group">
-      <label>Width</label>
-      <input type="text" name="flags.pick-up-stix.pick-up-stix.width" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.width ?? 1}" data-dtype="Number">
-    </div>
-
-    <div class="form-group">
-      <label>Height</label>
-      <input type="text" name="flags.pick-up-stix.pick-up-stix.height" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.height ?? 1}" data-dtype="Number">
-    </div>
-  `
-  $(html)
-    .find('div.item-properties div.form-group')
-    .last()
-    .after(content);
 });

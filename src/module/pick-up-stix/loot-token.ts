@@ -21,7 +21,9 @@ export interface TokenData {
 	x?: number;
 	y?: number;
 	img?: string;
-	id?: string;
+  id?: string;
+  width?: number;
+  height?: number;
 }
 
 export class LootToken {
@@ -123,7 +125,7 @@ export class LootToken {
 		Hooks.on('pick-up-stix.lootTokenDataSaved', this.lootTokenDataSavedHook);
 
 		Hooks.off('deleteToken', this.deleteTokenHook);
-		Hooks.on('deleteToken', this.deleteTokenHook);
+    Hooks.on('deleteToken', this.deleteTokenHook);
 
 		this.token.mouseInteractionManager = this.setupMouseManager();
 		this.token.activateListeners = this.setupMouseManager;
@@ -376,13 +378,33 @@ export class LootToken {
       console.log([i.apps]);
       await deleteEntity(i.uuid);
       this._config = null;
-      if (!options.configureOnly && this.lootData.container.canClose) {
+      if (!options.configureOnly && this.lootData.container?.canClose) {
         await this.toggleOpened();
       }
+
       Hooks.off('closeItemSheet', sheetCloseHandler);
       Hooks.off('closeItemConfigApplication', sheetCloseHandler);
+      Hooks.off('updateItem', updateItemHook);
     }
 
+    const updateItemHook = async (item, data, options, userId) => {
+      console.log('pick-up-stix | LootToken | openLootTokenConfig | updateItem hook');
+      console.log([item, data, options, userId]);
+      const flags = item.getFlag('pick-up-stix', 'pick-up-stix');
+
+      if (!flags) {
+        return;
+      }
+
+      await this.token.update({
+        name: item.data.name,
+        img: item.data.img,
+        width: flags.width ?? 1,
+        height: flags.height ?? 1
+      });
+    }
+
+    Hooks.on('updateItem', updateItemHook);
     Hooks.once('closeItemConfigApplication', sheetCloseHandler);
     Hooks.once('closeItemSheet', sheetCloseHandler);
 	}

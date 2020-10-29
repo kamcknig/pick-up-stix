@@ -223,6 +223,9 @@ export async function handleItemDropped(dropData: DropData) {
 		itemData = duplicate(item.data);
 	}
 
+  console.log(`pick-up-stix | handleItemDropped`);
+  console.log([itemData]);
+
 	const droppedItemIsContainer = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER;
 
 	let targetToken: Token;
@@ -273,29 +276,25 @@ export async function handleItemDropped(dropData: DropData) {
 	const hg = canvas.dimensions.size * .5;
 	const { x, y } = canvas.grid.getSnappedPosition(dropData.x - hg, dropData.y - hg, 1);
 
+  let tokenData = {
+    name: itemData.name,
+    disposition: 0,
+    x,
+    y,
+    img: itemData.img,
+    width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.width ?? 1,
+    height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.height ?? 1
+  }
+
 	// if the item being dropped is a container, just create the empty container
 	if (droppedItemIsContainer) {
 		console.log(`pick-up-stix | handleItemDropped | dropped item is a container`);
-		const lootToken = await LootToken.create(
-			{
-				name: itemData.name,
-				img: itemData.img,
-				x,
-				y,
-				disposition: 0
-			},
-			duplicate(itemData.flags['pick-up-stix']['pick-up-stix'])
+    await LootToken.create(
+      tokenData,
+      duplicate(itemData.flags['pick-up-stix']['pick-up-stix'])
 		);
 
 		return;
-	}
-
-	let tokenData = {
-		name: itemData.name,
-		disposition: 0,
-		x,
-		y,
-		img: itemData.img
 	}
 
 	let lootData = {

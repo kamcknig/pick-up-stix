@@ -1,6 +1,4 @@
 import {
-  getLootTokenData,
-  saveLootTokenData,
   updateEntity
 } from "./main";
 import { PickUpStixFlags } from "./models";
@@ -99,7 +97,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
       });
     }
     else {
-      await saveLootTokenData(sceneId, tokenId, { container: { ...formData }} as PickUpStixFlags);
+      // await saveLootTokenData(sceneId, tokenId, { container: { ...formData }} as PickUpStixFlags);
     }
   }
 }

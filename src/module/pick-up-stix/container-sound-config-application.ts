@@ -1,4 +1,4 @@
-import { getLootTokenData, saveLootTokenData, updateEntity } from "./main";
+import { updateEntity } from "./main";
 import { PickUpStixFlags } from "./models";
 
 export class ContainerSoundConfig extends FormApplication {
@@ -55,7 +55,7 @@ export class ContainerSoundConfig extends FormApplication {
       });
     }
     else {
-      await saveLootTokenData(sceneId, tokenId, { container: { ...formData } } as PickUpStixFlags);
+      // await saveLootTokenData(sceneId, tokenId, { container: { ...formData } } as PickUpStixFlags);
     }
   }
 

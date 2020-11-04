@@ -6,7 +6,9 @@ export enum SettingKeys {
 	defaultContainerOpenSound = 'default-container-open-sound',
 	version = 'version',
 	lootTokenData = 'lootTokenData',
-	version_0_12_data_notification = 'version_0_12_data_notification'
+	parentItemFolderId = 'parentFolderId',
+	tokenFolderId = 'tokenFolderId',
+	itemFolderId = 'itemFolderId'
 }
 
 const systemCurrenciesImplemented = [
@@ -26,22 +28,6 @@ export const registerSettings = function() {
 	}
 	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
-	game.settings.register('pick-up-stix', SettingKeys.lootTokenData, {
-		name: 'Loot Tokens',
-		hint: 'An object that represents the loot tokens in the world',
-		type: Object,
-		config: false,
-		scope: 'world',
-		default: {}
-	});
-
-	game.settings.register('pick-up-stix', 'notify-db-issue', {
-		name: 'DB issue notification',
-		scope: 'world',
-		type: Boolean,
-		config: false
-	});
-
 	game.settings.register('pick-up-stix', SettingKeys.version, {
 		name: 'Version',
 		hint: 'Used to track which version is last loaded, so that we can give updates to users',
@@ -49,6 +35,30 @@ export const registerSettings = function() {
 		config: false,
 		type: String,
 		default: '0.0.0'
+	});
+
+	game.settings.register('pick-up-stix', SettingKeys.parentItemFolderId, {
+		name: 'Parent Item Folder ID',
+		hint: 'The folder ID of the main Pick-Up-Stix folder in the Items Directory',
+		scope: 'world',
+		config: false,
+		type: String
+	});
+
+	game.settings.register('pick-up-stix', SettingKeys.itemFolderId, {
+		name: 'Items Folder ID',
+		hint: 'The Folder ID of the sub folder to hold templates for loot',
+		scope: 'world',
+		config: false,
+		type: String
+	});
+
+	game.settings.register('pick-up-stix', SettingKeys.tokenFolderId, {
+		name: 'Tokens folder ID',
+		hint: 'The Folder ID of the sub folder to hold Items representing tokens',
+		scope: 'world',
+		config: false,
+		type: String
 	});
 
 	// Register any custom module settings here
@@ -92,15 +102,6 @@ export const registerSettings = function() {
 		scope: 'world',
 		type: audioTypeFunc,
 		config: true
-	});
-
-	game.settings.register('pick-up-stix', SettingKeys.version_0_12_data_notification, {
-		name: 'Version 12 first notification',
-		hint: 'Used to track who has gotten the notification when moving to version 12',
-		scope: 'client',
-		type: Boolean,
-		default: false,
-		config: false
 	});
 }
 

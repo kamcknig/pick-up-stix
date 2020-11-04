@@ -1,123 +1,49 @@
-import { PickUpStixFlags, PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
+import { PickUpStixSocketMessage, SocketMessageType, ItemType, DropData } from "./models";
 import { dist, getCurrencyTypes } from '../../utils'
 import { SettingKeys } from "./settings";
-import { LootToken } from "./loot-token";
+import { ItemFlags, LootToken, TokenData, TokenFlags } from "./loot-token";
 
-declare function fromUuid(uuid: string): Entity;
-
-export interface LootTokenData {
-	[sceneId: string]: {
-		[tokenId: string]: PickUpStixFlags
-	}
-}
+declare function fromUuid(uuid: string): Promise<Entity>;
 
 export const lootTokens: LootToken[] = [];
 window['lootTokens'] = lootTokens;
 
-export const getLootTokenData = (): LootTokenData => {
-  return duplicate(game.settings.get('pick-up-stix', SettingKeys.lootTokenData) ?? {});
-}
-
-export const getLootToken = (sceneId, tokenId): LootToken => {
-	return lootTokens.find(lt => lt.sceneId === sceneId && lt.tokenId === tokenId);
-}
-
-export const saveLootTokenData = async (sceneId: string, tokenId: string, lootData: PickUpStixFlags): Promise<void> => {
-  console.log('pick-up-stix | saveLootTokenData | saving loot token data to the settings DB');
-  console.log([sceneId, tokenId, lootData]);
-  const currentData = getLootTokenData();
-  if (!currentData[sceneId]) {
-    console.log(`pick-up-stix | saveLootTokenData | creating new scene data for '${sceneId}'`);
-    currentData[sceneId] = {};
-  }
-  if (!currentData[sceneId][tokenId]) {
-    console.log(`pick-up-stix | saveLootTokenData | no current data for token '${tokenId}'`);
-    currentData[sceneId][tokenId] = {} as PickUpStixFlags;
-  }
-
-  mergeObject(currentData[sceneId][tokenId], lootData);
-  const newLootData = currentData[sceneId][tokenId];
-  console.log(`pick-up-stix | saveLootTokenData | new loot data:`);
-  console.log([newLootData]);
-
-	if (game.user.isGM) {
-		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, currentData);
-		game.socket.emit('module.pick-up-stix', {
-			sender: game.user.id,
-			type: SocketMessageType.lootTokenDataSaved,
-			data: {
-				sceneId,
-				tokenId,
-        lootData: newLootData
-			}
-		});
-		Hooks.callAll('pick-up-stix.lootTokenDataSaved', sceneId, tokenId, newLootData);
-		return;
+export const getLootToken = (options: { uuid?: string, tokenId?: string, sceneId?: string }): LootToken[] => {
+	if (!options.uuid && !options.tokenId && !options.sceneId) {
+		throw new Error('Must provide uuid, tokenId or sceneId');
 	}
 
-	const msg: PickUpStixSocketMessage = {
-		sender: game.user.id,
-		type: SocketMessageType.saveLootTokenData,
-		data: {
-			sceneId,
-			tokenId,
-			lootData
+	return lootTokens.filter(lt => {
+		if (options.uuid && options.uuid !== lt.itemUuid) {
+			return false;
 		}
-	};
 
-	game.socket.emit('module.pick-up-stix', msg);
-}
+		if (options.sceneId && options.sceneId !== lt.sceneId) {
+			return false;
+		}
 
-export const lootTokenCreated = (tokenId: string, data: PickUpStixFlags) => {
+		if (options.tokenId && options.tokenId !== lt.tokenId) {
+			return false;
+		}
+
+		return true;
+	});
+};
+
+export const lootTokenCreated = (tokenId: string) => {
   const msg: PickUpStixSocketMessage = {
     sender: game.user.id,
     type: SocketMessageType.lootTokenCreated,
     data: {
-      tokenId,
-      data
+      tokenId
     }
   }
   game.socket.emit('module.pick-up-stix', msg);
-  Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId, msg.data.data);
-}
-
-export const deleteLootTokenData = async (sceneId: string, tokenId: string): Promise<void> => {
-	console.log(`pick-up-stix | deleteLootTokenData | deleteting loot for token '${tokenId} from scene ${sceneId}`);
-	const lootTokenData = getLootTokenData();
-
-	let data;
-	try {
-		data = duplicate(lootTokenData?.[sceneId]?.[tokenId]);
-	}
-	catch (e) {
-		data = null;
-	}
-
-	if (!data) {
-		console.log('pick-up-stix | deleteLootTokenData | data not found, no need to delete');
-		return;
-	}
-
-	if (game.user.isGM) {
-		delete lootTokenData?.[sceneId]?.[tokenId];
-		await game.settings.set('pick-up-stix', SettingKeys.lootTokenData, lootTokenData);
-		lootTokens.findSplice(t => t.sceneId === sceneId && t.tokenId === tokenId);
-		return;
-	}
-
-	const msg: PickUpStixSocketMessage = {
-		sender: game.user.id,
-		type: SocketMessageType.deleteLootTokenData,
-		data: {
-			sceneId,
-			tokenId
-		}
-	};
-
-	game.socket.emit('module.pick-up-stix', msg);
+  Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId);
 }
 
 export const getValidControlledTokens = (token): Token[] => {
+	console.log(`pick-up-stix | getValidControlledTokens:`);
   console.log([token]);
 
   if (!token) {
@@ -139,9 +65,9 @@ export const getValidControlledTokens = (token): Token[] => {
 
     const d = dist(t, token);
     console.log(`pick-up-stix | getValidControlledTokens | ${t.actor.name} at ${t.x}, ${t.y} is ${d} units from ${token.name}. Max dist ${maxDist}`);
-    const lootData = getLootTokenData()[t.scene.id]?.[t.id];
+    // const lootData = getLootTokenData()[t.scene.id]?.[t.id];
     console.log(`pick-up-stix | getValidControlledTokens | token '${token.id}' '${token.name}' has no loot data associated with it, return nothing`);
-		return !lootData && d < (maxDist + 20)
+		return !{} && d < (maxDist + 20)
 	});
 
 	return controlled;
@@ -160,25 +86,8 @@ export const normalizeDropData = (data: DropData, event?: any): any => {
 		data.y = (y - t.ty) / canvas.stage.scale.y;
 	}
 
-	const coreVersion = game.data.version;
-	const is7Newer = isNewerVersion(coreVersion, '0.6.9');
-
 	if (data.actorId) {
-		let actor;
-
-		if (is7Newer) {
-			actor = data.tokenId ? game.actors.tokens[data.tokenId] : game.actors.get(data.actorId);
-		}
-		else {
-			// if Foundry is 0.6.9 or lower then there is no good way to tell which user-controlled token
-			// that the item comes from. We only have the actor ID and multiple tokens could be associated with
-			// the same actor. So we check if the user is controlling only one token and use that token's actor
-			// reference, otherwise we say there is no actor.
-			const tokensMatchingActor = canvas.tokens.placeables.filter(t => t.actor?.id === data.actorId);
-			actor = tokensMatchingActor.length === 1 ? tokensMatchingActor[0]?.actor : null;
-		}
-
-		data.actor = actor;
+		data.actor = data.tokenId ? game.actors.tokens[data.tokenId] : game.actors.get(data.actorId);;
 	}
 
 	return data;
@@ -202,7 +111,8 @@ export async function handleItemDropped(dropData: DropData) {
 	}
 
 	let pack: string;
-  let itemData: any;
+	let itemData: any;
+	let lootTokens: LootToken[] = [];
 
   // if the item comes from an actor's inventory, then the data structure is a tad different, the item data is stored
 	// in a data property on the dropData parameter rather than on the top-level of the dropData
@@ -216,6 +126,7 @@ export async function handleItemDropped(dropData: DropData) {
 		pack = dropData.pack;
 		const id = dropData.id;
 		const item: Item = await game.items.get(id) ?? await game.packs.get(pack)?.getEntity(id);
+		lootTokens = getLootToken({ uuid: item.uuid });
 		if (!item) {
 			console.log(`pick-up-stix | handleItemDropped | item '${id}' not found in game items or compendium`);
 			return;
@@ -226,7 +137,7 @@ export async function handleItemDropped(dropData: DropData) {
   console.log(`pick-up-stix | handleItemDropped`);
   console.log([itemData]);
 
-	const droppedItemIsContainer = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER;
+	const droppedItemFlags: ItemFlags = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix');
 
 	let targetToken: Token;
 	let p: PlaceableObject;
@@ -239,10 +150,11 @@ export async function handleItemDropped(dropData: DropData) {
 		}
 	}
 
-	// if the drop was on another token, check what type of token it was dropped on
-  if (targetToken) {
-    console.log(`pick-up-stix | handleItemDroped | dropping onto target '${targetToken.id}' '${targetToken.name}`);
-    if (droppedItemIsContainer) {
+	if (targetToken) {
+		console.log(`pick-up-stix | handleItemDroped | dropping onto target '${targetToken.id}' '${targetToken.name}`);
+
+    if (droppedItemFlags?.itemType === ItemType.CONTAINER) {
+			// if the item being dropped is a container, you can't add it to another token
       console.log(`pick-up-stix | handleItemDroped | cannot drop container ${itemData.id} onto token '${targetToken.id}' '${targetToken.name}`);
 			ui.notifications.error('A container may only be placed onto an empty square without any tokens.');
 			return;
@@ -250,64 +162,87 @@ export async function handleItemDropped(dropData: DropData) {
 
 		if (targetToken.actor) {
 			// if the token it was dropped on was an actor, add the item to the new actor
-			await createOwnedItem(
-				targetToken.actor,
-				[duplicate(itemData)]
-			);
+			await createOwnedItem(targetToken.actor, itemData);
 			return;
 		}
 
-		console.log(`pick-up-stix | handleItemDropped | item dropped onto target token '${targetToken.id}'`);
-		const lootToken: LootToken = getLootToken(canvas.scene.id, targetToken.id);
+		const targetTokenFlags: TokenFlags = targetToken.getFlag('pick-up-stix', 'pick-up-stix');
+		const item = await fromUuid(targetTokenFlags?.itemUuid);
+		const itemFlags: ItemFlags = item?.getFlag('pick-up-stix', 'pick-up-stix');
 
-		if (!lootToken) {
-			console.error(`pick-up-stix | handleItemDroped | LootToken instance not found for token ${targetToken.id} on scene ${canvas.scene.id}`);
+		if (itemFlags.itemType !== ItemType.CONTAINER) {
+			ui.notifications.error(`Cannot place '${item.name}' onto token ${targetToken.name}`);
+			console.log(`pick-up-stix | handleItemDropped | Can't drop ${item.name} ${item.id} onto target token ${targetToken.name} ${targetToken.id}`);
+			console.log([targetToken, item]);
 			return;
 		}
 
-		if (lootToken.itemType === ItemType.CONTAINER) {
-			const id = dropData.actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id
-			await lootToken.addItem(itemData, id);
-			return;
-		}
+		// TODO: need to implement adding to loot container
+		//await lootToken.addItem(itemData, id);
 	}
 
 	// if it's not a container, then we can assume it's an item. Create the item token
 	const hg = canvas.dimensions.size * .5;
 	const { x, y } = canvas.grid.getSnappedPosition(dropData.x - hg, dropData.y - hg, 1);
 
-  let tokenData = {
+  let tokenData: TokenData = {
     name: itemData.name,
     disposition: 0,
-    x,
-    y,
     img: itemData.img,
-    width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.width ?? 1,
-    height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.height ?? 1
-  }
-
-	// if the item being dropped is a container, just create the empty container
-	if (droppedItemIsContainer) {
-		console.log(`pick-up-stix | handleItemDropped | dropped item is a container`);
-    await LootToken.create(
-      tokenData,
-      duplicate(itemData.flags['pick-up-stix']['pick-up-stix'])
-		);
-
-		return;
-	}
-
-	let lootData = {
-		itemType: ItemType.ITEM,
-		itemData: {
-			...itemData
+    width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
+		height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1,
+		x,
+		y,
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					isOpen: false,
+					isLocked: false
+				}
+			}
 		}
 	}
 
-	let lootToken: LootToken;
+	mergeObject(itemData, {
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					tokenData: {
+						width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
+						height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1
+					}
+				}
+			}
+		}
+	});
 
-	// if a Token was successfully created
-	if (!dropData.actor) {
+	// if the item being dropped is a container, just create the empty container
+	if (droppedItemFlags.itemType === ItemType.CONTAINER) {
+		console.log(`pick-up-stix | handleItemDropped | dropped item is a container`);
+		const img: string = droppedItemFlags.container.imageClosePath;
+		if (lootTokens.length > 0) {
+			await LootToken.create({ ...tokenData }, lootTokens[0].itemUuid);
+		}
+		else {
+			await LootToken.create({ ...tokenData }, {
+				name: itemData.name,
+				img,
+				folder: game.settings.get('pick-up-stix', SettingKeys.tokenFolderId),
+				type: ItemType.CONTAINER,
+				flags: {
+					'pick-up-stix': {
+						'pick-up-stix': {
+							...droppedItemFlags
+						}
+					}
+				}
+			});
+		}
+		return;
+	}
+
+	// if the dropped item doesn't come from an actor
+	if (!dropData.actor && lootTokens.length === 0) {
 		await new Promise(resolve => {
 			// render the item type selection form
 			new Dialog({
@@ -319,7 +254,7 @@ export async function handleItemDropped(dropData: DropData) {
 						icon: '<i class="fas fa-box"></i>',
 						label: 'Item',
             callback: async () => {
-							lootToken = await LootToken.create(tokenData, lootData);
+							await LootToken.create({ ...tokenData }, itemData);
 							resolve();
             }
 					},
@@ -328,17 +263,27 @@ export async function handleItemDropped(dropData: DropData) {
 						label: 'Container',
 						callback: async () => {
 							const img: string = game.settings.get('pick-up-stix', SettingKeys.closeImagePath);
-							lootToken = await LootToken.create(duplicate({ ...tokenData, img }), {
-								itemType: ItemType.CONTAINER,
-								isLocked: false,
-								container: {
-									currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
-									canClose: true,
-									isOpen: false,
-									imageClosePath: img,
-									imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
-									soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
-									soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
+							await LootToken.create({ ...tokenData, img }, {
+								name: 'Empty Container',
+								img,
+								type: ItemType.CONTAINER,
+								flags: {
+									'pick-up-stix': {
+										'pick-up-stix': {
+											tokenData: {
+												width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
+												height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1
+											},
+											itemType: ItemType.CONTAINER,
+											container: {
+												currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
+												imageClosePath: img,
+												imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
+												soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
+												soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
+											}
+										}
+									}
 								}
 							});
 							resolve();
@@ -349,16 +294,18 @@ export async function handleItemDropped(dropData: DropData) {
 		});
 	}
   else {
-		lootToken = await LootToken.create(tokenData, lootData);
+		console.log(`pick-up-stix | handleItemDropped | Dropped item doesn't come from actor and a loot token already exists, so not creating a new item`);
+		await LootToken.create({ ...tokenData }, lootTokens[0].itemUuid);
 	}
 }
 
-export const deleteToken = async (token: Token): Promise<void> => {
+export const deleteToken = async (tokenId: string, sceneId: string): Promise<void> => {
   console.log(`pick-up-stix | deleteToken with args:`);
-  console.log(token);
+  console.log([tokenId, sceneId]);
 
   if (game.user.isGM) {
-    await canvas.scene.deleteEmbeddedEntity('Token', token.id);
+		const scene = Scene.collection.get(sceneId);
+    await scene?.deleteEmbeddedEntity('Token', tokenId);
     return;
   }
 
@@ -370,7 +317,10 @@ export const deleteToken = async (token: Token): Promise<void> => {
     const msg: PickUpStixSocketMessage = {
       sender: game.user.id,
       type: SocketMessageType.deleteToken,
-      data: token.id
+      data: {
+				tokenId,
+				sceneId
+			}
     }
 
     Hooks.once('deleteToken', (scene, data, options, userId) => {
@@ -443,13 +393,14 @@ export async function updateActor(actor, updates): Promise<void> {
   });
 }
 
-export async function createOwnedItem(actor: Actor, items: any[]) {
+export async function createOwnedItem(actor: Actor, data: any | any[]) {
 	console.log('pick-up-stix | createOwnedItem | called with args:');
-	console.log([actor, items]);
+	data = Array.isArray(data) ? data : [data];
+	console.log([actor, data]);
 
 	if (game.user.isGM) {
 		console.log(`pick-up-stix | user is GM, creating owned item`);
-		await actor.createOwnedItem(items);
+		await actor.createOwnedItem(data);
 		return;
 	}
 
@@ -465,7 +416,7 @@ export async function createOwnedItem(actor: Actor, items: any[]) {
       type: SocketMessageType.createOwnedEntity,
       data: {
         actorId: actor.id,
-        items
+        items: data
       }
     };
 
@@ -557,6 +508,94 @@ export const deleteEntity = async (uuid: string) => {
 
 }
 
+export const deleteEmbeddedEntity = async (parentUuid, entityType, entityId) => {
+	console.log('pick-up-stix | deleteEmbeddedEntity | called with args:');
+	console.log([parentUuid, entityType, entityId]);
+
+	const e = await fromUuid(parentUuid);
+
+	if (!e) {
+		console.log(`pick-up-stix | deleteEmbeddedEntity | parent entity not found from uuid '${parentUuid}'`);
+		return parentUuid;
+	}
+
+	if (game.user.isGM) {
+		console.log(`pick-up-stix | deleteEmbeddedEntity | user is GM, deleting entity`);
+		return await e.deleteEmbeddedEntity(entityType, entityId)
+	}
+
+	console.log('pick-up-stix | deleteEmbeddedEntity | user is not GM, sending socket msg');
+
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.deleteEmbeddedEntity,
+		data: {
+			parentUuid,
+			entityType,
+			entityId
+		}
+	}
+
+	return new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			reject({ parentUuid, entityType, entityId });
+		}, 2000);
+
+		Hooks.once('deleteItem', (item, options, userId) => {
+			console.log('pick-up-stix | deleteEmbeddedEntity | deleteItem hook');
+			clearTimeout(timeout);
+			resolve(item.id);
+		});
+
+		game.socket.emit('module.pick-up-stix', msg);
+	})
+
+}
+
+export const updateEmbeddedEntity = async (parentUuid, entityType, data) => {
+	console.log('pick-up-stix | updateEmbeddedEntity | called with args:');
+	console.log([parentUuid, entityType, data]);
+
+	const e = await fromUuid(parentUuid);
+
+	if (!e) {
+		console.log(`pick-up-stix | updateEmbeddedEntity | parent entity not found from uuid '${parentUuid}'`);
+		return parentUuid;
+	}
+
+	if (game.user.isGM) {
+		console.log(`pick-up-stix | updateEmbeddedEntity | user is GM, deleting entity`);
+		return await e.updateEmbeddedEntity('Token', data);
+	}
+
+	console.log('pick-up-stix | updateEmbeddedEntity | user is not GM, sending socket msg');
+
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.updateEmbeddedEntity,
+		data: {
+			parentUuid,
+			entityType,
+			data
+		}
+	}
+
+	return new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			reject({ parentUuid, entityType, data });
+		}, 2000);
+
+		Hooks.once('updateToken', (scene, tokenData, data, options, userId) => {
+			console.log('pick-up-stix | updateEmbeddedEntity | updateToken hook');
+			clearTimeout(timeout);
+			resolve(tokenData._id);
+		});
+
+		game.socket.emit('module.pick-up-stix', msg);
+	})
+
+}
+
 export const createToken = async (data: any): Promise<string> => {
 	console.log(`pick-up-stix | createToken | called with args:`);
 	console.log([data]);
@@ -583,10 +622,6 @@ export const createToken = async (data: any): Promise<string> => {
 		}, 2000);
 
 		Hooks.once('createToken', (scene, data) => {
-			// TODO: could possibly add a custom authentication ID to the data we emit, then we can
-			// check that ID against this created token ID and make sure we are getting the right one. Seems
-			// like it could be rare, but there could be a race condition with other tokens being created
-			// near the same time we are creating this token. Maybe through other modules doing it.
 			console.log(`pick-up-stix | createToken | createToken hook | Token '${data.id}' created`);
 			clearTimeout(timeout);
 			resolve(data._id);

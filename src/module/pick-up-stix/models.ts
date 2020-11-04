@@ -1,3 +1,5 @@
+import { ContainerLoot, TokenData } from "./loot-token";
+
 export interface DropData {
 	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
 	// If the item being dropped comes from an actor token, then the tokenId will be available
@@ -34,43 +36,8 @@ export interface DropData {
 }
 
 export interface PickUpStixFlags {
-	// when creating a new Item Entity to configure for tokens, it's marked as a template
-	// these are dummy items that shouldn't live after the token is gone.
-  temporary?: boolean;
-
-  // when a loot token's config is opened, a new Item entity is created in order to edit
-  // the item data, when that Item is updated the loot data in the game settings is updated
-  // and we have to update any other open configs on other clients so we'll need a reference
-  // to the token ID that triggered the update
-	tokenId?: string;
-	sceneId?: string;
-
-	itemType: ItemType;
-
-	// if the item becomes an owned item, then we need to know who the owner is
-	owner?: string;
-
-	// if the item becomes an owned item, then we need to konw the original item ID
-	// because it gets removed when it becomes an owned item and new ID is
-	// given to the owned item. We need this original ID to determine if the item
-	// matches other items such as in containers so that we can stack them properly
-	originalItemId?: string;
-
-	// itemId is used when an Item is added to an Actor's inventory. When an Item in
-	// Foundry is added to an Actor's inventory, then it ceases to be an Item and
-	// becomes an OwnedItem and loses it's original id, the OwnedItem then has a new
-	// id. So this keeps track of what the original Item id was so that it can be
-	// used elsewhere
-	itemId?: string;
-
-	// used to store information about an item while it is represented by a token
-	// should only exist on token instances
-	itemData?: any;
-
-  width?: number;
-  height?: number;
-  name?: string;
-
+	width: string;
+	height: string;
 	isLocked?: boolean;
   container?: {
 		soundOpenPath: string;
@@ -81,13 +48,14 @@ export interface PickUpStixFlags {
 		isOpen: boolean;
 		loot?: ContainerLoot;
 		currency?: any;
-		description?: string;
 	}
+	itemType: ItemType;
+	itemId?: string;
+	tokenId?: string;
+	sceneId?: string;
 }
 
-export interface ContainerLoot {
-	[key: string]: any[];
-}
+
 
 
 export enum SocketMessageType {
@@ -100,8 +68,10 @@ export enum SocketMessageType {
 	deleteLootTokenData = 'deleteLootTokenData',
 	createEntity = 'createEntity',
 	deleteEntity = 'deleteEntity',
-  lootTokenDataSaved = 'lootTokenDataSaved',
-  lootTokenCreated = 'lootTokenCreated'
+	lootTokenDataSaved = 'lootTokenDataSaved',
+	lootTokenCreated = 'lootTokenCreated',
+	deleteEmbeddedEntity = "deleteEmbeddedEntity",
+	updateEmbeddedEntity = "updateEmbeddedEntity"
 }
 
 export interface PickUpStixSocketMessage {

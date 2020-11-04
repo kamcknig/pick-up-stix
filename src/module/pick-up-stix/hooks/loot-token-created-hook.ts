@@ -1,23 +1,14 @@
-import { LootToken } from "../loot-token";
-import { getLootToken, getLootTokenData, lootTokens } from "../main";
+import { getLootToken } from "../main";
 
-export const lootTokenCreatedHook = async (tokenId, data) => {
+export const lootTokenCreatedHook = async (tokenId) => {
   console.log(`pick-up-stix | lootTokenCreatedHook:`);
-  console.log([tokenId, data]);
+  console.log([tokenId]);
 
   const token: Token = canvas.tokens.placeables.find(p => p.id === tokenId);
 
-  if (!token) {
-    console.log(`pick-up-stix | lootTokenCreatedHook | Token '${tokenId} not found`);
+  if (token) {
+    const itemUuid = token.getFlag('pick-up-stix', 'pick-up-stix.itemUuid');
+    let lootToken = getLootToken({ uuid: itemUuid, tokenId })?.[0];
+    lootToken?.activateListeners();
   }
-
-  let lootToken = getLootToken(token?.scene?.id, tokenId);
-
-  if (!lootToken) {
-    console.log(`pick-up-stix | lootTokenCreatedHook | No LootToken found for '${tokenId}'`);
-    lootToken = await LootToken.create({ id: tokenId }, data);
-    lootTokens.push(lootToken);
-  }
-
-  lootToken?.activateListeners();
 }

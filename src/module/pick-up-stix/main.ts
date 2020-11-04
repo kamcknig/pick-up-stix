@@ -465,6 +465,43 @@ export const createItem = async (data: any, options: any = {}): Promise<Item<any
 	});
 }
 
+export const deleteOwnedItem = async (actorId: string, itemId: string) => {
+	console.log('pick-up-stix | deleteOwnedItem | called with args:');
+	console.log([actorId, itemId]);
+
+	if (game.user.isGM) {
+		console.log(`pick-up-stix | deleteOwnedItem | user is GM, deleting entity`);
+		const actor = game.actors.get(actorId);
+		await actor.deleteOwnedItem(itemId);
+		return;
+	}
+
+	console.log('pick-up-stix | deleteOwnedItem | user is not GM, sending socket msg');
+
+	const msg: PickUpStixSocketMessage = {
+		sender: game.user.id,
+		type: SocketMessageType.deleteOwnedItem,
+		data: {
+			actorId,
+			itemId
+		}
+	}
+
+	return new Promise((resolve, reject) => {
+		const timeout = setTimeout(() => {
+			reject({ actorId, itemId });
+		}, 2000);
+
+		Hooks.once('createOwnedItem', (actor, itemData, options, userId) => {
+			console.log('pick-up-stix | deleteOwnedItem | createOwnedItem hook');
+			clearTimeout(timeout);
+			resolve(itemData._id);
+		});
+
+		game.socket.emit('module.pick-up-stix', msg);
+	});
+}
+
 export const deleteEntity = async (uuid: string) => {
 	console.log('pick-up-stix | deleteEntity | called with args:');
 	console.log([uuid]);
@@ -503,8 +540,7 @@ export const deleteEntity = async (uuid: string) => {
 		});
 
 		game.socket.emit('module.pick-up-stix', msg);
-	})
-
+	});
 }
 
 export const deleteEmbeddedEntity = async (parentUuid, entityType, entityId) => {

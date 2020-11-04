@@ -11,8 +11,10 @@ import {
   lootTokens,
 	updateEntity
 } from "./main";
-import { ItemType, PickUpStixFlags } from "./models";
+import { ItemType } from "./models";
 import { SettingKeys } from "./settings";
+
+declare function fromUuid(uuid: string): Promise<any>;
 
 /**
  * These are the flags stored on a Token instance.
@@ -36,6 +38,10 @@ export interface ItemFlags {
 	}
 
   container?: ContainerData
+}
+
+export interface OwnedItemFlags {
+	owner: string;
 }
 
 export interface ContainerData {
@@ -155,28 +161,40 @@ export class LootToken {
   private _config: FormApplication;
   private _sceneId: string;
 
-	get lootData(): PickUpStixFlags {
-		return {} as PickUpStixFlags;
+	get itemFlags(): Promise<ItemFlags> {
+		return new Promise(async (resolve) => {
+			const item = await fromUuid(this._itemUuid);
+			resolve(item?.flags?.['pick-up-stix']?.['pick-up-stix']);
+		});
 	}
 
 	get isOpen(): boolean {
 		return this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isOpen ?? false;
 	}
 
-	get soundClosePath(): string {
-		return this.lootData?.container?.soundClosePath;
+	get soundClosePath(): Promise<string> {
+		return new Promise(async resolve => {
+			const flags = await this.itemFlags;
+			resolve(flags?.container?.soundClosePath);
+		});
 	}
 
-	get soundOpenPath(): string {
-		return this.lootData?.container?.soundOpenPath;
+	get soundOpenPath(): Promise<string> {
+		return new Promise(async resolve => {
+			const flags = await this.itemFlags;
+			resolve(flags?.container?.soundOpenPath)
+		});
 	}
 
 	get isLocked(): boolean {
 		return this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked ?? false;
 	}
 
-	get itemType(): ItemType {
-		return this.lootData.itemType;
+	get itemType(): Promise<ItemType> {
+		return new Promise(async resolve => {
+			const flags = await this.itemFlags;
+			resolve(flags?.itemType)
+		});
   }
 
   get canClose(): boolean {
@@ -322,46 +340,41 @@ export class LootToken {
 
 	toggleOpened = async (tokens: Token[]=[], renderSheet: boolean=true) => {
 		console.log('pick-up-stix | LootToken | toggleOpened');
-		const data = this.lootData;
+		const itemFlags = await this.itemFlags;
 
-    if (data.container.isOpen) {
-      let i = game.items.entities.find(item => {
-        return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
-      });
+    if (this.isOpen) {
+      //TODO: what if loot is already opened
+		}
 
-      if (i) {
-        ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
-        return;
-      }
-    }
+		const open = !this.isOpen
 
-    data.container.isOpen = !data.container.isOpen;
-
-		await new Promise(resolve => {
-			setTimeout(async () => {
-				await updateEntity(this.tokenData, {
-					img: data.container?.isOpen ? data.container.imageOpenPath : data.container.imageClosePath
-				});
-				const a = new Audio(data.container.isOpen ? data.container.soundOpenPath : data.container.soundClosePath);
-				try {
-					a.play();
+		await updateEntity(this.tokenData, {
+			img: open ? itemFlags.container.imageOpenPath : itemFlags.container.imageClosePath,
+			flags: {
+				'pick-up-stix': {
+					'pick-up-stix': {
+						isOpen: !this.isOpen
+					}
 				}
-				catch (e) {
-          // it's ok to error here
-          console.error(e)
-				}
-
-				resolve();
-			}, 200);
+			}
 		});
 
-		if (renderSheet && data.container?.isOpen) {
+		const a = new Audio(open ? itemFlags.container.soundOpenPath : itemFlags.container.soundClosePath);
+		try {
+			a.play();
+		}
+		catch (e) {
+			// it's ok to error here
+			console.error(e)
+		}
+
+    if (renderSheet && this.isOpen) {
 			await this.openConfigSheet(tokens);
 		}
 	}
 
 	addItem = async (itemData: any, id: string): Promise<void> => {
-		if (this.itemType !== ItemType.CONTAINER) {
+		/* if (this.itemType !== ItemType.CONTAINER) {
 			return;
 		}
 
@@ -388,11 +401,11 @@ export class LootToken {
 				data.container.loot[itemData.type] = [];
 			}
 			data.container.loot[itemData.type].push(duplicate(itemData));
-		}
+		} */
 	}
 
 	collect = async (token) => {
-		const data = this.lootData;
+		/* const data = this.lootData;
 
 		if (data.itemType !== ItemType.ITEM) {
 			return;
@@ -404,11 +417,11 @@ export class LootToken {
 		console.log(`pick-up-stix | LootItem | collect | token ${token.id} is picking up token ${this.tokenId} on scene ${this.sceneId}`);
 		await createOwnedItem(token.actor, [itemData]);
 		itemCollected(token, itemData);
-		await this.remove();
+		await this.remove(); */
 	}
 
   openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
-    console.log('pick-up-stix | LootToken | openLootTokenConfig:');
+    /* console.log('pick-up-stix | LootToken | openLootTokenConfig:');
     console.log([tokens]);
 
 		if (this._config) {
@@ -486,7 +499,7 @@ export class LootToken {
 
     Hooks.on('updateItem', updateItemHook);
     Hooks.once('closeItemConfigApplication', sheetCloseHandler);
-    Hooks.once('closeItemSheet', sheetCloseHandler);
+    Hooks.once('closeItemSheet', sheetCloseHandler); */
 	}
 
 
@@ -599,7 +612,9 @@ export class LootToken {
       t.control({ releaseOthers: false });
     }
 
-		if (this.lootData.itemType === ItemType.ITEM) {
+		const itemFlags = await this.itemFlags;
+
+		if (itemFlags.itemType === ItemType.ITEM) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
 
 			// TODO: add token selection when multiple tokens are controlled
@@ -607,7 +622,7 @@ export class LootToken {
       return;
 		}
 
-		if (this.lootData.itemType === ItemType.CONTAINER) {
+		if (itemFlags.itemType === ItemType.CONTAINER) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
 
       if (this.isOpen) {

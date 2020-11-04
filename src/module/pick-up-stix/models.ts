@@ -35,28 +35,6 @@ export interface DropData {
 	type?: string
 }
 
-export interface PickUpStixFlags {
-	width: string;
-	height: string;
-  container?: {
-		soundOpenPath: string;
-		soundClosePath: string;
-		imageClosePath: string;
-		imageOpenPath: string;
-		canClose: boolean;
-		isOpen: boolean;
-		loot?: ContainerLoot;
-		currency?: any;
-	}
-	itemType: ItemType;
-	itemId?: string;
-	tokenId?: string;
-	sceneId?: string;
-}
-
-
-
-
 export enum SocketMessageType {
 	deleteToken = 'deleteToken',
 	updateEntity = 'updateEntity',
@@ -70,7 +48,8 @@ export enum SocketMessageType {
 	lootTokenDataSaved = 'lootTokenDataSaved',
 	lootTokenCreated = 'lootTokenCreated',
 	deleteEmbeddedEntity = "deleteEmbeddedEntity",
-	updateEmbeddedEntity = "updateEmbeddedEntity"
+	updateEmbeddedEntity = "updateEmbeddedEntity",
+	deleteOwnedItem = "deleteOwnedItem"
 }
 
 export interface PickUpStixSocketMessage {

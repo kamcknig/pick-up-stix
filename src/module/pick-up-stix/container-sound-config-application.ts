@@ -1,5 +1,4 @@
 import { updateEntity } from "./main";
-import { PickUpStixFlags } from "./models";
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {

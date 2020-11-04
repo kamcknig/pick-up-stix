@@ -1,7 +1,6 @@
 import {
   updateEntity
 } from "./main";
-import { PickUpStixFlags } from "./models";
 
 /**
  * Application class to display to select an item that the token is

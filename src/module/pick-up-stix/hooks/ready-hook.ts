@@ -2,7 +2,7 @@ import { SocketMessageType, PickUpStixSocketMessage, ItemType } from "../models"
 import ItemConfigApplication from "../item-config-application";
 import { SettingKeys } from "../settings";
 import { versionDiff } from "../../../utils";
-import { createItem, createOwnedItem, createToken, deleteEmbeddedEntity, deleteEntity, deleteToken, getLootToken, updateActor, updateEmbeddedEntity, updateEntity } from "../main";
+import { createItem, createOwnedItem, createToken, deleteEmbeddedEntity, deleteEntity, deleteOwnedItem, deleteToken, getLootToken, updateActor, updateEmbeddedEntity, updateEntity } from "../main";
 import { LootToken, TokenFlags } from "../loot-token";
 
 declare class EntitySheetConfig {
@@ -95,6 +95,9 @@ export async function readyHook() {
 		let token: Token;
 
 		switch (msg.type) {
+			case SocketMessageType.deleteOwnedItem:
+				await deleteOwnedItem(msg.data.actorId, msg.data.itemId);
+				break;
 			case SocketMessageType.updateEmbeddedEntity:
 				await updateEmbeddedEntity(msg.data.parentUuid, msg.data.entityType, msg.data.data);
 				break;

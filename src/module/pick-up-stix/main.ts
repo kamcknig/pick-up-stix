@@ -196,8 +196,7 @@ export async function handleItemDropped(dropData: DropData) {
 		flags: {
 			'pick-up-stix': {
 				'pick-up-stix': {
-					isOpen: false,
-					isLocked: false
+					isOpen: false
 				}
 			}
 		}

@@ -38,7 +38,6 @@ export interface DropData {
 export interface PickUpStixFlags {
 	width: string;
 	height: string;
-	isLocked?: boolean;
   container?: {
 		soundOpenPath: string;
 		soundClosePath: string;

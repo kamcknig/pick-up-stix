@@ -32,11 +32,15 @@ export const canvasReadyHook = async (canvas) => {
 
 		console.log(`pick-up-stix | canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemUuid}'`);
 
-		let lootToken = getLootToken({ uuid: tokenFlags.itemUuid, tokenId: token.id })?.[0];
+		let lootToken: LootToken = getLootToken({ uuid: tokenFlags.itemUuid, tokenId: token.id })?.[0];
 
 		if (!lootToken) {
 			console.log(`pick-up-stix | canvasReadyHook | Loot token not found for token '${token.id}' with for item '${tokenFlags.itemUuid}', creating new loot token`);
 			lootToken = await LootToken.create(token.id, tokenFlags.itemUuid);
+		}
+
+		if (token.data.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked) {
+			lootToken.drawLock();
 		}
 
 		lootToken.activateListeners();

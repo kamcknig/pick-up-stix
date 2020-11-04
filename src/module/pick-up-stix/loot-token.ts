@@ -5,7 +5,6 @@ import {
 	createToken,
 	deleteEntity,
 	deleteToken,
-	getLootToken,
 	getValidControlledTokens,
 	itemCollected,
   lootTokenCreated,
@@ -24,8 +23,8 @@ export interface TokenFlags {
 	 */
 	itemUuid?: string;
 	isOpen?: boolean;
-	isLocked?: boolean;
 	canClose?: boolean;
+	isLocked?: boolean;
 }
 
 export interface ItemFlags {
@@ -161,7 +160,7 @@ export class LootToken {
 	}
 
 	get isOpen(): boolean {
-		return !!this.lootData?.container?.isOpen;
+		return this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isOpen ?? false;
 	}
 
 	get soundClosePath(): string {
@@ -173,7 +172,7 @@ export class LootToken {
 	}
 
 	get isLocked(): boolean {
-		return !!this.lootData?.isLocked;
+		return this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked ?? false;
 	}
 
 	get itemType(): ItemType {
@@ -181,7 +180,7 @@ export class LootToken {
   }
 
   get canClose(): boolean {
-    return this.lootData.container?.canClose;
+    return this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.canClose ?? true;
   }
 
 	/**
@@ -192,6 +191,10 @@ export class LootToken {
 	}
 
 	get token(): any {
+		return canvas.tokens.placeables.find(p => p.id === this.tokenId) ?? null;
+	}
+
+	get tokenData(): any {
 		return Scene.collection.get(this. _sceneId)?.getEmbeddedEntity('Token', this._tokenId);
 	}
 
@@ -223,13 +226,13 @@ export class LootToken {
 	}
 
 	public activateListeners = (): void => {
-		if (!canvas.tokens.placeables.find(p => p.id === this.token._id)) {
+		if (!canvas.tokens.placeables.find(p => p.id === this.tokenData._id)) {
 			return;
 		}
 
 		console.log(`pick-up-stix | LootToken | activateListeners`);
 
-		const token = canvas.tokens.placeables.find(p => p.id === this.token._id);
+		const token = this.token;
 
 		this.deactivateListeners();
 
@@ -243,21 +246,21 @@ export class LootToken {
 		console.log(`pick-up-stix | LootToken | deactivateListeners`);
 		Hooks.off('updateToken', this.updateTokenHook);
 
-		const token = canvas.tokens.placeables.find(p => p.id === this.token._id);
+		const token = this.token;
 		(token?.mouseInteractionManager as any)?._deactivateDragEvents();
 	}
 
 	private updateTokenHook = async (scene, tokenData, data, options, userId) => {
-		if (this.tokenId !== tokenData._id && this.sceneId !== scene.id) {
+		if (this.tokenId !== tokenData._id || this.sceneId !== scene.id) {
 			return;
 		}
 
-		const token = canvas.tokens.placeables.find(p => p.id === tokenData._id);
+		const token = this.token;
 
 		console.log(`pick-up-stix | LootToken | updateTokenHook`);
 		console.log([scene, tokenData, data, options, userId]);
 
-		if (data?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked) {
+		if (tokenData.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked) {
 			await this.drawLock();
 		}
 		else {
@@ -269,7 +272,7 @@ export class LootToken {
 		}
 	}
 
-	private drawLock = async () => {
+	public drawLock = async () => {
 		console.log(`pick-up-stix | LootToken | drawLockIcon`);
 
 		if (!game.user.isGM) {
@@ -277,7 +280,7 @@ export class LootToken {
 			return;
 		}
 
-		const token = canvas.tokens.placeables.find(p => p.id === this.tokenId);
+		const token = this.token;
 		const lock = token?.getChildByName('pick-up-stix-lock');
 		if (lock) {
 			console.log(`pick-up-stix | LootToken | drawLock | found previous lock icon, removing it`)
@@ -297,15 +300,15 @@ export class LootToken {
 
 	remove = async () => {
 		console.log(`pick-up-stix | LootToken | remove`);
-		this.token.mouseInteractionManager?._deactivateDragEvents();
-		const token = canvas.tokens.placeables.find(p => p.id === this.tokenId);
+		this.tokenData.mouseInteractionManager?._deactivateDragEvents();
+		const token = this.token;
 		await deleteToken(token, this.sceneId);
 	}
 
 	toggleLocked = async () => {
 		console.log(`pick-up-stix | LootToken | toggleLocked`);
-		const token = canvas.tokens.placeables.find(p => p.id === this.tokenId);
-		const locked = token?.getFlag('pick-up-stix', 'pick-up-stix.isLocked') ?? false;
+		const token = this.token;
+		const locked = this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked ?? false;
 		await updateEntity(token, {
 			flags: {
 				'pick-up-stix': {
@@ -336,7 +339,7 @@ export class LootToken {
 
 		await new Promise(resolve => {
 			setTimeout(async () => {
-				await updateEntity(this.token, {
+				await updateEntity(this.tokenData, {
 					img: data.container?.isOpen ? data.container.imageOpenPath : data.container.imageClosePath
 				});
 				const a = new Audio(data.container.isOpen ? data.container.soundOpenPath : data.container.soundClosePath);
@@ -421,8 +424,8 @@ export class LootToken {
     const data = this.itemType === ItemType.CONTAINER
       ? {
         type: ItemType.CONTAINER,
-        name: this.token.name,
-        img: this.token.data.img,
+        name: this.tokenData.name,
+        img: this.tokenData.img,
         flags: {
           'pick-up-stix': {
             'pick-up-stix': {
@@ -473,7 +476,7 @@ export class LootToken {
         return;
       }
 
-      await this.token.update({
+      await this.tokenData.update({
         name: item.data.name,
         img: item.data.img,
         width: flags.width ?? 1,
@@ -495,7 +498,7 @@ export class LootToken {
 	private setupMouseManager = (): MouseInteractionManager => {
 		console.log(`pick-up-stix | setupMouseManager`);
 
-		const token = canvas.tokens.placeables.find(p => p.id == this.token._id);
+		const token = this.token;
 
 		if (!token) {
 			throw new Error('Can\'t create MouseInteractionManager without a Token');
@@ -533,7 +536,7 @@ export class LootToken {
 	}
 
 	private handleClickLeft = (event) => {
-		const token = canvas.tokens.placeables.find(p => p.id === this.tokenId);
+		const token = this.token;
 
 		if (event.currentTarget.data.hidden) {
 			console.log(`pick-up-stix | LootToken | handleClickLeft | token is hidden`);
@@ -561,7 +564,7 @@ export class LootToken {
     console.log('pick-up-stix | LootToken | finalizeClickLeft');
     console.log([event, allControlled, tokens]);
 
-		const token = canvas.tokens.placeables.find(p => p.id === this.tokenId);
+		const token = this.token;
 
     let i = game.items.entities.find(item => {
       return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
@@ -573,7 +576,7 @@ export class LootToken {
     }
 
 		// if it's locked then it can't be opened
-		if (this.lootData.isLocked) {
+		if (this.tokenData.locked) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is locked`);
 			var audio = new Audio(CONFIG.sounds.lock);
 			audio.play();
@@ -630,7 +633,7 @@ export class LootToken {
 
 		canvas.tokens.hud.clear();
 
-		const token = canvas.tokens.placeables.find(p => p.id === this.tokenId);
+		const token = this.token;
 		const hud = canvas.hud.pickUpStixLootHud;
 		if (hud) {
 			token?.control({releaseOthers: true});

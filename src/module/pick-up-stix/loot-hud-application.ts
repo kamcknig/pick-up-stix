@@ -69,7 +69,7 @@ export class LootHud extends BasePlaceableHUD {
     const data = {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),
       visibilityClass: this.object.data.hidden ? 'active' : '',
-      lockedClass: this.object.getFlag('pick-up-stix', 'pick-up-stix')?.isLocked ? 'active' : '',
+      lockedClass: this.object.data.locked ? 'active' : '',
       id: this.id,
       classes: this.options.classes.join(" "),
       appId: this.appId,

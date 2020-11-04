@@ -53,7 +53,7 @@ export default class ItemConfigApplication extends FormApplication {
 	}
 
 	get tokens(): Token[] {
-		const tokens = getLootToken({ uuid: this.object.uuid }).map(lt => lt.token);
+		const tokens = getLootToken({ uuid: this.object.uuid }).map(lt => lt.tokenData);
 		return tokens;
 	}
 

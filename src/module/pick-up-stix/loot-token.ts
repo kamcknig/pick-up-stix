@@ -426,8 +426,37 @@ export class LootToken {
 		console.log('pick-up-stix | LootToken | openLootTokenConfig:');
 		console.log([tokens, options]);
 
+		const closeItemConfigApplicationHook = async (app, html) => {
+			console.log(`pick-up-stix | LootToken | closeItemConfigApplicationHook:`);
+			console.log([app, html]);
+
+			if (app.appId !== appId) {
+				return;
+			}
+
+			Hooks.off('closeItemConfigApplication', closeItemConfigApplicationHook);
+
+			if (this.isOpen) {
+				await this.toggleOpened();
+			}
+		}
+
 		const item = await this.item;
-		item.sheet.render(true, { renderData: { tokens, sourceToken: this.tokenId } });
+
+		for (let item of game.items) {
+			const i: Item = (item as any) as Item;
+
+			if ((item as any).getFlag('pick-up-stix', 'pick-up-stix') === undefined) {
+				continue;
+			}
+
+			for (let app of Object.values((i as any).apps)) {
+				await (app as any).close();
+			}
+		}
+
+		Hooks.once('closeItemConfigApplication', closeItemConfigApplicationHook);
+		const appId = item.sheet.render(true, { renderData: { tokens, sourceToken: this.tokenId } }).appId;
 	}
 
 

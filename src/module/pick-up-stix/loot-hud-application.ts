@@ -56,7 +56,7 @@ export class LootHud extends BasePlaceableHUD {
     console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
 
     const item = await fromUuid(this.itemUuid);
-    item.sheet.render(true);
+    item.sheet.render(true, { renderData: { sourceToken: this.object.data }});
   }
 
   getData(options) {

@@ -27,6 +27,7 @@ import { ContainerLoot, ItemFlags } from './loot-token';
  */
 export default class ItemConfigApplication extends FormApplication {
 	private _html: any;
+	private _sourceTokenId: string;
 	private _selectedTokenId: string;
 
 	static get defaultOptions(): ApplicationOptions {
@@ -52,13 +53,13 @@ export default class ItemConfigApplication extends FormApplication {
 		return this.object.getFlag('pick-up-stix', 'pick-up-stix');
 	}
 
-	get tokens(): Token[] {
+	get tokenDatas(): any[] {
 		const tokens = getLootToken({ uuid: this.object.uuid }).map(lt => lt.tokenData);
 		return tokens;
 	}
 
 	get isToken(): boolean {
-		return !!this.tokens.length;
+		return !!this.tokenDatas.length;
 	}
 
 	constructor(object: any, ...args) {
@@ -67,10 +68,8 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`);
 		console.log([object]);
 
-		// const itemFlags: ItemFlags = this.object.getFlag('pick-up-stix', 'pick-up-stix');
-
-		/* Hooks.on('updateToken', this.updateTokenHook);
-		Hooks.on('controlToken', this.controlTokenHook);  */
+		Hooks.on('updateToken', this.updateTokenHook);
+		Hooks.on('controlToken', this.controlTokenHook);
 	}
 
 	activateListeners(html) {
@@ -82,7 +81,7 @@ export default class ItemConfigApplication extends FormApplication {
 		$(html)
 			.find('input')
 			.on('focus', e => e.currentTarget.select())
-			.on('change', onChangeInputDelta.bind(this.object));
+			.on('change', onChangeInputDelta.bind(this.itemFlags));
 
 		if (game.user.isGM) {
 			$(html)
@@ -127,7 +126,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 		$(html)
 			.find('input#canCloseCheckbox')
-			.prop('checked', this.tokens?.[0]?.data?.flags?.['pick-up-stix']?.['pick-up-stix']?.canClose ?? true);
+			.prop('checked', this.itemFlags?.container?.canClose ?? true);
 
 		if (!game.user.isGM) {
 			$(html)
@@ -136,9 +135,17 @@ export default class ItemConfigApplication extends FormApplication {
 		}
 	}
 
-	getData(options?: any): any {
+	/**
+	 *
+	 * @param options
+	 */
+	getData(options?: { renderData: { tokens?: Token[]; sourceToken: string; [key:string]: any }}): any {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData:`);
 		console.log([options]);
+		this._sourceTokenId = this._sourceTokenId !== options?.renderData.sourceToken
+			? options?.renderData?.sourceToken ?? this._sourceTokenId
+			: this._sourceTokenId;
+
 		const actionTokens = options.renderData?.tokens ?? [];
 		const quantityDataPath = getQuantityDataPath();
 		const priceDataPath = getPriceDataPath();
@@ -169,7 +176,7 @@ export default class ItemConfigApplication extends FormApplication {
 		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
 		const currencyTypes = getCurrencyTypes();
-		const tokens = getValidControlledTokens(this.tokens?.[0])
+		const tokens = getValidControlledTokens(this._sourceTokenId)
 			.concat(actionTokens)
 			.reduce((acc, next) => {
 				if (!next || acc.map(t => t.id).includes(next.id)) {
@@ -305,7 +312,7 @@ export default class ItemConfigApplication extends FormApplication {
 
 		const containerData = this.itemFlags.container;
 
-		formData.img = this.tokens?.[0]?.getFlag('pick-up-stix', 'pick-up-stix.isOpen')
+		formData.img = this.tokenDatas?.[0]?.flags?.['pick-up-stix']?.['pick-up-stix']?.isOpen
 			? containerData?.imageOpenPath
 			: containerData?.imageClosePath;
 
@@ -379,9 +386,11 @@ export default class ItemConfigApplication extends FormApplication {
 	 */
 	private controlTokenHook = (token, controlled): void => {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
+		console.log([token, controlled]);
+
 		const options = {};
 		if (this.isToken) {
-			options['renderData'] = { tokens: getValidControlledTokens(this.tokens?.[0]) };
+			options['renderData'] = { tokens: getValidControlledTokens(this._sourceTokenId) };
 		}
 		setTimeout((options) => {
 			this.render(true, options);

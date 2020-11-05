@@ -21,17 +21,13 @@ export interface TokenFlags {
 	 */
 	itemUuid?: string;
 	isOpen?: boolean;
-	canClose?: boolean;
 	isLocked?: boolean;
 }
 
 export interface ItemFlags {
 	itemType: ItemType;
 
-	tokenData: {
-		width: number;
-		height: number;
-	}
+	tokenData: TokenData;
 
 	container?: ContainerData
 }
@@ -41,6 +37,7 @@ export interface OwnedItemFlags {
 }
 
 export interface ContainerData {
+	canClose?: boolean;
 	soundOpenPath: string;
 	soundClosePath: string;
 	imageClosePath: string;
@@ -67,7 +64,7 @@ export interface TokenData {
 	x?: number;
 	y?: number;
 	id?: string;
-	flags: {
+	flags?: {
 		'pick-up-stix': {
 			'pick-up-stix': TokenFlags;
 		}
@@ -192,8 +189,18 @@ export class LootToken {
 		});
 	}
 
-	get canClose(): boolean {
-		return this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.canClose ?? true;
+	get canClose(): Promise<boolean> {
+		return new Promise(async (resolve) => {
+			const itemFlags = await this.itemFlags;
+			resolve(itemFlags?.container?.canClose);
+		});
+	}
+
+	get item(): Promise<Item> {
+		return new Promise(async resolve => {
+			const item = await fromUuid(this.itemUuid);
+			resolve(item);
+		})
 	}
 
 	/**
@@ -416,85 +423,11 @@ export class LootToken {
 	}
 
 	openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
-		/* console.log('pick-up-stix | LootToken | openLootTokenConfig:');
-		console.log([tokens]);
+		console.log('pick-up-stix | LootToken | openLootTokenConfig:');
+		console.log([tokens, options]);
 
-		if (this._config) {
-			console.log('pick-up-stix | LootToken | openConfigSheet | config already opened, render the sheet');
-			this._config.render(true, { renderData: { tokens } });
-			return;
-		}
-
-		let i = game.items.entities.find(item => {
-			return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
-		});
-
-		const data = this.itemType === ItemType.CONTAINER
-			? {
-				type: ItemType.CONTAINER,
-				name: this.tokenData.name,
-				img: this.tokenData.img,
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							...this.lootData,
-							tokenId: this.tokenId,
-							sceneId: this.sceneId
-						}
-					}
-				}
-			}
-			// TODO
-			: {}; // this.lootData.itemData;
-
-		data['permission'] = {
-			default: 2
-		}
-
-		if (!i) {
-			console.log('pick-up-stix | LootToken | openConfigSheet | no item template found, constructing new Item');
-			i = await createItem(data, { submitOnChange: true });
-		}
-
-		this._config = i.sheet.render(true, { renderData: { tokens } }) as FormApplication;
-
-		const sheetCloseHandler = async (sheet, html) => {
-			if (sheet.appId !== this._config.appId) {
-				return;
-			}
-			console.log('pick-up-stix | LootToken | openLootTokenConfig | closeItemSheet hook');
-			console.log([i.apps]);
-			await deleteEntity(i.uuid);
-			this._config = null;
-			if (!options.configureOnly && this.lootData.container?.canClose) {
-				await this.toggleOpened();
-			}
-
-			Hooks.off('closeItemSheet', sheetCloseHandler);
-			Hooks.off('closeItemConfigApplication', sheetCloseHandler);
-			Hooks.off('updateItem', updateItemHook);
-		}
-
-		const updateItemHook = async (item, data, options, userId) => {
-			console.log('pick-up-stix | LootToken | openLootTokenConfig | updateItem hook');
-			console.log([item, data, options, userId]);
-			const flags = item.getFlag('pick-up-stix', 'pick-up-stix');
-
-			if (!flags) {
-				return;
-			}
-
-			await this.tokenData.update({
-				name: item.data.name,
-				img: item.data.img,
-				width: flags.width ?? 1,
-				height: flags.height ?? 1
-			});
-		}
-
-		Hooks.on('updateItem', updateItemHook);
-		Hooks.once('closeItemConfigApplication', sheetCloseHandler);
-		Hooks.once('closeItemSheet', sheetCloseHandler); */
+		const item = await this.item;
+		item.sheet.render(true, { renderData: { tokens, sourceToken: this.tokenId } });
 	}
 
 
@@ -584,7 +517,7 @@ export class LootToken {
 		}
 
 		// if it's locked then it can't be opened
-		if (this.tokenData.locked) {
+		if (this.tokenData?.locked) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is locked`);
 			var audio = new Audio(CONFIG.sounds.lock);
 			audio.play();
@@ -621,12 +554,7 @@ export class LootToken {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
 
 			if (this.isOpen) {
-				if (this.canClose) {
-					await this.toggleOpened(tokens);
-				}
-				else {
-					await this.openConfigSheet(tokens);
-				}
+				await this.openConfigSheet(tokens);
 			}
 			else {
 				await this.toggleOpened(tokens);
@@ -657,15 +585,11 @@ export class LootToken {
 	private handleClickLeft2 = async (event) => {
 		console.log('pick-up-stix | LootToken | handleClickLeft2');
 		clearTimeout(this._clickTimeout);
-		let i = game.items.entities.find(item => {
-			return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
-		});
 
-		if (i) {
-			ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
-			return;
-		}
-		await this.openConfigSheet([], { configureOnly: true });
+		this.openConfigSheet();
+
+		// const item = await this.item;
+		// item.sheet.render(true);
 	}
 
 	private handleClickRight2 = async (event) => {

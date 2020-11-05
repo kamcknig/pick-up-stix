@@ -13,7 +13,10 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
 		const itemFlags: ItemFlags = {
 			tokenData: {
 				width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
-				height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1
+				height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1,
+				name: itemData.name,
+				img: itemData.img,
+
 			},
 			container: {
 				currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}),

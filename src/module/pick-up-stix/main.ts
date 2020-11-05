@@ -42,9 +42,18 @@ export const lootTokenCreated = (tokenId: string) => {
   Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId);
 }
 
-export const getValidControlledTokens = (token): Token[] => {
+export const getValidControlledTokens = (data: string | Token): Token[] => {
 	console.log(`pick-up-stix | getValidControlledTokens:`);
-  console.log([token]);
+  console.log([data]);
+
+	let token: Token;
+
+	if (typeof data === 'string') {
+		token = canvas.tokens.placeables.find(p => p.id === data);
+	}
+	else {
+		token = data;
+	}
 
   if (!token) {
     console.log(`pick-up-stix | getValidControlledTokens | no token provided so returning nothing`);
@@ -264,7 +273,9 @@ export async function handleItemDropped(dropData: DropData) {
 										'pick-up-stix': {
 											tokenData: {
 												width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
-												height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1
+												height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1,
+												name: 'Empty Container',
+												img
 											},
 											itemType: ItemType.CONTAINER,
 											container: {

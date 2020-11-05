@@ -1,6 +1,7 @@
 import {
   updateEntity
 } from "./main";
+import { ItemType } from "./models";
 
 /**
  * Application class to display to select an item that the token is

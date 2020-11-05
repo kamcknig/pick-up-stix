@@ -6,7 +6,6 @@ export const updateItemHook = async (item, data, options, userId) => {
   console.log([item, data, options, userId]);
 
   const itemFlags: ItemFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
-  const tokenData: TokenData = itemFlags?.tokenData;
   console.log(`pick-up-stix | updateItemHook | itemFlags:`);
   console.log([itemFlags]);
 
@@ -19,8 +18,7 @@ export const updateItemHook = async (item, data, options, userId) => {
       width: 1,
       height: 1,
       name: item.data.name,
-      img: lt.isOpen ? itemFlags.container.imageOpenPath : itemFlags.container.imageClosePath,
-      ...tokenData ?? {},
+      img: lt.isOpen ? itemFlags.container.imageOpenPath : itemFlags.container.imageClosePath
     });
   }
 }

@@ -9,5 +9,6 @@ export const preUpdateItemHook = async (item, data, options, userId) => {
 
   if (itemFlags.itemType === ItemType.CONTAINER) {
     data.img = data?.flags?.['pick-up-stix']?.['pick-up-stix']?.container.imageClosePath ?? itemFlags.container.imageClosePath;
+    setProperty(data, 'flags.pick-up-stix.pick-up-stix.tokenData.img', data.img);
   }
 }

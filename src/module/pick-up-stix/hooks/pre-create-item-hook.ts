@@ -25,8 +25,8 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
 				imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
 				soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound),
 				soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
+				...itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.container ?? {}
 			},
-			...itemData.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {},
 			itemType: ItemType.CONTAINER
 		};
 
@@ -38,7 +38,7 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
 			// anywhere else anyway
 			type: game.system.entityTypes.Item.includes('backpack') ? 'backpack' : game.system.entityTypes.Item[0],
 			folder: itemData.folder || game.settings.get('pick-up-stix', SettingKeys.itemFolderId),
-			img: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
+			img: itemFlags.tokenData.img,
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': itemFlags

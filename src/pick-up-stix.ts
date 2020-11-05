@@ -1,6 +1,6 @@
 import { canvasReadyHook } from "./module/pick-up-stix/hooks/canvas-ready-hook";
 import { onCreateActor } from "./module/pick-up-stix/hooks/create-actor-hook";
-import { onCreateItem as createItemHook } from "./module/pick-up-stix/hooks/create-item-hook";
+import { createItemHook as createItemHook } from "./module/pick-up-stix/hooks/create-item-hook";
 import { initHook } from "./module/pick-up-stix/hooks/init-hook";
 import { preCreateOwnedItemHook } from "./module/pick-up-stix/hooks/pre-create-owned-item-hook";
 import { readyHook } from "./module/pick-up-stix/hooks/ready-hook";

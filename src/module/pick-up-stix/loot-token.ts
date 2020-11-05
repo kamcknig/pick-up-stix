@@ -60,7 +60,7 @@ export interface TokenData {
 	img: string;
 	width: number;
 	height: number;
-	disposition?: number;
+	disposition: number;
 	x?: number;
 	y?: number;
 	id?: string;

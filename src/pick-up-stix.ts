@@ -12,6 +12,7 @@ import { lootTokenCreatedHook } from "./module/pick-up-stix/hooks/loot-token-cre
 import { LootHud } from "./module/pick-up-stix/loot-hud-application";
 import { updateItemHook } from "./module/pick-up-stix/hooks/update-item-hook";
 import { deleteItemHook } from "./module/pick-up-stix/hooks/delete-item-hook";
+import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-hook";
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -24,6 +25,7 @@ Hooks.on('ready', readyHook);
 // item hooks
 Hooks.on('preCreateItem', preCreateItemHook);
 Hooks.on('createItem', createItemHook);
+Hooks.on('preUpdateItem', preUpdateItemHook);
 Hooks.on('updateItem', updateItemHook);
 Hooks.on('deleteItem', deleteItemHook);
 

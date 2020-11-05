@@ -222,10 +222,10 @@ export async function handleItemDropped(dropData: DropData) {
 		console.log(`pick-up-stix | handleItemDropped | dropped item is a container`);
 		const img: string = droppedItemFlags.container.imageClosePath;
 		if (lootTokens.length > 0) {
-			await LootToken.create({ ...tokenData }, lootTokens[0].itemUuid);
+			await LootToken.create({ ...tokenData, ...droppedItemFlags.tokenData }, lootTokens[0].itemUuid);
 		}
 		else {
-			await LootToken.create({ ...tokenData }, {
+			await LootToken.create({ ...tokenData, ...droppedItemFlags.tokenData }, {
 				name: itemData.name,
 				img,
 				folder: game.settings.get('pick-up-stix', SettingKeys.tokenFolderId),
@@ -272,6 +272,7 @@ export async function handleItemDropped(dropData: DropData) {
 									'pick-up-stix': {
 										'pick-up-stix': {
 											tokenData: {
+												disposition: 0,
 												width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
 												height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1,
 												name: 'Empty Container',

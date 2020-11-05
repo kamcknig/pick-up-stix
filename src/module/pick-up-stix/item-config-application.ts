@@ -523,8 +523,9 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onEditImage`);
 
 		new ContainerImageSelectionApplication(this.object).render(true);
-		Hooks.once('closeContainerImageSelectionApplication', () => {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | closeContainerImageSelectionApplication hook`);
+		Hooks.once('closeContainerImageSelectionApplication', (app, html) => {
+			console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);
+			console.log([app, html]);
 
 			/* const flags: PickUpStixFlags = this.object.getFlag('pick-up-stix', 'pick-up-stix');
 			const { tokenData: { id: tokenId } } = flags;

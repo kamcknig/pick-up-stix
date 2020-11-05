@@ -12,19 +12,21 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
 
 		const itemFlags: ItemFlags = {
 			tokenData: {
-				width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
-				height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1,
+				width: 1,
+				height: 1,
 				name: itemData.name,
 				img: itemData.img,
-
+				disposition: 0,
+				...itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData ?? {}
 			},
 			container: {
 				currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}),
 				imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
 				imageClosePath: game.settings.get('pick-up-stix', SettingKeys.closeImagePath),
 				soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound),
-				soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound)
+				soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
 			},
+			...itemData.flags?.['pick-up-stix']?.['pick-up-stix'] ?? {},
 			itemType: ItemType.CONTAINER
 		};
 

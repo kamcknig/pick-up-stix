@@ -53,41 +53,34 @@ export const getValidControlledTokens = (token): Token[] => {
 
   console.log(`pick-up-stix | getValidControlledTokens | Looking for tokens near '${token.id}' '${token.name}`);
 
-  const maxDist = Math.hypot(canvas.grid.size, canvas.grid.size);
   console.log(`pick-up-stix | getValidControlledTokens | looping through currently controlled tokens`);
-  console.log(canvas.tokens.controlled);
+  console.log([canvas.tokens.controlled]);
 
   const controlled = canvas.tokens.controlled.filter(t => {
     if (!t.actor) {
-      console.log(`pick-up-stix | getValidControlledTokens | token '${t.id}' '${t.name}' as no actor, skipping`);
+      console.log(`pick-up-stix | getValidControlledTokens | token '${t.id}' '${t.name}' has no actor, skipping`);
 			return false;
 		}
 
-    const d = dist(t, token);
-    console.log(`pick-up-stix | getValidControlledTokens | ${t.actor.name} at ${t.x}, ${t.y} is ${d} units from ${token.name}. Max dist ${maxDist}`);
-    // const lootData = getLootTokenData()[t.scene.id]?.[t.id];
-    console.log(`pick-up-stix | getValidControlledTokens | token '${token.id}' '${token.name}' has no loot data associated with it, return nothing`);
-		return !{} && d < (maxDist + 20)
+		return (
+		  t.x + t.w > token.x - canvas.grid.size &&
+			t.x < token.x + token.w + canvas.grid.size &&
+			t.y + t.h > token.y - canvas.grid.size &&
+			t.y < token.y + token.h + canvas.grid.size
+		);
 	});
 
+	console.log(`pick-up-stix | getValidControlledTokens | controlled tokens within range`);
+	console.log([controlled]);
 	return controlled;
 }
 
-export const normalizeDropData = (data: DropData, event?: any): any => {
+export const normalizeDropData = (data: DropData): any => {
 	console.log('pick-up-stix | normalizeDropData called with args:');
-	console.log([data, event]);
-
-	// TODO: in version 0.7.0 and above, are the x and y already correct?
-	if (event) {
-		// Acquire the cursor position transformed to Canvas coordinates
-		const [x, y] = [event.clientX, event.clientY];
-		const t = canvas.stage.worldTransform;
-		data.x = (x - t.tx) / canvas.stage.scale.x;
-		data.y = (y - t.ty) / canvas.stage.scale.y;
-	}
+	console.log([data]);
 
 	if (data.actorId) {
-		data.actor = data.tokenId ? game.actors.tokens[data.tokenId] : game.actors.get(data.actorId);;
+		data.actor = data.tokenId ? game.actors.tokens[data.tokenId] : game.actors.get(data.actorId);
 	}
 
 	return data;

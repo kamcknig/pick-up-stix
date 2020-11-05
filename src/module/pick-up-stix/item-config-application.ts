@@ -25,7 +25,7 @@ import { ContainerLoot, ItemFlags } from './loot-token';
  * Application class to display to select an item that the token is
  * associated with
  */
-export default class ItemConfigApplication extends FormApplication {
+export default class ItemConfigApplication extends BaseEntitySheet {
 	private _html: any;
 	private _sourceTokenId: string;
 	private _selectedTokenId: string;
@@ -67,9 +67,6 @@ export default class ItemConfigApplication extends FormApplication {
 
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`);
 		console.log([object]);
-
-		Hooks.on('updateToken', this.updateTokenHook);
-		Hooks.on('controlToken', this.controlTokenHook);
 	}
 
 	activateListeners(html) {
@@ -77,6 +74,12 @@ export default class ItemConfigApplication extends FormApplication {
 		console.log([html]);
 		this._html = html;
 		super.activateListeners(this._html);
+
+		Hooks.off('updateToken', this.updateTokenHook);
+		Hooks.off('controlToken', this.controlTokenHook);
+
+		Hooks.on('updateToken', this.updateTokenHook);
+		Hooks.on('controlToken', this.controlTokenHook);
 
 		$(html)
 			.find('input')
@@ -142,7 +145,7 @@ export default class ItemConfigApplication extends FormApplication {
 	getData(options?: { renderData: { tokens?: Token[]; sourceToken: string; [key:string]: any }}): any {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData:`);
 		console.log([options]);
-		this._sourceTokenId = this._sourceTokenId !== options?.renderData.sourceToken
+		this._sourceTokenId = this._sourceTokenId !== options?.renderData?.sourceToken
 			? options?.renderData?.sourceToken ?? this._sourceTokenId
 			: this._sourceTokenId;
 

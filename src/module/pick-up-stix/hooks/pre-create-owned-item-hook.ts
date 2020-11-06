@@ -11,5 +11,15 @@ export async function preCreateOwnedItemHook(actor: Actor, itemData: any, option
   const ownerActor = game.actors.get(owner);
   if (ownerActor) {
     await deleteOwnedItem(ownerActor.id, itemData._id);
-  }
+	}
+
+	mergeObject(itemData, {
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					originalItemId: getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') ?? itemData._id
+				}
+			}
+		}
+	})
 };

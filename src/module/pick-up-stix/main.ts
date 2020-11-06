@@ -329,10 +329,10 @@ export const deleteToken = async (tokenId: string, sceneId: string): Promise<voi
     return;
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      reject(null);
-    }, 2000);
+      resolve(null);
+    }, 1000);
 
     const msg: PickUpStixSocketMessage = {
       sender: game.user.id,
@@ -389,10 +389,10 @@ export async function updateActor(actor, updates): Promise<void> {
 
 	console.log('pick-up-stix | user is not GM, sending socket msg');
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      reject(null);
-    }, 2000);
+      resolve(null);
+    }, 1000);
 
     const msg: PickUpStixSocketMessage = {
       sender: game.user.id,
@@ -426,10 +426,10 @@ export async function createOwnedItem(actor: Actor, data: any | any[]) {
 
 	console.log('pick-up-stix | user is not GM, sending socket msg');
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      reject(null);
-    }, 2000);
+      resolve(null);
+    }, 1000);
 
     const msg: PickUpStixSocketMessage = {
       sender: game.user.id,
@@ -462,10 +462,10 @@ export const createItem = async (data: any, options: any = {}): Promise<Item<any
 
 	console.log('pick-up-stix | user is not GM, sending socket msg');
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
-			reject(null);
-		}, 2000);
+			resolve(null);
+		}, 1000);
 
 		const msg: PickUpStixSocketMessage = {
 			sender: game.user.id,
@@ -508,10 +508,10 @@ export const deleteOwnedItem = async (actorId: string, itemId: string) => {
 		}
 	}
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
-			reject({ actorId, itemId });
-		}, 2000);
+			resolve({ actorId, itemId });
+		}, 1000);
 
 		Hooks.once('createOwnedItem', (actor, itemData, options, userId) => {
 			console.log('pick-up-stix | deleteOwnedItem | createOwnedItem hook');
@@ -549,10 +549,10 @@ export const deleteEntity = async (uuid: string) => {
 		}
 	}
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
-			reject(uuid);
-		}, 2000);
+			resolve(uuid);
+		}, 1000);
 
 		Hooks.once('deleteItem', (item, options, userId) => {
 			console.log('pick-up-stix | deleteEntity | deleteItem hook');
@@ -592,10 +592,10 @@ export const deleteEmbeddedEntity = async (parentUuid, entityType, entityId) => 
 		}
 	}
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
-			reject({ parentUuid, entityType, entityId });
-		}, 2000);
+			resolve({ parentUuid, entityType, entityId });
+		}, 1000);
 
 		Hooks.once('deleteItem', (item, options, userId) => {
 			console.log('pick-up-stix | deleteEmbeddedEntity | deleteItem hook');
@@ -636,10 +636,10 @@ export const updateEmbeddedEntity = async (parentUuid, entityType, data) => {
 		}
 	}
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
-			reject({ parentUuid, entityType, data });
-		}, 2000);
+			resolve({ parentUuid, entityType, data });
+		}, 1000);
 
 		Hooks.once(`update${entityType}`, (parent, data, update, options, userId) => {
 			console.log(`pick-up-stix | updateEmbeddedEntity | update${entityType} hook`);
@@ -672,10 +672,10 @@ export const createToken = async (data: any): Promise<string> => {
 		data
 	}
 
-	return new Promise((resolve, reject) => {
+	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
-			reject('Token never created');
-		}, 2000);
+			resolve('Token never created');
+		}, 1000);
 
 		Hooks.once('createToken', (scene, data) => {
 			console.log(`pick-up-stix | createToken | createToken hook | Token '${data.id}' created`);

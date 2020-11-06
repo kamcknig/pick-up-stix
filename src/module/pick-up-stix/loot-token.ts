@@ -36,6 +36,7 @@ export interface ItemFlags {
 
 export interface OwnedItemFlags {
 	owner: string;
+	originalItemId: string;
 }
 
 export interface ContainerData {

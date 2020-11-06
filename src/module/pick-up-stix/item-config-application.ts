@@ -8,14 +8,16 @@ import ContainerImageSelectionApplication from "./container-image-selection-appl
 import {
 	createOwnedItem,
 	currencyCollected,
+	deleteOwnedItem,
 	getLootToken,
 	getValidControlledTokens,
 	itemCollected,
 	normalizeDropData,
-	updateActor
+	updateActor,
+	updateEntity
 } from './main';
 import {
-	DropData
+	DropData, ItemType
 } from "./models";
 import { SettingKeys } from './settings';
 import { ContainerSoundConfig } from './container-sound-config-application';
@@ -231,10 +233,12 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	protected async _onDrop(e) {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop`);
 		const dropData: DropData = normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
+
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | dropped data`);
 		console.log([dropData]);
 
-		if (dropData.type !== "Item") {
+		if (dropData?.type?.toLowerCase() !== ItemType.ITEM.toLowerCase()) {
+			ui.notifications.error(`Cannot drop '${dropData.type}' onto loot token config`);
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | item is not 'Item' type`);
 			return;
 		}
@@ -249,8 +253,8 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		// if the dropped item comes from an actor, we need to delete the item from that actor
 		if (dropData.actor) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | drop data contains actor ID '${dropData.actorId}', delete item from actor`);
-			droppedItemData = duplicate(dropData.data);
-			await dropData.actor.deleteOwnedItem(droppedItemData._id);
+			droppedItemData = dropData.data;
+			await deleteOwnedItem(dropData.actor.id, droppedItemData._id);
 		}
 		else {
 			droppedItemData = await game.items.get(dropData.id)?.data ?? await game.packs.get(dropData.pack).getEntry(dropData.id);
@@ -260,16 +264,24 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const containerData = this.itemFlags?.container;
 
 		let loot: ContainerLoot = containerData?.loot;
+
+		// if the container never had any loot, then 'loot' will not exist, so
+		// create an empty object
 		if (!loot) {
 			containerData.loot = {};
 			loot = containerData.loot;
 		}
 
+		// if the 'loot' object doesn't have any loot of the type being
+		// dropped it'll be undefined, so create an empty array, to hold
+		// loot of that item type
 		if (!loot[itemType]) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
 			loot[itemType] = [];
 		}
+
 		const qtyDataPath = getQuantityDataPath();
+
 		const existingItem = loot[itemType]?.find(i => i._id === (dropData.actor ? getProperty(droppedItemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : droppedItemData._id));
 		if (existingItem) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
@@ -284,24 +296,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		}
 
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onDrop | submit data:`);
-		console.log(this.itemFlags);
 
-		if (this.isToken) {
-			// await saveLootTokenData(this._sceneId, this._tokenId, this._lootTokenData);
-		}
-		else {
-			await this.submit({
-				updateData: {
-					flags: {
-						'pick-up-stix': {
-							'pick-up-stix': {
-								...this.itemFlags
-							}
-						}
-					}
-				}
-			});
-		}
+		console.log([this.itemFlags]);
+
+		await this.submit({
+			updateData: {
+				...this.itemFlags
+			}
+		});
 	}
 
 	/**
@@ -315,7 +317,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		const containerData = this.itemFlags.container;
 
-		formData.img = this.tokenDatas?.[0]?.flags?.['pick-up-stix']?.['pick-up-stix']?.isOpen
+		formData = duplicate(formData);
+
+		const token = canvas.tokens.placeables.find(p => p.id === this._sourceTokenId);
+
+		formData.img = token?.getFlag('pick-up-stix', 'pick-up-stix')?.isOpen
 			? containerData?.imageOpenPath
 			: containerData?.imageClosePath;
 
@@ -335,14 +341,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 				}
 
 				setProperty(formData, `container.loot.${lootType}`, v.map(itemData => {
-					setProperty(
-						itemData.data,
+					const data = { ...itemData };
+					setProperty(data.data,
 						getQuantityDataPath(),
 						$(e.currentTarget).hasClass('quantity-input') && e.currentTarget.dataset.lootType === itemData.type && e.currentTarget.dataset.lootId === itemData._id ?
 							+$(e.currentTarget).val() :
 							+getProperty(itemData.data, getQuantityDataPath())
 					);
-					return itemData;
+					return data;
 				}));
 			});
 		}
@@ -360,7 +366,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
 		console.log(expandedObject);
 
-		await this.object.update({
+		await updateEntity(this.object, {
 			name: formData.name,
 			flags: {
 				'pick-up-stix': {
@@ -393,7 +399,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		const options = {};
 		if (this.isToken) {
-			options['renderData'] = { tokens: getValidControlledTokens(this._sourceTokenId) };
+			options['renderData'] = { tokens: getValidControlledTokens(this._sourceTokenId), sourceTokenId: this._sourceTokenId };
 		}
 		setTimeout((options) => {
 			this.render(true, options);
@@ -406,13 +412,14 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		// clear the selected token because the token might have moved too far away to be
 		// eligible
 		this._selectedTokenId = null;
-		setTimeout(this.render.bind(this), 100);
+		setTimeout(this.render.bind(this), 100, { sourceTokenId: this._sourceTokenId });
 	}
 
 	private _onSelectActor = (e): void => {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | onActorSelect`);
 		this._selectedTokenId = e.currentTarget.dataset.token_id;
-		this.render();
+		const options = { sourceTokenId: this._sourceTokenId };
+		this.render(false, options);
 	}
 
 	private _onConfigureSound = (e): void => {

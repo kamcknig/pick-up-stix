@@ -1,4 +1,4 @@
-import { deleteOwnedItem, updateEmbeddedEntity, updateEntity } from "../main";
+import { updateEmbeddedEntity } from "../main";
 
 export const createOwnedItemHook = async (actor, item, options, userId) => {
   console.log(`pick-up-stix | createOwnedItemHook:`);

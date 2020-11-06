@@ -14,6 +14,7 @@ import { updateItemHook } from "./module/pick-up-stix/hooks/update-item-hook";
 import { deleteItemHook } from "./module/pick-up-stix/hooks/delete-item-hook";
 import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-hook";
 import { createOwnedItemHook } from "./module/pick-up-stix/hooks/create-owned-item-hook";
+import { renderItemDirectoryHook } from "./module/pick-up-stix/hooks/render-item-directory-hook";
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -29,6 +30,9 @@ Hooks.on('createItem', createItemHook);
 Hooks.on('preUpdateItem', preUpdateItemHook);
 Hooks.on('updateItem', updateItemHook);
 Hooks.on('deleteItem', deleteItemHook);
+
+// directory hooks
+Hooks.on('renderItemDirectory', renderItemDirectoryHook);
 
 // actor hooks
 Hooks.on('createActor', onCreateActor);

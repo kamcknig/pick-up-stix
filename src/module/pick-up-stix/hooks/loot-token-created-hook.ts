@@ -1,3 +1,4 @@
+import { LootToken } from "../loot-token";
 import { getLootToken } from "../main";
 
 export const lootTokenCreatedHook = async (tokenId) => {
@@ -9,6 +10,11 @@ export const lootTokenCreatedHook = async (tokenId) => {
   if (token) {
     const itemUuid = token.getFlag('pick-up-stix', 'pick-up-stix.itemUuid');
     let lootToken = getLootToken({ uuid: itemUuid, tokenId })?.[0];
+
+    if (!lootToken) {
+      lootToken = await LootToken.create(tokenId, itemUuid);
+    }
+
     lootToken?.activateListeners();
   }
 }

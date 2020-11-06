@@ -207,12 +207,8 @@ const handleNonGMMessage = (msg: PickUpStixSocketMessage): boolean => {
   let handled = false;
 
   switch (msg.type) {
-    case SocketMessageType.lootTokenDataSaved:
-      Hooks.callAll('pick-up-stix.lootTokenDataSaved', msg.data.sceneId, msg.data.tokenId, msg.data.lootData);
-      handled = true;
-      break;
     case SocketMessageType.lootTokenCreated:
-      Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId, msg.data.data);
+      Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId);
       handled = true;
       break;
   }

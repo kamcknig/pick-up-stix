@@ -7,17 +7,9 @@ export async function preCreateOwnedItemHook(actor: Actor, itemData: any, option
 		return false;
 	}
 
-	console.log(`pick-up-stix | onPreCreateOwnedItem | called with args:`);
-	console.log([actor, duplicate(itemData), options, userId]);
-
-	let owner: string = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner');
-	if (owner) {
-		const ownerActor = game.actors.get(owner);
-		await deleteOwnedItem(ownerActor.id, itemData._id);
-	}
-
-	setProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner', actor.id);
-
-	console.log('pick-up-stix | onPreCreateOwnedItem | final itemData:');
-	console.log(itemData);
+	const owner = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.owner');
+  const ownerActor = game.actors.get(owner);
+  if (ownerActor) {
+    await deleteOwnedItem(ownerActor.id, itemData._id);
+  }
 };

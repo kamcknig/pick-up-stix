@@ -6,11 +6,16 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
   console.log([scene, tokenData, options, userId]);
 
   const removed: LootToken = lootTokens.findSplice((lt: LootToken) => lt.sceneId === scene.id && lt.tokenId === tokenData._id);
-  removed?.deactivateListeners();
+
+  if (!removed) {
+    return;
+  }
+
+  removed.deactivateListeners();
 
   const uuid = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix.itemUuid');
 
-  if (uuid && getLootToken({ uuid: removed.itemUuid }).length === 0) {
+  if (uuid && getLootToken({ uuid: removed?.itemUuid }).length === 0) {
     if (uuid) {
       console.log(`pick-up-stix | deleteTokenHook | No LootTokens left, deleting Item '${uuid}' for LootToken`);
       await deleteEntity(uuid);

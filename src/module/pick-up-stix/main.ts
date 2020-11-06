@@ -255,7 +255,15 @@ export async function handleItemDropped(dropData: DropData) {
 						icon: '<i class="fas fa-box"></i>',
 						label: 'Item',
             callback: async () => {
-							await LootToken.create({ ...tokenData }, itemData);
+							await LootToken.create({ ...tokenData }, mergeObject(itemData, {
+								flags: {
+									'pick-up-stix': {
+										'pick-up-stix': {
+											itemType: ItemType.ITEM
+										}
+									}
+								}
+							}));
 							resolve();
             }
 					},
@@ -299,7 +307,15 @@ export async function handleItemDropped(dropData: DropData) {
 	}
   else {
 		console.log(`pick-up-stix | handleItemDropped | Dropped item doesn't come from actor and a loot token already exists, so not creating a new item`);
-		await LootToken.create({ ...tokenData }, lootTokens[0].itemUuid);
+		await LootToken.create({ ...tokenData }, mergeObject(itemData, {
+			flags: {
+				'pick-up-stix': {
+					'pick-up-stix': {
+						itemType: ItemType.ITEM
+					}
+				}
+			}
+		}));
 	}
 }
 
@@ -605,7 +621,7 @@ export const updateEmbeddedEntity = async (parentUuid, entityType, data) => {
 
 	if (game.user.isGM) {
 		console.log(`pick-up-stix | updateEmbeddedEntity | user is GM, deleting entity`);
-		return await e.updateEmbeddedEntity('Token', data);
+		return await e.updateEmbeddedEntity(entityType, data);
 	}
 
 	console.log('pick-up-stix | updateEmbeddedEntity | user is not GM, sending socket msg');
@@ -625,10 +641,10 @@ export const updateEmbeddedEntity = async (parentUuid, entityType, data) => {
 			reject({ parentUuid, entityType, data });
 		}, 2000);
 
-		Hooks.once('updateToken', (scene, tokenData, data, options, userId) => {
-			console.log('pick-up-stix | updateEmbeddedEntity | updateToken hook');
+		Hooks.once(`update${entityType}`, (parent, data, update, options, userId) => {
+			console.log(`pick-up-stix | updateEmbeddedEntity | update${entityType} hook`);
 			clearTimeout(timeout);
-			resolve(tokenData._id);
+			resolve(data._id);
 		});
 
 		game.socket.emit('module.pick-up-stix', msg);

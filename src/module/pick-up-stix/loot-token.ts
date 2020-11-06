@@ -1,8 +1,10 @@
 import {
 	createItem,
+	createOwnedItem,
 	createToken,
 	deleteToken,
 	getValidControlledTokens,
+	itemCollected,
 	lootTokenCreated,
 	lootTokens,
 	updateEntity
@@ -116,6 +118,9 @@ export class LootToken {
 			console.log('pick-up-stix | LootToken | create | creating new item');
 			const item = await createItem({
 				...itemData,
+				permission: {
+					default: 2
+				},
 				folder: game.settings.get('pick-up-stix', SettingKeys.tokenFolderId),
 			});
 			itemUuid = item.uuid;
@@ -318,13 +323,6 @@ export class LootToken {
 		}
 	}
 
-	remove = async () => {
-		console.log(`pick-up-stix | LootToken | remove`);
-		this.tokenData.mouseInteractionManager?._deactivateDragEvents();
-		const token = this.token;
-		await deleteToken(token, this.sceneId);
-	}
-
 	toggleLocked = async () => {
 		console.log(`pick-up-stix | LootToken | toggleLocked`);
 		const token = this.token;
@@ -355,7 +353,7 @@ export class LootToken {
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': {
-						isOpen: !this.isOpen
+						isOpen: open
 					}
 				}
 			}
@@ -370,7 +368,7 @@ export class LootToken {
 			console.error(e)
 		}
 
-		if (renderSheet && this.isOpen) {
+		if (renderSheet && open) {
 			await this.openConfigSheet(tokens);
 		}
 	}
@@ -406,20 +404,22 @@ export class LootToken {
 		} */
 	}
 
-	collect = async (token) => {
-		/* const data = this.lootData;
+	collect = async (token: Token) => {
+		const itemType = await this.itemType;
 
-		if (data.itemType !== ItemType.ITEM) {
+		if (itemType !== ItemType.ITEM) {
 			return;
 		}
 
-		// TODO
-		const itemData = {}; // this.lootData.itemData;
+		const item: Item = await this.item;
 
-		console.log(`pick-up-stix | LootItem | collect | token ${token.id} is picking up token ${this.tokenId} on scene ${this.sceneId}`);
-		await createOwnedItem(token.actor, [itemData]);
-		itemCollected(token, itemData);
-		await this.remove(); */
+		await createOwnedItem(token.actor, [{
+			...item.data
+		}]);
+		itemCollected(token, {
+			...item.data
+		});
+		await deleteToken(this.tokenId, this.sceneId);
 	}
 
 	openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
@@ -536,15 +536,6 @@ export class LootToken {
 
 		const token = this.token;
 
-		let i = game.items.entities.find(item => {
-			return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;
-		});
-
-		if (i) {
-			ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
-			return;
-		}
-
 		// if it's locked then it can't be opened
 		if (this.tokenData?.locked) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is locked`);
@@ -574,7 +565,6 @@ export class LootToken {
 		if (itemFlags.itemType === ItemType.ITEM) {
 			console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
 
-			// TODO: add token selection when multiple tokens are controlled
 			await this.collect(tokens[0]);
 			return;
 		}

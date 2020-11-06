@@ -13,6 +13,7 @@ import { LootHud } from "./module/pick-up-stix/loot-hud-application";
 import { updateItemHook } from "./module/pick-up-stix/hooks/update-item-hook";
 import { deleteItemHook } from "./module/pick-up-stix/hooks/delete-item-hook";
 import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-hook";
+import { createOwnedItemHook } from "./module/pick-up-stix/hooks/create-owned-item-hook";
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -32,6 +33,7 @@ Hooks.on('deleteItem', deleteItemHook);
 // actor hooks
 Hooks.on('createActor', onCreateActor);
 Hooks.on('preCreateOwnedItem', preCreateOwnedItemHook);
+Hooks.on('createOwnedItem', createOwnedItemHook);
 
 // token hooks
 Hooks.on('deleteToken', deleteTokenHook);

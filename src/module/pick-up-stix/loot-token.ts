@@ -424,11 +424,11 @@ export class LootToken {
 	}
 
 	openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
-		console.log('pick-up-stix | LootToken | openLootTokenConfig:');
+    console.log('pick-up-stix | LootToken | openConfigSheet:');
 		console.log([tokens, options]);
 
 		const closeItemConfigApplicationHook = async (app, html) => {
-			console.log(`pick-up-stix | LootToken | closeItemConfigApplicationHook:`);
+      console.log(`pick-up-stix | LootToken | openConfigSheet | closeItemConfigApplicationHook:`);
 			console.log([app, html]);
 
 			if (app.appId !== appId) {
@@ -447,17 +447,19 @@ export class LootToken {
 		for (let item of game.items) {
 			const i: Item = (item as any) as Item;
 
-			if ((item as any).getFlag('pick-up-stix', 'pick-up-stix') === undefined) {
-				continue;
-			}
+      const flags: ItemFlags = i.getFlag('pick-up-stix', 'pick-up-stix');
+
+      if (this.itemUuid === i.uuid || flags === undefined) {
+        continue;
+      }
 
 			for (let app of Object.values((i as any).apps)) {
 				await (app as any).close();
 			}
 		}
 
-		Hooks.once('closeItemConfigApplication', closeItemConfigApplicationHook);
-		const appId = item.sheet.render(true, { renderData: { tokens, sourceToken: this.tokenId } }).appId;
+    Hooks.once('closeItemConfigApplication', closeItemConfigApplicationHook);
+		const appId = item.sheet.render(!item.sheet.rendered, { renderData: { tokens, sourceToken: this.tokenId } }).appId;
 	}
 
 

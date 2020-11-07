@@ -1,4 +1,5 @@
 import {
+  getActorCurrencyPath,
 	getCurrencyTypes,
 	getPriceDataPath,
 	getQuantityDataPath,
@@ -315,7 +316,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject called with args:`);
 		console.log([e, duplicate(formData)]);
 
-		const containerData = this.itemFlags.container;
+		const containerData = duplicate(this.itemFlags.container);
 
 		formData = duplicate(formData);
 
@@ -431,22 +432,28 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication | _onDeleteItem`);
 		const itemId = e.currentTarget.dataset.id;
 
-		const loot: ContainerLoot = this.itemFlags.container.loot;
+		const loot: ContainerLoot = duplicate(this.itemFlags.container.loot);
 
 		Object.values(loot).forEach(lootItems => {
 			lootItems.findSplice(l => l._id === itemId);
-		});
+    });
 
-		if (this.isToken) {
-			// await saveLootTokenData(this._sceneId, this._tokenId, this._lootTokenData);
-		}
-		else {
-			await this.submit({ updateData: { container: { ...this.itemFlags.container, loot } } });
-		}
+    await this.submit({
+      updateData: {
+        container: {
+          loot
+        }
+      }
+    });
 	}
 
 	protected _onTakeCurrency = async (e) => {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency`);
+
+    if (!this.currencyEnabled) {
+      console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency | currency not enabled`);
+      return;
+    }
 
 		if (!this._selectedTokenId) {
 			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
@@ -456,20 +463,30 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
 
 		// TODO: this code will need to be updated to support different system's currencies
-		const actorCurrency = { ...getProperty(token.actor, 'data.data.currency') ?? {} };
+    const actorCurrency = {
+      ...getProperty(token.actor.data, getActorCurrencyPath()) ?? {}
+    };
 
-		const containerData = this.itemFlags.container;
+    const flags: ItemFlags = duplicate(this.itemFlags);
+		const currency = flags.container.currency;
 
-		const currency = containerData.currency;
 		if (!Object.values(currency).some(c => c > 0)) {
 			console.log(`pick-up-stix | ItemCOnfigApplication ${this.appId} | _onTakeCurrency | No currency to loot`);
 			return;
 		}
 
 		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +actorCurrency[k] + +currency[k]);
-		await updateActor(token.actor, {'data.currency': actorCurrency});
 
-		await currencyCollected(token, Object.entries(currency).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
+    await updateActor(token.actor, {
+      [getActorCurrencyPath()]: actorCurrency
+    });
+
+    await currencyCollected(
+      token,
+      Object.entries(currency)
+        .filter(([, v]) => v > 0)
+        .reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {})
+    );
 
 		Object.keys(currency)?.forEach(k => currency[k] = 0);
 
@@ -477,12 +494,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			.find('.data-currency-input')
 			.val(0);
 
-		if (this.isToken) {
-			// await saveLootTokenData(this._sceneId, this._tokenId, this._lootTokenData);
-		}
-		else {
-			await this.submit({ updateData: { container: { currency } } });
-		}
+    await this.submit({
+      updateData: {
+        ...flags
+      }
+    });
 	}
 
 	protected _onTakeItem = async (e) => {
@@ -493,7 +509,8 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			return;
 		}
 
-		const loot = this.itemFlags.container.loot;
+    const flags: ItemFlags = duplicate(this.itemFlags);
+		const loot: ContainerLoot = flags.container.loot;
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemId = e.currentTarget.dataset.id;
 		const itemData = loot?.[itemType]?.find(i => i._id === itemId);
@@ -506,24 +523,26 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			setProperty(itemData.data, getQuantityDataPath(), oldQty - 1);
 		}
 
-		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+    const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
 
-		await createOwnedItem(token.actor, [{
-			...itemData,
-			data: {
-				...itemData.data,
-				[getQuantityDataPath()]: 1
-			}
-		}]);
+    await createOwnedItem(
+      token.actor,
+      [
+        mergeObject(duplicate(itemData), {
+          data: {
+            [getQuantityDataPath()]: 1
+          }
+        })
+      ]
+    );
 
 		await itemCollected(token, itemData);
 
-		if (this.isToken) {
-			// await saveLootTokenData(this._sceneId, this._tokenId, this._lootTokenData);
-		}
-		else {
-			await this.submit({ updateData: { container: { ...this.itemFlags.container, loot } } });
-		}
+    await this.submit({
+      updateData: {
+        ...flags
+      }
+    });
 	}
 
 	protected _onEditImage = async (e) => {

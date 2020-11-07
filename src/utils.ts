@@ -94,6 +94,22 @@ export function getPriceDataPath(): string {
   return path;
 }
 
+export const getActorCurrencyPath = (): string => {
+  let path;
+
+  switch (game.system.id) {
+    case 'dnd5e':
+      path = 'data.currency'
+      break;
+    default:
+      console.warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
+      path = 'data.currency';
+      break;
+  }
+
+  return path;
+}
+
 export class CircularReferenceDetector {
 
   static detectCircularReferences(toBeStringifiedValue: any, serializationKeyStack: string[] = []) {

@@ -491,7 +491,7 @@ export const deleteOwnedItem = async (actorId: string, itemId: string) => {
 	console.log([actorId, itemId]);
 
 	if (game.user.isGM) {
-		console.log(`pick-up-stix | deleteOwnedItem | user is GM, deleting entity`);
+		console.log(`pick-up-stix | deleteOwnedItem | user is GM, deleting owned item`);
 		const actor = game.actors.get(actorId);
 		await actor.deleteOwnedItem(itemId);
 		return;
@@ -576,7 +576,7 @@ export const deleteEmbeddedEntity = async (parentUuid, entityType, entityId) => 
 	}
 
 	if (game.user.isGM) {
-		console.log(`pick-up-stix | deleteEmbeddedEntity | user is GM, deleting entity`);
+		console.log(`pick-up-stix | deleteEmbeddedEntity | user is GM, deleting embedded entity`);
 		return await e.deleteEmbeddedEntity(entityType, entityId)
 	}
 
@@ -620,7 +620,7 @@ export const updateEmbeddedEntity = async (parentUuid, entityType, data) => {
 	}
 
 	if (game.user.isGM) {
-		console.log(`pick-up-stix | updateEmbeddedEntity | user is GM, deleting entity`);
+		console.log(`pick-up-stix | updateEmbeddedEntity | user is GM, updating embedded entity`);
 		return await e.updateEmbeddedEntity(entityType, data);
 	}
 

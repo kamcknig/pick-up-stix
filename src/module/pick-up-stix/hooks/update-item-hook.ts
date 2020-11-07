@@ -1,4 +1,4 @@
-import { ItemFlags, TokenData } from "../loot-token";
+import { ItemFlags } from "../loot-token";
 import { getLootToken, updateEmbeddedEntity } from "../main";
 
 export const updateItemHook = async (item, data, options, userId) => {
@@ -15,10 +15,15 @@ export const updateItemHook = async (item, data, options, userId) => {
     const sceneUuid = scene.uuid;
     await updateEmbeddedEntity(sceneUuid, 'Token', {
       _id: lt.tokenId,
-      width: 1,
-      height: 1,
+      width: itemFlags?.tokenData?.width ?? 1,
+      height: itemFlags?.tokenData?.height ?? 1,
       name: item.data.name,
-      img: lt.isOpen ? itemFlags.container.imageOpenPath : itemFlags.container.imageClosePath
+      img: itemFlags.container !== undefined
+        ? (lt.isOpen
+          ? itemFlags.container.imageOpenPath
+          : itemFlags.container.imageClosePath
+        )
+        : item.data.img
     });
   }
 }

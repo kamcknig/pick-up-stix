@@ -78,7 +78,7 @@ export async function readyHook() {
     <p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
     and two folders within there named <strong>Items</strong>, and <strong>Tokens</strong>. Once these folders have been created, you
     are free to move them around however, if you delete them as of now there is no way to recover any previous contents,
-    though the folder should be recreated on the next startup.</p>
+    though the folder should be recreated on the next startup. These folders can not be seen by players that are not GMs.</p>
     <p>The <strong>Tokens</strong> folder contains Items that represent any loot token instances that are in a scene. If you edit one of them
     from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance,
     simply drag one of the Items from the <strong>Tokens</strong> Item folder and you'll have a copy of that Item that will
@@ -161,12 +161,6 @@ export async function readyHook() {
 				break;
 			case SocketMessageType.createItemToken:
 				await createToken(msg.data);
-				break;
-			case SocketMessageType.saveLootTokenData:
-				// await saveLootTokenData(msg.data.sceneId, msg.data.tokenId, msg.data.lootData);
-				break;
-			case SocketMessageType.deleteLootTokenData:
-				// await deleteLootTokenData(msg.data.sceneId, msg.data.tokenId);
 				break;
 			case SocketMessageType.createEntity:
 				await createItem(msg.data.data, msg.data.options);

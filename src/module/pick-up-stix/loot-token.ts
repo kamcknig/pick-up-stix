@@ -7,7 +7,8 @@ import {
 	itemCollected,
 	lootTokenCreated,
 	lootTokens,
-	updateEntity
+	updateEntity,
+  updateToken
 } from "./main";
 import { ItemType } from "./models";
 import { SettingKeys } from "./settings";
@@ -326,9 +327,9 @@ export class LootToken {
 
 	toggleLocked = async () => {
 		console.log(`pick-up-stix | LootToken | toggleLocked`);
-		const token = this.token;
 		const locked = this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked ?? false;
-		await updateEntity(token, {
+    await updateToken(this.sceneId, {
+      _id: this.tokenId,
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': {
@@ -349,7 +350,8 @@ export class LootToken {
 
 		const open = !this.isOpen
 
-		await updateEntity(this.token, {
+    await updateToken(this.sceneId, {
+      _id: this.tokenId,
 			img: open ? itemFlags.container.imageOpenPath : itemFlags.container.imageClosePath,
 			flags: {
 				'pick-up-stix': {

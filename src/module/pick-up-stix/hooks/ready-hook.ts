@@ -150,11 +150,11 @@ export async function readyHook() {
 				await deleteToken(msg.data.tokenId, msg.data.sceneId);
 				break;
 			case SocketMessageType.updateEntity:
-				token = canvas.tokens.get(msg.data.tokenId);
-				if (token) {
-					await updateEntity(token, msg.data.updates);
-				}
-				break;
+				await updateEntity(msg.data.uuid, msg.data.updates);
+        break;
+      case SocketMessageType.updateToken:
+        await updateEntity(msg.data.sceneId, msg.data.updates);
+        break;
 			case SocketMessageType.createOwnedEntity:
 				actor = game.actors.get(msg.data.actorId);
 				await createOwnedItem(actor, msg.data.items);

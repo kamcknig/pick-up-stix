@@ -35,20 +35,22 @@ export interface DropData {
 	type?: string
 }
 
+
 export enum SocketMessageType {
-	deleteToken = 'deleteToken',
-	updateEntity = 'updateEntity',
-	updateActor = 'updateActor',
-	createOwnedEntity = 'createOwnedEntity',
-	createItemToken = 'createItemToken',
-	saveLootTokenData = 'saveLootTokenData',
-	deleteLootTokenData = 'deleteLootTokenData',
-	createEntity = 'createEntity',
-	deleteEntity = 'deleteEntity',
-	lootTokenCreated = 'lootTokenCreated',
-	deleteEmbeddedEntity = "deleteEmbeddedEntity",
-	updateEmbeddedEntity = "updateEmbeddedEntity",
-	deleteOwnedItem = "deleteOwnedItem"
+  deleteToken = 'deleteToken',
+  updateEntity = 'updateEntity',
+  updateActor = 'updateActor',
+  createOwnedEntity = 'createOwnedEntity',
+  createItemToken = 'createItemToken',
+  saveLootTokenData = 'saveLootTokenData',
+  deleteLootTokenData = 'deleteLootTokenData',
+  createEntity = 'createEntity',
+  deleteEntity = 'deleteEntity',
+  lootTokenCreated = 'lootTokenCreated',
+  deleteEmbeddedEntity = "deleteEmbeddedEntity",
+  updateEmbeddedEntity = "updateEmbeddedEntity",
+  deleteOwnedItem = "deleteOwnedItem",
+  updateToken = "updateToken"
 }
 
 export interface PickUpStixSocketMessage {

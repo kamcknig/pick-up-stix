@@ -353,28 +353,76 @@ export const deleteToken = async (tokenId: string, sceneId: string): Promise<voi
   });
 }
 
-export async function updateEntity(entity: { id: string, update: (data, options?) => void }, updates): Promise<void> {
+export async function updateToken(sceneId: string, updates: { _id: string;[key: string]: any } | { _id: string;[key: string]: any }[]): Promise<any> {
+  console.log(`pick-up-stix | updateToken with args:`);
+  console.log([sceneId, updates]);
+
+  if (game.user.isGM) {
+    console.log(`pick-up-stix | updateToken user is GM, making update`);
+    await Scene.collection.get(sceneId).updateEmbeddedEntity('Token', updates);
+    return;
+  }
+
+  console.log(`pick-up-stix | updateToken user is not GM, sending socket msg`);
+
+  const msg: PickUpStixSocketMessage = {
+    sender: game.user.id,
+    type: SocketMessageType.updateToken,
+    data: {
+      sceneId,
+      updates
+    }
+  }
+
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => {
+      resolve(null);
+    }, 1000);
+
+    Hooks.once('updateToken', (scene, tokenData, options, userId) => {
+      console.log(`pick-up-stix | updateToken | updateToken hook`);
+      clearTimeout(timeout);
+      resolve({ sceneId: scene.id, tokenId: tokenData._id });
+    });
+
+    game.socket.emit('module.pick-up-stix', msg);
+  });
+}
+
+export async function updateEntity(uuid, updates): Promise<void> {
 	console.log(`pick-up-stix | updateEntity with args:`);
-	console.log([entity, updates]);
+	console.log([uuid, updates]);
 
 	if (game.user.isGM) {
 		console.log('pick-up-stix | user is GM, making update');
-		await entity.update(updates);
+    const entity = await fromUuid(uuid);
+    entity.update(updates);
 		return;
 	}
 
   console.log('pick-up-stix | user is not GM, sending socket msg');
 
-	const msg: PickUpStixSocketMessage = {
-		sender: game.user.id,
-		type: SocketMessageType.updateEntity,
-		data: {
-			tokenId: entity.id,
-			updates
-		}
-	};
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => {
+      resolve(null);
+    }, 1000);
 
-	game.socket.emit('module.pick-up-stix', msg);
+    const msg: PickUpStixSocketMessage = {
+      sender: game.user.id,
+      type: SocketMessageType.updateEntity,
+      data: {
+        uuid,
+        updates
+      }
+    };
+
+    Hooks.once('updateEntity', (entity, data, options, userId) => {
+      console.log(`pick-up-stix | updateEntity | updateEntity hook`);
+      clearTimeout(timeout);
+      resolve(entity.id);
+    });
+    game.socket.emit('module.pick-up-stix', msg);
+  });
 }
 
 export async function updateActor(actor, updates): Promise<void> {

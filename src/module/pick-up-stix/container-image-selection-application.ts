@@ -79,7 +79,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
     console.log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
     console.log([e, formData]);
 
-    await updateEntity(this.object, {
+    await updateEntity(this.object.uuid, {
       'flags': {
         'pick-up-stix': {
           'pick-up-stix': {

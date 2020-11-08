@@ -1,3 +1,4 @@
+import { ContainerData, ItemFlags } from "./loot-token";
 import { updateEntity } from "./main";
 
 export class ContainerSoundConfig extends FormApplication {
@@ -36,26 +37,19 @@ export class ContainerSoundConfig extends FormApplication {
     console.log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
     console.log([formData]);
 
-    const flags = this.object.getFlag('pick-up-stix', 'pick-up-stix');
-    const { sceneId, tokenId } = flags;
-    const isToken = sceneId !== undefined && tokenId !== undefined;
+    const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
 
-    if (!isToken) {
-      await updateEntity(this.object, {
-        flags: {
+    await updateEntity(this.object.uuid, {
+      flags: {
+        'pick-up-stix': {
           'pick-up-stix': {
-            'pick-up-stix': {
-              container: {
-                ...formData
-              }
+            container: {
+              ...formData
             }
           }
         }
-      });
-    }
-    else {
-      // await saveLootTokenData(sceneId, tokenId, { container: { ...formData } } as PickUpStixFlags);
-    }
+      }
+    });
   }
 
   getData(options) {

@@ -28,6 +28,6 @@ export class LootEmitLightConfigApplication extends FormApplication {
   }
 
   async _updateObject(e, formData) {
-    await updateEntity(this.object, formData);
+    await updateEntity(this.object.uuid, formData);
   }
 }

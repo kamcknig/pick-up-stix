@@ -367,7 +367,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
 		console.log(expandedObject);
 
-		await updateEntity(this.object, {
+		await updateEntity(this.object.uuid, {
 			name: formData.name,
 			flags: {
 				'pick-up-stix': {

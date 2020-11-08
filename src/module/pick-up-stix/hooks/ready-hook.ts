@@ -71,7 +71,45 @@ export async function readyHook() {
 	}
 	else {
 		console.log(`pick-up-stix | readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
-	}
+  }
+
+  const el = document.createElement('div');
+  el.innerHTML = `<p>I have made some improvements that should hopefully speed up the module but want to point out a few changes</p>
+    <p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
+    and two folders within there named <strong>Items</strong>, and <strong>Tokens</strong>. Once these folders have been created, you
+    are free to move them around however, if you delete them as of now there is no way to recover any previous contents,
+    though the folder should be recreated on the next startup.</p>
+    <p>The <strong>Tokens</strong> folder contains Items that represent any loot token instances that are in a scene. If you edit one of them
+    from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance,
+    simply drag one of the Items from the <strong>Tokens</strong> Item folder and you'll have a copy of that Item that will
+    update when it updates. If you delete an Item from the <strong>Tokens</strong> folder, then all loot token instances will
+    be removed from all scenes. If you delete all loot token instances from all scenes, the Item associated with it in the
+    <strong>Tokens</strong> folder will also be deleted</p>
+    <p>The <strong>Items</strong> folder is a template folder. When you create an Item and choose the 'container' type, you'll get
+    an Item created in the <strong>Items</strong> folder. If you drag one of these onto the canvas, you'll create a new loot token
+    based on the properties of that Item, but you'll notice that a new Item is created in the <strong>Tokens</strong> folder. You can
+    updated this new loot token by either updating it's new corresponding Item or through the token's config menu. You can
+    also update that token and then drag a copy of it from the <strong>Tokens</strong> folder NOT the <strong>Items</strong> folder to
+    create a new loot token with the udpated properties. Items in the <strong>Items</strong> folder are not deleted when any
+    loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the <strong>Items</strong> directory
+    are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.</p>`;
+
+  if (game.user.isGM && !game.settings.get('pick-up-stix', SettingKeys.version13updatemessage)) {
+    new Dialog({
+      title: 'Pick-Up-Stix - Update notification',
+      buttons: {
+        'OK': {
+          label: 'OK'
+        }
+      },
+      default: 'OK',
+      content: el.innerHTML
+    }, {
+        width: 750,
+      height: 'auto'
+    }).render(true);
+    await game.settings.set('pick-up-stix', SettingKeys.version13updatemessage, true);
+  }
 
 	game.socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
 		console.log(`pick-up-stix | socket.on | received socket message with args:`);

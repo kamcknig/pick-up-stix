@@ -8,7 +8,8 @@ export enum SettingKeys {
 	lootTokenData = 'lootTokenData',
 	parentItemFolderId = 'parentFolderId',
 	tokenFolderId = 'tokenFolderId',
-	itemFolderId = 'itemFolderId'
+  itemFolderId = 'itemFolderId',
+  version13updatemessage = 'version13updatemessage'
 }
 
 const systemCurrenciesImplemented = [
@@ -27,6 +28,15 @@ export const registerSettings = function() {
 		return val;
 	}
 	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
+
+  game.settings.register('pick-up-stix', SettingKeys.version13updatemessage, {
+    name: 'Version 13 Update Message',
+    hint: 'Tracks if user received the version 13 update message',
+    scope: 'world',
+    config: false,
+    type: Boolean,
+    default: false
+  });
 
 	game.settings.register('pick-up-stix', SettingKeys.version, {
 		name: 'Version',

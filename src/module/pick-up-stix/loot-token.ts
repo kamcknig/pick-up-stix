@@ -1,3 +1,4 @@
+import { getQuantityDataPath } from "../../utils";
 import {
 	createItem,
 	createOwnedItem,
@@ -376,18 +377,21 @@ export class LootToken {
 		}
 	}
 
-	addItem = async (itemData: any, id: string): Promise<void> => {
-		/* if (this.itemType !== ItemType.CONTAINER) {
+	addItem = async (itemData: any): Promise<void> => {
+		if (await this.itemType !== ItemType.CONTAINER) {
 			return;
 		}
 
 		console.log('pick-up-stix | LootToken | addItem');
 
-		const data = this.lootData;
+		const itemFlags = duplicate(await this.itemFlags);
 
-		const existingItem: any = Object.values(data?.container?.loot?.[itemData.type] ?? [])?.find(i => (i as any)._id === id);
+		const existingItem: any =
+			Object.values(itemFlags?.container?.loot?.[itemData?.type] ?? [])
+				?.find(i => (i as any)._id === itemData._id);
+
 		if (existingItem) {
-			console.log(`pick-up-stix | LootToken | addItem | found existing item for item '${id}`);
+			console.log(`pick-up-stix | LootToken | addItem | found existing item for item '${itemData._id}`);
 			const quantityDataPath = getQuantityDataPath();
 			if(!getProperty(existingItem.data, quantityDataPath)) {
 				setProperty(existingItem.data, quantityDataPath, 1);
@@ -397,14 +401,22 @@ export class LootToken {
 			}
 		}
 		else {
-			if (!data.container.loot) {
-				data.container.loot = {};
+			if (!itemFlags.container.loot) {
+				itemFlags.container.loot = {};
 			}
-			if (!data.container.loot[itemData.type]) {
-				data.container.loot[itemData.type] = [];
+			if (!itemFlags.container.loot[itemData.type]) {
+				itemFlags.container.loot[itemData.type] = [];
 			}
-			data.container.loot[itemData.type].push(duplicate(itemData));
-		} */
+			itemFlags.container.loot[itemData.type].push(itemData);
+		}
+
+		await updateEntity(this.itemUuid, {
+			flags: {
+				'pick-up-stix': {
+					'pick-up-stix': itemFlags
+				}
+			}
+		})
 	}
 
 	collect = async (token: Token) => {

@@ -172,15 +172,16 @@ export async function handleItemDropped(dropData: DropData) {
 		const item = await fromUuid(targetTokenFlags?.itemUuid);
 		const itemFlags: ItemFlags = item?.getFlag('pick-up-stix', 'pick-up-stix');
 
-		if (itemFlags.itemType !== ItemType.CONTAINER) {
+		if (itemFlags?.itemType !== ItemType.CONTAINER) {
 			ui.notifications.error(`Cannot place '${item.name}' onto token ${targetToken.name}`);
 			console.log(`pick-up-stix | handleItemDropped | Can't drop ${item.name} ${item.id} onto target token ${targetToken.name} ${targetToken.id}`);
 			console.log([targetToken, item]);
 			return;
 		}
 
-		// TODO: need to implement adding to loot container
-		//await lootToken.addItem(itemData, id);
+		const lt = getLootToken({ uuid: item.uuid, tokenId: targetToken.id })?.[0];
+		await lt.addItem(itemData);
+		return;
 	}
 
 	// if it's not a container, then we can assume it's an item. Create the item token

@@ -10,13 +10,18 @@ export enum SettingKeys {
 	lootTokenData = 'lootTokenData',
 	parentItemFolderId = 'parentFolderId',
 	tokenFolderId = 'tokenFolderId',
-  itemFolderId = 'itemFolderId',
-  version13updatemessage = 'version13updatemessage'
+	itemFolderId = 'itemFolderId',
+	version13updatemessage = 'version13updatemessage',
+	GMActionTimeout = "GMActionTimeout"
 }
 
 const systemCurrenciesImplemented = [
 	'dnd5e'
 ];
+
+export const gmActionTimeout = (multiplier: number = 1000): number => {
+	return (game.settings.get('pick-up-stix', SettingKeys.GMActionTimeout) ?? 2) * multiplier;
+}
 
 export const registerSettings = function() {
 	log(`pick-up-stix | registerSettings`);
@@ -30,6 +35,14 @@ export const registerSettings = function() {
 		return val;
 	}
 	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
+
+	game.settings.register('pick-up-stix', SettingKeys.GMActionTimeout, {
+		name: 'GM Action Timeout',
+		hint: 'Controls the amount of time to wait for a GM client to perform a GM action before giving up',
+		scope: 'world',
+		type: Number,
+		default: 2
+	});
 
   game.settings.register('pick-up-stix', SettingKeys.version13updatemessage, {
     name: 'Version 13 Update Message',

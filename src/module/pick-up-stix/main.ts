@@ -2,7 +2,7 @@ import { log } from '../../log';
 import { collidedTokens, getCurrencyTypes } from '../../utils';
 import { ItemFlags, LootToken, TokenData, TokenFlags } from "./loot-token";
 import { DropData, ItemType, PickUpStixSocketMessage, SocketMessageType } from "./models";
-import { SettingKeys } from "./settings";
+import { gmActionTimeout, SettingKeys } from "./settings";
 
 export const lootTokens: LootToken[] = [];
 window['lootTokens'] = lootTokens;
@@ -332,7 +332,7 @@ export const deleteToken = async (tokenId: string, sceneId: string): Promise<voi
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve(null);
-		}, 1000);
+		}, gmActionTimeout());
 
 		const msg: PickUpStixSocketMessage = {
 			sender: game.user.id,
@@ -377,7 +377,7 @@ export async function updateToken(sceneId: string, updates: { _id: string; [key:
 	return new Promise(resolve => {
 		const timeout = setTimeout(() => {
 			resolve(null);
-		}, 1000);
+		}, gmActionTimeout());
 
 		Hooks.once('updateToken', (scene, tokenData, options, userId) => {
 			log(`pick-up-stix | updateToken | updateToken hook`);
@@ -406,7 +406,7 @@ export async function updateEntity(uuid, updates): Promise<void> {
 	return new Promise(resolve => {
 		const timeout = setTimeout(() => {
 			resolve(null);
-		}, 1000);
+		}, gmActionTimeout());
 
 		const msg: PickUpStixSocketMessage = {
 			sender: game.user.id,
@@ -443,7 +443,7 @@ export async function updateActor(actor, updates): Promise<void> {
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve(null);
-		}, 1000);
+		}, gmActionTimeout());
 
 		const msg: PickUpStixSocketMessage = {
 			sender: game.user.id,
@@ -481,7 +481,7 @@ export async function createOwnedItem(actor: Actor, data: any | any[]) {
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve(null);
-		}, 1000);
+		}, gmActionTimeout());
 
 		const msg: PickUpStixSocketMessage = {
 			sender: game.user.id,
@@ -518,7 +518,7 @@ export const createItem = async (data: any, options: any = {}): Promise<Item<any
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve(null);
-		}, 1000);
+		}, gmActionTimeout());
 
 		const msg: PickUpStixSocketMessage = {
 			sender: game.user.id,
@@ -565,7 +565,7 @@ export const deleteOwnedItem = async (actorId: string, itemId: string) => {
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve({ actorId, itemId });
-		}, 1000);
+		}, gmActionTimeout());
 
 		Hooks.once('deleteOwnedItem', (actor, itemData, options, userId) => {
 			log('pick-up-stix | deleteOwnedItem | deleteOwnedItem hook');
@@ -607,7 +607,7 @@ export const deleteItem = async (uuid: string) => {
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve(uuid);
-		}, 1000);
+		}, gmActionTimeout());
 
 		Hooks.once('deleteItem', (item, options, userId) => {
 			log('pick-up-stix | deleteItem | deleteItem hook');
@@ -651,7 +651,7 @@ export const deleteEmbeddedEntity = async (parentUuid, entityType, entityId) => 
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve({ parentUuid, entityType, entityId });
-		}, 1000);
+		}, gmActionTimeout());
 
 		Hooks.once(`delete${entityType}`, (entity, options, userId) => {
 			log(`pick-up-stix | deleteEmbeddedEntity | delete${entityType} hook`);
@@ -696,7 +696,7 @@ export const updateEmbeddedEntity = async (parentUuid, entityType, data) => {
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve({ parentUuid, entityType, data });
-		}, 1000);
+		}, gmActionTimeout());
 
 		Hooks.once(`update${entityType}`, (parent, data, update, options, userId) => {
 			log(`pick-up-stix | updateEmbeddedEntity | update${entityType} hook`);
@@ -733,7 +733,7 @@ export const createToken = async (data: any): Promise<string> => {
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
 			resolve('Token never created');
-		}, 1000);
+		}, gmActionTimeout());
 
 		Hooks.once('createToken', (scene, data) => {
 			log(`pick-up-stix | createToken | createToken hook | Token '${data.id}' created`);

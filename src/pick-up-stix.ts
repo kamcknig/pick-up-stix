@@ -15,6 +15,7 @@ import { deleteItemHook } from "./module/pick-up-stix/hooks/delete-item-hook";
 import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-hook";
 import { createOwnedItemHook } from "./module/pick-up-stix/hooks/create-owned-item-hook";
 import { renderItemDirectoryHook } from "./module/pick-up-stix/hooks/render-item-directory-hook";
+import { preUpdateTokenHook } from "./module/pick-up-stix/hooks/pre-update-token-hook";
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -41,6 +42,8 @@ Hooks.on('createOwnedItem', createOwnedItemHook);
 
 // token hooks
 Hooks.on('deleteToken', deleteTokenHook);
+Hooks.on('preUpdateToken', preUpdateTokenHook);
+
 
 // render hooks
 Hooks.on("renderSettingsConfig", (app, html, user) => {

@@ -3,6 +3,7 @@ import {
 	getCurrencyTypes,
 	getPriceDataPath,
 	getQuantityDataPath,
+	getWeightDataPath,
 	onChangeInputDelta
 } from '../../utils';
 import ContainerImageSelectionApplication from "./container-image-selection-application.js";
@@ -283,7 +284,15 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		const qtyDataPath = getQuantityDataPath();
 
-		const existingItem = loot[itemType]?.find(i => i._id === (dropData.actor ? getProperty(droppedItemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : droppedItemData._id));
+		const existingItem = loot[itemType]
+			?.find(i =>
+				i.name?.toLowerCase() === droppedItemData.name?.toLowerCase()
+				&& i.img === droppedItemData.img
+				&& i.data?.description?.value?.toLowerCase() === droppedItemData.data?.description?.value?.toLowerCase()
+				&& getProperty(i.data, getPriceDataPath()) === getProperty(droppedItemData.data, getPriceDataPath())
+				&& getProperty(i.data, getWeightDataPath()) === getProperty(droppedItemData.data, getWeightDataPath())
+			);
+
 		if (existingItem) {
 			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
 			setProperty(existingItem.data, qtyDataPath, +getProperty(existingItem.data, qtyDataPath) + 1)

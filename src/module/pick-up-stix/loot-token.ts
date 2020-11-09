@@ -1,4 +1,4 @@
-import { getQuantityDataPath } from "../../utils";
+import { getPriceDataPath, getQuantityDataPath, getWeightDataPath } from "../../utils";
 import {
 	createItem,
 	createOwnedItem,
@@ -13,8 +13,6 @@ import {
 } from "./main";
 import { ItemType } from "./models";
 import { SettingKeys } from "./settings";
-
-declare function fromUuid(uuid: string): Promise<any>;
 
 /**
  * These are the flags stored on a Token instance.
@@ -38,7 +36,6 @@ export interface ItemFlags {
 
 export interface OwnedItemFlags {
 	owner: string;
-	originalItemId: string;
 }
 
 export interface ContainerData {
@@ -206,7 +203,7 @@ export class LootToken {
 
 	get item(): Promise<Item> {
 		return new Promise(async resolve => {
-			const item = await fromUuid(this.itemUuid);
+			const item: Item = await fromUuid(this.itemUuid) as Item;
 			resolve(item);
 		})
 	}
@@ -386,9 +383,14 @@ export class LootToken {
 
 		const itemFlags = duplicate(await this.itemFlags);
 
-		const existingItem: any =
-			Object.values(itemFlags?.container?.loot?.[itemData?.type] ?? [])
-				?.find(i => (i as any)._id === itemData._id);
+		const existingItem = Object.values(itemFlags?.container?.loot?.[itemData?.type] ?? [])
+			?.find(i =>
+				i.name?.toLowerCase() === itemData.name?.toLowerCase()
+				&& i.img === itemData.img
+				&& i.data?.description?.value?.toLowerCase() === itemData.data?.description?.value?.toLowerCase()
+				&& getProperty(i.data, getPriceDataPath()) === getProperty(itemData.data, getPriceDataPath())
+				&& getProperty(i.data, getWeightDataPath()) === getProperty(itemData.data, getWeightDataPath())
+			);
 
 		if (existingItem) {
 			console.log(`pick-up-stix | LootToken | addItem | found existing item for item '${itemData._id}`);

@@ -43,6 +43,12 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
   return v1Parts[0] - v2Parts[0];
 }
 
+export const collidedTokens = (options: { x: number, y:number }): Token[] => {
+  return canvas.tokens.placeables.filter((p: PlaceableObject) =>
+    options.x <= p.x + p.width - 1 && options.x >= p.x && options.y <= p.y + p.height - 1 && options.y >= p.y
+  );
+}
+
 export function onChangeInputDelta(event) {
   console.log(`pick-up-stix | onChangeInputDelta`);
   console.log([event]);
@@ -88,6 +94,25 @@ export function getPriceDataPath(): string {
     default:
       console.warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
       path = 'price';
+      break;
+  }
+
+  return path;
+}
+
+export function getWeightDataPath(): string {
+  let path;
+
+  switch (game.system.id) {
+    case 'dnd5e':
+      path = 'weight'
+      break;
+    case 'pf2e':
+      path = 'weight.value'
+      break;
+    default:
+      console.warn(`System ${game.system.id} weight data path not implemented and therefore might not work with item data.`);
+      path = 'weight';
       break;
   }
 

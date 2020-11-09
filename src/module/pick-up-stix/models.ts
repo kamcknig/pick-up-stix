@@ -1,5 +1,3 @@
-import { ContainerLoot, TokenData } from "./loot-token";
-
 export interface DropData {
 	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
 	// If the item being dropped comes from an actor token, then the tokenId will be available

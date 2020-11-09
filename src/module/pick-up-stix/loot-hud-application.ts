@@ -1,8 +1,6 @@
 import { getLootToken } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
 
-declare function fromUuid(uuid: string): Promise<Entity>;
-
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {

@@ -1,10 +1,11 @@
+import { error, log } from "../../../log";
 import { collidedTokens } from "../../../utils";
 import { TokenFlags } from "../loot-token";
 import { getLootToken, handleItemDropped } from "../main";
 
 export const updateTokenHook = async (scene, tokenData, updates, userId) => {
-  console.log(`pick-up-stix | updateTokenHook:`);
-  console.log([scene, tokenData, updates, userId]);
+  log(`pick-up-stix | updateTokenHook:`);
+  log([scene, tokenData, updates, userId]);
 
   if (tokenData.y === undefined && tokenData.x === undefined) {
     return;
@@ -12,14 +13,14 @@ export const updateTokenHook = async (scene, tokenData, updates, userId) => {
 
   const tokens = collidedTokens({ x: tokenData._x, y: tokenData._y });
   if (tokens.length > 1) {
-    console.error(`pick-up-stix | updateTokenHook | Dropping onto multiple targets. preUpdateToken hook should have caught this and notified an error on the UI. This error is benigh though.`);
+    error(`pick-up-stix | updateTokenHook | Dropping onto multiple targets. preUpdateToken hook should have caught this and notified an error on the UI. This error is benigh though.`);
     return;
   }
 
   const lt = getLootToken({ sceneId: scene.id, tokenId: tokenData._id })?.[0];
 
   if (!lt) {
-    console.error(`pick-up-stix | updateTokenHook | not LootToken found for token '${tokenData._id}' in scene '${scene.id}'`);
+    error(`pick-up-stix | updateTokenHook | not LootToken found for token '${tokenData._id}' in scene '${scene.id}'`);
     return;
   }
 

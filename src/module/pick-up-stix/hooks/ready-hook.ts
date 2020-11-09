@@ -2,8 +2,9 @@ import { SocketMessageType, PickUpStixSocketMessage, ItemType } from "../models"
 import ItemConfigApplication from "../item-config-application";
 import { SettingKeys } from "../settings";
 import { versionDiff } from "../../../utils";
-import { createItem, createOwnedItem, createToken, deleteEmbeddedEntity, deleteEntity, deleteOwnedItem, deleteToken, getLootToken, updateActor, updateEmbeddedEntity, updateEntity } from "../main";
+import { createItem, createOwnedItem, createToken, deleteEmbeddedEntity, deleteItem, deleteOwnedItem, deleteToken, getLootToken, updateActor, updateEmbeddedEntity, updateEntity, updateToken } from "../main";
 import { LootToken, TokenFlags } from "../loot-token";
+import { error, log } from "../../../log";
 
 declare class EntitySheetConfig {
 	static registerSheet(
@@ -17,7 +18,7 @@ declare class EntitySheetConfig {
 /* ------------------------------------ */
 export async function readyHook() {
 	// Do anything once the module is ready
-	console.log(`pick-up-stix | readyHook`);
+	log(`pick-up-stix | readyHook`);
 
 	// this adds the 'container' type to the game system's entity types.
 	game.system.entityTypes.Item.push(ItemType.CONTAINER);
@@ -43,7 +44,7 @@ export async function readyHook() {
 			let lootToken = getLootToken({ uuid: tokenFlags?.itemUuid, tokenId: token._id })?.[0];
 
 			if (tokenFlags?.itemUuid && !lootToken) {
-				console.log(`pick-up-stix | readyHook | Creating new LootToken for token '${token._id}' and item uuid '${tokenFlags.itemUuid}'`);
+				log(`pick-up-stix | readyHook | Creating new LootToken for token '${token._id}' and item uuid '${tokenFlags.itemUuid}'`);
 				lootToken = await LootToken.create(token._id, tokenFlags.itemUuid);
 			}
 		}
@@ -64,13 +65,13 @@ export async function readyHook() {
 
 	const diff = versionDiff(activeVersion, previousVersion);
 	if (diff < 0) {
-		console.log(`pick-up-stix | readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
+		log(`pick-up-stix | readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
 	}
 	else if (diff > 0) {
-		console.log(`pick-up-stix | readyHook | current version ${activeVersion} is greater than previous version ${previousVersion}`);
+		log(`pick-up-stix | readyHook | current version ${activeVersion} is greater than previous version ${previousVersion}`);
 	}
 	else {
-		console.log(`pick-up-stix | readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
+		log(`pick-up-stix | readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
   }
 
   const el = document.createElement('div');
@@ -112,15 +113,15 @@ export async function readyHook() {
   }
 
 	game.socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
-		console.log(`pick-up-stix | socket.on | received socket message with args:`);
-		console.log([msg]);
+		log(`pick-up-stix | socket.on | received socket message with args:`);
+		log([msg]);
 
     if (handleNonGMMessage(msg)) {
       return;
     }
 
 		if (msg.sender === game.user.id) {
-			console.log(`pick-up-stix | socket.on | i sent this, ignoring`);
+			log(`pick-up-stix | socket.on | i sent this, ignoring`);
 			return;
 		}
 
@@ -153,7 +154,7 @@ export async function readyHook() {
 				await updateEntity(msg.data.uuid, msg.data.updates);
         break;
       case SocketMessageType.updateToken:
-        await updateEntity(msg.data.sceneId, msg.data.updates);
+        await updateToken(msg.data.sceneId, msg.data.updates);
         break;
 			case SocketMessageType.createOwnedEntity:
 				actor = game.actors.get(msg.data.actorId);
@@ -165,25 +166,25 @@ export async function readyHook() {
 			case SocketMessageType.createEntity:
 				await createItem(msg.data.data, msg.data.options);
 				break;
-			case SocketMessageType.deleteEntity:
-				await deleteEntity(msg.data.uuid);
+			case SocketMessageType.deleteItem:
+				await deleteItem(msg.data.uuid);
 				break;
 			default:
-				console.error(`pick-up-stix | readyHook | No valid socket message handler for '${msg.type}' with arg:`);
-				console.log([msg])
+				error(`pick-up-stix | readyHook | No valid socket message handler for '${msg.type}' with arg:`);
+				log([msg])
 		}
 	});
 };
 
 const createDefaultFolders = async () => {
-	console.log(`pick-up-stix | createDefaultFolders`);
+	log(`pick-up-stix | createDefaultFolders`);
 
 	// check if the parent folder exists and create it if not
 	let parentFolderId = game.settings.get('pick-up-stix', SettingKeys.parentItemFolderId);
 	let folder = Folder.collection.get(parentFolderId);
 
 	if (!folder) {
-		console.log(`pick-up-stix | createDefaultFolders | couldn't parent folder creating it now`);
+		log(`pick-up-stix | createDefaultFolders | couldn't parent folder creating it now`);
 		folder = await Folder.create({
 			color: '',
 			name: 'Pick-Up-Stix',
@@ -195,14 +196,14 @@ const createDefaultFolders = async () => {
 		await game.settings.set('pick-up-stix', SettingKeys.parentItemFolderId, parentFolderId);
 	}
 	else {
-		console.log(`pick-up-stix | createDefaultFolders | parent folder '${folder.name}' found`);
+		log(`pick-up-stix | createDefaultFolders | parent folder '${folder.name}' found`);
 	}
 
 	// check if the tokens folder exist and create it if not
 	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.tokenFolderId));
 
 	if (!folder) {
-		console.log(`pick-up-stix | createDefaultFolders | couldn't find tokens folder, creating it now`);
+		log(`pick-up-stix | createDefaultFolders | couldn't find tokens folder, creating it now`);
 		folder = await Folder.create({
 			color: '',
 			name: 'Tokens',
@@ -213,14 +214,14 @@ const createDefaultFolders = async () => {
 		await game.settings.set('pick-up-stix', SettingKeys.tokenFolderId, folder.id);
 	}
 	else {
-		console.log(`pick-up-stix | createDefaultFolders | tokens folder '${folder.name}' found`);
+		log(`pick-up-stix | createDefaultFolders | tokens folder '${folder.name}' found`);
 	}
 
 	// check if the items folder exists and create it if not
 	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.itemFolderId));
 
 	if (!folder) {
-		console.log(`pick-up-stix | createDefaultFolders | couldn't find items folder`);
+		log(`pick-up-stix | createDefaultFolders | couldn't find items folder`);
 		folder = await Folder.create({
 			color: '',
 			name: 'Items',
@@ -231,7 +232,7 @@ const createDefaultFolders = async () => {
 		await game.settings.set('pick-up-stix', SettingKeys.itemFolderId, folder.id);
 	}
 	else {
-		console.log(`pick-up-stix | createDefaultFolders | items folder '${folder.name}' found`);
+		log(`pick-up-stix | createDefaultFolders | items folder '${folder.name}' found`);
 	}
 };
 

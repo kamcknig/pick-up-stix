@@ -4,10 +4,11 @@
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
 import { tokenRelease } from "../overrides";
+import { log } from "../../../log";
 
 /* ------------------------------------ */
 export async function initHook() {
-	console.log('pick-up-stix | initHook');
+	log('pick-up-stix | initHook');
 
 	CONFIG.debug.hooks = true;
 

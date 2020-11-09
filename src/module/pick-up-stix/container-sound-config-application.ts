@@ -1,4 +1,5 @@
-import { ContainerData, ItemFlags } from "./loot-token";
+import { log } from "../../log";
+import { ItemFlags } from "./loot-token";
 import { updateEntity } from "./main";
 
 export class ContainerSoundConfig extends FormApplication {
@@ -34,8 +35,8 @@ export class ContainerSoundConfig extends FormApplication {
   }
 
   async _updateObject(e, formData) {
-    console.log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
-    console.log([formData]);
+    log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
+    log([formData]);
 
     const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
 
@@ -53,12 +54,12 @@ export class ContainerSoundConfig extends FormApplication {
   }
 
   getData(options) {
-    console.log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
+    log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
     const data = {
       openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
       closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
     }
-    console.log(data);
+    log(data);
     return data;
   }
 }

@@ -1,9 +1,10 @@
+import { log, warn } from "../../../log";
 import { LootToken } from "../loot-token"
-import { deleteEntity, getLootToken, lootTokens } from "../main"
+import { deleteItem, getLootToken, lootTokens } from "../main"
 
 export const deleteTokenHook = async (scene, tokenData, options, userId) => {
-  console.log(`pick-up-stix | deleteTokenHook:`);
-  console.log([scene, tokenData, options, userId]);
+  log(`pick-up-stix | deleteTokenHook:`);
+  log([scene, tokenData, options, userId]);
 
   const removed: LootToken = lootTokens.findSplice((lt: LootToken) => lt.sceneId === scene.id && lt.tokenId === tokenData._id);
 
@@ -17,11 +18,11 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
 
   if (uuid && getLootToken({ uuid: removed?.itemUuid }).length === 0) {
     if (uuid) {
-      console.log(`pick-up-stix | deleteTokenHook | No LootTokens left, deleting Item '${uuid}' for LootToken`);
-      await deleteEntity(uuid);
+      log(`pick-up-stix | deleteTokenHook | No LootTokens left, deleting Item '${uuid}' for LootToken`);
+      await deleteItem(uuid);
     }
     else {
-      console.warn(`pick-up-stix | deleteTokenHook | No uuid not found on TokenFlags for token:`);
+      warn(`pick-up-stix | deleteTokenHook | No uuid not found on TokenFlags for token:`);
       console.debug([tokenData]);
     }
   }

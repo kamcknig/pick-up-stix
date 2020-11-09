@@ -1,5 +1,6 @@
 import { getLootToken } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
+import { error, log } from "../../log";
 
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
@@ -19,13 +20,13 @@ export class LootHud extends BasePlaceableHUD {
 
   constructor() {
     super({});
-    console.log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
-    console.log(LootHud.defaultOptions);
+    log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
+    log(LootHud.defaultOptions);
   }
 
   activateListeners(html) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
-    console.log([html]);
+    log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
+    log([html]);
     super.activateListeners(html);
     html.find(".config").click(this.onTokenConfig);
     html.find(".locked").click(this._onToggleItemLocked);
@@ -33,16 +34,16 @@ export class LootHud extends BasePlaceableHUD {
   }
 
   private onConfigureLightEmission = async (event) => {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
+    log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
     const f = new LootEmitLightConfigApplication(this.object, {}).render(true);
   }
 
   private _onToggleItemLocked = async (event) => {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
+    log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
     const lootToken = getLootToken({ uuid: this.itemUuid, tokenId: this.object.id })?.[0];
 
     if (!lootToken) {
-      console.error(`No valid LootToken instance found for token '${this.object.id}' and item uuid '${this.itemUuid}'`);
+      error(`No valid LootToken instance found for token '${this.object.id}' and item uuid '${this.itemUuid}'`);
       return;
     }
 
@@ -51,17 +52,17 @@ export class LootHud extends BasePlaceableHUD {
   }
 
   private onTokenConfig = async (event) => {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
+    log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
 
     const item = await fromUuid(this.itemUuid);
     item.sheet.render(true, { renderData: { sourceToken: this.object.data }});
   }
 
   getData(options) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | getData`);
+    log(`pick-up-stix | LootHud ${this.appId} | getData`);
     const lootData = getLootToken({ uuid: this.itemUuid, tokenId: this.object.id })?.[0];;
     if (!lootData) {
-      console.error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
+      error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
     }
 
     const data = {
@@ -75,7 +76,7 @@ export class LootHud extends BasePlaceableHUD {
       icons: CONFIG.controlIcons
     };
 
-    console.log([data]);
+    log([data]);
     return data;
   }
 }

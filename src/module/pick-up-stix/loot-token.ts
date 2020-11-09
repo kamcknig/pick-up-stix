@@ -1,3 +1,4 @@
+import { error, log } from "../../log";
 import { getPriceDataPath, getQuantityDataPath, getWeightDataPath } from "../../utils";
 import {
 	createItem,
@@ -108,14 +109,14 @@ export class LootToken {
 	 */
 	static async create(tokenData: TokenData, itemData: ItemData): Promise<LootToken>;
 	static async create(tokenData: any, itemData: any): Promise<LootToken> {
-		console.log(`pick-up-stix | LootToken | create:`);
-		console.log([tokenData, itemData]);
+		log(`pick-up-stix | LootToken | create:`);
+		log([tokenData, itemData]);
 
 		let tokenId: string;
 		let itemUuid: string;
 
 		if (typeof itemData === "object") {
-			console.log('pick-up-stix | LootToken | create | creating new item');
+			log('pick-up-stix | LootToken | create | creating new item');
 			const item = await createItem({
 				...itemData,
 				permission: {
@@ -130,7 +131,7 @@ export class LootToken {
 		}
 
 		if (typeof tokenData === "object") {
-			console.log('pick-up-stix | LootToken | create | creating new token');
+			log('pick-up-stix | LootToken | create | creating new token');
 
 			tokenId = await createToken({
 				...tokenData,
@@ -144,7 +145,7 @@ export class LootToken {
 			});
 		}
 		else {
-			console.log(`pick-up-stix | LootToken | create | token ID '${tokenData}' provided, looking for pre-existing Token instance'`);
+			log(`pick-up-stix | LootToken | create | token ID '${tokenData}' provided, looking for pre-existing Token instance'`);
 			tokenId = tokenData;
 		}
 
@@ -238,14 +239,14 @@ export class LootToken {
 		private _tokenId: string,
 		private _itemUuid: string
 	) {
-		console.log('pick-up-stix | LootToken | constructor:');
-		console.log([this._tokenId, this._itemUuid]);
+		log('pick-up-stix | LootToken | constructor:');
+		log([this._tokenId, this._itemUuid]);
 		for (let el of Scene.collection) {
 			const scene = (el as unknown) as Scene;
 			const token = scene.getEmbeddedEntity('Token', this._tokenId);
 			if (token) {
 				this._sceneId = scene.id;
-				console.log(`pick-up-stix | LootToken | constructor | scene id set to '${this._sceneId}'`);
+				log(`pick-up-stix | LootToken | constructor | scene id set to '${this._sceneId}'`);
 			}
 		}
 	}
@@ -255,7 +256,7 @@ export class LootToken {
 			return;
 		}
 
-		console.log(`pick-up-stix | LootToken | activateListeners`);
+		log(`pick-up-stix | LootToken | activateListeners`);
 
 		const token = this.token;
 
@@ -268,7 +269,7 @@ export class LootToken {
 	}
 
 	public deactivateListeners = (): void => {
-		console.log(`pick-up-stix | LootToken | deactivateListeners`);
+		log(`pick-up-stix | LootToken | deactivateListeners`);
 		Hooks.off('updateToken', this.updateTokenHook);
 
 		const token = this.token;
@@ -282,8 +283,8 @@ export class LootToken {
 
 		const token = this.token;
 
-		console.log(`pick-up-stix | LootToken | updateTokenHook`);
-		console.log([scene, tokenData, data, options, userId]);
+		log(`pick-up-stix | LootToken | updateTokenHook`);
+		log([scene, tokenData, data, options, userId]);
 
 		if (tokenData.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked) {
 			await this.drawLock();
@@ -298,17 +299,17 @@ export class LootToken {
 	}
 
 	public drawLock = async () => {
-		console.log(`pick-up-stix | LootToken | drawLockIcon`);
+		log(`pick-up-stix | LootToken | drawLockIcon`);
 
 		if (!game.user.isGM) {
-			console.log(`pick-up-stix | LootToken | drawLockIcon | user is not GM, not drawing lock`);
+			log(`pick-up-stix | LootToken | drawLockIcon | user is not GM, not drawing lock`);
 			return;
 		}
 
 		const token = this.token;
 		const lock = token?.getChildByName('pick-up-stix-lock');
 		if (lock) {
-			console.log(`pick-up-stix | LootToken | drawLock | found previous lock icon, removing it`)
+			log(`pick-up-stix | LootToken | drawLock | found previous lock icon, removing it`)
 			token.removeChild(lock);
 			lock.destroy();
 		}
@@ -324,7 +325,7 @@ export class LootToken {
 	}
 
 	toggleLocked = async () => {
-		console.log(`pick-up-stix | LootToken | toggleLocked`);
+		log(`pick-up-stix | LootToken | toggleLocked`);
 		const locked = this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked ?? false;
     await updateToken(this.sceneId, {
       _id: this.tokenId,
@@ -339,12 +340,8 @@ export class LootToken {
 	}
 
 	toggleOpened = async (tokens: Token[]=[], renderSheet: boolean=true) => {
-		console.log('pick-up-stix | LootToken | toggleOpened');
+		log('pick-up-stix | LootToken | toggleOpened');
 		const itemFlags = await this.itemFlags;
-
-		if (this.isOpen) {
-			//TODO: what if loot is already opened
-		}
 
 		const open = !this.isOpen
 
@@ -366,7 +363,7 @@ export class LootToken {
 		}
 		catch (e) {
 			// it's ok to error here
-			console.error(e)
+			error(e)
 		}
 
 		if (renderSheet && open) {
@@ -379,7 +376,7 @@ export class LootToken {
 			return;
 		}
 
-		console.log('pick-up-stix | LootToken | addItem');
+		log('pick-up-stix | LootToken | addItem');
 
 		const itemFlags = duplicate(await this.itemFlags);
 
@@ -393,7 +390,7 @@ export class LootToken {
 			);
 
 		if (existingItem) {
-			console.log(`pick-up-stix | LootToken | addItem | found existing item for item '${itemData._id}`);
+			log(`pick-up-stix | LootToken | addItem | found existing item for item '${itemData._id}`);
 			const quantityDataPath = getQuantityDataPath();
 			if(!getProperty(existingItem.data, quantityDataPath)) {
 				setProperty(existingItem.data, quantityDataPath, 1);
@@ -440,12 +437,12 @@ export class LootToken {
 	}
 
 	openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
-    console.log('pick-up-stix | LootToken | openConfigSheet:');
-		console.log([tokens, options]);
+    log('pick-up-stix | LootToken | openConfigSheet:');
+		log([tokens, options]);
 
 		const closeItemConfigApplicationHook = async (app, html) => {
-      console.log(`pick-up-stix | LootToken | openConfigSheet | closeItemConfigApplicationHook:`);
-			console.log([app, html]);
+      log(`pick-up-stix | LootToken | openConfigSheet | closeItemConfigApplicationHook:`);
+			log([app, html]);
 
 			if (app.appId !== appId) {
 				return;
@@ -485,7 +482,7 @@ export class LootToken {
 	 **************************/
 
 	private setupMouseManager = (): MouseInteractionManager => {
-		console.log(`pick-up-stix | setupMouseManager`);
+		log(`pick-up-stix | setupMouseManager`);
 
 		const token = this.token;
 
@@ -528,7 +525,7 @@ export class LootToken {
 		const token = this.token;
 
 		if (event.currentTarget.data.hidden) {
-			console.log(`pick-up-stix | LootToken | handleClickLeft | token is hidden`);
+			log(`pick-up-stix | LootToken | handleClickLeft | token is hidden`);
 			// if the loot token is hidden, pass the click on
 			// to the token's normal left click method for Foundry
 			// to handle
@@ -538,7 +535,7 @@ export class LootToken {
 
 		// if the item isn't visible can't pick it up
 		if (!token.isVisible) {
-			console.log(`pick-up-stix | LootToken | handleClickLeft | token is not visible to user`);
+			log(`pick-up-stix | LootToken | handleClickLeft | token is not visible to user`);
 			return;
 		}
 
@@ -550,14 +547,14 @@ export class LootToken {
 	}
 
 	private finalizeClickLeft = async (event, allControlled: Token[], tokens: Token[]) => {
-		console.log('pick-up-stix | LootToken | finalizeClickLeft');
-		console.log([event, allControlled, tokens]);
+		log('pick-up-stix | LootToken | finalizeClickLeft');
+		log([event, allControlled, tokens]);
 
 		const token = this.token;
 
 		// if it's locked then it can't be opened
 		if (this.tokenData?.locked) {
-			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is locked`);
+			log(`pick-up-stix | LootToken | finalizeClickLeft | item is locked`);
 			var audio = new Audio(CONFIG.sounds.lock);
 			audio.play();
 			return;
@@ -582,14 +579,14 @@ export class LootToken {
 		const itemFlags = await this.itemFlags;
 
 		if (itemFlags.itemType === ItemType.ITEM) {
-			console.log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
+			log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
 
 			await this.collect(tokens[0]);
 			return;
 		}
 
 		if (itemFlags.itemType === ItemType.CONTAINER) {
-			console.log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
+			log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
 
 			if (this.isOpen) {
 				await this.openConfigSheet(tokens);
@@ -604,7 +601,7 @@ export class LootToken {
 
 	private _clickTimeout;
 	private handleClickRight = () => {
-		console.log(`pick-up-stix | LootToken | handleClickRight`);;
+		log(`pick-up-stix | LootToken | handleClickRight`);;
 		clearTimeout(this._clickTimeout);
 
 		canvas.tokens.hud.clear();
@@ -621,7 +618,7 @@ export class LootToken {
 	}
 
 	private handleClickLeft2 = async (event) => {
-		console.log('pick-up-stix | LootToken | handleClickLeft2');
+		log('pick-up-stix | LootToken | handleClickLeft2');
 		clearTimeout(this._clickTimeout);
 
 		this.openConfigSheet();
@@ -631,7 +628,7 @@ export class LootToken {
 	}
 
 	private handleClickRight2 = async (event) => {
-		console.log('pick-up-stix | LootToken | handleClickRight2');
+		log('pick-up-stix | LootToken | handleClickRight2');
 		clearTimeout(this._clickTimeout);
 		let i = game.items.entities.find(item => {
 			return item.getFlag('pick-up-stix', 'pick-up-stix.tokenId') === this.tokenId;

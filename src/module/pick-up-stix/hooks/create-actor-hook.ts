@@ -1,6 +1,8 @@
+import { log } from "../../../log";
+
 export async function onCreateActor(actor: Actor, userId: string) {
-	console.log(`pick-up-stix | onCreateActor | called with args:`);
-	console.log([actor, userId]);
+	log(`pick-up-stix | onCreateActor | called with args:`);
+	log([actor, userId]);
 	const updates = [
 		...Object.values(actor.items.entries).map(ownedItem => ({
 			_id: ownedItem.id,
@@ -13,6 +15,6 @@ export async function onCreateActor(actor: Actor, userId: string) {
 			}
 		}))
 	];
-	console.log(updates);
+	log(updates);
 	await actor.updateOwnedItem(updates)
 }

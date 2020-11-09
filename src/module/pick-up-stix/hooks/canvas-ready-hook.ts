@@ -1,3 +1,4 @@
+import { log } from "../../../log";
 import { LootToken, TokenFlags } from "../loot-token";
 import {
 	getLootToken,
@@ -12,8 +13,8 @@ import {
  * @param dropData
  */
 const dropCanvasHandler = async (canvas, dropData) => {
-	console.log(`pick-up-stix | dropCanvasData | called with args:`);
-	console.log(canvas, dropData);
+	log(`pick-up-stix | dropCanvasData | called with args:`);
+	log(canvas, dropData);
 
 	if (dropData.type === "Item") {
 		handleItemDropped(normalizeDropData(dropData));
@@ -21,8 +22,8 @@ const dropCanvasHandler = async (canvas, dropData) => {
 }
 
 export const canvasReadyHook = async (canvas) => {
-  console.log(`pick-up-stix | canvasReadyHook`);
-  console.log([canvas]);
+  log(`pick-up-stix | canvasReadyHook`);
+  log([canvas]);
 
 	for (let token of canvas.tokens.placeables?.filter(p => p instanceof Token)) {
 		const tokenFlags: TokenFlags = token.getFlag('pick-up-stix', 'pick-up-stix');
@@ -30,12 +31,12 @@ export const canvasReadyHook = async (canvas) => {
 			continue;
 		}
 
-		console.log(`pick-up-stix | canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemUuid}'`);
+		log(`pick-up-stix | canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemUuid}'`);
 
 		let lootToken: LootToken = getLootToken({ uuid: tokenFlags.itemUuid, tokenId: token.id })?.[0];
 
 		if (!lootToken) {
-			console.log(`pick-up-stix | canvasReadyHook | Loot token not found for token '${token.id}' with for item '${tokenFlags.itemUuid}', creating new loot token`);
+			log(`pick-up-stix | canvasReadyHook | Loot token not found for token '${token.id}' with for item '${tokenFlags.itemUuid}', creating new loot token`);
 			lootToken = await LootToken.create(token.id, tokenFlags.itemUuid);
 		}
 

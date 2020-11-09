@@ -16,6 +16,7 @@ import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-h
 import { createOwnedItemHook } from "./module/pick-up-stix/hooks/create-owned-item-hook";
 import { renderItemDirectoryHook } from "./module/pick-up-stix/hooks/render-item-directory-hook";
 import { preUpdateTokenHook } from "./module/pick-up-stix/hooks/pre-update-token-hook";
+import { log } from "./log";
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -54,12 +55,12 @@ Hooks.on('renderLootHud', onRenderLootHud);
 Hooks.on('pick-up-stix.lootTokenCreated', lootTokenCreatedHook);
 
 Hooks.once('ready', () => {
-  console.log('pick-up-stix | ready once hook');
+  log('pick-up-stix | ready once hook');
 
   if (game.system.id === 'dnd5e') {
     Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
-      console.log(`pick-up-stix | renderItemSheet5e`);
-      console.log([app, protoHtml, data]);
+      log(`pick-up-stix | renderItemSheet5e`);
+      log([app, protoHtml, data]);
 
       const item: Item = app.object;
 

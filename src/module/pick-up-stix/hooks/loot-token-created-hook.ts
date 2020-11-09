@@ -1,9 +1,10 @@
+import { log } from "../../../log";
 import { LootToken } from "../loot-token";
 import { getLootToken } from "../main";
 
 export const lootTokenCreatedHook = async (tokenId) => {
-  console.log(`pick-up-stix | lootTokenCreatedHook:`);
-  console.log([tokenId]);
+  log(`pick-up-stix | lootTokenCreatedHook:`);
+  log([tokenId]);
 
   const token: Token = canvas.tokens.placeables.find(p => p.id === tokenId);
 

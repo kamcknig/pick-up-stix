@@ -1,15 +1,17 @@
 //@ts-ignore
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
+import { error, log, warn } from './log';
+
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 };
 
 export const getCurrencyTypes = (): { [short: string]: string } =>  {
-  console.log(`pick-up-stix | utils | getCurrencies`);
+  log(`pick-up-stix | utils | getCurrencies`);
   if (game.system.id === 'dnd5e') {
-    console.log(`pick-up-stix | utils | getCurrencies | using system 'dnd5e'`);
+    log(`pick-up-stix | utils | getCurrencies | using system 'dnd5e'`);
     //@ts-ignore
     import('../../systems/dnd5e/module/config.js').then(r => {
       return {
@@ -18,7 +20,7 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
     });
   }
   else {
-    console.warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
+    warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
   }
 
   return {
@@ -50,8 +52,8 @@ export const collidedTokens = (options: { x: number, y:number }): Token[] => {
 }
 
 export function onChangeInputDelta(event) {
-  console.log(`pick-up-stix | onChangeInputDelta`);
-  console.log([event]);
+  log(`pick-up-stix | onChangeInputDelta`);
+  log([event]);
   const input = event.target;
   const value = input.value;
   if ( ['+', '-'].includes(value[0]) ) {
@@ -73,7 +75,7 @@ export function getQuantityDataPath(): string {
       path = 'quantity.value'
       break;
     default:
-      console.warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
+      warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
       path = 'quantity';
       break;
   }
@@ -92,7 +94,7 @@ export function getPriceDataPath(): string {
       path = 'price.value'
       break;
     default:
-      console.warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
+      warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
       path = 'price';
       break;
   }
@@ -111,7 +113,7 @@ export function getWeightDataPath(): string {
       path = 'weight.value'
       break;
     default:
-      console.warn(`System ${game.system.id} weight data path not implemented and therefore might not work with item data.`);
+      warn(`System ${game.system.id} weight data path not implemented and therefore might not work with item data.`);
       path = 'weight';
       break;
   }
@@ -127,7 +129,7 @@ export const getActorCurrencyPath = (): string => {
       path = 'data.currency'
       break;
     default:
-      console.warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
+      warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
       path = 'data.currency';
       break;
   }
@@ -172,7 +174,7 @@ export class CircularReferenceDetector {
 
       return function (key: any, value: any) {
           if (serializedObjectCounter !== 0 && typeof(toBeStringifiedValue) === 'object' && toBeStringifiedValue === value) {
-            console.error(`object serialization with key ${key} has circular reference to being stringified object`);
+            error(`object serialization with key ${key} has circular reference to being stringified object`);
               return '[Circular object --- fix me]';
           }
 

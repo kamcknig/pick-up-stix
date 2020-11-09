@@ -1,7 +1,7 @@
+import { log } from "../../log";
 import {
   updateEntity
 } from "./main";
-import { ItemType } from "./models";
 
 /**
  * Application class to display to select an item that the token is
@@ -25,13 +25,13 @@ export default class ContainerImageSelectionApplication extends FormApplication 
 
 	constructor(private _item: Item) {
 		super(_item);
-		console.log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | constructed with args:`)
-		console.log([this._item]);
+		log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | constructed with args:`)
+		log([this._item]);
 	}
 
 	activateListeners(html) {
-    console.log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | activateListeners called with args:`);
-		console.log([html]);
+    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | activateListeners called with args:`);
+		log([html]);
 
     this._html = html;
     super.activateListeners(this._html);
@@ -56,7 +56,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
     const data = {
       data: this._item.data
     }
-    console.log(data);
+    log(data);
     return data;
   }
 
@@ -76,8 +76,8 @@ export default class ContainerImageSelectionApplication extends FormApplication 
   }
 
   async _updateObject(e, formData) {
-    console.log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
-    console.log([e, formData]);
+    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
+    log([e, formData]);
 
     await updateEntity(this.object.uuid, {
       'flags': {

@@ -2,13 +2,14 @@ import { ItemType } from "../models";
 import { SettingKeys } from "../settings";
 import { getCurrencyTypes } from "../../../utils";
 import { ItemFlags } from "../loot-token";
+import { log } from "../../../log";
 
 export async function preCreateItemHook(itemData: any, options: any = {}, userId: string) {
-	console.log(`pick-up-stix | preCreateItemHook | called with args:`);
-	console.log([itemData, options, userId]);
+	log(`pick-up-stix | preCreateItemHook | called with args:`);
+	log([itemData, options, userId]);
 
 	if (itemData.type.toLowerCase() === ItemType.CONTAINER) {
-		console.log('pick-up-stix | preCreateItemHook');
+		log('pick-up-stix | preCreateItemHook');
 
 		const itemFlags: ItemFlags = {
 			tokenData: {
@@ -49,6 +50,6 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
 		options.renderSheet = false;
 	}
 
-	console.log(`pick-up-stix | preCreateItemHook | final data:`);
-	console.log(itemData);
+	log(`pick-up-stix | preCreateItemHook | final data:`);
+	log(itemData);
 }

@@ -41,7 +41,7 @@ export enum SocketMessageType {
   createOwnedEntity = 'createOwnedEntity',
   createItemToken = 'createItemToken',
   createEntity = 'createEntity',
-  deleteEntity = 'deleteEntity',
+  deleteItem = 'deleteItem',
   lootTokenCreated = 'lootTokenCreated',
   deleteEmbeddedEntity = "deleteEmbeddedEntity",
   updateEmbeddedEntity = "updateEmbeddedEntity",

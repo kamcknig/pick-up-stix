@@ -1,3 +1,5 @@
+import { log } from "../../log";
+
 export enum SettingKeys {
 	openImagePath = 'default-container-opened-image-path',
 	closeImagePath = 'default-container-closed-image-path',
@@ -17,7 +19,7 @@ const systemCurrenciesImplemented = [
 ];
 
 export const registerSettings = function() {
-	console.log(`pick-up-stix | registerSettings`);
+	log(`pick-up-stix | registerSettings`);
 	// Register any custom module settings here
 	const imageTypeFunc = (val) => {
 		return val;
@@ -120,7 +122,7 @@ export function processHtml(html) {
 		.find('input[data-dtype="pick-up-stix-settings-image"')
 		.each(function() {
 			const settingName = $(this).attr('name').split('.')[1];
-			console.log(settingName);
+			log(settingName);
 
 			let picker = new FilePicker({
 				type: 'image',
@@ -139,7 +141,7 @@ export function processHtml(html) {
 		.find('input[data-dtype="pick-up-stix-settings-audio"')
 		.each(function() {
 			const settingName = $(this).attr('name').split('.')[1];
-			console.log(settingName);
+			log(settingName);
 
 			let picker = new FilePicker({
 				type: 'audio',

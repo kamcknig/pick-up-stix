@@ -1,8 +1,9 @@
+import { log } from "../../../log";
 import { deleteEmbeddedEntity, getLootToken } from "../main";
 
 export const deleteItemHook = async (item, options, userId) => {
-  console.log(`pick-up-stix | deleteItemHook:`);
-  console.log([item, options, userId]);
+  log(`pick-up-stix | deleteItemHook:`);
+  log([item, options, userId]);
 
   const lts = getLootToken({ uuid: item.uuid });
 

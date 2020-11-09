@@ -218,7 +218,7 @@ export async function handleItemDropped(dropData: DropData) {
 	});
 
 	// if the item being dropped is a container, just create the empty container
-	if (droppedItemFlags.itemType === ItemType.CONTAINER) {
+	if (droppedItemFlags?.itemType === ItemType.CONTAINER) {
 		console.log(`pick-up-stix | handleItemDropped | dropped item is a container`);
 		const img: string = droppedItemFlags.container.imageClosePath;
 		if (lootTokens.length > 0) {

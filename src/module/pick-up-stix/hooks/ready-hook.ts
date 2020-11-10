@@ -1,10 +1,26 @@
-import { SocketMessageType, PickUpStixSocketMessage, ItemType } from "../models";
-import ItemConfigApplication from "../item-config-application";
-import { SettingKeys } from "../settings";
-import { versionDiff } from "../../../utils";
-import { createItem, createOwnedItem, createToken, deleteEmbeddedEntity, deleteItem, deleteOwnedItem, deleteToken, getLootToken, updateActor, updateEmbeddedEntity, updateEntity, updateToken } from "../main";
-import { LootToken, TokenFlags } from "../loot-token";
 import { error, log } from "../../../log";
+import { amIFirstGm, versionDiff } from "../../../utils";
+import ItemConfigApplication from "../item-config-application";
+import { LootToken, TokenFlags } from "../loot-token";
+import {
+	createItem,
+	createOwnedItem,
+	createToken,
+	deleteItem,
+	deleteOwnedItem,
+	deleteToken,
+	getLootToken,
+	updateActor,
+	updateOwnedItem,
+	updateItem,
+	updateToken,
+	createLootToken,
+	lootItem,
+	lootCurrency,
+	dropItemOnContainer
+} from "../main";
+import { ItemType, SocketMessage, SocketMessageType } from "../models";
+import { SettingKeys } from "../settings";
 
 declare class EntitySheetConfig {
 	static registerSheet(
@@ -32,23 +48,46 @@ export async function readyHook() {
 		}
 	};
 
-	await createDefaultFolders();
+	if (amIFirstGm()) {
+		await createDefaultFolders();
+	}
 
 	for (let el of Scene.collection) {
-		const scene = (el as unknown) as Scene;
-
-		const tokens = scene.getEmbeddedCollection('Token');
+		let scene = (el as unknown) as Scene;
+		let tokens = scene.getEmbeddedCollection('Token');
 		for (let token of tokens) {
 			const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
+			if (!tokenFlags) {
+				continue;
+			}
 
-			let lootToken = getLootToken({ uuid: tokenFlags?.itemUuid, tokenId: token._id })?.[0];
+			let lootToken = getLootToken({ itemId: tokenFlags?.itemId, tokenId: token._id })?.[0];
 
-			if (tokenFlags?.itemUuid && !lootToken) {
-				log(`pick-up-stix | readyHook | Creating new LootToken for token '${token._id}' and item uuid '${tokenFlags.itemUuid}'`);
-				lootToken = await LootToken.create(token._id, tokenFlags.itemUuid);
+			if (tokenFlags?.itemId && !lootToken) {
+				log(`pick-up-stix | readyHook | Creating new LootToken for Token '${token._id}' and Item '${tokenFlags.itemId}'`);
+				lootToken = await createLootToken(token._id, tokenFlags.itemId, false);
+			}
+		}
+
+		scene = game.scenes.active;
+		tokens = scene.getEmbeddedCollection('Token');
+		for (let token of tokens) {
+			const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
+			if (!tokenFlags) {
+				continue;
+			}
+
+			let lootTokens = getLootToken({ itemId: tokenFlags?.itemId, tokenId: token._id });
+			for(let lt of lootTokens) {
+				if (tokenFlags.isLocked) {
+					lt.drawLock();
+				}
+				lt.activateListeners();
 			}
 		}
 	}
+
+
 
 	for (let item of game.items.values()) {
 		if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
@@ -59,7 +98,7 @@ export async function readyHook() {
 	const activeVersion = game.modules.get('pick-up-stix').data.version;
 	const previousVersion = game.settings.get('pick-up-stix', SettingKeys.version);
 
-	if (game.user.isGM && activeVersion !== previousVersion) {
+	if (amIFirstGm() && activeVersion !== previousVersion) {
 		await game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
 	}
 
@@ -95,7 +134,7 @@ export async function readyHook() {
     loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the <strong>Items</strong> directory
     are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.</p>`;
 
-  if (game.user.isGM && !game.settings.get('pick-up-stix', SettingKeys.version13updatemessage)) {
+  if (amIFirstGm() && !game.settings.get('pick-up-stix', SettingKeys.version13updatemessage)) {
     new Dialog({
       title: 'Pick-Up-Stix - Update notification',
       buttons: {
@@ -112,68 +151,7 @@ export async function readyHook() {
     await game.settings.set('pick-up-stix', SettingKeys.version13updatemessage, true);
   }
 
-	game.socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
-		log(`pick-up-stix | socket.on | received socket message with args:`);
-		log([msg]);
-
-    if (handleNonGMMessage(msg)) {
-      return;
-    }
-
-		if (msg.sender === game.user.id) {
-			log(`pick-up-stix | socket.on | i sent this, ignoring`);
-			return;
-		}
-
-		const firstGm = game.users.find((u) => u.isGM && u.active);
-		if (firstGm && game.user !== firstGm) {
-   		return;
-		}
-
-		let actor;
-		let token: Token;
-
-		switch (msg.type) {
-			case SocketMessageType.deleteOwnedItem:
-				await deleteOwnedItem(msg.data.actorId, msg.data.itemId);
-				break;
-			case SocketMessageType.updateEmbeddedEntity:
-				await updateEmbeddedEntity(msg.data.parentUuid, msg.data.entityType, msg.data.data);
-				break;
-			case SocketMessageType.deleteEmbeddedEntity:
-				await deleteEmbeddedEntity(msg.data.parentUuid, msg.data.entityType, msg.data.entityId);
-				break;
-			case SocketMessageType.updateActor:
-				actor = game.actors.get(msg.data.actorId);
-				await updateActor(actor, msg.data.updates);
-				break;
-			case SocketMessageType.deleteToken:
-				await deleteToken(msg.data.tokenId, msg.data.sceneId);
-				break;
-			case SocketMessageType.updateEntity:
-				await updateEntity(msg.data.uuid, msg.data.updates);
-        break;
-      case SocketMessageType.updateToken:
-        await updateToken(msg.data.sceneId, msg.data.updates);
-        break;
-			case SocketMessageType.createOwnedEntity:
-				actor = game.actors.get(msg.data.actorId);
-				await createOwnedItem(actor, msg.data.items);
-				break;
-			case SocketMessageType.createItemToken:
-				await createToken(msg.data);
-				break;
-			case SocketMessageType.createEntity:
-				await createItem(msg.data.data, msg.data.options);
-				break;
-			case SocketMessageType.deleteItem:
-				await deleteItem(msg.data.uuid);
-				break;
-			default:
-				error(`pick-up-stix | readyHook | No valid socket message handler for '${msg.type}' with arg:`);
-				log([msg])
-		}
-	});
+	game.socket.on('module.pick-up-stix', handleSocketMessage);
 };
 
 const createDefaultFolders = async () => {
@@ -236,14 +214,89 @@ const createDefaultFolders = async () => {
 	}
 };
 
-const handleNonGMMessage = (msg: PickUpStixSocketMessage): boolean => {
+export const handleSocketMessage = async (msg: SocketMessage) => {
+	log(`pick-up-stix | handleSocketMessage | received socket message with args:`);
+	log([msg]);
+
+	if (handleNonGMMessage(msg)) {
+		return;
+	}
+
+	/* if (msg.sender === game.user.id) {
+		log(`pick-up-stix | handleSocketMessage | i sent this, ignoring`);
+		return;
+	} */
+
+	if (!amIFirstGm()) {
+		 return;
+	}
+
+	switch (msg.type) {
+		case SocketMessageType.deleteOwnedItem:
+			await deleteOwnedItem(msg.data.actorId, msg.data.itemId);
+			break;
+		case SocketMessageType.updateOwnedItem:
+			await updateOwnedItem(msg.data.actorId, msg.data.data);
+			break;
+		case SocketMessageType.updateActor:
+			await updateActor(game.actors.get(msg.data.actorId), msg.data.updates);
+			break;
+		case SocketMessageType.deleteToken:
+			await deleteToken(msg.data.tokenId, msg.data.sceneId);
+			break;
+		case SocketMessageType.updateItem:
+			await updateItem(msg.data.id, msg.data.updates);
+			break;
+		case SocketMessageType.updateToken:
+			await updateToken(msg.data.sceneId, msg.data.updates);
+			break;
+		case SocketMessageType.createOwnedEntity:
+			await createOwnedItem(msg.data.actorId, msg.data.items);
+			break;
+		case SocketMessageType.createItemToken:
+			await createToken(msg.data);
+			break;
+		case SocketMessageType.createEntity:
+			await createItem(msg.data.data, msg.data.options);
+			break;
+		case SocketMessageType.deleteItem:
+			await deleteItem(msg.data.id);
+			break;
+		case SocketMessageType.collectItem:
+			await lootItem(msg.data);
+			break;
+		case SocketMessageType.lootCurrency:
+			await lootCurrency(msg.data);
+			break;
+		case SocketMessageType.dropItemOnContainer:
+			await dropItemOnContainer(msg.data);
+			break;
+		default:
+			error(`pick-up-stix | handleSocketMessage | No valid socket message handler for '${msg.type}' with arg:`);
+			log([msg])
+	}
+};
+
+const handleNonGMMessage = (msg: SocketMessage): boolean => {
   let handled = false;
 
   switch (msg.type) {
     case SocketMessageType.lootTokenCreated:
       Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId);
       handled = true;
-      break;
+			break;
+		case SocketMessageType.itemCollected:
+      Hooks.callAll('pick-up-stix.itemCollected', msg.data);
+      handled = true;
+			break;
+		case SocketMessageType.currencyLooted:
+      Hooks.callAll('pick-up-stix.currencyLooted', msg.data);
+      handled = true;
+			break;
+		case SocketMessageType.itemDroppedOnContainer:
+      Hooks.callAll('pick-up-stix.itemDroppedOnContainer', msg.data);
+      handled = true;
+			break;
   }
 
   return handled;

@@ -24,27 +24,21 @@ const dropCanvasHandler = async (canvas, dropData) => {
 export const canvasReadyHook = async (canvas) => {
   log(`pick-up-stix | canvasReadyHook`);
   log([canvas]);
-
 	for (let token of canvas.tokens.placeables?.filter(p => p instanceof Token)) {
 		const tokenFlags: TokenFlags = token.getFlag('pick-up-stix', 'pick-up-stix');
-		if (!tokenFlags?.itemUuid) {
+		if (!tokenFlags?.itemId) {
 			continue;
 		}
 
-		log(`pick-up-stix | canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemUuid}'`);
+		log(`pick-up-stix | canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemId}'`);
 
-		let lootToken: LootToken = getLootToken({ uuid: tokenFlags.itemUuid, tokenId: token.id })?.[0];
-
-		if (!lootToken) {
-			log(`pick-up-stix | canvasReadyHook | Loot token not found for token '${token.id}' with for item '${tokenFlags.itemUuid}', creating new loot token`);
-			lootToken = await LootToken.create(token.id, tokenFlags.itemUuid);
-		}
+		let lootToken: LootToken = getLootToken({ itemId: tokenFlags.itemId, tokenId: token.id })?.[0];
 
 		if (token.data.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked) {
-			lootToken.drawLock();
+			lootToken?.drawLock();
 		}
 
-		lootToken.activateListeners();
+		lootToken?.activateListeners();
 	}
 
 	Hooks.off('dropCanvasData', dropCanvasHandler);

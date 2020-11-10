@@ -1,6 +1,6 @@
 import { log } from "../../../log";
 import { ItemFlags } from "../loot-token";
-import { getLootToken, updateEmbeddedEntity } from "../main";
+import { getLootToken, updateToken } from "../main";
 
 export const updateItemHook = async (item, data, options, userId) => {
   log(`pick-up-stix | updateItemHook`);
@@ -10,11 +10,16 @@ export const updateItemHook = async (item, data, options, userId) => {
   log(`pick-up-stix | updateItemHook | itemFlags:`);
   log([itemFlags]);
 
-  const lootTokens = getLootToken({ uuid: item.uuid });
+  if (!game.user.isGM) {
+    log(`pick-up-stix | updateItemHook | User is not GM`);
+    return;
+  }
+
+  const lootTokens = getLootToken({ itemId: item.id });
   for(let lt of lootTokens) {
     const scene = Scene.collection.get(lt.sceneId);
-    const sceneUuid = scene.uuid;
-    await updateEmbeddedEntity(sceneUuid, 'Token', {
+    const sceneId = scene.id;
+    await updateToken(sceneId, {
       _id: lt.tokenId,
       width: itemFlags?.tokenData?.width ?? 1,
       height: itemFlags?.tokenData?.height ?? 1,

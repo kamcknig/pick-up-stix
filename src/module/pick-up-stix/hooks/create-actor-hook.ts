@@ -1,7 +1,9 @@
 import { log } from "../../../log";
+import { amIFirstGm } from "../../../utils";
+import { updateOwnedItem } from "../main";
 
-export async function onCreateActor(actor: Actor, userId: string) {
-	log(`pick-up-stix | onCreateActor | called with args:`);
+export const createActorHook = async (actor: Actor, userId: string) => {
+	log(`pick-up-stix | createActorHook | called with args:`);
 	log([actor, userId]);
 	const updates = [
 		...Object.values(actor.items.entries).map(ownedItem => ({
@@ -15,6 +17,11 @@ export async function onCreateActor(actor: Actor, userId: string) {
 			}
 		}))
 	];
-	log(updates);
-	await actor.updateOwnedItem(updates)
+
+	if (!game.user.isGM) {
+		log(`pick-up-stix | createActorHook | User is not first GM`);
+		return;
+  }
+
+	await updateOwnedItem(actor.id, updates);
 }

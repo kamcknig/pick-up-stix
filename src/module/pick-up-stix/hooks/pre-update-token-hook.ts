@@ -36,7 +36,7 @@ export const preUpdateTokenHook = async (scene, tokenData, updates, options, use
 		return true;
 	}
 
-	const item = await fromUuid(tokenFlags.itemUuid);
+	const item = game.items.get(tokenFlags.itemId);
 
 	const itemDropSuccess = await handleItemDropped({ x: updates.x ?? tokenData.x, y: updates.y ?? tokenData.y, type: item.data.type, id: item.id });
 

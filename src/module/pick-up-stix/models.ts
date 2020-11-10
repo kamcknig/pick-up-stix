@@ -1,9 +1,7 @@
 export interface DropData {
-	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
 	// If the item being dropped comes from an actor token, then the tokenId will be available
 	tokenId?: string;
 
-	// In Foundry version 0.7.0 and above, this will be included in the dropCanvasData hook.
 	// If the item being dropped comes from an actor token, then the sceneId that the token
 	// is on will be included.
 	sceneId?: string;
@@ -33,23 +31,27 @@ export interface DropData {
 	type?: string
 }
 
-
 export enum SocketMessageType {
-  deleteToken = 'deleteToken',
-  updateEntity = 'updateEntity',
-  updateActor = 'updateActor',
-  createOwnedEntity = 'createOwnedEntity',
-  createItemToken = 'createItemToken',
-  createEntity = 'createEntity',
-  deleteItem = 'deleteItem',
-  lootTokenCreated = 'lootTokenCreated',
-  deleteEmbeddedEntity = "deleteEmbeddedEntity",
-  updateEmbeddedEntity = "updateEmbeddedEntity",
-  deleteOwnedItem = "deleteOwnedItem",
-  updateToken = "updateToken"
+	deleteToken = 'deleteToken',
+	updateItem = 'updateItem',
+	updateActor = 'updateActor',
+	createOwnedEntity = 'createOwnedEntity',
+	createItemToken = 'createItemToken',
+	createEntity = 'createEntity',
+	deleteItem = 'deleteItem',
+	lootTokenCreated = 'lootTokenCreated',
+	updateOwnedItem = "updateOwnedItem",
+	deleteOwnedItem = "deleteOwnedItem",
+	updateToken = "updateToken",
+	itemCollected = 'itemCollected',
+	collectItem = 'collectItem',
+	lootCurrency = 'lootCurrency',
+	currencyLooted = "currencyLooted",
+	dropItemOnContainer = "dropItemOnContainer",
+	itemDroppedOnContainer = "itemDroppedOnContainer"
 }
 
-export interface PickUpStixSocketMessage {
+export interface SocketMessage {
 	// user ID of the sender
 	sender: string;
 	type: SocketMessageType;

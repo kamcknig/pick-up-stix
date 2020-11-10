@@ -1,6 +1,6 @@
 import { log } from "../../log";
 import {
-  updateEntity
+  updateItem
 } from "./main";
 
 /**
@@ -79,7 +79,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
     log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
     log([e, formData]);
 
-    await updateEntity(this.object.uuid, {
+    await updateItem(this.object.id, {
       'flags': {
         'pick-up-stix': {
           'pick-up-stix': {

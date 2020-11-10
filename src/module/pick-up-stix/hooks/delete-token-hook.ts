@@ -14,15 +14,20 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
 
   removed.deactivateListeners();
 
-  const uuid = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix.itemUuid');
+  if (!game.user.isGM) {
+    log(`pick-up-stix | deleteTokenHook | User is not first GM`);
+    return;
+  }
 
-  if (uuid && getLootToken({ uuid: removed?.itemUuid }).length === 0) {
-    if (uuid) {
-      log(`pick-up-stix | deleteTokenHook | No LootTokens left, deleting Item '${uuid}' for LootToken`);
-      await deleteItem(uuid);
+  const itemId = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix.itemId');
+
+  if (itemId && getLootToken({ itemId: removed?.itemId }).length === 0) {
+    if (itemId) {
+      log(`pick-up-stix | deleteTokenHook | No LootTokens left, deleting Item '${itemId}' for LootToken`);
+      await deleteItem(itemId);
     }
     else {
-      warn(`pick-up-stix | deleteTokenHook | No uuid not found on TokenFlags for token:`);
+      warn(`pick-up-stix | deleteTokenHook | Item ID not found on TokenFlags for token:`);
       console.debug([tokenData]);
     }
   }

@@ -14,8 +14,8 @@ export class LootHud extends BasePlaceableHUD {
     });
   }
 
-  private get itemUuid(): string {
-    return this.object.getFlag('pick-up-stix', 'pick-up-stix.itemUuid');
+  private get itemId(): string {
+    return this.object.getFlag('pick-up-stix', 'pick-up-stix.itemId');
   }
 
   constructor() {
@@ -40,10 +40,10 @@ export class LootHud extends BasePlaceableHUD {
 
   private _onToggleItemLocked = async (event) => {
     log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
-    const lootToken = getLootToken({ uuid: this.itemUuid, tokenId: this.object.id })?.[0];
+    const lootToken = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];
 
     if (!lootToken) {
-      error(`No valid LootToken instance found for token '${this.object.id}' and item uuid '${this.itemUuid}'`);
+      error(`No valid LootToken instance found for token '${this.object.id}' and Item id '${this.itemId}'`);
       return;
     }
 
@@ -54,13 +54,13 @@ export class LootHud extends BasePlaceableHUD {
   private onTokenConfig = async (event) => {
     log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
 
-    const item = await fromUuid(this.itemUuid);
+    const item = game.items.get(this.itemId);
     item.sheet.render(true, { renderData: { sourceToken: this.object.data }});
   }
 
   getData(options) {
     log(`pick-up-stix | LootHud ${this.appId} | getData`);
-    const lootData = getLootToken({ uuid: this.itemUuid, tokenId: this.object.id })?.[0];;
+    const lootData = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];;
     if (!lootData) {
       error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
     }

@@ -1,30 +1,26 @@
+import { log } from '../../log';
 import {
-  getActorCurrencyPath,
 	getCurrencyTypes,
 	getPriceDataPath,
 	getQuantityDataPath,
-	getWeightDataPath,
 	onChangeInputDelta
 } from '../../utils';
 import ContainerImageSelectionApplication from "./container-image-selection-application.js";
+import { ContainerSoundConfig } from './container-sound-config-application';
+import { ContainerLoot, ItemFlags } from './loot-token';
 import {
-	createOwnedItem,
-	currencyCollected,
-	deleteOwnedItem,
+	dropItemOnContainer,
 	getLootToken,
 	getValidControlledTokens,
-	itemCollected,
+	lootCurrency,
+	lootItem,
 	normalizeDropData,
-	updateActor,
-	updateEntity
+	updateItem
 } from './main';
 import {
 	DropData, ItemType
 } from "./models";
 import { SettingKeys } from './settings';
-import { ContainerSoundConfig } from './container-sound-config-application';
-import { ContainerLoot, ItemFlags } from './loot-token';
-import { log } from '../../log';
 
 /**
  * Application class to display to select an item that the token is
@@ -34,6 +30,9 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	private _html: any;
 	private _sourceTokenId: string;
 	private _selectedTokenId: string;
+	private _stopperElement = $(`<div class="stopper">
+		<div class="loader"></div>
+	</div>`);
 
 	static get defaultOptions(): ApplicationOptions {
 		return mergeObject(super.defaultOptions, {
@@ -59,7 +58,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	}
 
 	get tokenDatas(): any[] {
-		const tokens = getLootToken({ uuid: this.object.uuid }).map(lt => lt.tokenData);
+		const tokens = getLootToken({ itemId: this.object.id }).map(lt => lt.tokenData);
 		return tokens;
 	}
 
@@ -67,7 +66,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		return !!this.tokenDatas.length;
 	}
 
-	constructor(object: any, ...args) {
+	constructor(object: Item, ...args) {
 		super(object, args);
 
 		log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`);
@@ -101,6 +100,11 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 				.find(`[data-edit="img"]`)
 				.on('click', this._onEditImage)
 				.css('cursor', 'pointer');
+
+				// set click listeners on the buttons to delete items
+			$(html)
+				.find(`a.item-delete`)
+				.on('click', this._onDeleteItem);
 		}
 
 		$(html)
@@ -118,11 +122,6 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		$(html)
 			.find(`a.item-take`)
 			.on('click', this._onTakeItem);
-
-		// set click listeners on the buttons to delete items
-		$(html)
-			.find(`a.item-delete`)
-			.on('click', this._onDeleteItem);
 
 		$(html)
 			.find(`input[type="text"]`)
@@ -211,6 +210,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			currencyEnabled: this.currencyEnabled,
 			currencyTypes: Object.entries(currencyTypes).map(([k, v]) => ({ short: k, long: v })),
 			currency: this.itemFlags.container.currency,
+			showTakeCurrency: Object.values(this.itemFlags.container.currency).some(amount => amount > 0),
 			lootTypes: Object.keys(loot),
 			loot,
 			profileImage: this.itemFlags.container.imageOpenPath,
@@ -240,80 +240,31 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | dropped data`);
 		log([dropData]);
 
-		if (dropData?.type?.toLowerCase() !== ItemType.ITEM.toLowerCase()) {
-			ui.notifications.error(`Cannot drop '${dropData.type}' onto loot token config`);
-			log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | item is not 'Item' type`);
-			return;
-		}
-
 		let droppedItemData;
 
+		if (dropData.actor) {
+			droppedItemData = dropData.data;
+		}
+		else {
+			droppedItemData = await game.items.get(dropData.id)?.data ?? await game.packs.get(dropData.pack).getEntry(dropData.id);
+
+			if (getProperty(droppedItemData, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
+				ui.notifications.error('Cannot add a container to another container');
+				return;
+			}
+		}
 		if (!dropData.actor && dropData.actorId) {
 			ui.notifications.error(`No valid actor found for actor '${dropData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
 			return;
 		}
 
-		// if the dropped item comes from an actor, we need to delete the item from that actor
-		if (dropData.actor) {
-			log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | drop data contains actor ID '${dropData.actorId}', delete item from actor`);
-			droppedItemData = dropData.data;
-			await deleteOwnedItem(dropData.actor.id, droppedItemData._id);
-		}
-		else {
-			droppedItemData = await game.items.get(dropData.id)?.data ?? await game.packs.get(dropData.pack).getEntry(dropData.id);
-		}
+		this.addStopper();
 
-		const itemType = droppedItemData.type;
-		const containerData = this.itemFlags?.container;
-
-		let loot: ContainerLoot = containerData?.loot;
-
-		// if the container never had any loot, then 'loot' will not exist, so
-		// create an empty object
-		if (!loot) {
-			containerData.loot = {};
-			loot = containerData.loot;
-		}
-
-		// if the 'loot' object doesn't have any loot of the type being
-		// dropped it'll be undefined, so create an empty array, to hold
-		// loot of that item type
-		if (!loot[itemType]) {
-			log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
-			loot[itemType] = [];
-		}
-
-		const qtyDataPath = getQuantityDataPath();
-
-		const existingItem = loot[itemType]
-			?.find(i =>
-				i.name?.toLowerCase() === droppedItemData.name?.toLowerCase()
-				&& i.img === droppedItemData.img
-				&& i.data?.description?.value?.toLowerCase() === droppedItemData.data?.description?.value?.toLowerCase()
-				&& getProperty(i.data, getPriceDataPath()) === getProperty(droppedItemData.data, getPriceDataPath())
-				&& getProperty(i.data, getWeightDataPath()) === getProperty(droppedItemData.data, getWeightDataPath())
-			);
-
-		if (existingItem) {
-			log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
-			setProperty(existingItem.data, qtyDataPath, +getProperty(existingItem.data, qtyDataPath) + 1)
-		}
-		else {
-			log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for item '${droppedItemData._id}' does not exist, set quantity to 1 and add to slot`);
-			setProperty(droppedItemData.data, qtyDataPath, 1);
-			loot[itemType].push({
-				...droppedItemData
-			});
-		}
-
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onDrop | submit data:`);
-
-		log([this.itemFlags]);
-
-		await this.submit({
-			updateData: {
-				...this.itemFlags
-			}
+		await dropItemOnContainer({
+			dropData,
+			containerItemId: this.object.id
+		}).then(() => {
+			this._stopperElement.remove();
 		});
 	}
 
@@ -377,7 +328,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
 		log(expandedObject);
 
-		await updateEntity(this.object.uuid, {
+		await updateItem(this.object.id, {
 			name: formData.name,
 			flags: {
 				'pick-up-stix': {
@@ -460,55 +411,22 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	protected _onTakeCurrency = async (e) => {
 		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency`);
 
-    if (!this.currencyEnabled) {
-      log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency | currency not enabled`);
-      return;
-    }
-
-		if (!this._selectedTokenId) {
+    if (!this._selectedTokenId) {
 			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
 			return;
 		}
 
 		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
 
-		// TODO: this code will need to be updated to support different system's currencies
-    const actorCurrency = {
-      ...getProperty(token.actor.data, getActorCurrencyPath()) ?? {}
-    };
-
-    const flags: ItemFlags = duplicate(this.itemFlags);
-		const currency = flags.container.currency;
-
-		if (!Object.values(currency).some(c => c > 0)) {
-			log(`pick-up-stix | ItemCOnfigApplication ${this.appId} | _onTakeCurrency | No currency to loot`);
-			return;
-		}
-
-		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +actorCurrency[k] + +currency[k]);
-
-    await updateActor(token.actor, {
-      [getActorCurrencyPath()]: actorCurrency
-    });
-
-    await currencyCollected(
-      token,
-      Object.entries(currency)
-        .filter(([, v]) => v > 0)
-        .reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {})
-    );
-
-		Object.keys(currency)?.forEach(k => currency[k] = 0);
-
 		$(this._html)
 			.find('.data-currency-input')
 			.val(0);
 
-    await this.submit({
-      updateData: {
-        ...flags
-      }
-    });
+		this.addStopper();
+
+		lootCurrency({ looterActorId: token.actor.id, looterTokenId: token.id, containerItemId: this.object.id, currencies: this.itemFlags.container.currency }).then(() => {
+			this._stopperElement.remove();
+		})
 	}
 
 	protected _onTakeItem = async (e) => {
@@ -524,35 +442,13 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemId = e.currentTarget.dataset.id;
 		const itemData = loot?.[itemType]?.find(i => i._id === itemId);
-		const oldQty = getProperty(itemData.data, getQuantityDataPath());
+		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
 
-		if (oldQty - 1 <= 0) {
-			loot?.[itemType]?.findSplice(v => v._id === itemId);
-		}
-		else {
-			setProperty(itemData.data, getQuantityDataPath(), oldQty - 1);
-		}
+		this.addStopper();
 
-    const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
-
-    await createOwnedItem(
-      token.actor,
-      [
-        mergeObject(duplicate(itemData), {
-          data: {
-            [getQuantityDataPath()]: 1
-          }
-        })
-      ]
-    );
-
-		await itemCollected(token, itemData);
-
-    await this.submit({
-      updateData: {
-        ...flags
-      }
-    });
+		lootItem({ looterTokenId: token.id, looterActorId: token.actor.id, itemData, containerItemId: this.object.id }).then(() => {
+			this._stopperElement.remove();
+		});
 	}
 
 	protected _onEditImage = async (e) => {
@@ -563,5 +459,9 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);
 			log([app, html]);
 		});
+	}
+
+	private addStopper(): void {
+		$(this._html).parents('#pick-up-stix-item-config').children().first().before(this._stopperElement);
 	}
 }

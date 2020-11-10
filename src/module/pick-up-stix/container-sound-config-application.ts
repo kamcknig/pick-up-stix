@@ -1,6 +1,6 @@
 import { log } from "../../log";
 import { ItemFlags } from "./loot-token";
-import { updateEntity } from "./main";
+import { updateItem } from "./main";
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {
@@ -40,7 +40,7 @@ export class ContainerSoundConfig extends FormApplication {
 
     const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
 
-    await updateEntity(this.object.uuid, {
+    await updateItem(this.object.id, {
       flags: {
         'pick-up-stix': {
           'pick-up-stix': {

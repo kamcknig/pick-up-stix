@@ -1,4 +1,5 @@
 import { log, warn } from "../../../log";
+import { amIFirstGm } from "../../../utils";
 import { LootToken } from "../loot-token"
 import { deleteItem, getLootToken, lootTokens } from "../main"
 
@@ -14,7 +15,7 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
 
   removed.deactivateListeners();
 
-  if (!game.user.isGM) {
+  if (!amIFirstGm()) {
     log(`pick-up-stix | deleteTokenHook | User is not first GM`);
     return;
   }

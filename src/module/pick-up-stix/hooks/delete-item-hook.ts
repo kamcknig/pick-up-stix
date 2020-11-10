@@ -1,11 +1,12 @@
 import { log } from "../../../log";
+import { amIFirstGm } from "../../../utils";
 import { deleteToken, getLootToken } from "../main";
 
 export const deleteItemHook = async (item, options, userId) => {
   log(`pick-up-stix | deleteItemHook:`);
   log([item, options, userId]);
 
-  if (!game.user.isGM) {
+  if (!amIFirstGm()) {
     log(`pick-up-stix | deleteItemHook | User is not first GM`);
     return;
   }
@@ -13,6 +14,6 @@ export const deleteItemHook = async (item, options, userId) => {
   const lts = getLootToken({ itemId: item.id });
 
   for (let lootToken of lts) {
-    await deleteToken(lootToken.sceneId, lootToken.tokenId);
+    await deleteToken(lootToken.tokenId, lootToken.sceneId);
   }
 };

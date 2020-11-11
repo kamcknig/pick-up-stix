@@ -17,7 +17,7 @@ const dropCanvasHandler = async (canvas, dropData) => {
 	log(canvas, dropData);
 
 	if (dropData.type === "Item") {
-		handleItemDropped(normalizeDropData(dropData));
+		handleItemDropped(await normalizeDropData(dropData));
 	}
 }
 

@@ -9,7 +9,7 @@ import ContainerImageSelectionApplication from "./container-image-selection-appl
 import { ContainerSoundConfig } from './container-sound-config-application';
 import { ContainerLoot, ItemFlags } from './loot-token';
 import {
-	dropItemOnContainer,
+	dropItemOnToken,
 	getLootToken,
 	getValidControlledTokens,
 	lootCurrency,
@@ -18,7 +18,7 @@ import {
 	updateItem
 } from './main';
 import {
-	DropData, ItemType
+	DropData
 } from "./models";
 import { SettingKeys } from './settings';
 
@@ -235,34 +235,16 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 	 */
 	protected async _onDrop(e) {
 		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop`);
-		const dropData: DropData = normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
+		const dropData: DropData = await normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
 
 		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | dropped data`);
 		log([dropData]);
 
-		let droppedItemData;
-
-		if (dropData.actor) {
-			droppedItemData = dropData.data;
-		}
-		else {
-			droppedItemData = await game.items.get(dropData.id)?.data ?? await game.packs.get(dropData.pack).getEntry(dropData.id);
-
-			if (getProperty(droppedItemData, 'flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
-				ui.notifications.error('Cannot add a container to another container');
-				return;
-			}
-		}
-		if (!dropData.actor && dropData.actorId) {
-			ui.notifications.error(`No valid actor found for actor '${dropData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
-			return;
-		}
-
 		this.addStopper();
 
-		await dropItemOnContainer({
+		dropItemOnToken({
 			dropData,
-			containerItemId: this.object.id
+			targetTokenId: this._sourceTokenId
 		}).then(() => {
 			this._stopperElement.remove();
 		});

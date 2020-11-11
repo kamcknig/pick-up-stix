@@ -17,7 +17,7 @@ import {
 	createLootToken,
 	lootItem,
 	lootCurrency,
-	dropItemOnContainer
+	addItemToContainer
 } from "../main";
 import { ItemType, SocketMessage, SocketMessageType } from "../models";
 import { SettingKeys } from "../settings";
@@ -267,7 +267,7 @@ export const handleSocketMessage = async (msg: SocketMessage) => {
 			await lootCurrency(msg.data);
 			break;
 		case SocketMessageType.dropItemOnContainer:
-			await dropItemOnContainer(msg.data);
+			await addItemToContainer(msg.data);
 			break;
 		default:
 			error(`pick-up-stix | handleSocketMessage | No valid socket message handler for '${msg.type}' with arg:`);
@@ -292,7 +292,7 @@ const handleNonGMMessage = (msg: SocketMessage): boolean => {
       handled = true;
 			break;
 		case SocketMessageType.itemDroppedOnContainer:
-      Hooks.callAll('pick-up-stix.itemDroppedOnContainer', msg.data);
+      Hooks.callAll('pick-up-stix.itemAddedToContainer', msg.data);
       handled = true;
 			break;
   }

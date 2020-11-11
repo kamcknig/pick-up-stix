@@ -1,7 +1,7 @@
 //@ts-ignore
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
-import { error, log, warn } from './log';
+import { log, warn } from './log';
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
@@ -18,6 +18,14 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
         ...r.DND5E.currencies
       };
     });
+  }
+  else if (game.system.id === 'pf2e') {
+    return {
+      cp: 'Copper',
+      gp: 'Gold',
+      pp: 'Platinum',
+      sp: 'Silver'
+    }
   }
   else {
     warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
@@ -126,6 +134,7 @@ export const getActorCurrencyPath = (): string => {
 
   switch (game.system.id) {
     case 'dnd5e':
+    case 'pf2e':
       path = 'data.currency'
       break;
     default:

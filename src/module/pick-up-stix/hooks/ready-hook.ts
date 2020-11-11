@@ -249,13 +249,13 @@ export const handleSocketMessage = async (msg: SocketMessage) => {
 		case SocketMessageType.updateToken:
 			await updateToken(msg.data.sceneId, msg.data.updates);
 			break;
-		case SocketMessageType.createOwnedEntity:
+		case SocketMessageType.createOwnedItem:
 			await createOwnedItem(msg.data.actorId, msg.data.items);
 			break;
-		case SocketMessageType.createItemToken:
+		case SocketMessageType.createToken:
 			await createToken(msg.data);
 			break;
-		case SocketMessageType.createEntity:
+		case SocketMessageType.createItem:
 			await createItem(msg.data.data, msg.data.options);
 			break;
 		case SocketMessageType.deleteItem:

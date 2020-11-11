@@ -545,7 +545,7 @@ export async function createOwnedItem(actorId: string, data: any | any[]): Promi
 
 		const msg: SocketMessage = {
 			sender: game.user.id,
-			type: SocketMessageType.createOwnedEntity,
+			type: SocketMessageType.createOwnedItem,
 			data: {
 				actorId,
 				items: data
@@ -589,7 +589,7 @@ export const createItem = async (data: any, options: any = {}): Promise<string> 
 
 		const msg: SocketMessage = {
 			sender: game.user.id,
-			type: SocketMessageType.createEntity,
+			type: SocketMessageType.createItem,
 			data: {
 				data,
 				options
@@ -697,7 +697,7 @@ export const updateOwnedItem = async (actorId, data): Promise<{ actorId: string;
 
 	if (!actor) {
 		log(`pick-up-stix | updateOwnedItem | Actor '${actorId}' not found`);
-		return actorId;
+		return null;
 	}
 
 	if (game.user.isGM) {
@@ -748,7 +748,7 @@ export const createToken = async (data: any): Promise<string> => {
 
 	const msg: SocketMessage = {
 		sender: game.user.id,
-		type: SocketMessageType.createItemToken,
+		type: SocketMessageType.createToken,
 		data
 	}
 
@@ -798,7 +798,7 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 	const targetTokenItem = game.items.get(targetTokenFlags?.itemId);
 	const targetTokenItemFlags: ItemFlags = targetTokenItem?.getFlag('pick-up-stix', 'pick-up-stix');
 
-	if (!targetTokenItem.actor && targetTokenItemFlags?.itemType !== ItemType.CONTAINER) {
+	if (!targetToken?.actor && targetTokenItemFlags?.itemType !== ItemType.CONTAINER) {
 		ui.notifications.error(`Cannot drop '${dropData.data.name}' onto ${targetToken.name}`);
 		return false;
 	}
@@ -806,11 +806,13 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 	let itemData: any;
 
 	if (dropData.actor) {
+		// if the dropped item comes from an actor, we need to delete the item from that actor and get the data from the dropped data
 		log(`pick-up-stix | dropItemOnToken | Actor '${dropData.actor.id}' dropped item '${dropData.data._id}', get item data from the dropped item's original item data`);
 		itemData = duplicate(dropData.data);
 		await deleteOwnedItem(dropData.actor.id, dropData.data._id);
 	}
 	else {
+		// if the dropped item doesn't come from an actor, get it from the game's items or a compendium
 		log(`pick-up-stix | dropItemOnToken | item comes from directory or compendium, item data comes from directory or compendium`);
 		const pack = dropData.pack;
 		const id = dropData.id;
@@ -822,6 +824,9 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 		itemData = duplicate(item.data);
 	}
 
+	log(`pick-up-stix | dropItemOnToken | item data:`);
+	log([itemData]);
+
 	if (targetToken.actor) {
 		const droppedItemFlags: ItemFlags = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix');
 
@@ -830,7 +835,21 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 			return false;
 		}
 
-		return createOwnedItem(targetToken.actor.id, targetTokenId).then(result => {
+		return createOwnedItem(
+			targetToken.actor.id,
+			mergeObject(itemData, {
+				data: {
+					[getQuantityDataPath()]: 1
+				},
+				flags: {
+					'pick-up-stix': {
+						'pick-up-stix': {
+							owner: targetToken.actor.id
+						}
+					}
+				}
+			})
+		).then(result => {
 			Hooks.callAll(PickUpStixHooks.itemDroppedOnToken);
 			const msg: SocketMessage = {
 				sender: game.user.id,
@@ -988,7 +1007,7 @@ export const  lootCurrency = async (data: { looterTokenId: string, looterActorId
 			...getProperty(token.actor.data, getActorCurrencyPath()) ?? {}
 		};
 
-		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +actorCurrency[k] + +currencyToLoot[k]);
+		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +(actorCurrency[k] ?? 0) + +currencyToLoot[k]);
 		Object.keys(containerCurrencies).forEach(k => containerCurrencies[k] = +containerCurrencies[k] - +currencyToLoot[k]);
 
 		await updateActor(token.actor, {

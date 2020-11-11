@@ -1,4 +1,5 @@
 import { log } from "../../../log";
+import { amIFirstGm } from "../../../utils";
 import { ItemFlags } from "../loot-token";
 import { getLootToken, updateToken } from "../main";
 
@@ -10,16 +11,15 @@ export const updateItemHook = async (item, data, options, userId) => {
   log(`pick-up-stix | updateItemHook | itemFlags:`);
   log([itemFlags]);
 
-  if (!game.user.isGM) {
+  if (!amIFirstGm()) {
     log(`pick-up-stix | updateItemHook | User is not GM`);
     return;
   }
 
   const lootTokens = getLootToken({ itemId: item.id });
-  for(let lt of lootTokens) {
-    const scene = Scene.collection.get(lt.sceneId);
-    const sceneId = scene.id;
-    await updateToken(sceneId, {
+  const updates = [];
+  for (let lt of lootTokens) {
+    updates.push({
       _id: lt.tokenId,
       width: itemFlags?.tokenData?.width ?? 1,
       height: itemFlags?.tokenData?.height ?? 1,
@@ -32,4 +32,5 @@ export const updateItemHook = async (item, data, options, userId) => {
         : item.data.img
     });
   }
+canvas.tokens.updateMany(updates);
 }

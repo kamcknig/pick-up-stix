@@ -87,8 +87,6 @@ export async function readyHook() {
 		}
 	}
 
-
-
 	for (let item of game.items.values()) {
 		if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
 			item.data.type = ItemType.CONTAINER;

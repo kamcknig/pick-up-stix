@@ -18,7 +18,7 @@ export const createActorHook = async (actor: Actor, userId: string) => {
 		}))
 	];
 
-	if (!game.user.isGM) {
+	if (!amIFirstGm()) {
 		log(`pick-up-stix | createActorHook | User is not first GM`);
 		return;
   }

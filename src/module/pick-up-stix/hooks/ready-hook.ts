@@ -17,9 +17,10 @@ import {
 	createLootToken,
 	lootItem,
 	lootCurrency,
-	addItemToContainer
+	addItemToContainer,
+	dropItemOnToken
 } from "../main";
-import { ItemType, SocketMessage, SocketMessageType } from "../models";
+import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from "../models";
 import { SettingKeys } from "../settings";
 
 declare class EntitySheetConfig {
@@ -266,8 +267,11 @@ export const handleSocketMessage = async (msg: SocketMessage) => {
 		case SocketMessageType.lootCurrency:
 			await lootCurrency(msg.data);
 			break;
-		case SocketMessageType.dropItemOnContainer:
+		case SocketMessageType.addItemToContainer:
 			await addItemToContainer(msg.data);
+			break;
+		case SocketMessageType.dropItemOnToken:
+			await dropItemOnToken(msg.data);
 			break;
 		default:
 			error(`pick-up-stix | handleSocketMessage | No valid socket message handler for '${msg.type}' with arg:`);
@@ -280,19 +284,19 @@ const handleNonGMMessage = (msg: SocketMessage): boolean => {
 
   switch (msg.type) {
     case SocketMessageType.lootTokenCreated:
-      Hooks.callAll('pick-up-stix.lootTokenCreated', msg.data.tokenId);
+      Hooks.callAll(PickUpStixHooks.lootTokenCreated, msg.data.tokenId);
       handled = true;
 			break;
 		case SocketMessageType.itemCollected:
-      Hooks.callAll('pick-up-stix.itemCollected', msg.data);
+      Hooks.callAll(PickUpStixHooks.itemCollected, msg.data);
       handled = true;
 			break;
 		case SocketMessageType.currencyLooted:
-      Hooks.callAll('pick-up-stix.currencyLooted', msg.data);
+      Hooks.callAll(PickUpStixHooks.currencyLooted, msg.data);
       handled = true;
 			break;
-		case SocketMessageType.itemDroppedOnContainer:
-      Hooks.callAll('pick-up-stix.itemAddedToContainer', msg.data);
+		case SocketMessageType.itemAddedToContainer:
+      Hooks.callAll(PickUpStixHooks.itemAddedToContainer, msg.data);
       handled = true;
 			break;
   }

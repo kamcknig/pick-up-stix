@@ -15,6 +15,7 @@ import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-h
 import { renderItemDirectoryHook } from "./module/pick-up-stix/hooks/render-item-directory-hook";
 import { preUpdateTokenHook } from "./module/pick-up-stix/hooks/pre-update-token-hook";
 import { log } from "./log";
+import { PickUpStixHooks } from "./module/pick-up-stix/models";
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -48,7 +49,7 @@ Hooks.on("renderSettingsConfig", (app, html, user) => {
 });
 Hooks.on('renderLootHud', onRenderLootHud);
 
-Hooks.on('pick-up-stix.lootTokenCreated', lootTokenCreatedHook);
+Hooks.on(PickUpStixHooks.lootTokenCreated, lootTokenCreatedHook);
 
 Hooks.once('ready', () => {
   log('pick-up-stix | ready once hook');

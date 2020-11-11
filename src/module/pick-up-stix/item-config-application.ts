@@ -428,7 +428,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		this.addStopper();
 
-		lootItem({ looterTokenId: token.id, looterActorId: token.actor.id, itemData, containerItemId: this.object.id }).then(() => {
+		lootItem({ looterTokenId: token.id, looterActorId: token.actor.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId }).then(() => {
 			this._stopperElement.remove();
 		});
 	}

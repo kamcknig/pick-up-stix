@@ -330,7 +330,7 @@ export class LootToken {
 			return;
 		}
 
-		await lootItem({ looterTokenId: token.id, looterActorId: token.actor.id, itemData: this.item.data });
+		await lootItem({ looterTokenId: token.id, looterActorId: token.actor.id, itemData: this.item.data, lootTokenTokenId: this.tokenId });
 	}
 
 	openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {

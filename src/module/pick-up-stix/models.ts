@@ -31,6 +31,14 @@ export interface DropData {
 	type?: string
 }
 
+export const PickUpStixHooks = {
+	itemAddedToContainer: 'pick-up-stix.itemAddedToContainer',
+	currencyLooted: 'pick-up-stix.currencyLooted',
+	itemCollected: 'pick-up-stix.itemCollected',
+	lootTokenCreated: 'pick-up-stix.lootTokenCreated',
+	itemDroppedOnToken: 'pick-up-stix.itemDroppedOnToken'
+}
+
 export enum SocketMessageType {
 	deleteToken = 'deleteToken',
 	updateItem = 'updateItem',
@@ -46,9 +54,11 @@ export enum SocketMessageType {
 	itemCollected = 'itemCollected',
 	collectItem = 'collectItem',
 	lootCurrency = 'lootCurrency',
-	currencyLooted = "currencyLooted",
-	dropItemOnContainer = "dropItemOnContainer",
-	itemDroppedOnContainer = "itemDroppedOnContainer"
+	currencyLooted = 'currencyLooted',
+	dropItemOnToken = 'dropItemOnToken',
+	addItemToContainer = 'addItemToContainer',
+	itemAddedToContainer = 'itemAddedToContainer',
+	itemDroppedOnToken = 'itemDroppedOnToken'
 }
 
 export interface SocketMessage {

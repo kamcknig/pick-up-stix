@@ -97,7 +97,7 @@ export const getValidControlledTokens = (data: string | Token): Token[] => {
 	return controlled;
 }
 
-export const normalizeDropData = async (data: DropData): Promise<any> => {
+export const normalizeDropData = async (data: Partial<DropData>): Promise<DropData> => {
 	log('pick-up-stix | normalizeDropData called with args:');
 	log([data]);
 
@@ -107,9 +107,15 @@ export const normalizeDropData = async (data: DropData): Promise<any> => {
 
 	const pack: string = data.pack;
 	const id: string = data.id;
-	data.data = data.actor ? data.data : await game.items.get(id) ?? await game.packs.get(pack)?.getEntity(id);
+	data.data = data.actor ? data.data : game.items.get(id)?.data ?? await game.packs.get(pack)?.getEntity(id)?.data;
 
-	return data;
+	// if it's not a container, then we can assume it's an item. Create the item token
+	const hg = canvas.dimensions.size * .5;
+	const { x, y } = canvas.grid.getSnappedPosition(data.x - hg, data.y - hg, 1);
+	data.gridX = x;
+	data.gridY = y;
+
+	return data as DropData;
 }
 
 /**
@@ -151,26 +157,27 @@ const dropItemOnCanvas = async ({ dropData }) => {
 	let itemData: any = duplicate(dropData.data);
 	let lootTokens: LootToken[] = getLootToken({ itemId: itemData._id });
 
-	// if it's not a container, then we can assume it's an item. Create the item token
-	const hg = canvas.dimensions.size * .5;
-	const { x, y } = canvas.grid.getSnappedPosition(dropData.x - hg, dropData.y - hg, 1);
-
-	let tokenData: TokenData = {
-		name: itemData.name,
-		disposition: 0,
-		img: itemData.img,
-		width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
-		height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1,
-		x,
-		y,
-		flags: {
-			'pick-up-stix': {
+	let tokenData: TokenData = mergeObject(
+		{
+			name: itemData.name,
+			disposition: 0,
+			img: itemData.img,
+			width: 1,
+			height: 1,
+			x: dropData.gridX,
+			y: dropData.gridY,
+			flags: {
 				'pick-up-stix': {
-					isOpen: false
+					'pick-up-stix': {
+						isOpen: false
+					}
 				}
 			}
+		},
+		{
+			...itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData ?? {}
 		}
-	}
+	);
 
 	mergeObject(itemData, {
 		flags: {
@@ -193,24 +200,21 @@ const dropItemOnCanvas = async ({ dropData }) => {
 		const img: string = droppedItemFlags.container.imageClosePath;
 
 		return lootTokens.length > 0
-			? !!await createLootToken({ ...tokenData, ...droppedItemFlags.tokenData }, lootTokens[0].itemId)
-			: !!await createLootToken(
-				{ ...mergeObject(tokenData, droppedItemFlags.tokenData) },
-				{
-					_id: itemData._id,
-					name: itemData.name,
-					img,
-					folder: game.settings.get('pick-up-stix', SettingKeys.tokenFolderId),
-					type: ItemType.CONTAINER,
-					flags: {
+			? !!await createLootToken(tokenData, lootTokens[0].itemId)
+			: !!await createLootToken(tokenData, {
+				_id: itemData._id,
+				name: itemData.name,
+				img,
+				folder: game.settings.get('pick-up-stix', SettingKeys.tokenFolderId),
+				type: ItemType.CONTAINER,
+				flags: {
+					'pick-up-stix': {
 						'pick-up-stix': {
-							'pick-up-stix': {
-								...droppedItemFlags
-							}
+							...droppedItemFlags
 						}
 					}
 				}
-			);
+			});
 	}
 
 	log(`pick-up-stix | dropItemOnCanvas | Dropped item is not a container`);
@@ -226,7 +230,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 
 			if (lootType === ItemType.ITEM) {
 				return !!await createLootToken(
-					{ ...tokenData },
+					tokenData,
 					mergeObject(itemData, {
 						flags: {
 							'pick-up-stix': {
@@ -250,13 +254,13 @@ const dropItemOnCanvas = async ({ dropData }) => {
 						flags: {
 							'pick-up-stix': {
 								'pick-up-stix': {
-									tokenData: {
+									tokenData: mergeObject({
 										disposition: 0,
 										width: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1,
 										height: itemData.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1,
 										name: 'Empty Container',
 										img
-									},
+									}, {  ...tokenData, img } ),
 									itemType: ItemType.CONTAINER,
 									container: {
 										currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
@@ -864,7 +868,7 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 		});
 	}
 
-	return addItemToContainer({ itemData, containerItemId: targetTokenItem.id, targetTokenId }).then(result => {
+	return addItemToContainer({ itemData, containerItemId: targetTokenItem.id }).then(result => {
 		Hooks.callAll(PickUpStixHooks.itemDroppedOnToken);
 		const msg: SocketMessage = {
 			sender: game.user.id,
@@ -879,21 +883,20 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 	})
 }
 
-export const addItemToContainer = async (data: { itemData: any, containerItemId: string, targetTokenId: string }): Promise<boolean> => {
+export const addItemToContainer = async (data: { itemData: any, containerItemId: string }): Promise<boolean> => {
 	log(`pick-up-stix | addItemToContainer:`);
 	log([data]);
 
 	if (game.user.isGM) {
 		log(`pick-up-stix | addItemToContainer | User is GM`);
 
-		const targetToken: Token = canvas.tokens.placeables.find(p => p.id === data.targetTokenId);
 		const itemData = data.itemData;
 		const itemType = itemData.type;
 		const itemFlags: ItemFlags = getProperty(itemData, 'flags.pick-up-stix.pick-up-stix');
 
 		if (itemFlags?.itemType === ItemType.CONTAINER) {
 			// if the item being dropped is a container, you can't add it to another token
-			log(`pick-up-stix | addItemToContainer | cannot drop container ${itemData._id} onto token '${targetToken.id}' '${targetToken.name}`);
+			log(`pick-up-stix | addItemToContainer | Cannot add item '${itemData._id}' to container because it's a container`);
 			ui.notifications.error('A container may only be placed onto an empty square without any tokens.');
 			return false;
 		}

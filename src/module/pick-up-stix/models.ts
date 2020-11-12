@@ -7,28 +7,30 @@ export interface DropData {
 	sceneId?: string;
 
 	// If the item being dropped comes from an actor sheet, then the actorId will be included
-	actorId?: string,
+	actorId?: string;
 
 	// If the item being droppped comes from a compendium then the pack name will be included
-	pack?: string,
+	pack?: string;
 
 	// The ID of the item Entity being dropped
-	id?: string,
+	id?: string;
 
 	// The item Entity's data
-	data?:any,
+	data?:any;
 
 	// If the item Entity being dropped comes from an actor, this will be a reference
 	// to the actor Entity it belongs to
 	actor?: Actor;
 
 	// x and y postion where the item was dropped, this would need to be converted into world coordinates
-	x: number,
-	y: number,
+	x: number;
+	y: number;
+	gridX: number;
+	gridY: number;
 
 	// this is the type that comes from foundry. We'll test for this when dropping on the item config
 	// application to ensure we are only accepting the "Item" types
-	type?: string
+	type?: string;
 }
 
 export const PickUpStixHooks = {

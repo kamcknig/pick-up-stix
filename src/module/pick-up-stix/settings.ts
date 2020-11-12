@@ -1,5 +1,6 @@
 import { log } from "../../log";
 
+
 export enum SettingKeys {
 	openImagePath = 'default-container-opened-image-path',
 	closeImagePath = 'default-container-closed-image-path',
@@ -12,7 +13,8 @@ export enum SettingKeys {
 	tokenFolderId = 'tokenFolderId',
 	itemFolderId = 'itemFolderId',
 	version13updatemessage = 'version13updatemessage',
-	GMActionTimeout = "GMActionTimeout"
+	GMActionTimeout = 'GMActionTimeout',
+	addItemOnContainerCreation = 'addItemOnContainerCreation'
 }
 
 const systemCurrenciesImplemented = [

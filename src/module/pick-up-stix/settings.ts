@@ -16,8 +16,7 @@ export enum SettingKeys {
 }
 
 const systemCurrenciesImplemented = [
-	'dnd5e',
-	'pf2e'
+	'dnd5e'
 ];
 
 export const gmActionTimeout = (multiplier: number = 1000): number => {

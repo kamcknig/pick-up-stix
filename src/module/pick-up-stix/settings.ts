@@ -1,5 +1,6 @@
 import { log } from "../../log";
 
+
 export enum SettingKeys {
 	openImagePath = 'default-container-opened-image-path',
 	closeImagePath = 'default-container-closed-image-path',
@@ -12,7 +13,8 @@ export enum SettingKeys {
 	tokenFolderId = 'tokenFolderId',
 	itemFolderId = 'itemFolderId',
 	version13updatemessage = 'version13updatemessage',
-	GMActionTimeout = "GMActionTimeout"
+	GMActionTimeout = 'GMActionTimeout',
+	addItemOnContainerCreation = 'addItemOnContainerCreation'
 }
 
 const systemCurrenciesImplemented = [
@@ -23,25 +25,31 @@ export const gmActionTimeout = (multiplier: number = 1000): number => {
 	return (game.settings.get('pick-up-stix', SettingKeys.GMActionTimeout) ?? 2) * multiplier;
 }
 
+const imageTypeFunc = (val) => {
+	return val;
+}
+Object.defineProperty(imageTypeFunc, 'name', {value: 'pick-up-stix-settings-image'});
+
+const audioTypeFunc = (val) => {
+	return val;
+}
+Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
+
 export const registerSettings = function() {
 	log(`pick-up-stix | registerSettings`);
-	// Register any custom module settings here
-	const imageTypeFunc = (val) => {
-		return val;
-	}
-	Object.defineProperty(imageTypeFunc, 'name', {value: 'pick-up-stix-settings-image'});
+	registerHiddenSettings();
+	registerWorldSettings();
+	registerClientSettings();
+}
 
-	const audioTypeFunc = (val) => {
-		return val;
-	}
-	Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
-
+const registerHiddenSettings = () => {
 	game.settings.register('pick-up-stix', SettingKeys.GMActionTimeout, {
 		name: 'GM Action Timeout',
 		hint: 'Controls the amount of time to wait for a GM client to perform a GM action before giving up',
 		scope: 'world',
 		type: Number,
-		default: 2
+		default: 2,
+		config: false
 	});
 
   game.settings.register('pick-up-stix', SettingKeys.version13updatemessage, {
@@ -85,8 +93,9 @@ export const registerSettings = function() {
 		config: false,
 		type: String
 	});
+}
 
-	// Register any custom module settings here
+const registerWorldSettings = () => {
 	game.settings.register('pick-up-stix', SettingKeys.openImagePath, {
 		name: 'Default Container Opened Image',
 		hint: 'Sets the path for the default image to use for opened containers',
@@ -128,6 +137,19 @@ export const registerSettings = function() {
 		type: audioTypeFunc,
 		config: true
 	});
+
+	game.settings.register('pick-up-stix', SettingKeys.addItemOnContainerCreation, {
+		name: 'Auto-add Item',
+		hint: `When enabled and dragging an Item to the canvas in order to create a container, the Item used to create the container will automatically be added to the created container rather than creating an empty container.`,
+		scope: 'world',
+		config: true,
+		type: Boolean,
+		default: true
+	});
+}
+
+const registerClientSettings = () => {
+
 }
 
 export function processHtml(html) {

@@ -9,6 +9,7 @@ import ContainerImageSelectionApplication from "./container-image-selection-appl
 import { ContainerSoundConfig } from './container-sound-config-application';
 import { ContainerLoot, ItemFlags } from './loot-token';
 import {
+	addItemToContainer,
 	dropItemOnToken,
 	getLootToken,
 	getValidControlledTokens,
@@ -242,9 +243,9 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		this.addStopper();
 
-		dropItemOnToken({
-			dropData,
-			targetTokenId: this._sourceTokenId
+		addItemToContainer({
+			containerItemId: this.object.id,
+			itemData: dropData.data
 		}).then(() => {
 			this._stopperElement.remove();
 		});

@@ -267,7 +267,21 @@ const dropItemOnCanvas = async ({ dropData }) => {
 										imageClosePath: img,
 										imageOpenPath: game.settings.get('pick-up-stix', SettingKeys.openImagePath),
 										soundOpenPath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerOpenSound),
-										soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound)
+										soundClosePath: game.settings.get('pick-up-stix', SettingKeys.defaultContainerCloseSound),
+										loot: game.settings.get('pick-up-stix', SettingKeys.addItemOnContainerCreation)
+											? {
+													[itemData.type]: [
+														mergeObject(
+															itemData,
+															{
+																data: {
+																	[getQuantityDataPath()]: 1
+																}
+															}
+														)
+													]
+											}
+											: null
 									}
 								}
 							}

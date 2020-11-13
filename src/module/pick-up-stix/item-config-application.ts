@@ -10,7 +10,6 @@ import { ContainerSoundConfig } from './container-sound-config-application';
 import { ContainerLoot, ItemFlags } from './loot-token';
 import {
 	addItemToContainer,
-	dropItemOnToken,
 	getLootToken,
 	getValidControlledTokens,
 	lootCurrency,
@@ -120,6 +119,10 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 		}
 
 		// set click listeners on the buttons to pick up individual items
+		$(html)
+			.find('.loot-all-button')
+			.on('click', this._onLootAll);
+
 		$(html)
 			.find(`a.item-take`)
 			.on('click', this._onTakeItem);
@@ -407,9 +410,29 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		this.addStopper();
 
-		lootCurrency({ looterActorId: token.actor.id, looterTokenId: token.id, containerItemId: this.object.id, currencies: this.itemFlags.container.currency }).then(() => {
+		lootCurrency({ looterTokenId: token.id, containerItemId: this.object.id, currencies: this.itemFlags.container.currency }).then(() => {
 			this._stopperElement.remove();
 		})
+	}
+
+	protected _onLootAll = async (e) => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onLootAll`);
+
+		if (!this._selectedTokenId) {
+			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
+			return;
+		}
+
+		const flags: ItemFlags = duplicate(this.itemFlags);
+		const loot: ContainerLoot = flags.container.loot;
+		/* const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
+		const itemId = e.currentTarget.dataset.id; */
+		const itemData = Object.values(loot)?.reduce((acc, itemDatas) => acc.concat(itemDatas), []);
+		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+
+		lootItem({ looterTokenId: token.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId, takeAll: true }).then(() => {
+			this._stopperElement.remove();
+		});
 	}
 
 	protected _onTakeItem = async (e) => {
@@ -429,7 +452,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 
 		this.addStopper();
 
-		lootItem({ looterTokenId: token.id, looterActorId: token.actor.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId }).then(() => {
+		lootItem({ looterTokenId: token.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId, takeAll: false }).then(() => {
 			this._stopperElement.remove();
 		});
 	}

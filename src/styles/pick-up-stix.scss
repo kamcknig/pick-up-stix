@@ -262,6 +262,11 @@ $groove-color: #eeede0;
       }
     }
 
+    & .loot-all-button {
+      flex: 0;
+      white-space: nowrap;
+    }
+
     & .inventory-list {
       &:not(:last-child) {
         border-right: 1px solid #c9c7b8;

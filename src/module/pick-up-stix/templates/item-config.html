@@ -123,7 +123,11 @@
 
       <!-- display loot -->
       <section class="inventory-details">
-        <h3>Loot <i class="fas fa-box"></i></h3>
+        <div class="flexrow" style="align-items: center;">
+          <h3 style="margin: 0;">Loot <i class="fas fa-box"></i></h3>
+
+          <button class="loot-all-button"><i class="fas fa-gem"></i>LOOT ALL</button>
+        </div>
 
         <ol class="inventory-list flexcol">
           {{#each lootTypes as | lootType |}}

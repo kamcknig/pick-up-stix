@@ -3,44 +3,76 @@
     <!-- display the image -->
     <img class="profile" src="{{profileImage}}" title="chest" data-edit="img">
 
-    <!-- container name and description -->
-    <section class="header-details flexcol">
-      <div class="flexrow" style="align-items: center; flex: unset; border-bottom: 2px groove #eeede0; padding-bottom: 5px;">
-        {{#if user.isGM}}
-          <input class="container-name" type="text" name="name" value="{{object.name}}" style="border-bottom: unset;">
-        {{else}}
-          <span class="container-name" style="border-bottom: unset;">{{object.name}}</span>
-        {{/if}}
+    <section class="header-details">
+      <div class="flexrow" style="align-items: center; padding-bottom: 5px; height: 100%;">
+        <!-- container name and description -->
+        <div class="flexcol" style="align-self: flex-start; height: 100%; padding-right: 5px;">
+          <!-- container name -->
+          {{#if user.isGM}}
+            <input
+              class="container-name"
+              type="text"
+              name="name"
+              value="{{object.name}}"
+              style="flex: none; border-bottom: 2px groove #eeede0;">
+          {{else}}
+            <span
+              class="container-name"
+              style="border-bottom: unset; flex: none;">{{object.name}}</span>
+          {{/if}}
+
+          <!-- container description -->
+          {{#if user.isGM}}
+            <textarea
+              spellcheck="false"
+              placeholder="Enter a description"
+              style="resize: none;"
+              class="container-description"
+              id="description"
+              name="container.description">{{description}}</textarea>
+          {{else}}
+            <span id="description" class="container-description">{{description}}</span>
+          {{/if}}
+        </div>
 
         {{#if user.isGM}}
           <div class="flexcol" style="flex: 0 0 180px;">
-            {{#if isContainer}}
-              <div class="flexrow" style="justify-content: flex-start; align-items: center; margin-bottom: 5px;">
-                <input id="canCloseCheckbox" type="checkbox" name="flags.pick-up-stix.pick-up-stix.container.canClose" data-dtype="Boolean">
-                <label style="flex: unset;">Can close</label>
-              </div>
-            {{/if}}
+            <div class="flexrow" style="justify-content: flex-start; align-items: center; margin-bottom: 5px;">
+              <input id="canCloseCheckbox" type="checkbox" name="container.canClose" data-dtype="Boolean">
+              <label style="flex: unset;">Can close</label>
+            </div>
 
-            {{#if isToken}}
-              <div class="flexrow" style="flex: unset; margin-bottom: 5px;">
-                <input id="scale" value="{{object.width}}" name="width" data-dtype="Number" type="range" min=".1" max="2" step=".1">
-                <span id="scaleSpan" style="flex: 0 0 40px;" class="range-value">{{object.width}}</span>
+            <div class="flexcol" style="flex: unset; margin-bottom: 5px;">
+              <div class="flexrow" style="align-items: center; margin-bottom: 5px;">
+                <label style="flex: 1;" for="width">Width</label>
+
+                <input
+                  style="flex: 2;"
+                  id="width"
+                  value="{{width}}"
+                  name="tokenData.width"
+                  type="number"
+                  data-dtype="Number">
               </div>
-            {{/if}}
+
+              <div class="flexrow" style="align-items: center;">
+                <label style="flex: 1;" for="height">Height</label>
+
+                <input
+                  style="flex: 2;"
+                  id="height"
+                  value="{{height}}"
+                  name="tokenData.height"
+                  type="number"
+                  data-dtype="Number">
+              </div>
+            </div>
 
             <div class="flexrow configure-sound" style="justify-content: center;">
               <i style="flex: unset; margin-right: 5px;" class="fas fa-music"></i>
               <span>Configure sounds</span>
             </div>
           </div>
-        {{/if}}
-      </div>
-
-      <div class="flexrow">
-        {{#if user.isGM}}
-          <textarea style="resize: none;" class="container-description" id="description" name="flags.pick-up-stix.pick-up-stix.container.description">{{description}}</textarea>
-        {{else}}
-          <span id="description" class="container-description">{{description}}</span>
         {{/if}}
       </div>
     </section>
@@ -50,7 +82,13 @@
     {{#if hasToken}}
       <div class="flexcol character-selection sheet-section-right">
         {{#each tokens as | token |}}
-          <div class="flexrow row {{token.class}}" data-actor_select data-token_id="{{token.token.id}}"><img class="profile" src="{{token.token.actor.img}}" /><span>{{token.token.actor.name}}</span></div>
+          <div
+            class="flexrow row {{token.class}}"
+            data-actor_select
+            data-token_id="{{token.token.id}}">
+              <img class="profile" src="{{token.token.actor.img}}" />
+              <span>{{token.token.actor.name}}</span>
+            </div>
         {{/each}}
       </div>
     {{/if}}
@@ -61,12 +99,24 @@
           <h3 class="currency-header">Currency <i class="fas fa-coins"></i></h3>
           <ul class="currency-list flexrow">
             {{#each currencyTypes as | currencyOb |}}
-              <label>{{currencyOb.long}}</label>
-              {{#with (lookup ../currency currencyOb.short)}}
-                <input name="flags.pick-up-stix.pick-up-stix.container.currency.{{currencyOb.short}}" class="currency-input" type="text" data-itemType="currency" data-dtype="Number" value="{{this}}">
-              {{/with}}
+              <div class="flexrow item">
+                <span class="item-label">{{currencyOb.long}}</span>
+                {{#with (lookup ../currency currencyOb.short)}}
+                  <input
+                    name="container.currency.{{currencyOb.short}}"
+                    class="currency-input"
+                    type="text"
+                    data-itemType="currency"
+                    value="{{this}}">
+                {{/with}}
+            </div>
             {{/each}}
-            <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
+
+            {{#if hasToken}}
+            {{#if showTakeCurrency}}
+              <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
+            {{/if}}
+            {{/if}}
           </ul>
         </section>
       {{/if}}
@@ -94,11 +144,10 @@
 
                   <input
                     class="item-details quantity-input"
-                    name="flags.pick-up-stix.pick-up-stix.container.loot.{{@lootType}}.{{@index}}.data.{{../../quantityDataPath}}"
+                    name="container.loot.{{@lootType}}.{{@index}}.data.{{../../quantityDataPath}}"
                     type="text"
                     data-loot-type="{{lootType}}"
                     data-loot-id="{{loot._id}}"
-                    data-dtype="Number"
                     class="item-qty"
                     value="{{loot.qty}}"
                   >
@@ -109,9 +158,11 @@
 
                   <div class="item-details item-controls">
                     <!-- hand icon to take loot -->
-                    <a data-id="{{loot._id}}" class="item-take" title="Take Item">
-                      <i class="fas fa-hand-paper"></i>
-                    </a>
+                    {{#if ../../hasToken}}
+                      <a data-id="{{loot._id}}" class="item-take" title="Take Item">
+                        <i class="fas fa-hand-paper"></i>
+                      </a>
+                    {{/if}}
 
                     {{#if ../../user.isGM}}
                     <!-- trash icon to delete loot -->

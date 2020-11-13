@@ -1,7 +1,7 @@
 //@ts-ignore
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
-import { PickUpStixSocketMessage, SocketMessageType } from './module/pick-up-stix/models.js';
+import { log, warn } from './log';
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
@@ -9,9 +9,9 @@ export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
 };
 
 export const getCurrencyTypes = (): { [short: string]: string } =>  {
-  console.log(`pick-up-stix | utils | getCurrencies`);
+  log(`pick-up-stix | utils | getCurrencies`);
   if (game.system.id === 'dnd5e') {
-    console.log(`pick-up-stix | utils | getCurrencies | using system 'dnd5e'`);
+    log(`pick-up-stix | utils | getCurrencies | using system 'dnd5e'`);
     //@ts-ignore
     import('../../systems/dnd5e/module/config.js').then(r => {
       return {
@@ -19,8 +19,16 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
       };
     });
   }
+  else if (game.system.id === 'pf2e') {
+    return {
+      cp: 'Copper',
+      gp: 'Gold',
+      pp: 'Platinum',
+      sp: 'Silver'
+    }
+  }
   else {
-    console.warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
+    warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
   }
 
   return {
@@ -45,14 +53,22 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
   return v1Parts[0] - v2Parts[0];
 }
 
-export function _onChangeInputDelta(event) {
+export const collidedTokens = (options: { x: number, y:number }): Token[] => {
+  return canvas.tokens.placeables.filter((p: PlaceableObject) =>
+    options.x <= p.x + p.width - 1 && options.x >= p.x && options.y <= p.y + p.height - 1 && options.y >= p.y
+  );
+}
+
+export function onChangeInputDelta(event) {
+  log(`pick-up-stix | onChangeInputDelta`);
+  log([event]);
   const input = event.target;
   const value = input.value;
   if ( ['+', '-'].includes(value[0]) ) {
     let delta = parseFloat(value);
-    input.value = getProperty(this.data, input.name) + delta;
+    input.value = Math.max(+getProperty(this, input.name) + +delta, 0);
   } else if ( value[0] === '=' ) {
-    input.value = value.slice(1);
+    input.value = Math.max(+value.slice(1), 0);
   }
 }
 
@@ -67,7 +83,7 @@ export function getQuantityDataPath(): string {
       path = 'quantity.value'
       break;
     default:
-      console.warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
+      warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
       path = 'quantity';
       break;
   }
@@ -86,7 +102,7 @@ export function getPriceDataPath(): string {
       path = 'price.value'
       break;
     default:
-      console.warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
+      warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
       path = 'price';
       break;
   }
@@ -94,19 +110,57 @@ export function getPriceDataPath(): string {
   return path;
 }
 
-export const deleteToken = async (token: Token): Promise<void> => {
-  console.log(`pick-up-stix | deleteToken with args:`);
-  console.log(token);
+export function getWeightDataPath(): string {
+  let path;
 
-  if (game.user.isGM) {
-    await canvas.scene.deleteEmbeddedEntity('Token', token.id);
-    return;
+  switch (game.system.id) {
+    case 'dnd5e':
+      path = 'weight'
+      break;
+    case 'pf2e':
+      path = 'weight.value'
+      break;
+    default:
+      warn(`System ${game.system.id} weight data path not implemented and therefore might not work with item data.`);
+      path = 'weight';
+      break;
   }
 
-  const msg: PickUpStixSocketMessage = {
-    sender: game.user.id,
-    type: SocketMessageType.deleteToken,
-    data: token.id
+  return path;
+}
+
+export const getActorCurrencyPath = (): string => {
+  let path;
+
+  switch (game.system.id) {
+    case 'dnd5e':
+    case 'pf2e':
+      path = 'data.currency'
+      break;
+    default:
+      warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
+      path = 'data.currency';
+      break;
   }
-  socket.emit('module.pick-up-stix', msg);
+
+  return path;
+}
+
+export const amIFirstGm = (): boolean => {
+  const firstGm = firstGM();
+  return firstGm && game.user === firstGm
+}
+
+export const firstGM = () => {
+  const firstGm = game.users.find(u => u.isGM && u.active);
+  return firstGm;
+}
+
+export class Util {
+
+  static joinStrings(arr: string[], separator: string = ":") {
+      if (arr.length === 0) return "";
+      return arr.reduce((v1, v2) => `${v1}${separator}${v2}`);
+  }
+
 }

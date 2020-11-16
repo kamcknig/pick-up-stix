@@ -17,6 +17,7 @@ export interface TokenFlags {
 	itemId?: string;
 	isOpen?: boolean;
 	isLocked?: boolean;
+	minPerceiveValue: number;
 }
 
 export interface ItemFlags {

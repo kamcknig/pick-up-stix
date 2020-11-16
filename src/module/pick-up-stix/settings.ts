@@ -1,6 +1,8 @@
 import { log } from "../../log";
 
 
+
+
 export enum SettingKeys {
 	openImagePath = 'default-container-opened-image-path',
 	closeImagePath = 'default-container-closed-image-path',
@@ -14,7 +16,8 @@ export enum SettingKeys {
 	itemFolderId = 'itemFolderId',
 	version13updatemessage = 'version13updatemessage',
 	GMActionTimeout = 'GMActionTimeout',
-	addItemOnContainerCreation = 'addItemOnContainerCreation'
+	addItemOnContainerCreation = 'addItemOnContainerCreation',
+	enableLootTokenPerceiveReveal = 'enableLootTokenPerceiveReveal'
 }
 
 const systemCurrenciesImplemented = [
@@ -96,6 +99,15 @@ const registerHiddenSettings = () => {
 }
 
 const registerWorldSettings = () => {
+	game.settings.register('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal, {
+		name: 'Loot Token Reveal',
+		hint: `Enables auto-revealing loot tokens that players with controlled tokens are able to see with their passive 'perceive' value.`,
+		scope: 'world',
+		config: game.system.id === 'dnd5e',
+		type: Boolean,
+		default: game.system.id === 'dnd5e'
+	});
+
 	game.settings.register('pick-up-stix', SettingKeys.openImagePath, {
 		name: 'Default Container Opened Image',
 		hint: 'Sets the path for the default image to use for opened containers',
@@ -104,6 +116,7 @@ const registerWorldSettings = () => {
 		type: imageTypeFunc,
 		default: 'modules/pick-up-stix/assets/chest-opened.png'
 	});
+
 	game.settings.register('pick-up-stix', SettingKeys.closeImagePath, {
 		name: 'Default Container Closed Image',
 		hint: 'Sets the path for the default image to use for closed containers',

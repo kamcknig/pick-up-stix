@@ -3,8 +3,8 @@
 
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
-import { tokenRelease } from "../overrides";
-import { log } from "../../../log";
+import { Token_isVisible, Token_tokenRelease } from "../overrides";
+import { info, log } from "../../../log";
 
 /* ------------------------------------ */
 export async function initHook() {
@@ -20,5 +20,15 @@ export async function initHook() {
 	// Preload Handlebars templates
 	await preloadTemplates();
 
-	Token.prototype.release = tokenRelease(Token.prototype.release);
+	Token.prototype.release = Token_tokenRelease(Token.prototype.release);
+
+	if (game.system.id === 'dnd5e') {
+		info(`pick-up-stix | initHook | System is '${game.system.id}' enabling Token.isVisible override.`);
+
+		Object.defineProperty(Token.prototype, 'isVisible', {
+			get: Token_isVisible,
+			enumerable: true,
+			configurable: true
+		});
+	}
 };

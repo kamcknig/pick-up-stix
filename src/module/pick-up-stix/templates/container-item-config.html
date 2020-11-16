@@ -126,7 +126,9 @@
         <div class="flexrow" style="align-items: center;">
           <h3 style="margin: 0;">Loot <i class="fas fa-box"></i></h3>
 
-          <button type="button" class="loot-all-button"><i class="fas fa-gem"></i>Loot All</button>
+          {{#if showLootAll}}
+            <button type="button" class="loot-all-button"><i class="fas fa-gem"></i>Loot All</button>
+          {{/if}}
         </div>
 
         <ol class="inventory-list flexcol">

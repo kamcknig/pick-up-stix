@@ -19,6 +19,14 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
       };
     });
   }
+  else if (game.system.id === 'D35E') {
+    return {
+      cp: 'Copper',
+      gp: 'Gold',
+      pp: 'Platinum',
+      sp: 'Silver'
+    }
+  }
   else if (game.system.id === 'pf2e') {
     return {
       cp: 'Copper',
@@ -79,6 +87,9 @@ export function getQuantityDataPath(): string {
     case 'dnd5e':
       path = 'quantity'
       break;
+    case 'D35E':
+      path = 'quantity'
+      break;
     case 'pf2e':
       path = 'quantity.value'
       break;
@@ -96,6 +107,9 @@ export function getPriceDataPath(): string {
 
   switch (game.system.id) {
     case 'dnd5e':
+      path = 'price'
+      break;
+    case 'D35E':
       path = 'price'
       break;
     case 'pf2e':
@@ -117,6 +131,9 @@ export function getWeightDataPath(): string {
     case 'dnd5e':
       path = 'weight'
       break;
+    case 'D35E':
+      path = 'weight'
+      break;
     case 'pf2e':
       path = 'weight.value'
       break;
@@ -134,6 +151,7 @@ export const getActorCurrencyPath = (): string => {
 
   switch (game.system.id) {
     case 'dnd5e':
+    case 'D35E':
     case 'pf2e':
       path = 'data.currency'
       break;

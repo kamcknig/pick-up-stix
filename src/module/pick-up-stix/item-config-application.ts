@@ -40,7 +40,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 			submitOnClose: false,
 			submitOnChange: true,
 			id: "pick-up-stix-item-config",
-			template: "modules/pick-up-stix/module/pick-up-stix/templates/item-config.html",
+			template: "modules/pick-up-stix/module/pick-up-stix/templates/container-item-config.html",
 			width: 900,
 			title: `${game.user.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
 			resizable: true,

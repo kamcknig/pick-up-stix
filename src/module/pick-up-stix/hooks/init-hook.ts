@@ -3,11 +3,12 @@
 
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
-import { tokenRelease } from "../overrides";
+import { Token_isVisible, Token_tokenRelease } from "../overrides";
+import { info, log } from "../../../log";
 
 /* ------------------------------------ */
 export async function initHook() {
-	console.log('pick-up-stix | initHook');
+	log('pick-up-stix | initHook');
 
 	// CONFIG.debug.hooks = true;
 
@@ -19,9 +20,15 @@ export async function initHook() {
 	// Preload Handlebars templates
 	await preloadTemplates();
 
-	Handlebars.registerHelper('capitalize', (input: string) => {
-		return `${input[0].toUpperCase()} ${input.slice(1)}`;
-	});
+	Token.prototype.release = Token_tokenRelease(Token.prototype.release);
 
-	Token.prototype.release = tokenRelease(Token.prototype.release);
+	if (game.system.id === 'dnd5e') {
+		info(`pick-up-stix | initHook | System is '${game.system.id}' enabling Token.isVisible override.`);
+
+		Object.defineProperty(Token.prototype, 'isVisible', {
+			get: Token_isVisible,
+			enumerable: true,
+			configurable: true
+		});
+	}
 };

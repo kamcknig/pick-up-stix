@@ -16,8 +16,14 @@
 
   <div class="col right">
     {{#if isGM}}
-      <div class="control-icon visibility {{visibilityClass}}">
+      <div class="visibility-wrapper">
+        {{#if showPerceiveInput}}
+          <input class="visibility-perceive-input" type="text" name="flags.pick-up-stix.pick-up-stix.minPerceiveValue" value="{{minPerceiveValue}}">
+        {{/if}}
+
+        <div class="control-icon visibility {{visibilityClass}}">
           <img src="{{icons.visibility}}" width="36" height="36" title="Toggle Visibility"/>
+        </div>
       </div>
 
       <div class="control-icon locked {{lockedClass}}">

@@ -1,25 +1,38 @@
-import { getCurrencyTypes, getPriceDataPath, getQuantityDataPath, _onChangeInputDelta } from '../../utils';
-import ContainerImageSelectionApplication from "./container-image-selection-application.js";
+import { log } from '../../log';
 import {
-	createOwnedItem,
-	currencyCollected,
-	itemCollected,
-	updateActor,
-	updateEntity
-} from './main';
-import { ItemType, ContainerLoot, PickUpStixFlags } from "./models";
-import { SettingKeys } from './settings';
+	getCurrencyTypes,
+	getPriceDataPath,
+	getQuantityDataPath,
+	onChangeInputDelta
+} from '../../utils';
+import ContainerImageSelectionApplication from "./container-image-selection-application.js";
 import { ContainerSoundConfig } from './container-sound-config-application';
+import { ContainerLoot, ItemFlags } from './loot-token';
+import {
+	addItemToContainer,
+	getLootToken,
+	getValidControlledTokens,
+	lootCurrency,
+	lootItem,
+	normalizeDropData,
+	updateItem
+} from './main';
+import {
+	DropData
+} from "./models";
+import { SettingKeys } from './settings';
 
 /**
  * Application class to display to select an item that the token is
  * associated with
  */
-export default class ItemConfigApplication extends FormApplication {
-	private _tokenDeletedHandler;
-	private _tokenUpdatedHandler;
+export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	private _html: any;
-	private _currencyEnabled: boolean;
+	private _sourceTokenId: string;
+	private _selectedTokenId: string;
+	private _stopperElement = $(`<div class="stopper">
+		<div class="loader"></div>
+	</div>`);
 
 	static get defaultOptions(): ApplicationOptions {
 		return mergeObject(super.defaultOptions, {
@@ -28,441 +41,433 @@ export default class ItemConfigApplication extends FormApplication {
 			submitOnChange: true,
 			id: "pick-up-stix-item-config",
 			template: "modules/pick-up-stix/module/pick-up-stix/templates/item-config.html",
-			width: 720,
-			minimizable: false,
+			width: 900,
 			title: `${game.user.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
 			resizable: true,
-			classes: ['pick-up-stix', 'item-config-sheet'],
+			classes: ['pick-up-stix', 'container-item-config-sheet'],
 			dragDrop: [{ dropSelector: null }]
 		});
 	}
 
-	constructor(private _token: Token, private _controlledToken: Token) {
-		super(_token, {});
-
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`)
-		console.log([this._token, this._controlledToken]);
-
-		this._currencyEnabled = !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
-
-		this._tokenDeletedHandler = Hooks.on('deleteToken', this._tokenDeleted.bind(this));
-		this._tokenUpdatedHandler = Hooks.on('updateToken', this._tokenUpdated.bind(this));
+	private get currencyEnabled(): boolean {
+		return !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
 	}
 
-	protected _tokenUpdated(scene: Scene, tokenData: any, tokenFlags: any, userId: string): void {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _tokenUpdated called with args:`);
-		console.log([scene, tokenData, tokenFlags, userId]);
-		this.render();
+	get itemFlags(): ItemFlags {
+		return this.object.getFlag('pick-up-stix', 'pick-up-stix');
 	}
 
-	protected _tokenDeleted(scene: Scene, tokenData: any, data: any, userId: string) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _tokenDeleted called with args:`);
-		console.log([scene, tokenData, data, userId]);
+	get tokenDatas(): any[] {
+		const tokens = getLootToken({ itemId: this.object.id }).map(lt => lt.tokenData);
+		return tokens;
+	}
 
-		if (tokenData._id === this._token.id) {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _tokenDeleted | token ID matches this app's token`)
-			this.close();
-		}
+	get isToken(): boolean {
+		return !!this.tokenDatas.length;
+	}
+
+	constructor(object: Item, ...args) {
+		super(object, args);
+
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`);
+		log([object]);
 	}
 
 	activateListeners(html) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | activateListeners`);
-		console.log(this);
+		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | activateListeners`);
+		log([html]);
 		this._html = html;
 		super.activateListeners(this._html);
+
+		Hooks.off('updateToken', this.updateTokenHook);
+		Hooks.off('controlToken', this.controlTokenHook);
+
+		Hooks.on('updateToken', this.updateTokenHook);
+		Hooks.on('controlToken', this.controlTokenHook);
 
 		$(html)
 			.find('input')
 			.on('focus', e => e.currentTarget.select())
-			.addBack()
-			.find('[data-dtype="Number"]')
-			.on('change', _onChangeInputDelta.bind(this.object));
-
-		// set the click listener on the image
-		if (game.user.isGM) {
-			$(html)
-				.find(`[data-edit="img"]`)
-				.on('click', e => this._onEditImage(e))
-				.css('cursor', 'pointer');
-		}
-
-		// set click listeners on the buttons to pick up individual items
-		$(html).find(`a.item-take`).click(e => this._onTakeItem(e));
-
-		// set click listeners on the buttons to delete items
-		$(html).find(`a.item-delete`).click(e => this._onDeleteItem(e));
+			.on('change', onChangeInputDelta.bind(this.itemFlags));
 
 		if (game.user.isGM) {
 			$(html)
 				.find('.configure-sound')
-				.click(e => this._onConfigureSound(e))
+				.on('click', this._onConfigureSound)
 				.css('cursor', 'pointer');
+
+			$(html)
+				.find(`[data-edit="img"]`)
+				.on('click', this._onEditImage)
+				.css('cursor', 'pointer');
+
+				// set click listeners on the buttons to delete items
+			$(html)
+				.find(`a.item-delete`)
+				.on('click', this._onDeleteItem);
 		}
 
-		if (this._currencyEnabled) {
+		$(html)
+			.find('[data-actor_select]')
+			.on('click', this._onSelectActor);
+
+		if (this.currencyEnabled) {
 			// set click listener for taking currency
-			$(html).find(`a.currency-take`).click(e => this._onTakeCurrency(e));
+			$(html)
+				.find(`a.currency-take`)
+				.on('click', this._onTakeCurrency);
 		}
 
-		$(html).find(`input[type="text"]`).prop('readonly', !game.user.isGM);
-		$(html).find(`input[type="text"]`).prop('disabled', 	!game.user.isGM);
+		// set click listeners on the buttons to pick up individual items
+		$(html)
+			.find('.loot-all-button')
+			.on('click', this._onLootAll);
 
-		$(html).find('input#canCloseCheckbox').prop('checked', this._token.getFlag('pick-up-stix', 'pick-up-stix.canClose') ?? true);
+		$(html)
+			.find(`a.item-take`)
+			.on('click', this._onTakeItem);
 
-		if (this._token) {
-			$(html).find('input#scale').val(this._token?.data?.width ?? 1);
-		}
+		$(html)
+			.find(`input[type="text"]`)
+			.prop('readonly', !game.user.isGM);
+
+		$(html)
+			.find(`input[type="text"]`)
+			.prop('disabled', !game.user.isGM);
+
+		$(html)
+			.find('input#canCloseCheckbox')
+			.prop('checked', this.itemFlags?.container?.canClose ?? true);
 
 		if (!game.user.isGM) {
-			$(html).find(`input[type="text"]`).addClass('isNotGM');
+			$(html)
+				.find(`input[type="text"]`)
+				.addClass('isNotGM');
 		}
 	}
 
-	private _onConfigureSound(e): void {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onConfigureSound`);
+	/**
+	 *
+	 * @param options
+	 */
+	getData(options?: { renderData: { tokens?: Token[]; sourceToken: string; [key:string]: any }}): any {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData:`);
+		log([options]);
+		this._sourceTokenId = this._sourceTokenId !== options?.renderData?.sourceToken
+			? options?.renderData?.sourceToken ?? this._sourceTokenId
+			: this._sourceTokenId;
 
-		const f = new ContainerSoundConfig(this.object, {}).render(true);
-	}
-
-	getData() {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | getData:`);
-		const itemType = this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType');
+		const actionTokens = options.renderData?.tokens ?? [];
 		const quantityDataPath = getQuantityDataPath();
 		const priceDataPath = getPriceDataPath();
-		const tokenLoot: ContainerLoot = duplicate(this.object.getFlag('pick-up-stix', `pick-up-stix.container.loot`) ?? {});
-		const loot = Object.entries(tokenLoot).reduce((prev, [lootKey, lootItems]) => {
-			const items = lootItems?.map(i => {
-				if (!i.data.hasOwnProperty('quantity')) {
-					setProperty(i.data, quantityDataPath, 0);
+
+		const loot = Object.entries(this.itemFlags?.container?.loot as ContainerLoot ?? {})
+			.reduce((prev, [lootKey, lootItems]) => {
+				const items = lootItems?.map(i => {
+					if (!i.data.hasOwnProperty('quantity')) {
+						setProperty(i.data, quantityDataPath, 0);
+					}
+
+					return {
+						...i,
+						price: +getProperty(i.data, quantityDataPath) * +parseFloat(getProperty(i.data, priceDataPath) ?? 0),
+						qty: +getProperty(i.data, quantityDataPath)
+					}
+				});
+
+				if (items?.length > 0) {
+					prev[lootKey] = items;
 				}
 
-				return {
-					...i,
-					price: +getProperty(i.data, quantityDataPath) * +parseFloat(getProperty(i.data, priceDataPath) ?? 0),
-					qty: +getProperty(i.data, quantityDataPath)
-				}
-			});
+				return prev;
+			}, {});
 
-			if (items?.length > 0) {
-				prev[lootKey] = items;
-			}
 
-			return prev;
-		}, {});
-
-		let containerDescription = this._token.getFlag('pick-up-stix', 'pick-up-stix.container.description') ?? '';
-		containerDescription = containerDescription.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
+		let description = this.itemFlags?.container?.description ?? this.object.data?.data?.description?.value ?? '';
+		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
 		const currencyTypes = getCurrencyTypes();
+		const tokens = getValidControlledTokens(this._sourceTokenId)
+			.concat(actionTokens)
+			.reduce((acc, next) => {
+				if (!next || acc.map(t => t.id).includes(next.id)) {
+					return acc;
+				}
+				acc.push(next);
+				return acc;
+			}, [])
+			.map(t => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' }))
+			.filter(t => !!t.token)
+			.sort((a, b) => {
+				if (a.token.name < b.token.name) return -1;
+				if (a.token.name > b.token.name) return 1;
+				return 0;
+			});
 
-		const data = {
-			currencyEnabled: this._currencyEnabled,
-			currencyTypes: Object.entries(currencyTypes).map(([k, v]) => ({ short: k, long: v })),
-			currency: duplicate(this._token.getFlag('pick-up-stix', 'pick-up-stix.container.currency') ?? {}),
-			lootTypes: Object.keys(loot),
-			loot,
-			profileImage: itemType === ItemType.CONTAINER ? this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') : this._token.data.img,
-			isContainer: itemType === ItemType.CONTAINER,
-			containerDescription,
-			isToken: this._token instanceof Token,
-			object: this._token.data,
-			user: game.user,
-			quantityDataPath
-		};
-
-		if (this._currencyEnabled) {
-			;
+		if (!this._selectedTokenId && tokens.length) {
+			log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData | setting selected token '${tokens[0].token.id}'`);
+			this._selectedTokenId = tokens[0].token.id;
+			tokens[0].class = 'active';
 		}
 
-		console.log(data);
+		const data = {
+			currencyEnabled: this.currencyEnabled,
+			currencyTypes: Object.entries(currencyTypes).map(([k, v]) => ({ short: k, long: v })),
+			currency: this.itemFlags.container.currency,
+			showTakeCurrency: Object.values(this.itemFlags.container.currency).some(amount => amount > 0),
+			lootTypes: Object.keys(loot),
+			loot,
+			profileImage: this.itemFlags.container.imageOpenPath,
+			description,
+			object: this.object.data,
+			width: this.itemFlags.tokenData.width ?? 1,
+			height: this.itemFlags.tokenData.height ?? 1,
+			user: game.user,
+			quantityDataPath,
+			hasToken: this.isToken,
+			tokens
+		};
+
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData | data to render:`);
+		log([data]);
 		return data;
 	}
 
-	protected async _onDeleteItem(e) {
-		console.log(`pick-up-stix | ItemConfigApplication | _onDeleteItem`);
-		const itemId = e.currentTarget.dataset.id;
-
-		const loot: ContainerLoot = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix.container.loot'));
-
-		Object.values(loot).forEach(lootItems => {
-			lootItems.findSplice(l => l._id === itemId);
-		});
-
-		this.submit({
-			updateData: {
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							container: {
-								loot
-							}
-						}
-					}
-				}
-			}
-		});
-	}
-
-	protected async _onTakeCurrency(e) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency`);
-		const actor: Actor = this._controlledToken?.actor;
-		if (!actor) {
-			ui.notifications.error('You must be controlling only one token to pick up an item');
-			return;
-		}
-
-		// TODO: this code will need to be updated to support different system's currencies
-		const actorCurrency = { ...getProperty(actor, 'data.data.currency') ?? {} };
-
-		const currency = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix.container.currency') ?? {});
-		if (!Object.values(currency).some(c => c > 0)) {
-			console.log(`pick-up-stix | ItemCOnfigApplication ${this.appId} | _onTakeCurrency | No currency to loot`);
-			return;
-		}
-
-		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +actorCurrency[k] + +currency[k]);
-		await updateActor(actor, {'data.currency': actorCurrency});
-
-		currencyCollected(this._controlledToken, Object.entries(currency).filter(([, v]) => v > 0).reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {}));
-
-		Object.keys(currency)?.forEach(k => currency[k] = 0);
-		$(this._html).find('.data-currency-input').val(0);
-		await this.submit({
-			updateData: {
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							container: {
-								currency
-							}
-						}
-					}
-				}
-			}
-		});
-	}
-
-	protected async _onTakeItem(e) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeItem`);
-		const actor = this._controlledToken?.actor;
-		if (!actor) {
-			ui.notifications.error('You must be controlling only one token to pick up an item');
-			return;
-		}
-		const loot: ContainerLoot = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix.container.loot') ?? {});
-		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
-		const itemId = e.currentTarget.dataset.id;
-		const itemData = loot?.[itemType]?.find(i => i._id === itemId);
-		const oldQty = getProperty(itemData.data, getQuantityDataPath());
-
-		if (oldQty - 1 <= 0) {
-			loot?.[itemType]?.findSplice(v => v._id === itemId);
-		}
-		else {
-			setProperty(itemData.data, getQuantityDataPath(), oldQty - 1);
-		}
-
-		await createOwnedItem(actor, [{
-			...duplicate(itemData),
-			data: {
-				...duplicate(itemData.data),
-				[getQuantityDataPath()]: 1
-			}
-		}]);
-
-		itemCollected(this._controlledToken, itemData);
-
-		await this.submit({
-			updateData: {
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							container: {
-								loot
-							}
-						}
-					}
-				}
-			}
-		});
-	}
-
-	protected _onEditImage(e) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onEditImage`);
-
-		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
-			const f = new ContainerImageSelectionApplication(this._token).render(true);
-			Hooks.once('closeContainerImageSelectionApplication', () => {
-				console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | closeContainerImageSelectionApplication hook`);
-				const img =
-					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.isOpen') ?
-					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') :
-					this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageClosePath');
-				this._token.update({ img });
-			});
-			return;
-		}
-
-		const attr = e.currentTarget.dataset.edit;
-    const current = getProperty(this.object.data, attr);
-    const fp = new FilePicker({
-      type: "image",
-      current: current,
-      callback: path => {
-        e.currentTarget.src = path;
-        if (this.options.submitOnChange) {
-          this._onSubmit(e);
-        }
-      },
-      top: this.position.top + 40,
-      left: this.position.left + 10
-    });
-    fp.browse(current);
-	}
-
+	/**
+	 * @override
+	 * @param e
+	 */
 	protected async _onDrop(e) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop with data:`);
-		const droppedData = JSON.parse(e.dataTransfer.getData('text/plain'));
-		console.log(droppedData);
+		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop`);
+		const dropData: DropData = await normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
 
-		if (droppedData.type !== "Item") {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | item is not 'Item' type`);
-			return;
-		}
+		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | dropped data`);
+		log([dropData]);
 
-		let itemData;
-		const coreVersion = game.data.verson;
-		const is7Newer = isNewerVersion(coreVersion, '0.6.9');
+		this.addStopper();
 
-		// if the item came from an actor's inventory, then it'll have an actorId property,
-		// we'll need to remove the item from that actor
-		const actor =
-			droppedData.actorId ?
-			(
-				is7Newer ?
-					(
-						droppedData.tokenId ?
-							game.actors.tokens[droppedData.tokenId] :
-							game.actors.get(droppedData.actorId)
-					) :
-					canvas.tokens?.controlled?.[0]?.actor
-			) :
-			null;
-
-		// ensure we have a controlled token so that we know which token's actor if need be that we will
-		// be interacting with. We only need to do this for versions lower than 0.7.0 because 0.7.0
-		// contains more data in the drop data that we need
-		if (actor && canvas.tokens.controlled.length !== 1 && !is7Newer) {
-			ui.notifications.error(`Please ensure you are only controlling the token (and only the one token) for the character you're working with.`);
-			return;
-		}
-
-		if (!actor && droppedData.actorId) {
-			ui.notifications.error(`No valid actor found for actor '${droppedData.actorId}', please ensure you are controlling the token (and only the one token) for the character you're working with`);
-			return;
-		}
-
-		// if the dropped item comes from an actor, we need to delete the item from that actor
-		if (actor) {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | drop data contains actor ID '${actor.id}', delete item from actor`);
-			itemData = duplicate(droppedData.data);
-			await actor.deleteOwnedItem(itemData._id);
-		}
-		else {
-			itemData = await game.items.get(droppedData.id)?.data ?? await game.packs.get(droppedData.pack).getEntry(droppedData.id);
-		}
-
-		const itemType = itemData.type;
-		const lootTokenFlags: PickUpStixFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix') ?? {});
-		const loot: ContainerLoot = lootTokenFlags?.container?.loot ?? {};
-		if (!loot[itemType]) {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | no items of type '${itemType}', creating new slot`);
-			loot[itemType] = [];
-		}
-		const qtyDataPath = getQuantityDataPath();
-		const existingItem = loot[itemType]?.find(i => i._id === (actor ? getProperty(itemData, 'flags.pick-up-stix.pick-up-stix.originalItemId') : itemData._id));
-		if (existingItem) {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for type '${itemType}', increase quantity by 1`);
-			setProperty(existingItem.data, qtyDataPath, getProperty(existingItem.data, qtyDataPath) + 1)
-		}
-		else {
-			console.log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | existing data for item '${itemData._id}' does not exist, set quantity to 1 and add to slot`);
-			setProperty(itemData.data, qtyDataPath, 1);
-			loot[itemType].push({
-				...itemData
-			});
-		}
-
-		const updateData = {
-			flags: {
-				'pick-up-stix': {
-					'pick-up-stix': {
-						container: {
-							loot
-						}
-					}
-				}
-			}
-		};
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onDrop | submit data:`);
-		console.log(updateData);
-		await this.submit({ updateData });
+		addItemToContainer({
+			containerItemId: this.object.id,
+			itemData: dropData.data
+		}).then(() => {
+			this._stopperElement.remove();
+		});
 	}
 
+	/**
+	 * @override
+	 * @param e
+	 * @param formData
+	 */
 	protected async _updateObject(e, formData) {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject called with args:`);
-		console.log([e, duplicate(formData)]);
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject called with args:`);
+		log([e, duplicate(formData)]);
 
-		if (this._token.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
-			formData.img = this._token.getFlag('pick-up-stix', 'pick-up-stix.container.isOpen') ? this._token.getFlag('pick-up-stix', 'pick-up-stix.container.imageOpenPath') : this._token.getFlag('pick-up-stix', 'pick-up-stix.conatiner.imageClosePath');
-		}
+		const containerData = duplicate(this.itemFlags.container);
 
-		const tokenLoot: ContainerLoot = duplicate(this.object.getFlag('pick-up-stix', `pick-up-stix.container.loot`) ?? {});
+		formData = duplicate(formData);
+
+		const token = canvas.tokens.placeables.find(p => p.id === this._sourceTokenId);
+
+		formData.img = token?.getFlag('pick-up-stix', 'pick-up-stix')?.isOpen
+			? containerData?.imageOpenPath
+			: containerData?.imageClosePath;
+
+		const tokenLoot: ContainerLoot = containerData?.loot;
 
 		if (e.type === 'change') {
-			Object.entries(tokenLoot).forEach(([lootType, v]) => {
+			if ($(e.currentTarget).hasClass('currency-input')) {
+				if (!e.currentTarget.value) {
+					const name = e.currentTarget.name;
+					setProperty(formData, name, 0);
+				}
+			}
+
+			Object.entries(tokenLoot ?? {}).forEach(([lootType, v]) => {
 				if (v.length === 0) {
 					return;
 				}
 
-				setProperty(formData, `flags.pick-up-stix.pick-up-stix.container.loot.${lootType}`, v.map(itemData => {
-					setProperty(
-						itemData.data,
+				setProperty(formData, `container.loot.${lootType}`, v.map(itemData => {
+					const data = { ...itemData };
+					setProperty(data.data,
 						getQuantityDataPath(),
 						$(e.currentTarget).hasClass('quantity-input') && e.currentTarget.dataset.lootType === itemData.type && e.currentTarget.dataset.lootId === itemData._id ?
 							+$(e.currentTarget).val() :
 							+getProperty(itemData.data, getQuantityDataPath())
 					);
-					return itemData;
+					return data;
 				}));
 			});
 		}
 
-		if (this._currencyEnabled) {
+		if (this.currencyEnabled) {
 			// when the user is a GM the currency is taken from the inputs on the form, but when the user NOT a GM, there are no inputs
 			if (!game.user.isGM) {
-				if (tokenLoot.currency) {
-					setProperty(formData, `flags.pick-up-stix.pick-up-stix.container.loot.currency`, { ...tokenLoot.currency });
+				if (containerData.currency) {
+					setProperty(formData, `container.currency`, { ...containerData.currency });
 				}
 			}
 		}
 
-		if (formData.width !== undefined) {
-			// we only collect the one size and store it as the width, so here we also store the height to be the same
-			formData.height = formData.width;
-		}
+		const expandedObject = expandObject(flattenObject(formData));
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
+		log(expandedObject);
 
-		const flattendOb = flattenObject(formData);
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | flattend 'formData' object:`);
-		console.log(flattendOb);
-		await updateEntity(this._token, flattendOb);
-		this.render();
+		await updateItem(this.object.id, {
+			name: formData.name,
+			flags: {
+				'pick-up-stix': {
+					'pick-up-stix': {
+						...expandedObject
+					}
+				}
+			}
+		});
 	}
 
-	async close() {
-		console.log(`pick-up-stix | ItemConfigApplication ${this.appId} | close`);
-		Hooks.off('deleteToken', this._tokenDeletedHandler);
-		Hooks.off('updateToken', this._tokenUpdatedHandler);
+	/**
+	 * @override
+	 */
+	close = async () => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | close`);
+		Hooks.off('updateToken', this.updateTokenHook);
+		Hooks.off('controlToken', this.controlTokenHook);
 		return super.close();
+	}
+
+	/**
+	 * @override
+	 * @param token
+	 * @param controlled
+	 */
+	private controlTokenHook = (token, controlled): void => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
+		log([token, controlled]);
+
+		const options = {};
+		if (this.isToken) {
+			options['renderData'] = { tokens: getValidControlledTokens(this._sourceTokenId), sourceTokenId: this._sourceTokenId };
+		}
+		setTimeout((options) => {
+			this.render(true, options);
+		}, 100, options);
+	}
+
+	private updateTokenHook = (scene, token, diff, options): void => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateTokenHook`);
+
+		// clear the selected token because the token might have moved too far away to be
+		// eligible
+		this._selectedTokenId = null;
+		setTimeout(this.render.bind(this), 100, { sourceTokenId: this._sourceTokenId });
+	}
+
+	private _onSelectActor = (e): void => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | onActorSelect`);
+		this._selectedTokenId = e.currentTarget.dataset.token_id;
+		const options = { sourceTokenId: this._sourceTokenId };
+		this.render(false, options);
+	}
+
+	private _onConfigureSound = (e): void => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | onConfigureSound`);
+		new ContainerSoundConfig(this.object, {}).render(true);
+	}
+
+	protected _onDeleteItem = async (e) => {
+		log(`pick-up-stix | ItemConfigApplication | _onDeleteItem`);
+		const itemId = e.currentTarget.dataset.id;
+
+		const loot: ContainerLoot = duplicate(this.itemFlags.container.loot);
+
+		Object.values(loot).forEach(lootItems => {
+			lootItems.findSplice(l => l._id === itemId);
+    });
+
+    await this.submit({
+      updateData: {
+        container: {
+          loot
+        }
+      }
+    });
+	}
+
+	protected _onTakeCurrency = async (e) => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency`);
+
+    if (!this._selectedTokenId) {
+			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
+			return;
+		}
+
+		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+
+		$(this._html)
+			.find('.data-currency-input')
+			.val(0);
+
+		this.addStopper();
+
+		lootCurrency({ looterTokenId: token.id, containerItemId: this.object.id, currencies: this.itemFlags.container.currency }).then(() => {
+			this._stopperElement.remove();
+		})
+	}
+
+	protected _onLootAll = async (e) => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onLootAll`);
+
+		if (!this._selectedTokenId) {
+			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
+			return;
+		}
+
+		const flags: ItemFlags = duplicate(this.itemFlags);
+		const loot: ContainerLoot = flags.container.loot;
+		/* const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
+		const itemId = e.currentTarget.dataset.id; */
+		const itemData = Object.values(loot)?.reduce((acc, itemDatas) => acc.concat(itemDatas), []);
+		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+
+		lootItem({ looterTokenId: token.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId, takeAll: true }).then(() => {
+			this._stopperElement.remove();
+		});
+	}
+
+	protected _onTakeItem = async (e) => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeItem`);
+
+		if (!this._selectedTokenId) {
+			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
+			return;
+		}
+
+    const flags: ItemFlags = duplicate(this.itemFlags);
+		const loot: ContainerLoot = flags.container.loot;
+		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
+		const itemId = e.currentTarget.dataset.id;
+		const itemData = loot?.[itemType]?.find(i => i._id === itemId);
+		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+
+		this.addStopper();
+
+		lootItem({ looterTokenId: token.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId, takeAll: false }).then(() => {
+			this._stopperElement.remove();
+		});
+	}
+
+	protected _onEditImage = async (e) => {
+		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onEditImage`);
+
+		new ContainerImageSelectionApplication(this.object).render(true);
+		Hooks.once('closeContainerImageSelectionApplication', (app, html) => {
+			log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);
+			log([app, html]);
+		});
+	}
+
+	private addStopper(): void {
+		$(this._html).parents('#pick-up-stix-item-config').children().first().before(this._stopperElement);
 	}
 }

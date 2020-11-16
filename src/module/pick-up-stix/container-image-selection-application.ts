@@ -1,3 +1,8 @@
+import { log } from "../../log";
+import {
+  updateItem
+} from "./main";
+
 /**
  * Application class to display to select an item that the token is
  * associated with
@@ -18,53 +23,72 @@ export default class ContainerImageSelectionApplication extends FormApplication 
 
 	private _html: any;
 
-	constructor(private _token: Token) {
-		super(_token);
-		console.log(`pick-up-stix | ContainerImageSelectionApplication | constructed with args:`)
-		console.log(this._token);
+	constructor(private _item: Item) {
+		super(_item);
+		log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | constructed with args:`)
+		log([this._item]);
 	}
 
 	activateListeners(html) {
-		console.log(`pick-up-stix | ContainerImageSelectionApplication | activateListeners called with args:`);
-		console.log(html);
+    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | activateListeners called with args:`);
+		log([html]);
 
     this._html = html;
     super.activateListeners(this._html);
 
-    $(html).find('img').css('max-width', '160px').css('height', '160px').first().css('margin-right', '20px');
-    $(html).find('img').click(e => this._onClickImage(e));
+    $(html)
+      .find('img')
+      .css('max-width', '160px')
+      .css('height', '160px')
+      .first()
+      .css('margin-right', '20px');
 
-    $(html).find('h2').css('font-family', `"Modesto Condensed", "Palatino Linotype", serif`);
+    $(html)
+      .find('img')
+      .on('click', this._onClickImage);
+
+    $(html)
+      .find('h2')
+      .css('font-family', `"Modesto Condensed", "Palatino Linotype", serif`);
 	}
 
 	getData() {
     const data = {
-      data: this._token.data
+      data: this._item.data
     }
-    console.log(data);
+    log(data);
     return data;
   }
 
-  protected _onClickImage(e) {
+  protected _onClickImage = (e) => {
     const attr = e.currentTarget.dataset.edit;
-    const current = getProperty(this._token.data, `flags.pick-up-stix.pick-up-stix.${attr}`);
+    const current = getProperty(this._item.data, `flags.pick-up-stix.pick-up-stix.${attr}`);
     new FilePicker({
       type: "image",
       current,
       callback: path => {
         e.currentTarget.src = path;
-        this._onSubmit(event);
+        this._onSubmit(e);
       },
       top: this.position.top + 40,
       left: this.position.left + 10
     }).browse(current);
   }
 
-  _updateObject(e, formData) {
-    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.container.imageOpenPath', formData.imageOpenPath);
-    setProperty(formData, 'flags.pick-up-stix.pick-up-stix.container.imageClosePath', formData.imageClosePath);
-    delete formData.imageOpenPath;
-    delete formData.imageClosePath;
-    return this.object.update(formData);
+  async _updateObject(e, formData) {
+    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
+    log([e, formData]);
+
+    await updateItem(this.object.id, {
+      'flags': {
+        'pick-up-stix': {
+          'pick-up-stix': {
+            container: {
+              ...formData
+            }
+          }
+        }
+      }
+    });
   }
 }

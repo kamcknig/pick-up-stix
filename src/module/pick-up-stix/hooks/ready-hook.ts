@@ -1,7 +1,27 @@
-import { SocketMessageType, PickUpStixSocketMessage, ItemType, PickUpStixFlags } from "../models";
-import ItemConfigApplication from "../item-config-application";
+import { error, log } from "../../../log";
+import { amIFirstGm, versionDiff } from "../../../utils";
+import ContainerItemConfigApplication from "../item-config-application";
+import { LootToken, TokenFlags } from "../loot-token";
+import {
+	createItem,
+	createOwnedItem,
+	createToken,
+	deleteItem,
+	deleteOwnedItem,
+	deleteToken,
+	getLootToken,
+	updateActor,
+	updateOwnedItem,
+	updateItem,
+	updateToken,
+	createLootToken,
+	lootItem,
+	lootCurrency,
+	addItemToContainer,
+	dropItemOnToken
+} from "../main";
+import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from "../models";
 import { SettingKeys } from "../settings";
-import { getCurrencyTypes, versionDiff } from "../../../utils";
 
 declare class EntitySheetConfig {
 	static registerSheet(
@@ -12,221 +32,61 @@ declare class EntitySheetConfig {
   );
 }
 
-async function migrate000To0110() {
-	let oldFlags;
-	let newFlags: PickUpStixFlags;
-
-	// convert items in the items directory
-	for (let item of game.items.entities) {
-		oldFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
-		if (!oldFlags || item.getFlag('pick-up-stix', 'version') === '0.11.0') {
-			continue;
-		}
-
-		const e = item as Entity;
-		console.log(`pick-up-stix | migrate000To0110 | updating item ${e.id} from 0.0.0 to 0.11.0`);
-
-		// remove the old flags
-		await item.unsetFlag('pick-up-stix', 'pick-up-stix');
-
-		// set the version flag
-		await item.setFlag('pick-up-stix', 'version', '0.11.0');
-
-		newFlags = {
-			itemType: oldFlags.itemType.toLowerCase(),
-			isLocked: oldFlags.isLocked
-		};
-		if (oldFlags.initialState?.itemData?.data) {
-			newFlags.itemData = {
-				...oldFlags.initialState?.itemData?.data ?? {}
-			}
-		}
-		if (oldFlags.itemType.toLowerCase() === ItemType.CONTAINER) {
-			newFlags.container = {
-				soundOpenPath: oldFlags.containerOpenSoundPath,
-				soundClosePath: oldFlags.containerCloseSoundPath,
-				imageClosePath: oldFlags.imageContainerClosedPath,
-				imageOpenPath: oldFlags.imageContainerOpenPath,
-				canClose: oldFlags.canClose,
-				isOpen: oldFlags.isOpen,
-				currency: {
-					...oldFlags.containerLoot?.currency ?? Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}) ?? {}
-				},
-				loot: {
-					...
-						Object.entries<any[]>(oldFlags.containerLoot ?? {})
-							.filter(([k,]) => k !== 'currency')
-							.reduce((acc, [k, v]) => {
-								acc[k] = [
-									...v.map(lootItem => ({ ...lootItem, data: { ...lootItem.data, quantity: lootItem.qty } }))
-								];
-								return acc;
-							}, {})
-				}
-			}
-		}
-		await item.setFlag('pick-up-stix', 'pick-up-stix', newFlags);
-	}
-
-	let scene: Scene;
-	// convert any loot tokens
-	for (scene of game.scenes.entities) {
-		const updates = [];
-		for (let tokenData of (scene.data as any)?.tokens) {
-			oldFlags = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix');
-
-			// if the token doesn't have flags or the version is already current
-			if ((!oldFlags || getProperty(tokenData, 'flags.pick-up-stix.version') === '0.11.0') && !tokenData.actorData?.items?.length) {
-				continue;
-			}
-
-			let update: any;
-
-			// if the token represents an actor but isn't linked to the actor, we'll have to update it
-			if (tokenData.actorData?.items?.length) {
-				update = {
-					_id: tokenData._id,
-					actorData: {
-						items: [
-							...tokenData.actorData?.items.filter(i => getProperty(i, 'flags.pick-up-stix.version') !== '0.11.0').map(i => ({
-								...i,
-								flags: {
-									'pick-up-stix': {
-										version: '0.11.0',
-										'pick-up-stix': {
-											owner: tokenData.actorId
-										}
-									}
-								}
-							}))
-						]
-					}
-				};
-				updates.push(update);
-				continue
-			}
-
-			update = {
-				_id: tokenData._id,
-				flags: {
-					'pick-up-stix': {
-						version: '0.11.0',
-						'pick-up-stix': {
-							itemType: oldFlags.isContainer ? ItemType.CONTAINER : oldFlags.itemType?.toLowerCase(),
-							itemData: {
-								...oldFlags.initialState?.itemData?.data ?? {}
-							}
-						}
-					}
-				}
-			};
-
-			if (oldFlags.isContainer || oldFlags.itemType?.toLowerCase() === ItemType.CONTAINER) {
-				update.flags['pick-up-stix']['pick-up-stix'].isLocked = oldFlags.isLocked;
-				update.flags['pick-up-stix']['pick-up-stix'].container = {
-					soundClosePath: oldFlags.containerCloseSoundPath,
-					soundOpenPath: oldFlags.containerOpenSoundPath,
-					imageClosePath: oldFlags.imageContainerClosedPath,
-					imageOpenPath: oldFlags.imageContainerOpenPath,
-					canClose: oldFlags.canClose,
-					isOpen: oldFlags.isOpen,
-					currency: {
-						...oldFlags.containerLoot?.currency ?? Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({...acc, [shortName]: 0}), {}) ?? {}
-					},
-					loot: {
-						...
-							Object.entries<any[]>(oldFlags.containerLoot ?? {})
-								.filter(([k,]) => k !== 'currency')
-								.reduce((acc, [k, v]) => {
-									acc[k] = [
-										...v.map(lootItem => ({ ...lootItem, data: { ...lootItem.data, quantity: lootItem.qty } }))
-									];
-									return acc;
-								}, {})
-					}
-				}
-			}
-
-			updates.push(update);
-		}
-
-		if (updates.length) {
-			await scene.updateEmbeddedEntity('Token', updates);
-		}
-	}
-
-	let actor: Actor;
-	for(actor of game.actors?.entities) {
-		const updates = [];
-		for(let itemData of actor.items.values()) {
-			const oldFlags = getProperty(itemData, 'data.flags.pick-up-stix.pick-up-stix');
-
-			if (!oldFlags || getProperty(itemData, 'data.flags.pick-up-stix.version') === '0.11.0' || !game.system.entityTypes.Item.includes(getProperty(itemData, 'data.type'))) {
-				continue;
-			}
-
-			await itemData.unsetFlag('pick-up-stix', 'pick-up-stix');
-
-			const update: any = {
-				_id: itemData.id,
-				flags: {
-					'pick-up-stix': {
-						version: '0.11.0',
-						'pick-up-stix': {
-							owner: actor.id
-						}
-					}
-				}
-			}
-
-			updates.push(update);
-		}
-
-		if (updates.length) {
-			await actor.updateOwnedItem(updates);
-		}
-	}
-}
-
-function dataMigrationNeeded(minVersion: string, maxVersion: string): Function[] {
-	const migrations = [];
-
-	if (!minVersion) {
-		// if a min version isn't provided that means that version 0.11.0 has never been run
-		// so in order to know if we need data migration in that case we check all tokens, items
-		// and actor's items to see if there are any flags from the module on them.
-		if (
-			game.items.entities.some(i => !!getProperty(i, 'flags.pick-up-stix.pick-up-stix')) ||
-			game.scenes.entities.some(s => (s.data as any).tokens.some(t => !!getProperty(t, 'flags.pick-up-stix.pick-up-stix'))) ||
-			game.actors.entities.some(a => {
-				for (let i of a.items) {
-					if (!!getProperty(i, 'data.flags.pick-up-stix.pick-up-stix')) {
-						return true;
-					}
-				}
-				return false;
-			})
-		) {
-			migrations.push(migrate000To0110);
-		}
-
-		return migrations;
-	}
-
-	if (versionDiff(minVersion, '0.10.2') < 1 && versionDiff(maxVersion, '0.10.9') > 1) {
-		migrations.push(migrate000To0110);
-	}
-
-	return migrations;
-}
-
 /* ------------------------------------ */
 export async function readyHook() {
 	// Do anything once the module is ready
-	console.log(`pick-up-stix | readyHook`);
+	log(`pick-up-stix | readyHook`);
 
 	// this adds the 'container' type to the game system's entity types.
 	game.system.entityTypes.Item.push(ItemType.CONTAINER);
+
+	// add the default sheet to the container Item type
+	CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
+			'pick-up-stix.ItemConfigApplication': {
+				cls: ContainerItemConfigApplication,
+			default: true,
+			id: 'pick-up-stix.ItemConfigApplication'
+		}
+	};
+
+	if (amIFirstGm()) {
+		await createDefaultFolders();
+	}
+
+	for (let el of Scene.collection) {
+		let scene = (el as unknown) as Scene;
+		let tokens = scene.getEmbeddedCollection('Token');
+		for (let token of tokens) {
+			const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
+			if (!tokenFlags) {
+				continue;
+			}
+
+			let lootToken = getLootToken({ itemId: tokenFlags?.itemId, tokenId: token._id })?.[0];
+
+			if (tokenFlags?.itemId && !lootToken) {
+				log(`pick-up-stix | readyHook | Creating new LootToken for Token '${token._id}' and Item '${tokenFlags.itemId}'`);
+				lootToken = await createLootToken(token._id, tokenFlags.itemId, false);
+			}
+		}
+
+		scene = game.scenes.active;
+		tokens = scene.getEmbeddedCollection('Token');
+		for (let token of tokens) {
+			const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
+			if (!tokenFlags) {
+				continue;
+			}
+
+			let lootTokens = getLootToken({ itemId: tokenFlags?.itemId, tokenId: token._id });
+			for(let lt of lootTokens) {
+				if (tokenFlags.isLocked) {
+					lt.drawLock();
+				}
+				lt.activateListeners();
+			}
+		}
+	}
 
 	for (let item of game.items.values()) {
 		if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
@@ -234,134 +94,212 @@ export async function readyHook() {
 		}
 	}
 
-	// add the default sheet to the container Item type
-	CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
-		'pick-up-stix.ItemConfigApplication': {
-			cls: ItemConfigApplication,
-			default: true,
-			id: 'pick-up-stix.ItemConfigApplication'
-		}
-	};
-
-	EntitySheetConfig.registerSheet(Item, 'pick-up-stix', ItemConfigApplication, { types: [ 'container' ], makeDefault: true });
-
-	if (!game.settings.get('pick-up-stix', 'notify-db-issue')) {
-		await new Promise(resolve => {
-			new Dialog({
-				title: 'Pick-Up-Stix WARNING!',
-				content: `
-					<p>
-					It has been bought to my attention that while my module is enabled, eventually it is possible
-					that some of the data files used by Foundry can become quite large. This issue is caused by a combination
-					of how the database works and how this module stores data.
-					</p>
-					<p>
-					I am working on a release that will alleviate this issue and I appreciate your patience and support.
-					</p>
-				`,
-				buttons: {
-					ok: {
-						label: 'OK',
-						callback: html => resolve()
-					},
-					dismiss: {
-						label: `DON'T SHOW AGAIN`,
-						callback: html => {
-							game.settings.set('pick-up-stix', 'notify-db-issue', true);
-							resolve();
-						}
-					}
-				},
-				default: 'ok'
-			}).render(true);
-		});
-	}
-
 	const activeVersion = game.modules.get('pick-up-stix').data.version;
 	const previousVersion = game.settings.get('pick-up-stix', SettingKeys.version);
+
+	if (amIFirstGm() && activeVersion !== previousVersion) {
+		await game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
+	}
+
 	const diff = versionDiff(activeVersion, previousVersion);
-
-	if (!previousVersion || diff > 0) {
-		console.log('pick-up-stix | readyHook | Active version is newer than previous version');
-		const migrations = dataMigrationNeeded(previousVersion, activeVersion);
-		if (migrations.length) {
-			await new Promise(resolve => {
-				const d = Dialog.confirm({
-					content: `
-						<p>It appears you are upgrading to a version that requires data migration.</p>
-						<p>If you wish to continue with the migration please press 'yes'. Otherwise press 'no'.</p>
-						<p>If you choose not to migrate data, you should downgrade back to version ${previousVersion}.</p>
-						<p>Note that there is no guarantee that data migration will work; I have no way to test most things by myself.</p>
-					`,
-					title: 'Pick-Up-Stix Data Migration',
-					yes: async () => {
-						for (let fn of migrations.values()) {
-							await fn();
-						}
-						await game.settings.set('pick-up-stix', SettingKeys.version, activeVersion);
-						resolve();
-					},
-					no: () => resolve()
-				});
-			});
-		}
+	if (diff < 0) {
+		log(`pick-up-stix | readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
 	}
-	else if (diff < 0) {
-		console.log('pick-up-stix | readyHook | Version has been downgraded');
-		await new Promise(resolve => {
-			let e = new Dialog({
-				buttons: {
-					OK: {
-						label: 'OK',
-						callback: () => resolve()
-					}
-				},
-				content: `
-					<p>It's possible that you are downgrading from version ${previousVersion} to version ${activeVersion}.</p>
-					<p>Be aware, if this is the case, any previous items created with Pick-Up-Stix could be invalidated and no longer function properly.</p>`,
-				title: 'Downgrade Warning',
-			}).render(true);
+	else if (diff > 0) {
+		log(`pick-up-stix | readyHook | current version ${activeVersion} is greater than previous version ${previousVersion}`);
+	}
+	else {
+		log(`pick-up-stix | readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
+  }
+
+  const el = document.createElement('div');
+  el.innerHTML = `<p>I have made some improvements that should hopefully speed up the module but want to point out a few changes</p>
+    <p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
+    and two folders within there named <strong>Items</strong>, and <strong>Tokens</strong>. Once these folders have been created, you
+    are free to move them around however, if you delete them as of now there is no way to recover any previous contents,
+    though the folder should be recreated on the next startup. These folders can not be seen by players that are not GMs.</p>
+    <p>The <strong>Tokens</strong> folder contains Items that represent any loot token instances that are in a scene. If you edit one of them
+    from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance,
+    simply drag one of the Items from the <strong>Tokens</strong> Item folder and you'll have a copy of that Item that will
+    update when it updates. If you delete an Item from the <strong>Tokens</strong> folder, then all loot token instances will
+    be removed from all scenes. If you delete all loot token instances from all scenes, the Item associated with it in the
+    <strong>Tokens</strong> folder will also be deleted</p>
+    <p>The <strong>Items</strong> folder is a template folder. When you create an Item and choose the 'container' type, you'll get
+    an Item created in the <strong>Items</strong> folder. If you drag one of these onto the canvas, you'll create a new loot token
+    based on the properties of that Item, but you'll notice that a new Item is created in the <strong>Tokens</strong> folder. You can
+    updated this new loot token by either updating it's new corresponding Item or through the token's config menu. You can
+    also update that token and then drag a copy of it from the <strong>Tokens</strong> folder NOT the <strong>Items</strong> folder to
+    create a new loot token with the udpated properties. Items in the <strong>Items</strong> folder are not deleted when any
+    loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the <strong>Items</strong> directory
+    are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.</p>`;
+
+  if (amIFirstGm() && !game.settings.get('pick-up-stix', SettingKeys.version13updatemessage)) {
+    new Dialog({
+      title: 'Pick-Up-Stix - Update notification',
+      buttons: {
+        'OK': {
+          label: 'OK'
+        }
+      },
+      default: 'OK',
+      content: el.innerHTML
+    }, {
+        width: 750,
+      height: 'auto'
+    }).render(true);
+    await game.settings.set('pick-up-stix', SettingKeys.version13updatemessage, true);
+  }
+
+	game.socket.on('module.pick-up-stix', handleSocketMessage);
+};
+
+const createDefaultFolders = async () => {
+	log(`pick-up-stix | createDefaultFolders`);
+
+	// check if the parent folder exists and create it if not
+	let parentFolderId = game.settings.get('pick-up-stix', SettingKeys.parentItemFolderId);
+	let folder = Folder.collection.get(parentFolderId);
+
+	if (!folder) {
+		log(`pick-up-stix | createDefaultFolders | couldn't parent folder creating it now`);
+		folder = await Folder.create({
+			color: '',
+			name: 'Pick-Up-Stix',
+			sorting: 'a',
+			parent: null,
+			type: 'Item'
 		});
+		parentFolderId = folder.id;
+		await game.settings.set('pick-up-stix', SettingKeys.parentItemFolderId, parentFolderId);
+	}
+	else {
+		log(`pick-up-stix | createDefaultFolders | parent folder '${folder.name}' found`);
 	}
 
-	socket = game.socket;
+	// check if the tokens folder exist and create it if not
+	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.tokenFolderId));
 
-	socket.on('module.pick-up-stix', async (msg: PickUpStixSocketMessage) => {
-		console.log(`pick-up-stix | socket.on | received socket message with args:`);
-		console.log(msg);
+	if (!folder) {
+		log(`pick-up-stix | createDefaultFolders | couldn't find tokens folder, creating it now`);
+		folder = await Folder.create({
+			color: '',
+			name: 'Tokens',
+			sorting: 'a',
+			parent: parentFolderId,
+			type: 'Item'
+		});
+		await game.settings.set('pick-up-stix', SettingKeys.tokenFolderId, folder.id);
+	}
+	else {
+		log(`pick-up-stix | createDefaultFolders | tokens folder '${folder.name}' found`);
+	}
 
-		if (msg.sender === game.user.id) {
-			console.log(`pick-up-stix | socket.on | i sent this, ignoring`);
-			return;
-		}
+	// check if the items folder exists and create it if not
+	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.itemFolderId));
 
-		const firstGm = game.users.find((u) => u.isGM && u.active);
-		if (firstGm && game.user !== firstGm) {
-   		return;
-		}
+	if (!folder) {
+		log(`pick-up-stix | createDefaultFolders | couldn't find items folder`);
+		folder = await Folder.create({
+			color: '',
+			name: 'Items',
+			sorting: 'a',
+			parent: parentFolderId,
+			type: 'Item'
+		});
+		await game.settings.set('pick-up-stix', SettingKeys.itemFolderId, folder.id);
+	}
+	else {
+		log(`pick-up-stix | createDefaultFolders | items folder '${folder.name}' found`);
+	}
+};
 
-		let actor;
-		let token;
+export const handleSocketMessage = async (msg: SocketMessage) => {
+	log(`pick-up-stix | handleSocketMessage | received socket message with args:`);
+	log([msg]);
 
-		switch (msg.type) {
-			case SocketMessageType.updateActor:
-				actor = game.actors.get(msg.data.actorId);
-				await actor.update(msg.data.updates);
-				break;
-			case SocketMessageType.deleteToken:
-				await canvas.scene.deleteEmbeddedEntity('Token', msg.data);
-				break;
-			case SocketMessageType.updateEntity:
-				token = canvas.tokens.get(msg.data.tokenId);
-				await token.update(msg.data.updates);
-				break;
-			case SocketMessageType.createOwnedEntity:
-				actor = game.actors.get(msg.data.actorId);
-				await actor.createOwnedItem(msg.data.items);
-				break;
-			case SocketMessageType.createItemToken:
-				await Token.create(msg.data);
-				break;
-		}
-	});
+	if (handleNonGMMessage(msg)) {
+		return;
+	}
+
+	/* if (msg.sender === game.user.id) {
+		log(`pick-up-stix | handleSocketMessage | i sent this, ignoring`);
+		return;
+	} */
+
+	if (!amIFirstGm()) {
+		 return;
+	}
+
+	switch (msg.type) {
+		case SocketMessageType.deleteOwnedItem:
+			await deleteOwnedItem(msg.data.actorId, msg.data.itemId);
+			break;
+		case SocketMessageType.updateOwnedItem:
+			await updateOwnedItem(msg.data.actorId, msg.data.data);
+			break;
+		case SocketMessageType.updateActor:
+			await updateActor(game.actors.get(msg.data.actorId), msg.data.updates);
+			break;
+		case SocketMessageType.deleteToken:
+			await deleteToken(msg.data.tokenId, msg.data.sceneId);
+			break;
+		case SocketMessageType.updateItem:
+			await updateItem(msg.data.id, msg.data.updates);
+			break;
+		case SocketMessageType.updateToken:
+			await updateToken(msg.data.sceneId, msg.data.updates);
+			break;
+		case SocketMessageType.createOwnedItem:
+			await createOwnedItem(msg.data.actorId, msg.data.items);
+			break;
+		case SocketMessageType.createToken:
+			await createToken(msg.data);
+			break;
+		case SocketMessageType.createItem:
+			await createItem(msg.data.data, msg.data.options);
+			break;
+		case SocketMessageType.deleteItem:
+			await deleteItem(msg.data.id);
+			break;
+		case SocketMessageType.collectItem:
+			await lootItem(msg.data);
+			break;
+		case SocketMessageType.lootCurrency:
+			await lootCurrency(msg.data);
+			break;
+		case SocketMessageType.addItemToContainer:
+			await addItemToContainer(msg.data);
+			break;
+		case SocketMessageType.dropItemOnToken:
+			await dropItemOnToken(msg.data);
+			break;
+		default:
+			error(`pick-up-stix | handleSocketMessage | No valid socket message handler for '${msg.type}' with arg:`);
+			log([msg])
+	}
+};
+
+const handleNonGMMessage = (msg: SocketMessage): boolean => {
+  let handled = false;
+
+  switch (msg.type) {
+    case SocketMessageType.lootTokenCreated:
+      Hooks.callAll(PickUpStixHooks.lootTokenCreated, msg.data.tokenId);
+      handled = true;
+			break;
+		case SocketMessageType.itemCollected:
+      Hooks.callAll(PickUpStixHooks.itemCollected, msg.data);
+      handled = true;
+			break;
+		case SocketMessageType.currencyLooted:
+      Hooks.callAll(PickUpStixHooks.currencyLooted, msg.data);
+      handled = true;
+			break;
+		case SocketMessageType.itemAddedToContainer:
+      Hooks.callAll(PickUpStixHooks.itemAddedToContainer, msg.data);
+      handled = true;
+			break;
+  }
+
+  return handled;
 };

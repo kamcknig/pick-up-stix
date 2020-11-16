@@ -13,95 +13,6 @@ $groove-color: #eeede0;
     font-family: "Font Awesome 5 Free";
   }
 
-  &.item-config-sheet {
-    min-height: 500px;
-  }
-
-  & .currency-wrapper {
-    margin-bottom: 10px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-
-    & > * {
-      margin-right: 5px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    & > * div {
-      width: 32px;
-      height: 32px;
-    }
-
-    & > * input {
-      width: 60px;
-    }
-
-    & .plat {
-      margin-right: 5px;
-      background: url(../assets/currency-sprite.png);
-    }
-
-    & .gold {
-      margin-right: 5px;
-      background: url(../assets/currency-sprite.png) -34px 0px;
-    }
-
-    & .electrum {
-      margin-right: 5px;
-      background: url(../assets/currency-sprite.png) -66px 0px;
-    }
-
-    & .silver {
-      margin-right: 5px;
-      background: url(../assets/currency-sprite.png) -98px 0px;
-    }
-
-    & .copper {
-      margin-right: 5px;
-      background: url(../assets/currency-sprite.png) -130px 0px;
-    }
-  }
-
-  /**
-   * Sheet header styles
-   */
-  & .sheet-section {
-    border-bottom: 2px groove $groove-color;
-  }
-
-  /**
-   * Header profile styles
-   */
-  & .sheet-header {
-    & .profile {
-      border: unset;
-      max-width: 160px;
-      height: auto;
-    }
-
-    /**
-     * Header details section styles
-     */
-    & .header-details {
-      padding: 5px;
-      border-left: 2px groove $groove-color;
-
-      & .container-name {
-        font-family: "Modesto Condensed", "Palatino Linotype", serif;
-        height: 60px;
-        font-size: 3em;
-      }
-
-      & .container-description {
-        font-family: "Signika", sans-serif;
-        font-weight: 400;
-      }
-    }
-  }
-
   & textarea {
     border: 1px solid transparent;
     background: unset;
@@ -114,109 +25,11 @@ $groove-color: #eeede0;
     border: 1px solid black;
   }
 
-  /**
-   * Input styles
-   */
-  & input[type="text"] {
-    background: unset;
-    box-shadow: unset;
-    outline: unset;
-    border: 1px solid transparent;
-    border-bottom: 2px groove $groove-color;
-
-    &:focus:not(.isNotGM),
-    &:hover:not(.isNotGM) {
-      border: 1px solid black;
-    }
-  }
-
   & .inventory-details,
   & .currency-details {
     padding-top: 5px;
     justify-content: space-between;
     align-items: center;
-  }
-
-  /**
-   * Currency details section styles
-   */
-  & .currency-details {
-    & h3 {
-      flex: 0 0 120px;
-    }
-
-    & .currency-list {
-      list-style: none;
-      align-items: center;
-    }
-
-    & .currency-list input[type="text"] {
-      text-align: center;
-    }
-  }
-
-  /**
-   * Inventory list styles
-   */
-  & .inventory-details {
-    & ol {
-      padding: 0;
-    }
-
-    & .inventory-header {
-      background: rgba(0, 0, 0, .05);
-      border: 2px groove $groove-color;
-      font-family: "Modesto Condensed", "Palatino Linotype", serif;
-      font-weight: 400;
-      font-size: 1.2em;
-      padding: 5px;
-      margin: 2px 0px;
-
-      & h3 {
-        margin: 0;
-      }
-    }
-
-    & .inventory-list {
-      &:not(:last-child) {
-        border-right: 1px solid #c9c7b8;
-      }
-
-      & .item {
-        align-items: center;
-      }
-
-      & .item {
-        & h4 {
-          padding: 0;
-          margin: 0;
-        }
-
-        & .item-name {
-          align-items: center;
-        }
-
-        & .item-name * {
-          padding-left: 5px;
-        }
-      }
-
-      & .item-image {
-        flex: 0 0 30px;
-        width: 30px;
-        height: 30px;
-        background-size: contain;
-        background-repeat: no-repeat;
-      }
-
-      & .item-details {
-        flex: 0 0 60px;
-        border-left: 1px solid #c9c7b8;
-        color: #7a7971;
-        overflow: hidden;
-        text-align: center;
-      }
-    }
   }
 
   & .item-controls {
@@ -229,44 +42,6 @@ $groove-color: #eeede0;
       flex: 1;
       text-align: center;
       color: #7a7971;
-    }
-  }
-
-  &.choose-token {
-    // the list wrapper, gives the outter padding
-    & .wrapper {
-      padding: 5px;
-      justify-content: flex-start;
-      flex: 0;
-    }
-
-    // the "List item" that displays the token image and name
-    & .token-selection {
-      cursor: pointer;
-      border: 2px groove $groove-color;
-      align-items: center;
-      margin-bottom: -2px;
-
-      & * {
-        margin-bottom: 5px;
-      }
-
-      & img {
-        border: none;
-        margin-right: 5px;
-        max-width: 80px;
-        height: auto;
-      }
-
-      & .token-name {
-        font-family: "Modesto";
-        font-size: 24px;
-        font-weight: 700;
-      }
-
-      &:hover {
-        background-color: rgba(0, 0, 0, .09);
-      }
     }
   }
 }

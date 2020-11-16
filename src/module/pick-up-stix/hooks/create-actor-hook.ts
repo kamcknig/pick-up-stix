@@ -1,14 +1,15 @@
-import { SettingKeys } from "../settings";
+import { log } from "../../../log";
+import { amIFirstGm } from "../../../utils";
+import { updateOwnedItem } from "../main";
 
-export async function onCreateActor(actor: Actor, userId: string) {
-	console.log(`pick-up-stix | onCreateActor | called with args:`);
-	console.log([actor, userId]);
+export const createActorHook = async (actor: Actor, userId: string) => {
+	log(`pick-up-stix | createActorHook | called with args:`);
+	log([actor, userId]);
 	const updates = [
 		...Object.values(actor.items.entries).map(ownedItem => ({
 			_id: ownedItem.id,
 			flags: {
 				'pick-up-stix': {
-					version: game.settings.get('pick-up-stix', SettingKeys.version),
 					'pick-up-stix': {
 						owner: actor.id
 					}
@@ -16,6 +17,11 @@ export async function onCreateActor(actor: Actor, userId: string) {
 			}
 		}))
 	];
-	console.log(updates);
-	await actor.updateOwnedItem(updates)
+
+	if (!amIFirstGm()) {
+		log(`pick-up-stix | createActorHook | User is not first GM`);
+		return;
+  }
+
+	await updateOwnedItem(actor.id, updates);
 }

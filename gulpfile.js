@@ -1,4 +1,5 @@
 const gulp = require('gulp');
+const replace = require('gulp-replace');
 var sourcemaps = require('gulp-sourcemaps');
 const fs = require('fs-extra');
 const path = require('path');
@@ -12,7 +13,6 @@ const less = require('gulp-less');
 const sass = require('gulp-sass');
 const git = require('gulp-git');
 const axios = require('axios');
-const { kStringMaxLength } = require('buffer');
 
 const argv = require('yargs').argv;
 const JENKINS_TRIGGER_TOKEN = 'fkj238u87v8uxvijn;askdjfh2yfah;jhkjfmn23k';
@@ -367,6 +367,12 @@ async function packageBuild() {
 /*		PACKAGE		 */
 /*********************/
 
+function removeDebugHooks() {
+	return gulp.src('src/**')
+		.pipe(replace(/(?<!\/\/\s*)(CONFIG\.debug\.hooks\s*=\s*.*;?)/g, '// $1'))
+		.pipe(gulp.dest('src/'));
+}
+
 /**
  * Update version and URLs in the manifest JSON
  */
@@ -375,8 +381,7 @@ function updateManifest(cb) {
 	const config = getConfig(),
 		manifest = getManifest(),
 		rawURL = config.rawURL,
-		repoURL = config.repository,
-		manifestRoot = manifest.root;
+		repoURL = config.repository;
 
 	if (!config) cb(Error(chalk.red('foundryconfig.json not found')));
 	if (!manifest) cb(Error(chalk.red('Manifest JSON not found')));
@@ -545,6 +550,7 @@ const execBuild = gulp.parallel(buildTS, buildLess, buildSASS, copyFiles);
 
 const execGit = gulp.series(gitAdd, gitCommit, gitPush, gitTag, gitPushTags);
 
+exports.removeDebugHooks = removeDebugHooks;
 exports.build = gulp.series(clean, execBuild);
 exports.watch = buildWatch;
 exports.clean = clean;
@@ -552,6 +558,7 @@ exports.link = linkUserData;
 exports.package = packageBuild;
 exports.update = updateManifest;
 exports.publish = gulp.series(
+	removeDebugHooks,
 	updateManifest,
 	execGit,
 	jenkinsBuild

@@ -1,7 +1,7 @@
-import ItemConfigApplication from "./item-config-application";
-import { toggleItemLocked } from "./main";
+import { getLootToken } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
-import { ItemType } from "./models";
+import { error, log } from "../../log";
+import { SettingKeys } from "./settings";
 
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
@@ -15,71 +15,98 @@ export class LootHud extends BasePlaceableHUD {
     });
   }
 
+  private get itemId(): string {
+    return this.object.getFlag('pick-up-stix', 'pick-up-stix.itemId');
+  }
+
   constructor() {
     super({});
-    console.log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
-    console.log(LootHud.defaultOptions);
+    log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
+    log(LootHud.defaultOptions);
   }
 
   activateListeners(html) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
-    console.log(html);
+    log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
+    log([html]);
     super.activateListeners(html);
-    html.find(".config").click(this._onTokenConfig.bind(this));
-    html.find(".locked").click(this._onToggleItemLocked.bind(this.object));
-    html.find(".emit-light").click(this._onConfigureLightEmission.bind(this.object));
+    html.find(".config").click(this.onTokenConfig);
+    html.find(".locked").click(this._onToggleItemLocked);
+    html.find(".emit-light").click(this.onConfigureLightEmission);
+    html.find(".visibility-perceive-input").on('change', this.onPerceiveValueChanged);
   }
 
-  private async _onConfigureLightEmission(event) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
-    const f = new LootEmitLightConfigApplication(this, {}).render(true);
-  }
+  private onPerceiveValueChanged = (e) => {
+    log(`pick-up-stix | LootHudApplication ${this.appId} | onPerceivedValueChanged`);
+    const val = +e.currentTarget.value;
+    log([val]);
 
-  private async _onToggleItemLocked(event) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
-    await toggleItemLocked.call(this, event);
-    this.render();
-  }
-
-  private async _onTokenConfig(event) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
-    if (this.object.getFlag('pick-up-stix', 'pick-up-stix.itemType') === ItemType.CONTAINER) {
-      new ItemConfigApplication(this.object as Token, this.object as Token).render(true);
+    if (val === undefined || val === null || isNaN(val)) {
+      ui.notifications.error(`Invalid value '${val}'`);
       return;
     }
 
-    const data = this.object.getFlag('pick-up-stix', 'pick-up-stix.itemData');
+    if (val < 0) {
+      ui.notifications.error(`Minimum perceived value must be 0`);
+      return;
+    }
 
-    const i = await Item.create(data, {submitOnChange: true});
-    const app = i.sheet.render(true);
-
-    const hook = Hooks.on('updateItem', async (item, data, options) => {
-      console.log('pick-up-stix | loot-hud-application | _onTokenConfig | updateItem hook');
-      if (data._id !== i.id) {
-        return;
+    this.object.update({
+      flags: {
+        'pick-up-stix': {
+          'pick-up-stix': {
+            minPerceiveValue: val
+          }
+        }
       }
-
-      await this.object.setFlag('pick-up-stix', 'pick-up-stix.itemData', { ...item.data });
-    });
-
-    Hooks.once('closeItemSheet', async (sheet, html) => {
-      console.log('pick-up-stix | loot-hud-application | _onTokenConfig | closeItemSheet hook');
-      if (sheet.appId !== app.appId) {
-        return;
-      }
-
-      await i.delete();
-      Hooks.off('updateItem', hook as any);
     });
   }
 
+  private onConfigureLightEmission = async (event) => {
+    log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
+    const f = new LootEmitLightConfigApplication(this.object, {}).render(true);
+  }
+
+  private _onToggleItemLocked = async (event) => {
+    log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
+    const lootToken = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];
+
+    if (!lootToken) {
+      error(`No valid LootToken instance found for token '${this.object.id}' and Item id '${this.itemId}'`);
+      return;
+    }
+
+    await lootToken.toggleLocked();
+    this.render();
+  }
+
+  private onTokenConfig = async (event) => {
+    log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
+
+    const item = game.items.get(this.itemId);
+    item.sheet.render(true, { renderData: { sourceToken: this.object.data._id }});
+  }
+
   getData(options) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | getData`);
-    const data = super.getData();
-    return mergeObject(data, {
+    log(`pick-up-stix | LootHud ${this.appId} | getData`);
+    const lootData = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];;
+    if (!lootData) {
+      error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
+    }
+
+    const data = {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),
-      visibilityClass: data.hidden ? 'active' : '',
-      lockedClass: this.object.getFlag('pick-up-stix', 'pick-up-stix.isLocked') ? 'active' : ''
-    });
+      visibilityClass: this.object.data.hidden ? 'active' : '',
+      lockedClass: this.object.data.locked ? 'active' : '',
+      showPerceiveInput: game.settings.get('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal),
+      minPerceiveValue: this.object.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue') ?? 0,
+      id: this.id,
+      classes: this.options.classes.join(" "),
+      appId: this.appId,
+      isGM: game.user.isGM,
+      icons: CONFIG.controlIcons
+    };
+
+    log([data]);
+    return data;
   }
 }

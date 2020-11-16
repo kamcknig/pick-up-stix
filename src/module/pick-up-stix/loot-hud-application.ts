@@ -98,7 +98,7 @@ export class LootHud extends BasePlaceableHUD {
       visibilityClass: this.object.data.hidden ? 'active' : '',
       lockedClass: this.object.data.locked ? 'active' : '',
       showPerceiveInput: game.settings.get('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal),
-      minPerceiveValue: this.object.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue') ?? 0,
+      minPerceiveValue: this.object.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue') ?? game.settings.get('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue),
       id: this.id,
       classes: this.options.classes.join(" "),
       appId: this.appId,

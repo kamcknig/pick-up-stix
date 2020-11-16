@@ -2,6 +2,8 @@
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
 import { log, warn } from './log';
+import { TokenFlags } from './module/pick-up-stix/loot-token';
+import { SettingKeys } from './module/pick-up-stix/settings';
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
@@ -163,4 +165,14 @@ export class Util {
       return arr.reduce((v1, v2) => `${v1}${separator}${v2}`);
   }
 
+}
+export const canSeeLootToken = (token): boolean => {
+  const tokenFlags: TokenFlags = token.getFlag('pick-up-stix', 'pick-up-stix');
+
+  // right now this is dnd5e only so this code is speicific to that
+  const minPerceive = tokenFlags?.minPerceiveValue ?? game.settings.get('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue);
+
+  const tolerance = Math.min(token.w, token.h) / 4;
+
+  return (canvas.sight.testVisibility(token.center, {tolerance}) && canvas.tokens.controlled.some(t => t.actor?.data?.data?.skills?.prc?.passive >= minPerceive))
 }

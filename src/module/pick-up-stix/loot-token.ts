@@ -17,6 +17,7 @@ export interface TokenFlags {
 	itemId?: string;
 	isOpen?: boolean;
 	isLocked?: boolean;
+	minPerceiveValue: number;
 }
 
 export interface ItemFlags {
@@ -42,8 +43,11 @@ export interface ContainerData {
 	description?: string;
 }
 
+/**
+ * Each key should be the Item.type and the value will be an Array whose elements are Item.data
+ */
 export interface ContainerLoot {
-	[key: string]: any[];
+	[key: string]: ItemData[];
 }
 
 /**
@@ -66,18 +70,24 @@ export interface TokenData {
 	}
 }
 
-/**
- * The Item data used when creating a LootToken.
- */
 export interface ItemData {
-	name: string;
-	img: string,
-	type: string,
+	data: any;
+	effects: any[];
 	flags: {
 		'pick-up-stix': {
 			'pick-up-stix': ItemFlags
 		}
 	}
+	folder?: string;
+	img: string;
+	name: string;
+	permission: {
+		'default': number;
+		[userId: string]: number;
+	};
+	sort: number;
+	type: string;
+	_id: string;
 	[key: string]: any;
 }
 
@@ -194,11 +204,14 @@ export class LootToken {
 		log([scene, tokenData, data, options, userId]);
 
 		if (tokenData.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked) {
+			log(`pick-up-stix | LootToken | updateTokenHook | token is locked, draw lock icon`);
 			this.drawLock();
 		}
 		else {
 			const lock = token?.getChildByName('pick-up-stix-lock');
+
 			if (lock) {
+				log(`pick-up-stix | LootToken | updateTokenHook | token is not locked, but found lock icon, remove it`);
 				token.removeChild(lock);
 				lock.destroy();
 			}
@@ -316,7 +329,7 @@ export class LootToken {
 			itemFlags.container.loot[itemData.type].push(itemData);
 		}
 
-		await updateItem(this.itemId, {
+		updateItem(this.itemId, {
 			flags: {
 				'pick-up-stix': {
 					'pick-up-stix': itemFlags
@@ -330,7 +343,7 @@ export class LootToken {
 			return;
 		}
 
-		await lootItem({ looterTokenId: token.id, looterActorId: token.actor.id, itemData: this.item.data, lootTokenTokenId: this.tokenId });
+		lootItem({ looterTokenId: token.id, itemData: this.item.data as ItemData, lootTokenTokenId: this.tokenId, takeAll: false });
 	}
 
 	openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
@@ -475,7 +488,7 @@ export class LootToken {
 		if (this.itemFlags.itemType === ItemType.ITEM) {
 			log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
 
-			await this.collect(tokens[0]);
+			this.collect(tokens[0]);
 			return;
 		}
 
@@ -483,10 +496,10 @@ export class LootToken {
 			log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
 
 			if (this.isOpen) {
-				await this.openConfigSheet(tokens);
+				this.openConfigSheet(tokens);
 			}
 			else {
-				await this.toggleOpened(tokens);
+				this.toggleOpened(tokens);
 			}
 
 			return;
@@ -529,6 +542,6 @@ export class LootToken {
 			ui.notifications.error(`Another character is interacting with this item. Please wait your turn or ask them to close their loot sheet.`);
 			return;
 		}
-		await this.openConfigSheet([], { configureOnly: true });
+		this.openConfigSheet([], { configureOnly: true });
 	}
 }

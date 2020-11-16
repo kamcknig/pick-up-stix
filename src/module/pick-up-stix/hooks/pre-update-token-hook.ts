@@ -31,7 +31,6 @@ export const preUpdateTokenHook = async (scene, tokenData, updates, options, use
 	// filter out the token being updated
 	tokens = tokens.filter(t => t.id !== tokenData._id);
 
-
 	if (tokens.length > 1) {
 		// if we are dropping it onto more than one token, then we can't know which to drop it onto, notify the user
 		ui.notifications.error('You can drop an item onto one and only one target');

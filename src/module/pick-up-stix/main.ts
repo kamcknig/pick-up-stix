@@ -55,6 +55,9 @@ export const getLootToken = (options: { itemId?: string, tokenId?: string, scene
 	});
 };
 
+/**
+ * @param data Either a Token or a Token ID
+ */
 export const getValidControlledTokens = (data: string | Token): Token[] => {
 	log(`pick-up-stix | getValidControlledTokens:`);
 	log([data]);
@@ -214,7 +217,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 						}
 					}
 				}
-			});
+			} as ItemData);
 	}
 
 	log(`pick-up-stix | dropItemOnCanvas | Dropped item is not a container`);
@@ -286,7 +289,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 								}
 							}
 						}
-					}
+					} as ItemData
 				)
 			}
 		}
@@ -543,7 +546,7 @@ export async function updateActor(actor: Actor, updates): Promise<string> {
 	});
 }
 
-export async function createOwnedItem(actorId: string, data: any | any[]): Promise<{ actorId: string; itemId: string }> {
+export async function createOwnedItem(actorId: string, data: any | any[]): Promise<boolean> {
 	log('pick-up-stix | createOwnedItem | called with args:');
 	data = Array.isArray(data) ? data : [data];
 	log([actorId, data]);
@@ -552,13 +555,13 @@ export async function createOwnedItem(actorId: string, data: any | any[]): Promi
 
 	if (game.user.isGM) {
 		log(`pick-up-stix | createOwnedItem | user is GM, creating owned item`);
-		const { _id } = await actor.createOwnedItem(data);
-		return { actorId, itemId: _id };
+		await actor.createOwnedItem(data);
+		return true;
 	}
 
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
-			resolve(null);
+			resolve(false);
 		}, gmActionTimeout());
 
 		const msg: SocketMessage = {
@@ -573,7 +576,7 @@ export async function createOwnedItem(actorId: string, data: any | any[]): Promi
 		Hooks.once('createOwnedItem', (actor, item, options, userId) => {
 			log(`pick-up-stix | createOwnedItem | createOwnedItem hook | item '${item._id}' created`);
 			clearTimeout(timeout);
-			resolve({ actorId, itemId: item._id });
+			resolve(true);
 		});
 
 		log(`pick-up-stix | createOwnedItem | user is not GM, sending socket msg:`);
@@ -1006,14 +1009,14 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 	});
 }
 
-export const  lootCurrency = async (data: { looterTokenId: string, looterActorId: string; currencies: any; containerItemId: string }): Promise<boolean> => {
+export const  lootCurrency = async (data: { looterTokenId: string, currencies: any; containerItemId: string }): Promise<boolean> => {
 	log(`pick-up-stix | lootCurrency:`);
 	console.log([data]);
 
 	if (game.user.isGM) {
 		log(`pick-up-stix | lootCurrency | User is GM, looting currency`);
 
-		const token = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
+		const looterToken = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
 		const containerItem = game.items.get(data.containerItemId);
 		const containerFlags: ItemFlags = duplicate(containerItem.getFlag('pick-up-stix', 'pick-up-stix'));
 		const containerCurrencies = containerFlags?.container?.currency;
@@ -1021,13 +1024,13 @@ export const  lootCurrency = async (data: { looterTokenId: string, looterActorId
 
 		// get the actor's current currencies
 		const actorCurrency = {
-			...getProperty(token.actor.data, getActorCurrencyPath()) ?? {}
+			...getProperty(looterToken.actor.data, getActorCurrencyPath()) ?? {}
 		};
 
 		Object.keys(actorCurrency).forEach(k => actorCurrency[k] = +(actorCurrency[k] ?? 0) + +currencyToLoot[k]);
 		Object.keys(containerCurrencies).forEach(k => containerCurrencies[k] = +containerCurrencies[k] - +currencyToLoot[k]);
 
-		await updateActor(token.actor, {
+		await updateActor(looterToken.actor, {
 			[getActorCurrencyPath()]: actorCurrency
 		});
 
@@ -1046,7 +1049,7 @@ export const  lootCurrency = async (data: { looterTokenId: string, looterActorId
 		});
 
 		currencyCollected(
-			token,
+			looterToken,
 			Object.entries(currencyToLoot)
 				.filter(([, v]) => v > 0)
 				.reduce((prev, [k, v]) => { prev[k] = v; return prev; }, {})
@@ -1088,9 +1091,15 @@ export const  lootCurrency = async (data: { looterTokenId: string, looterActorId
 	});
 }
 
-type LootItemFunction = {
-	(data: { looterTokenId: string, looterActorId: string, itemData: any, lootTokenTokenId: string }): Promise<boolean>;
-	(data: { looterTokenId: string, looterActorId: string, itemData: any, containerItemId: string, lootTokenTokenId: string }): Promise<boolean>;
+interface LootItemFunction {
+	/**
+	 * A
+	 */
+	(data: { looterTokenId: string, itemData: ItemData | ItemData[], lootTokenTokenId: string, takeAll: boolean }): Promise<boolean>;
+	/**
+	 * B
+	 */
+	(data: { looterTokenId: string, itemData: ItemData | ItemData[], containerItemId: string, lootTokenTokenId: string, takeAll: boolean }): Promise<boolean>;
 }
 
 export const lootItem: LootItemFunction = async (data: any): Promise<boolean> => {
@@ -1098,42 +1107,60 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 	log([data]);
 
 	if (game.user.isGM) {
-		const token = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
-
 		console.log(`pick-up-stix | lootItem | User is GM`);
 
+		const qtyLootedById = {};
+		const looterToken = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
+		const looterActorId = looterToken.actor.id;
+		const itemDatas: ItemData[] = Array.isArray(data.itemData) ? data.itemData : [data.itemData];
+		const newItemDatas: ItemData[] = itemDatas.reduce((acc, itemData) => {
+			const qty = getProperty(itemData.data, getQuantityDataPath());
+			const datas = [];
+			const actualQty = data.takeAll ? qty : 1;
+      qtyLootedById[itemData._id] = actualQty;
+
+			for (let i = 0; i < actualQty; i++) {
+				datas.push(mergeObject(itemData, { data: { [getQuantityDataPath()]: 1 } } as ItemData ));
+			}
+			return acc.concat(datas);
+		}, []);
+
+    log(`pick-up-stix | lootItem | Items being looted:`);
+    console.log([newItemDatas]);
+
 		await createOwnedItem(
-			data.looterActorId,
-			mergeObject(duplicate(data.itemData), {
-				data: {
-					[getQuantityDataPath()]: 1
-				},
-				flags: {
-					'pick-up-stix': {
-						'pick-up-stix': {
-							owner: data.looterActorId
-						}
-					}
-				}
-			})
+			looterActorId,
+			newItemDatas
 		);
 
 		if (data.containerItemId) {
 			const containerItem = game.items.get(data.containerItemId);
 			const containerItemFlags: ItemFlags = duplicate(containerItem?.getFlag('pick-up-stix', 'pick-up-stix') ?? {});
-			const sourceLoot: ContainerLoot = containerItemFlags.container?.loot;
-			const itemType = data.itemData?.type;
-			const itemId = data.itemData?._id;
-			const itemData = sourceLoot?.[itemType]?.find(i => i._id === itemId);
-			const oldQty = getProperty(itemData?.data, getQuantityDataPath());
+			const sourceLoot: ContainerLoot = containerItemFlags?.container?.loot;
 
-			if (oldQty - 1 <= 0) {
-				log(`pick-up-stix | lootItem | Quantity is now 0, removing item from loot`);
-				sourceLoot?.[itemType]?.findSplice(v => v._id === itemId);
-			}
-			else {
-				log(`pick-up-stix | lootItem | Subtracting one from quantity`);
-				setProperty(itemData.data, getQuantityDataPath(), oldQty - 1);
+			for (let [itemType, itemsOfType] of Object.entries(sourceLoot)) {
+				for (let itemData of itemsOfType) {
+					if (qtyLootedById[itemData._id] === undefined) {
+						continue;
+					}
+
+					const oldQty = getProperty(itemData?.data, getQuantityDataPath());
+          const newQty = oldQty - qtyLootedById[itemData._id];
+
+					if (newQty <= 0) {
+						log(`pick-up-stix | lootItem | Quantity is now 0, removing item from loot`);
+						sourceLoot?.[itemType]?.findSplice(v => v._id === itemData._id);
+					}
+					else {
+            log(`pick-up-stix | lootItem | Subtracting one from quantity`);
+            mergeObject(
+              itemData.data,
+              {
+                [getQuantityDataPath()]: newQty
+              }
+            );
+					}
+				}
 			}
 
 			await containerItem.update({
@@ -1153,14 +1180,26 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 			sender: game.user.id,
 			type: SocketMessageType.itemCollected,
 			data: {
-				tokenId: data.tokenId,
-				actorId: data.actorId,
+				tokenId: data.looterTokenId,
+				actorId: looterToken.actor.id,
 				sourceItemId: data.containerItemId,
 				itemData: data.itemData
 			}
 		};
 
-		createItemCollectedChatMessage(token, data.itemData);
+    for (const [id, qty] of Object.entries(qtyLootedById)) {
+      createItemCollectedChatMessage(
+        looterToken,
+        mergeObject({
+          ...newItemDatas.find(d => d._id === id)
+        },
+        {
+          data: {
+            [getQuantityDataPath()]: qty
+          }
+        })
+      );
+    }
 
 		game.socket.emit('module.pick-up-stix', msg);
 		Hooks.callAll(PickUpStixHooks.itemCollected, data);
@@ -1213,7 +1252,7 @@ export const currencyCollected = async (token, currency) => {
 export const createItemCollectedChatMessage = async (token, item) => {
 	await ChatMessage.create({
 		content: `
-			<p>Picked up ${item.name}</p>
+			<p>Picked up ${item.name} (x${getProperty(item.data, getQuantityDataPath())})</p>
 			<img src="${item.img}" style="width: 40px;" />
 		`,
 		speaker: {

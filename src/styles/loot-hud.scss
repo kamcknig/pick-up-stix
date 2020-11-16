@@ -1,5 +1,5 @@
 .pick-up-stix.loot-hud {
-  .col {
+  & .col {
     height: calc(100% + 100px);
     top: -50px;
   }
@@ -8,18 +8,23 @@
     width: 100%;
   }
 
-  .col.left {
+  & .col.left {
     justify-content: center;
     left: -70px;
   }
 
-  .col.right {
+  & .col.right {
     justify-content: center;
     right: -70px;
   }
 
-  .col {
-    height: calc(100% + 100px);
-    top: -50px;
+  & .visibility-wrapper {
+    flex: 0 0 40px;
+    width: 40px;
+
+    & .visibility-perceive-input {
+      font-size: 18px;
+      height: 20px;
+    }
   }
 }

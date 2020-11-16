@@ -1,5 +1,6 @@
-import { getLootTokenData, saveLootTokenData, updateEntity } from "./main";
-import { PickUpStixFlags } from "./models";
+import { log } from "../../log";
+import { ItemFlags } from "./loot-token";
+import { updateItem } from "./main";
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {
@@ -34,38 +35,31 @@ export class ContainerSoundConfig extends FormApplication {
   }
 
   async _updateObject(e, formData) {
-    console.log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
-    console.log([formData]);
+    log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
+    log([formData]);
 
-    const flags = this.object.getFlag('pick-up-stix', 'pick-up-stix');
-    const { sceneId, tokenId } = flags;
-    const isToken = sceneId !== undefined && tokenId !== undefined;
+    const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
 
-    if (!isToken) {
-      await updateEntity(this.object, {
-        flags: {
+    await updateItem(this.object.id, {
+      flags: {
+        'pick-up-stix': {
           'pick-up-stix': {
-            'pick-up-stix': {
-              container: {
-                ...formData
-              }
+            container: {
+              ...formData
             }
           }
         }
-      });
-    }
-    else {
-      await saveLootTokenData(sceneId, tokenId, { container: { ...formData } } as PickUpStixFlags);
-    }
+      }
+    });
   }
 
   getData(options) {
-    console.log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
+    log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
     const data = {
       openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
       closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
     }
-    console.log(data);
+    log(data);
     return data;
   }
 }

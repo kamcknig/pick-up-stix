@@ -17,11 +17,12 @@
 	"styles": [
 		"styles/pick-up-stix.css",
 		"styles/loot-hud.css",
+		"styles/container-item-config.css",
 		"styles/container-sound-config.css"
 	],
 	"packs": [],
 	"languages": [],
-	"minimumCoreVersion": "0.6.5",
+	"minimumCoreVersion": "0.7.5",
 	"compatibleCoreVersion": "0.7.5",
 	"url": "git@github.com:kamcknig/pick-up-stix.git",
 	"manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",

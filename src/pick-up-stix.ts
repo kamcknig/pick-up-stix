@@ -1,30 +1,47 @@
 import { canvasReadyHook } from "./module/pick-up-stix/hooks/canvas-ready-hook";
-import { onCreateActor } from "./module/pick-up-stix/hooks/create-actor-hook";
-import { onCreateItem } from "./module/pick-up-stix/hooks/create-item-hook";
+import { createActorHook } from "./module/pick-up-stix/hooks/create-actor-hook";
+import { createItemHook as createItemHook } from "./module/pick-up-stix/hooks/create-item-hook";
 import { initHook } from "./module/pick-up-stix/hooks/init-hook";
-import { preCreateOwnedItemHook } from "./module/pick-up-stix/hooks/pre-create-owned-item-hook";
 import { readyHook } from "./module/pick-up-stix/hooks/ready-hook";
 import { preCreateItemHook } from "./module/pick-up-stix/hooks/pre-create-item-hook";
 import { onRenderLootHud } from "./module/pick-up-stix/hooks/render-loot-hud-hook";
 import { processHtml } from "./module/pick-up-stix/settings";
 import { deleteTokenHook } from "./module/pick-up-stix/hooks/delete-token-hook";
 import { lootTokenCreatedHook } from "./module/pick-up-stix/hooks/loot-token-created-hook";
+import { LootHud } from "./module/pick-up-stix/loot-hud-application";
+import { updateItemHook } from "./module/pick-up-stix/hooks/update-item-hook";
+import { deleteItemHook } from "./module/pick-up-stix/hooks/delete-item-hook";
+import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-hook";
+import { renderItemDirectoryHook } from "./module/pick-up-stix/hooks/render-item-directory-hook";
+import { preUpdateTokenHook } from "./module/pick-up-stix/hooks/pre-update-token-hook";
+import { log } from "./log";
+import { PickUpStixHooks } from "./module/pick-up-stix/models";
 
 // game startup hooks
 Hooks.once('init', initHook);
+Hooks.once('canvasReady', () => {
+  canvas.hud.pickUpStixLootHud = new LootHud();
+});
 Hooks.on('canvasReady', canvasReadyHook);
 Hooks.on('ready', readyHook);
 
 // item hooks
 Hooks.on('preCreateItem', preCreateItemHook);
-Hooks.on('createItem', onCreateItem);
+Hooks.on('createItem', createItemHook);
+Hooks.on('preUpdateItem', preUpdateItemHook);
+Hooks.on('updateItem', updateItemHook);
+Hooks.on('deleteItem', deleteItemHook);
+
+// directory hooks
+Hooks.on('renderItemDirectory', renderItemDirectoryHook);
 
 // actor hooks
-Hooks.on('createActor', onCreateActor);
-Hooks.on('preCreateOwnedItem', preCreateOwnedItemHook);
+Hooks.on('createActor', createActorHook);
 
 // token hooks
 Hooks.on('deleteToken', deleteTokenHook);
+Hooks.on('preUpdateToken', preUpdateTokenHook);
+
 
 // render hooks
 Hooks.on("renderSettingsConfig", (app, html, user) => {
@@ -32,16 +49,17 @@ Hooks.on("renderSettingsConfig", (app, html, user) => {
 });
 Hooks.on('renderLootHud', onRenderLootHud);
 
-Hooks.on('pick-up-stix.lootTokenCreated', lootTokenCreatedHook);
+Hooks.on(PickUpStixHooks.lootTokenCreated, lootTokenCreatedHook);
 
 Hooks.once('ready', () => {
+  log('pick-up-stix | ready once hook');
+
   if (game.system.id === 'dnd5e') {
     Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
-      console.log(`pick-up-stix | renderItemSheet5e`);
-      console.log([app, protoHtml, data]);
+      log(`pick-up-stix | renderItemSheet5e`);
+      log([app, protoHtml, data]);
 
-      const item = app.object;
-      const itemData = item.data.data;
+      const item: Item = app.object;
 
       // can't edit the size of owned items
       if (item.actor) return;
@@ -55,12 +73,12 @@ Hooks.once('ready', () => {
       const content = `
       <div class="form-group">
         <label>Width</label>
-        <input type="text" name="flags.pick-up-stix.pick-up-stix.width" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.width ?? 1}" data-dtype="Number">
+        <input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.width" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1}" data-dtype="Number">
       </div>
 
       <div class="form-group">
         <label>Height</label>
-        <input type="text" name="flags.pick-up-stix.pick-up-stix.height" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.height ?? 1}" data-dtype="Number">
+        <input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.height" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1}" data-dtype="Number">
       </div>
     `
       $(html)

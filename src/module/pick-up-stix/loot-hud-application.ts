@@ -1,5 +1,7 @@
 import { getLootToken } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
+import { error, log } from "../../log";
+import { SettingKeys } from "./settings";
 
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
@@ -13,33 +15,63 @@ export class LootHud extends BasePlaceableHUD {
     });
   }
 
+  private get itemId(): string {
+    return this.object.getFlag('pick-up-stix', 'pick-up-stix.itemId');
+  }
+
   constructor() {
     super({});
-    console.log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
-    console.log(LootHud.defaultOptions);
+    log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
+    log(LootHud.defaultOptions);
   }
 
   activateListeners(html) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
-    console.log([html]);
+    log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
+    log([html]);
     super.activateListeners(html);
-    html.find(".config").click(this._onTokenConfig);
+    html.find(".config").click(this.onTokenConfig);
     html.find(".locked").click(this._onToggleItemLocked);
-    html.find(".emit-light").click(this._onConfigureLightEmission);
+    html.find(".emit-light").click(this.onConfigureLightEmission);
+    html.find(".visibility-perceive-input").on('change', this.onPerceiveValueChanged);
   }
 
-  private _onConfigureLightEmission = async (event) => {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
-    // TODO: look into this
+  private onPerceiveValueChanged = (e) => {
+    log(`pick-up-stix | LootHudApplication ${this.appId} | onPerceivedValueChanged`);
+    const val = +e.currentTarget.value;
+    log([val]);
+
+    if (val === undefined || val === null || isNaN(val)) {
+      ui.notifications.error(`Invalid value '${val}'`);
+      return;
+    }
+
+    if (val < 0) {
+      ui.notifications.error(`Minimum perceived value must be 0`);
+      return;
+    }
+
+    this.object.update({
+      flags: {
+        'pick-up-stix': {
+          'pick-up-stix': {
+            minPerceiveValue: val
+          }
+        }
+      }
+    });
+  }
+
+  private onConfigureLightEmission = async (event) => {
+    log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
     const f = new LootEmitLightConfigApplication(this.object, {}).render(true);
   }
 
   private _onToggleItemLocked = async (event) => {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
-    const lootToken = getLootToken(this.object.scene.id, this.object.id);
+    log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
+    const lootToken = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];
 
     if (!lootToken) {
-      console.error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
+      error(`No valid LootToken instance found for token '${this.object.id}' and Item id '${this.itemId}'`);
       return;
     }
 
@@ -47,26 +79,34 @@ export class LootHud extends BasePlaceableHUD {
     this.render();
   }
 
-  private _onTokenConfig = async (event) => {
-    console.log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
+  private onTokenConfig = async (event) => {
+    log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
 
-    const lootToken = getLootToken(canvas.scene.id, this.object.id);
-    await lootToken?.openConfigSheet([], { configureOnly: true });
+    const item = game.items.get(this.itemId);
+    item.sheet.render(true, { renderData: { sourceToken: this.object.data._id }});
   }
 
   getData(options) {
-    console.log(`pick-up-stix | LootHud ${this.appId} | getData`);
-    const data = super.getData();
-
-    const lootData = getLootToken(this.object.scene.id, this.object.id);
+    log(`pick-up-stix | LootHud ${this.appId} | getData`);
+    const lootData = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];;
     if (!lootData) {
-      console.error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
+      error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);
     }
 
-    return mergeObject(data, {
+    const data = {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),
-      visibilityClass: data.hidden ? 'active' : '',
-      lockedClass: lootData.isLocked ? 'active' : ''
-    });
+      visibilityClass: this.object.data.hidden ? 'active' : '',
+      lockedClass: this.object.data.locked ? 'active' : '',
+      showPerceiveInput: game.settings.get('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal),
+      minPerceiveValue: this.object.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue') ?? 0,
+      id: this.id,
+      classes: this.options.classes.join(" "),
+      appId: this.appId,
+      isGM: game.user.isGM,
+      icons: CONFIG.controlIcons
+    };
+
+    log([data]);
+    return data;
   }
 }

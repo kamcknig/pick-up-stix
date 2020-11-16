@@ -50,7 +50,7 @@
                   style="flex: 2;"
                   id="width"
                   value="{{width}}"
-                  name="width"
+                  name="tokenData.width"
                   type="number"
                   data-dtype="Number">
               </div>
@@ -62,7 +62,7 @@
                   style="flex: 2;"
                   id="height"
                   value="{{height}}"
-                  name="height"
+                  name="tokenData.height"
                   type="number"
                   data-dtype="Number">
               </div>
@@ -113,7 +113,9 @@
             {{/each}}
 
             {{#if hasToken}}
+            {{#if showTakeCurrency}}
               <li class="item-controls"><a class="currency-take"><i class="fas fa-hand-paper"></i></a></li>
+            {{/if}}
             {{/if}}
           </ul>
         </section>
@@ -121,7 +123,11 @@
 
       <!-- display loot -->
       <section class="inventory-details">
-        <h3>Loot <i class="fas fa-box"></i></h3>
+        <div class="flexrow" style="align-items: center;">
+          <h3 style="margin: 0;">Loot <i class="fas fa-box"></i></h3>
+
+          <button type="button" class="loot-all-button"><i class="fas fa-gem"></i>LOOT ALL</button>
+        </div>
 
         <ol class="inventory-list flexcol">
           {{#each lootTypes as | lootType |}}

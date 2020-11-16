@@ -1,4 +1,6 @@
 import { log, warn } from "../../log";
+import { canSeeLootToken } from "../../utils";
+import { TokenFlags } from "./loot-token";
 
 export function Token_tokenRelease(origFn: Function) {
 	return function(options={}) {
@@ -16,16 +18,10 @@ export function Token_isVisible() {
 	log(`pick-up-stix | Token_isVisible | called with args`);
 	warn(`pick-up-stix | Token_isVisible | This method overrides isVisible of Token`);
 	let actualIsVisible: boolean;
-	const gm = game.user.isGM;
 	if ( this.data.hidden ) {
-		const tolerance = Math.min(this.w, this.h) / 4;
+		const tokenFlags: TokenFlags = this.getFlag('pick-up-stix', 'pick-up-stix');
 
-		// right now this is dnd5e only so this code is speicific to that
-		const minPerceive = this.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue');
-
-		actualIsVisible =
-			gm
-			|| (canvas.sight.testVisibility(this.center, {tolerance}) && canvas.tokens.controlled.some(t => minPerceive === undefined || minPerceive == null || t.actor?.data?.data?.skills?.prc?.passive >= minPerceive));
+		actualIsVisible = game.user.isGM || (tokenFlags && canSeeLootToken(this))
 	}
 	else if (!canvas.sight.tokenVision) {
 		actualIsVisible = true;

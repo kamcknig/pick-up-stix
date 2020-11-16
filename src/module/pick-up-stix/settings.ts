@@ -3,6 +3,10 @@ import { log } from "../../log";
 
 
 
+
+
+
+
 export enum SettingKeys {
 	openImagePath = 'default-container-opened-image-path',
 	closeImagePath = 'default-container-closed-image-path',
@@ -17,7 +21,8 @@ export enum SettingKeys {
 	version13updatemessage = 'version13updatemessage',
 	GMActionTimeout = 'GMActionTimeout',
 	addItemOnContainerCreation = 'addItemOnContainerCreation',
-	enableLootTokenPerceiveReveal = 'enableLootTokenPerceiveReveal'
+	enableLootTokenPerceiveReveal = 'enableLootTokenPerceiveReveal',
+	defaultMinimumPerceiveValue = 'defaultMinimumPerceiveValue'
 }
 
 const systemCurrenciesImplemented = [
@@ -105,7 +110,16 @@ const registerWorldSettings = () => {
 		scope: 'world',
 		config: game.system.id === 'dnd5e',
 		type: Boolean,
-		default: game.system.id === 'dnd5e'
+		default: false
+	});
+
+	game.settings.register('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue, {
+		name: 'Minimum Perceive Value',
+		hint: `The minimum value a token's actor must have in order to perceive a hidden loot token.`,
+		scope: 'world',
+		config: game.system.id === 'dnd5e',
+		type: Number,
+		default: 10
 	});
 
 	game.settings.register('pick-up-stix', SettingKeys.openImagePath, {

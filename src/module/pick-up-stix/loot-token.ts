@@ -438,18 +438,12 @@ export class LootToken {
 	private handleClickLeft = (event) => {
 		const token = this.token;
 
-		if (event.currentTarget.data.hidden) {
+		if (!token.isVisible) {
 			log(`pick-up-stix | LootToken | handleClickLeft | token is hidden`);
 			// if the loot token is hidden, pass the click on
 			// to the token's normal left click method for Foundry
 			// to handle
 			token._onClickLeft(event);
-			return;
-		}
-
-		// if the item isn't visible can't pick it up
-		if (!token.isVisible) {
-			log(`pick-up-stix | LootToken | handleClickLeft | token is not visible to user`);
 			return;
 		}
 

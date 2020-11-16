@@ -1,6 +1,6 @@
 import { error, log } from "../../../log";
 import { amIFirstGm, versionDiff } from "../../../utils";
-import ItemConfigApplication from "../item-config-application";
+import ContainerItemConfigApplication from "../item-config-application";
 import { LootToken, TokenFlags } from "../loot-token";
 import {
 	createItem,
@@ -43,7 +43,7 @@ export async function readyHook() {
 	// add the default sheet to the container Item type
 	CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
 			'pick-up-stix.ItemConfigApplication': {
-				cls: ItemConfigApplication,
+				cls: ContainerItemConfigApplication,
 			default: true,
 			id: 'pick-up-stix.ItemConfigApplication'
 		}

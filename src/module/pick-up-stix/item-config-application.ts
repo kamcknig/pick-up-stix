@@ -26,7 +26,7 @@ import { SettingKeys } from './settings';
  * Application class to display to select an item that the token is
  * associated with
  */
-export default class ItemConfigApplication extends BaseEntitySheet {
+export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	private _html: any;
 	private _sourceTokenId: string;
 	private _selectedTokenId: string;
@@ -44,7 +44,7 @@ export default class ItemConfigApplication extends BaseEntitySheet {
 			width: 900,
 			title: `${game.user.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
 			resizable: true,
-			classes: ['pick-up-stix', 'item-config-sheet'],
+			classes: ['pick-up-stix', 'container-item-config-sheet'],
 			dragDrop: [{ dropSelector: null }]
 		});
 	}

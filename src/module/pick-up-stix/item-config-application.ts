@@ -49,6 +49,13 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 		});
 	}
 
+	/**
+	 * @override
+	 */
+	get isEditable(): boolean {
+		return true;
+	}
+
 	private get currencyEnabled(): boolean {
 		return !game.settings.get('pick-up-stix', SettingKeys.disableCurrencyLoot);
 	}
@@ -217,6 +224,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 			showTakeCurrency: Object.values(this.itemFlags.container.currency).some(amount => amount > 0),
 			lootTypes: Object.keys(loot),
 			loot,
+			showLootAll: Object.keys(loot).length > 0,
 			profileImage: this.itemFlags.container.imageOpenPath,
 			description,
 			object: this.object.data,

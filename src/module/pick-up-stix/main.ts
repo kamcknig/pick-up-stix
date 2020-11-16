@@ -55,6 +55,9 @@ export const getLootToken = (options: { itemId?: string, tokenId?: string, scene
 	});
 };
 
+/**
+ * @param data Either a Token or a Token ID
+ */
 export const getValidControlledTokens = (data: string | Token): Token[] => {
 	log(`pick-up-stix | getValidControlledTokens:`);
 	log([data]);

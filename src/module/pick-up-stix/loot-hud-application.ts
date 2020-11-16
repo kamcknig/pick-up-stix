@@ -1,6 +1,7 @@
 import { getLootToken } from "./main";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
 import { error, log } from "../../log";
+import { SettingKeys } from "./settings";
 
 export class LootHud extends BasePlaceableHUD {
   static get defaultOptions() {
@@ -31,6 +32,33 @@ export class LootHud extends BasePlaceableHUD {
     html.find(".config").click(this.onTokenConfig);
     html.find(".locked").click(this._onToggleItemLocked);
     html.find(".emit-light").click(this.onConfigureLightEmission);
+    html.find(".visibility-perceive-input").on('change', this.onPerceiveValueChanged);
+  }
+
+  private onPerceiveValueChanged = (e) => {
+    log(`pick-up-stix | LootHudApplication ${this.appId} | onPerceivedValueChanged`);
+    const val = +e.currentTarget.value;
+    log([val]);
+
+    if (val === undefined || val === null || isNaN(val)) {
+      ui.notifications.error(`Invalid value '${val}'`);
+      return;
+    }
+
+    if (val < 0) {
+      ui.notifications.error(`Minimum perceived value must be 0`);
+      return;
+    }
+
+    this.object.update({
+      flags: {
+        'pick-up-stix': {
+          'pick-up-stix': {
+            minPerceiveValue: val
+          }
+        }
+      }
+    });
   }
 
   private onConfigureLightEmission = async (event) => {
@@ -69,6 +97,8 @@ export class LootHud extends BasePlaceableHUD {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),
       visibilityClass: this.object.data.hidden ? 'active' : '',
       lockedClass: this.object.data.locked ? 'active' : '',
+      showPerceiveInput: game.settings.get('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal),
+      minPerceiveValue: this.object.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue') ?? 0,
       id: this.id,
       classes: this.options.classes.join(" "),
       appId: this.appId,

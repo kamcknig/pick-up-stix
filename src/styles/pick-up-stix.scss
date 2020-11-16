@@ -183,22 +183,6 @@ $groove-color: #eeede0;
     border: 1px solid black;
   }
 
-  /**
-   * Input styles
-   */
-  & input[type="text"] {
-    background: unset;
-    box-shadow: unset;
-    outline: unset;
-    border: 1px solid transparent;
-    border-bottom: 2px groove $groove-color;
-
-    &:focus:not(.isNotGM),
-    &:hover:not(.isNotGM) {
-      border: 1px solid black;
-    }
-  }
-
   & .inventory-details,
   & .currency-details {
     padding-top: 5px;
@@ -226,6 +210,7 @@ $groove-color: #eeede0;
 
         & .item-label {
           text-align: right;
+          margin-right: 5px;
           flex: 0 1 auto;
         }
 
@@ -301,7 +286,6 @@ $groove-color: #eeede0;
 
       & .item-details {
         flex: 0 0 60px;
-        border-left: 1px solid #c9c7b8;
         color: #7a7971;
         overflow: hidden;
         text-align: center;

@@ -404,7 +404,9 @@ export class LootToken {
 			clickLeft2: () => game.user.isGM,
 			clickRight: () => game.user.isGM,
 			clickRight2: () => game.user.isGM,
-			dragStart: () => game.user.isGM
+			dragStart: () => game.user.isGM,
+			hoverIn: () => true,
+			hoverOut: () => true
 		};
 
 		// Define callback functions for each workflow step
@@ -416,7 +418,10 @@ export class LootToken {
 			dragLeftStart: (e) => { clearTimeout(this._clickTimeout); token._onDragLeftStart(e); },
 			dragLeftMove: token._onDragLeftMove,
 			dragLeftDrop: token._onDragLeftDrop,
-			dragLeftCancel: token._onDragLeftCancel
+			dragLeftCancel: token._onDragLeftCancel,
+			hoverIn: () => { console.log('wut'); },
+			hoverOut: () => { console.log('china'); }
+
 		};
 
 		// Define options

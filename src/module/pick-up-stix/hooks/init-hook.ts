@@ -10,7 +10,7 @@ import { info, log } from "../../../log";
 export async function initHook() {
 	log('pick-up-stix | initHook');
 
-	CONFIG.debug.hooks = true;
+	// CONFIG.debug.hooks = true;
 
 	// Assign custom classes and constants here
 

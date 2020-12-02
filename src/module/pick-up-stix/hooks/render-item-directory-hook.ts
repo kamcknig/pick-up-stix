@@ -19,8 +19,7 @@ export const renderItemDirectoryHook = async (directory, html, options: {canCrea
   $(html).find(`.directory-item.entity.item`).each(function (i, el) {
     const itemId = el.dataset['entityId'];
     const item = game.items.get(itemId);
-    const itemFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
-    if (!!itemFlags) {
+    if (item.getFlag('pick-up-stix', 'pick-up-stix.itemType') !== undefined) {
       $(el).css('display', 'none');
     }
   });

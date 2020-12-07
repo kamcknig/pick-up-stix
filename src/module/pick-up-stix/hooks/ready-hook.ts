@@ -1,6 +1,6 @@
 import { error, log } from "../../../log";
 import { amIFirstGm, versionDiff } from "../../../utils";
-import ContainerItemConfigApplication from "../item-config-application";
+import ContainerItemConfigApplication from "../container-config";
 import { LootToken, TokenFlags } from "../loot-token";
 import {
 	createItem,

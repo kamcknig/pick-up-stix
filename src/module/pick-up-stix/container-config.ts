@@ -10,6 +10,7 @@ import { ContainerSoundConfig } from './container-sound-config-application';
 import { ContainerLoot, ItemFlags } from './loot-token';
 import {
 	addItemToContainer,
+	deleteOwnedItem,
 	getLootToken,
 	getValidControlledTokens,
 	lootCurrency,
@@ -260,6 +261,10 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 		}).then(() => {
 			this._stopperElement.remove();
 		});
+
+		if (dropData.actor) {
+			deleteOwnedItem(dropData.actor.id, dropData.data._id);
+		}
 	}
 
 	/**

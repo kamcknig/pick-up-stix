@@ -370,6 +370,7 @@ async function packageBuild() {
 function removeDebugHooks() {
 	return gulp.src('src/**')
 		.pipe(replace(/(?<!\/\/\s*)(CONFIG\.debug\.hooks\s*=\s*.*;?)/g, '// $1'))
+		.pipe(replace(/(?<!\/\/\s*)(CONFIG\.debug\['pickUpStix'\]\s*=\s*.*;?)/g, '// $1'))
 		.pipe(gulp.dest('src/'));
 }
 

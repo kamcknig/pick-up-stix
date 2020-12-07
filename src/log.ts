@@ -4,6 +4,10 @@ const timestamp = () => {
 }
 
 export const log = (...args) => {
+  if (!CONFIG.debug['pickUpStix']) {
+    return;
+  }
+
   if (args.length === 1 && typeof args[0] === "string") {
     console.log(`${timestamp()} ${args[0]}`);
   }
@@ -13,6 +17,10 @@ export const log = (...args) => {
 }
 
 export const info = (...args) => {
+  if (!CONFIG.debug['pickUpStix']) {
+    return;
+  }
+
   if (args.length === 1 && typeof args[0] === "string") {
     console.info(`${timestamp()} ${args[0]}`);
   }
@@ -22,6 +30,10 @@ export const info = (...args) => {
 }
 
 export const warn = (...args) => {
+  if (!CONFIG.debug['pickUpStix']) {
+    return;
+  }
+
   if (args.length === 1 && typeof args[0] === "string") {
     console.warn(`${timestamp()} ${args[0]}`);
   }

@@ -2,7 +2,7 @@ import { ItemType } from "../models";
 import { SettingKeys } from "../settings";
 import { getCurrencyTypes } from "../../../utils";
 import { ItemFlags } from "../loot-token";
-import { log } from "../../../log";
+import { error, log } from "../../../log";
 
 export async function preCreateItemHook(itemData: any, options: any = {}, userId: string) {
 	log(`pick-up-stix | preCreateItemHook | called with args:`);
@@ -51,5 +51,6 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
 	}
 
 	log(`pick-up-stix | preCreateItemHook | final data:`);
+
 	log(itemData);
 }

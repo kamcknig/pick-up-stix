@@ -343,7 +343,7 @@ export class LootToken {
 			return;
 		}
 
-		lootItem({ looterTokenId: token.id, itemData: this.item.data as ItemData, lootTokenTokenId: this.tokenId, takeAll: false });
+		lootItem({ looterTokenId: token.id, itemData: this.item.data as ItemData, lootTokenTokenId: this.tokenId, takeAll: true });
 	}
 
 	openConfigSheet = async (tokens: Token[] = [], options: any = {}): Promise<void> => {
@@ -419,9 +419,8 @@ export class LootToken {
 			dragLeftMove: token._onDragLeftMove,
 			dragLeftDrop: token._onDragLeftDrop,
 			dragLeftCancel: token._onDragLeftCancel,
-			hoverIn: () => { console.log('wut'); },
-			hoverOut: () => { console.log('china'); }
-
+			hoverIn: () => token._onHoverIn,
+			hoverOut: () => token._onHoverOut
 		};
 
 		// Define options

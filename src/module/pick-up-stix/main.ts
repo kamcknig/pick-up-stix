@@ -277,9 +277,11 @@ const dropItemOnCanvas = async ({ dropData }) => {
 														mergeObject(
 															itemData,
 															{
-																data: {
-																	[getQuantityDataPath()]: 1
-																}
+																...expandObject({
+																	data: {
+																		[getQuantityDataPath()]: 1
+																	}
+																})
 															}
 														)
 													]

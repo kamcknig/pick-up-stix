@@ -277,15 +277,18 @@ export class LootToken {
 			}
 		});
 
-		const a = new Audio(open ? itemFlags.container.soundOpenPath : itemFlags.container.soundClosePath);
-		try {
-			a.play();
-		}
-		catch (e) {
-			// it's ok to error here
-			error(e)
-		}
+		const audioPath = (open && itemFlags.container.soundOpenPath) ?? (!open && itemFlags.container.soundClosePath);
 
+		if (audioPath) {
+			const a = new Audio(audioPath);
+			try {
+				a.play();
+			}
+			catch (e) {
+				// it's ok to error here
+				error(e)
+			}
+		}
 		if (renderSheet && open) {
 			this.openConfigSheet(tokens);
 		}
@@ -350,15 +353,15 @@ export class LootToken {
     log('pick-up-stix | LootToken | openConfigSheet:');
 		log([tokens, options]);
 
-		const closeItemConfigApplicationHook = async (app, html) => {
-      log(`pick-up-stix | LootToken | openConfigSheet | closeItemConfigApplicationHook:`);
+		const closeContainerConfigApplicationHook = async (app, html) => {
+      log(`pick-up-stix | LootToken | openConfigSheet | closeContainerConfigApplicationHook`);
 			log([app, html]);
 
 			if (app.appId !== appId) {
 				return;
 			}
 
-			Hooks.off('closeItemConfigApplication', closeItemConfigApplicationHook);
+			Hooks.off('closeContainerConfigApplication', closeContainerConfigApplicationHook);
 
 			if (this.isOpen) {
 				await this.toggleOpened();
@@ -379,7 +382,7 @@ export class LootToken {
 			}
 		}
 
-		Hooks.once('closeItemConfigApplication', closeItemConfigApplicationHook);
+		Hooks.once('closeContainerConfigApplication', closeContainerConfigApplicationHook);
 		const item = this.item;
 		const appId = item.sheet.render(!item.sheet.rendered, { renderData: { tokens, sourceToken: this.tokenId } }).appId;
 	}

@@ -108,9 +108,15 @@ export const normalizeDropData = async (data: Partial<DropData>): Promise<DropDa
 		data.actor = data.tokenId ? game.actors.tokens[data.tokenId] : game.actors.get(data.actorId);
 	}
 
-	const pack: string = data.pack;
+	const pack: any = data.pack ? game.packs.get(data.pack) : null;
 	const id: string = data.id;
-	data.data = data.actor ? data.data : game.items.get(id)?.data ?? await game.packs.get(pack)?.getEntity(id)?.data;
+	data.data = data.actor
+		? data.data
+		: (
+			pack
+				? (await pack.getEntity(id))?.data
+				: game.items.get(id)?.data
+		);
 
 	// if it's not a container, then we can assume it's an item. Create the item token
 	const hg = canvas.dimensions.size * .5;

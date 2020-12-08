@@ -17,7 +17,7 @@
 	"styles": [
 		"styles/pick-up-stix.css",
 		"styles/loot-hud.css",
-		"styles/container-item-config.css",
+		"styles/container-config.css",
 		"styles/container-sound-config.css"
 	],
 	"packs": [],

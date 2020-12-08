@@ -27,7 +27,7 @@ import { SettingKeys } from './settings';
  * Application class to display to select an item that the token is
  * associated with
  */
-export default class ContainerItemConfigApplication extends BaseEntitySheet {
+export default class ContainerConfigApplication extends BaseEntitySheet {
 	private _html: any;
 	private _sourceTokenId: string;
 	private _selectedTokenId: string;
@@ -45,7 +45,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 			width: 900,
 			title: `${game.user.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
 			resizable: true,
-			classes: ['pick-up-stix', 'container-item-config-sheet'],
+			classes: ['pick-up-stix', 'container-config-sheet'],
 			dragDrop: [{ dropSelector: null }]
 		});
 	}
@@ -77,12 +77,12 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	constructor(object: Item, ...args) {
 		super(object, args);
 
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | constructor called with:`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | constructor called with:`);
 		log([object]);
 	}
 
 	activateListeners(html) {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | activateListeners`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId}  | activateListeners`);
 		log([html]);
 		this._html = html;
 		super.activateListeners(this._html);
@@ -159,7 +159,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	 * @param options
 	 */
 	getData(options?: { renderData: { tokens?: Token[]; sourceToken: string; [key:string]: any }}): any {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData:`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | getData:`);
 		log([options]);
 		this._sourceTokenId = this._sourceTokenId !== options?.renderData?.sourceToken
 			? options?.renderData?.sourceToken ?? this._sourceTokenId
@@ -213,7 +213,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 			});
 
 		if (!this._selectedTokenId && tokens.length) {
-			log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData | setting selected token '${tokens[0].token.id}'`);
+			log(`pick-up-stix | ContainerConfigApplication ${this.appId} | getData | setting selected token '${tokens[0].token.id}'`);
 			this._selectedTokenId = tokens[0].token.id;
 			tokens[0].class = 'active';
 		}
@@ -237,7 +237,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 			tokens
 		};
 
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | getData | data to render:`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | getData | data to render:`);
 		log([data]);
 		return data;
 	}
@@ -247,10 +247,10 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	 * @param e
 	 */
 	protected async _onDrop(e) {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId}  | _onDrop`);
 		const dropData: DropData = await normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
 
-		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onDrop | dropped data`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId}  | _onDrop | dropped data`);
 		log([dropData]);
 
 		this.addStopper();
@@ -273,7 +273,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	 * @param formData
 	 */
 	protected async _updateObject(e, formData) {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject called with args:`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _updateObject called with args:`);
 		log([e, duplicate(formData)]);
 
 		const containerData = duplicate(this.itemFlags.container);
@@ -324,7 +324,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 		}
 
 		const expandedObject = expandObject(flattenObject(formData));
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
 		log(expandedObject);
 
 		await updateItem(this.object.id, {
@@ -343,7 +343,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	 * @override
 	 */
 	close = async () => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | close`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | close`);
 		Hooks.off('updateToken', this.updateTokenHook);
 		Hooks.off('controlToken', this.controlTokenHook);
 		return super.close();
@@ -355,7 +355,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	 * @param controlled
 	 */
 	private controlTokenHook = (token, controlled): void => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | controlTokenHook`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | controlTokenHook`);
 		log([token, controlled]);
 
 		const options = {};
@@ -368,7 +368,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	}
 
 	private updateTokenHook = (scene, token, diff, options): void => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | updateTokenHook`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | updateTokenHook`);
 
 		// clear the selected token because the token might have moved too far away to be
 		// eligible
@@ -377,19 +377,19 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	}
 
 	private _onSelectActor = (e): void => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | onActorSelect`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | onActorSelect`);
 		this._selectedTokenId = e.currentTarget.dataset.token_id;
 		const options = { sourceTokenId: this._sourceTokenId };
 		this.render(false, options);
 	}
 
 	private _onConfigureSound = (e): void => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | onConfigureSound`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | onConfigureSound`);
 		new ContainerSoundConfig(this.object, {}).render(true);
 	}
 
 	protected _onDeleteItem = async (e) => {
-		log(`pick-up-stix | ItemConfigApplication | _onDeleteItem`);
+		log(`pick-up-stix | ContainerConfigApplication | _onDeleteItem`);
 		const itemId = e.currentTarget.dataset.id;
 
 		const loot: ContainerLoot = duplicate(this.itemFlags.container.loot);
@@ -408,7 +408,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	}
 
 	protected _onTakeCurrency = async (e) => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeCurrency`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _onTakeCurrency`);
 
     if (!this._selectedTokenId) {
 			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
@@ -429,7 +429,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	}
 
 	protected _onLootAll = async (e) => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onLootAll`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _onLootAll`);
 
 		if (!this._selectedTokenId) {
 			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
@@ -449,7 +449,7 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	}
 
 	protected _onTakeItem = async (e) => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onTakeItem`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _onTakeItem`);
 
 		if (!this._selectedTokenId) {
 			ui.notifications.error(`You must be controlling at least one token that is within reach of the loot.`);
@@ -471,11 +471,11 @@ export default class ContainerItemConfigApplication extends BaseEntitySheet {
 	}
 
 	protected _onEditImage = async (e) => {
-		log(`pick-up-stix | ItemConfigApplication ${this.appId}  | _onEditImage`);
+		log(`pick-up-stix | ContainerConfigApplication ${this.appId}  | _onEditImage`);
 
 		new ContainerImageSelectionApplication(this.object).render(true);
 		Hooks.once('closeContainerImageSelectionApplication', (app, html) => {
-			log(`pick-up-stix | ItemConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);
+			log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);
 			log([app, html]);
 		});
 	}

@@ -3,76 +3,76 @@ $groove-color: #eeede0;
 .system-D35E {
     .pick-up-stix {
         font-family: "Signika", sans-serif;
-      
+
         & * {
           font-family: inherit;
         }
-      
+
         & .fa,
         & .fas,
         & .far {
           font-family: "Font Awesome 5 Free";
         }
-      
+
         &.item-config-sheet {
           min-height: 500px;
         }
-      
+
         & .currency-wrapper {
           margin-bottom: 10px;
           display: flex;
           flex-direction: row;
           align-items: center;
-      
+
           & > * {
             margin-right: 5px;
             display: flex;
             flex-direction: column;
             align-items: center;
           }
-      
+
           & > * div {
             width: 32px;
             height: 32px;
           }
-      
+
           & > * input {
             width: 60px;
           }
-      
+
           & .plat {
             margin-right: 5px;
             background: url(../assets/currency-sprite.png);
           }
-      
+
           & .gold {
             margin-right: 5px;
             background: url(../assets/currency-sprite.png) -34px 0px;
           }
-      
+
           & .electrum {
             margin-right: 5px;
             background: url(../assets/currency-sprite.png) -66px 0px;
           }
-      
+
           & .silver {
             margin-right: 5px;
             background: url(../assets/currency-sprite.png) -98px 0px;
           }
-      
+
           & .copper {
             margin-right: 5px;
             background: url(../assets/currency-sprite.png) -130px 0px;
           }
         }
-      
+
         /**
          * Sheet header styles
          */
         & .sheet-section {
           border-bottom: 2px groove $groove-color;
         }
-      
+
         /**
          * Header profile styles
          */
@@ -82,39 +82,39 @@ $groove-color: #eeede0;
             max-width: 160px;
             height: auto;
           }
-      
+
           /**
            * Header details section styles
            */
           & .header-details {
             padding: 5px;
             border-left: 2px groove $groove-color;
-      
+
             & .container-name {
               font-family: "Modesto Condensed", "Palatino Linotype", serif;
               height: 60px;
               font-size: 3em;
             }
-      
+
             & .container-description {
               font-family: "Signika", sans-serif;
               font-weight: 400;
             }
           }
         }
-      
+
         & textarea {
           border: 1px solid transparent;
           background: unset;
         }
-      
+
         & textarea:focus,
         & textarea:hover {
           outline: unset;
           box-shadow: unset;
           border: 1px solid black;
         }
-      
+
         /**
          * Input styles
          */
@@ -124,20 +124,20 @@ $groove-color: #eeede0;
           outline: unset;
           border: 1px solid transparent;
           border-bottom: 2px groove $groove-color;
-      
+
           &:focus:not(.isNotGM),
           &:hover:not(.isNotGM) {
             border: 1px solid black;
           }
         }
-      
+
         & .inventory-details,
         & .currency-details {
           padding-top: 5px;
           justify-content: space-between;
           align-items: center;
         }
-      
+
         /**
          * Currency details section styles
          */
@@ -165,18 +165,18 @@ $groove-color: #eeede0;
                     display: none;
                 }
             }
-            
-        
+
+
           & .currency-list {
             list-style: none;
             align-items: center;
           }
-      
+
           & .currency-list input[type="text"] {
             text-align: center;
           }
         }
-      
+
         /**
          * Inventory list styles
          */
@@ -206,7 +206,7 @@ $groove-color: #eeede0;
                 display: none;
             }
           }
-      
+
           & .inventory-header {
             background: rgba(0, 0, 0, .05);
             border: 2px groove $groove-color;
@@ -220,33 +220,33 @@ $groove-color: #eeede0;
               text-transform: capitalize;
             }
           }
-      
+
           & .inventory-list {
             &:not(:last-child) {
               border-right: 1px solid #c9c7b8;
             }
-      
+
             & .item {
               align-items: center;
               line-height: 24px;
                 padding: 0 2px;
             }
-      
+
             & .item {
               & h4 {
                 padding: 0;
                 margin: 0;
               }
-      
+
               & .item-name {
                 align-items: center;
               }
-      
+
               & .item-name * {
                 padding-left: 5px;
               }
             }
-      
+
             & .item-image {
               flex: 0 0 24px;
               width: 24px;
@@ -254,7 +254,7 @@ $groove-color: #eeede0;
               background-size: contain;
               background-repeat: no-repeat;
             }
-      
+
             & .item-details {
               flex: 0 0 60px;
               border-left: 1px solid #c9c7b8;
@@ -268,20 +268,20 @@ $groove-color: #eeede0;
               }
           }
         }
-      
+
         & .item-controls {
           display: flex;
           flex-direction: row;
           flex-wrap: wrap;
           justify-content: flex-end;
-      
+
           & a {
             flex: 1;
             text-align: center;
             color: #7a7971;
           }
         }
-      
+
         &.choose-token {
           // the list wrapper, gives the outter padding
           & .wrapper {
@@ -289,31 +289,31 @@ $groove-color: #eeede0;
             justify-content: flex-start;
             flex: 0;
           }
-      
+
           // the "List item" that displays the token image and name
           & .token-selection {
             cursor: pointer;
             border: 2px groove $groove-color;
             align-items: center;
             margin-bottom: -2px;
-      
+
             & * {
               margin-bottom: 5px;
             }
-      
+
             & img {
               border: none;
               margin-right: 5px;
               max-width: 80px;
               height: auto;
             }
-      
+
             & .token-name {
               font-family: "Modesto";
               font-size: 24px;
               font-weight: 700;
             }
-      
+
             &:hover {
               background-color: rgba(0, 0, 0, .09);
             }
@@ -322,7 +322,7 @@ $groove-color: #eeede0;
       }
 
     &.d35ecustom {
-        .pick-up-stix.container-item-config-sheet {
+        .pick-up-stix.container-config-sheet {
             font-family: "Signika", sans-serif;
             border: 6px solid #55493B;
             border-image: url(/systems/D35E/icons/ui/dialog-frame.png) 20 round;
@@ -333,9 +333,9 @@ $groove-color: #eeede0;
                 border-bottom: 2px solid rgba(255,255,255,0.2);
                 line-height: 28px;
               }
-        
+
               .window-content {
-        
+
                 background: url(/systems/D35E/icons/ui/background-window.png) repeat;
               }
 
@@ -353,7 +353,7 @@ $groove-color: #eeede0;
                 & ol {
                   padding: 0;
                 }
-      
+
                 > .flexrow h3:first-child {
                     &::before {
                         border-top: 2px solid #75514b !important;
@@ -401,7 +401,7 @@ $groove-color: #eeede0;
                  }
             }
 
-           
+
 
               input[type="text"], textarea {
                 border: 1px solid rgba(0, 0, 0, 0.2) !important;

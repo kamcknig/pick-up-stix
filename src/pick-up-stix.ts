@@ -16,6 +16,7 @@ import { renderItemDirectoryHook } from "./module/pick-up-stix/hooks/render-item
 import { preUpdateTokenHook } from "./module/pick-up-stix/hooks/pre-update-token-hook";
 import { log } from "./log";
 import { PickUpStixHooks } from "./module/pick-up-stix/models";
+import { makeContainerApi } from './module/pick-up-stix/main';
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -87,4 +88,8 @@ Hooks.once('ready', () => {
         .after(content);
     });
   }
+  if (game.user.isGM) {
+		game.modules.get('pick-up-stix').apis = {};
+		game.modules.get('pick-up-stix').apis.makeContainer = makeContainerApi;
+	}
 });

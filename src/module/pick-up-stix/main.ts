@@ -328,6 +328,125 @@ const dropItemOnCanvas = async ({ dropData }) => {
 	);
 }
 
+export const makeContainerApi = async (items, currency) => {
+	let dropData: any = {
+		// data: item.data,
+		gridX: 0,
+		gridY: 0,
+		// id: item.data._id,
+		type: 'Item',
+		x: 0,
+		y: 0
+	};
+	log(`pick-up-stix | makeContainerApi:`);
+	log(items);
+
+	//   let itemData: any = duplicate(dropData.data);
+	//   let lootTokens: LootToken[] = getLootToken({ itemId: itemData._id });
+	let lootData = {};
+
+	items.forEach((item) => {
+		let existingItems =
+			(lootData[item.data.type] &&
+				lootData[item.data.type].filter((it) => it.name === item.name)) ||
+			[];
+
+		mergeObject(item, {
+			flags: {
+				'pick-up-stix': {
+					'pick-up-stix': {
+						tokenData: {
+							width: 1,
+							height: 1
+						}
+					}
+				}
+			}
+		});
+
+		if (existingItems.length > 0) {
+			existingItems[0].data[getQuantityDataPath()] +=
+				item.data.data[getQuantityDataPath()];
+		} else {
+			if (lootData[item.data.type]) {
+				lootData[item.data.type].push(item.data);
+			} else {
+				lootData[item.data.type] = [item.data];
+			}
+			//   mergeObject(lootData, { [item.data.type]: [item.data] });
+		}
+	});
+
+	let tokenData: TokenData = {
+		name: 'Container',
+		disposition: 0,
+		img: '',
+		width: 1,
+		height: 1,
+		x: dropData.gridX,
+		y: dropData.gridY,
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					isOpen: false,
+					minPerceiveValue: 0
+				}
+			}
+		}
+	};
+
+	const img: string = game.settings.get(
+		'pick-up-stix',
+		SettingKeys.closeImagePath
+	);
+
+	return !!(await createLootToken({ ...tokenData, img }, {
+		name: 'Container',
+		img,
+		type: ItemType.CONTAINER,
+		flags: {
+			'pick-up-stix': {
+				'pick-up-stix': {
+					tokenData: mergeObject(
+						{
+							disposition: 0,
+							width: 1,
+							height: 1,
+							name: 'Container',
+							img
+						},
+						{ ...tokenData, img }
+					),
+					itemType: ItemType.CONTAINER,
+					container: {
+						currency: Object.keys(getCurrencyTypes()).reduce(
+							(acc, shortName) => ({
+								...acc,
+								[shortName]: currency[shortName] || 0
+							}),
+							{}
+						),
+						imageClosePath: img,
+						imageOpenPath: game.settings.get(
+							'pick-up-stix',
+							SettingKeys.openImagePath
+						),
+						soundOpenPath: game.settings.get(
+							'pick-up-stix',
+							SettingKeys.defaultContainerOpenSound
+						),
+						soundClosePath: game.settings.get(
+							'pick-up-stix',
+							SettingKeys.defaultContainerCloseSound
+						),
+						loot: lootData
+					}
+				}
+			}
+		}
+	} as ItemData));
+};
+
 const chooseLootTokenType = (): Promise<ItemType> => {
 	log(`pick-up-stix | chooseLootTokenType | creating dialog`);
 	return new Promise(resolve => {

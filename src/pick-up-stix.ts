@@ -89,7 +89,8 @@ Hooks.once('ready', () => {
     });
   }
   if (game.user.isGM) {
-		game.modules.get('pick-up-stix').apis = {};
+    game.modules.get('pick-up-stix').apis = {};
+    game.modules.get('pick-up-stix').apis.v = 1;
 		game.modules.get('pick-up-stix').apis.makeContainer = makeContainerApi;
 	}
 });

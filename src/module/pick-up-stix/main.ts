@@ -328,29 +328,20 @@ const dropItemOnCanvas = async ({ dropData }) => {
 	);
 }
 
-export const makeContainerApi = async (items, currency) => {
-	let dropData: any = {
-		// data: item.data,
-		gridX: 0,
-		gridY: 0,
-		// id: item.data._id,
-		type: 'Item',
-		x: 0,
-		y: 0
-	};
+/**
+ * Api for creating a container with specified items inside at desired position
+ * @param items array of items
+ * @param currency obect like {cp:0, sp:0, gp:0, pp:0}
+ * @param position object like {gridX:0, gridY:0}
+ * @param tokenDataOverride available values to override are width, height , closeImg, openImg
+ */
+export const makeContainerApi = async (items, currency, position, tokenDataOverride = {width:1,height:1, closeImg:undefined, openImg:undefined }) => {
 	log(`pick-up-stix | makeContainerApi:`);
-	log(items);
+	log([items, currency, position]);
 
-	//   let itemData: any = duplicate(dropData.data);
-	//   let lootTokens: LootToken[] = getLootToken({ itemId: itemData._id });
 	let lootData = {};
 
 	items.forEach((item) => {
-		let existingItems =
-			(lootData[item.data.type] &&
-				lootData[item.data.type].filter((it) => it.name === item.name)) ||
-			[];
-
 		mergeObject(item, {
 			flags: {
 				'pick-up-stix': {
@@ -364,16 +355,10 @@ export const makeContainerApi = async (items, currency) => {
 			}
 		});
 
-		if (existingItems.length > 0) {
-			existingItems[0].data[getQuantityDataPath()] +=
-				item.data.data[getQuantityDataPath()];
+		if (lootData[item.data.type]) {
+			lootData[item.data.type].push(item.data);
 		} else {
-			if (lootData[item.data.type]) {
-				lootData[item.data.type].push(item.data);
-			} else {
-				lootData[item.data.type] = [item.data];
-			}
-			//   mergeObject(lootData, { [item.data.type]: [item.data] });
+			lootData[item.data.type] = [item.data];
 		}
 	});
 
@@ -381,10 +366,10 @@ export const makeContainerApi = async (items, currency) => {
 		name: 'Container',
 		disposition: 0,
 		img: '',
-		width: 1,
-		height: 1,
-		x: dropData.gridX,
-		y: dropData.gridY,
+		width: tokenDataOverride.width,
+		height: tokenDataOverride.height,
+		x: position.gridX,
+		y: position.gridY,
 		flags: {
 			'pick-up-stix': {
 				'pick-up-stix': {
@@ -395,7 +380,7 @@ export const makeContainerApi = async (items, currency) => {
 		}
 	};
 
-	const img: string = game.settings.get(
+	const img: string = tokenDataOverride.closeImg || game.settings.get(
 		'pick-up-stix',
 		SettingKeys.closeImagePath
 	);
@@ -427,7 +412,7 @@ export const makeContainerApi = async (items, currency) => {
 							{}
 						),
 						imageClosePath: img,
-						imageOpenPath: game.settings.get(
+						imageOpenPath: tokenDataOverride.openImg || game.settings.get(
 							'pick-up-stix',
 							SettingKeys.openImagePath
 						),

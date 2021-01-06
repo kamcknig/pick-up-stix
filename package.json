@@ -19,7 +19,7 @@
 	"devDependencies": {
 		"@types/pixi.js": "^5.0.0",
 		"archiver": "^5.0.2",
-		"axios": "^0.20.0",
+		"axios": "^0.21.1",
 		"chalk": "^4.1.0",
 		"foundry-pc-types": "gitlab:foundry-projects/foundry-pc/foundry-pc-types",
 		"fs-extra": "^9.0.1",

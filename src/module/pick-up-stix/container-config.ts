@@ -36,6 +36,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 	</div>`);
 
 	static get defaultOptions(): ApplicationOptions {
+		//@ts-ignore
 		return mergeObject(super.defaultOptions, {
 			closeOnSubmit: false,
 			submitOnClose: false,

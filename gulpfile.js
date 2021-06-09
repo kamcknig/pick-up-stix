@@ -141,18 +141,35 @@ const tsConfig = ts.createProject('tsconfig.json', {
  * Build TypeScript
  */
 function buildTS() {
-	return gulp.src('src/**/*.ts')
-		.pipe(sourcemaps.init())
-		.pipe(tsConfig())
-		.pipe(sourcemaps.write('maps'))
-		.pipe(gulp.dest('dist'))
+	return gulp.src('src/**/*.ts').pipe(sourcemaps.init()).pipe(tsConfig()).pipe(sourcemaps.write('maps')).pipe(gulp.dest('dist'));
+}
+
+/**
+ * Build JavaScript
+ */
+ function buildJS() {
+	return gulp.src('src/**/*.js').pipe(gulp.dest('dist'));
+}
+
+/**
+ * Build JavaScript
+ */
+function buildMJS() {
+	return gulp.src('src/**/*.mjs').pipe(gulp.dest('dist'));
+}
+
+/**
+ * Build JavaScript
+ */
+ function buildCSS() {
+	return gulp.src('src/**/*.css').pipe(gulp.dest('dist'));
 }
 
 /**
  * Build Less
  */
 function buildLess() {
-	return gulp.src('src/*.less').pipe(less()).pipe(gulp.dest('dist'));
+	return gulp.src('src/**/*.less').pipe(less()).pipe(gulp.dest('dist'));
 }
 
 /**
@@ -173,7 +190,7 @@ async function copyFiles() {
 		'lang',
 		'fonts',
 		'assets',
-		'module/pick-up-stix/templates',
+		'templates',
 		'module.json',
 		'system.json',
 		'template.json',
@@ -198,8 +215,11 @@ function buildWatch() {
 	gulp.watch('src/**/*.ts', { ignoreInitial: false }, buildTS);
 	gulp.watch('src/**/*.less', { ignoreInitial: false }, buildLess);
 	gulp.watch('src/**/*.scss', { ignoreInitial: false }, buildSASS);
+	gulp.watch('src/**/*.js', { ignoreInitial: false }, buildJS);
+	gulp.watch('src/**/*.mjs', { ignoreInitial: false }, buildMJS);
+	gulp.watch('src/**/*.css', { ignoreInitial: false }, buildCSS);
 	gulp.watch(
-		['src/fonts', 'src/lang', 'src/module/**/*.html', 'src/*.json', 'src/*.css', 'src/styles/*.scss'],
+		['src/fonts', 'src/lang', 'src/templates', 'src/module/**/*.html', 'src/*.json', 'src/*.css', 'src/styles/*.scss'],
 		{ ignoreInitial: false },
 		copyFiles
 	);
@@ -382,7 +402,8 @@ function updateManifest(cb) {
 	const config = getConfig(),
 		manifest = getManifest(),
 		rawURL = config.rawURL,
-		repoURL = config.repository;
+		repoURL = config.repository,
+		manifestRoot = manifest.root;
 
 	if (!config) cb(Error(chalk.red('foundryconfig.json not found')));
 	if (!manifest) cb(Error(chalk.red('Manifest JSON not found')));
@@ -446,16 +467,17 @@ function updateManifest(cb) {
 				)
 			);
 		}
+		console.log(`Updating version number to '${targetVersion}'`);
 
 		packageJson.version = targetVersion;
 		manifest.file.version = targetVersion;
 
 		/* Update URLs */
 
-		const result = `https://turkeysunite-foundry-modules.s3.amazonaws.com/pick-up-stix/releases/${manifest.file.name}-v${manifest.file.version}.zip`;
+		const result = `${rawURL}/v${manifest.file.version}/package/${manifest.file.name}-v${manifest.file.version}.zip`;
 
 		manifest.file.url = repoURL;
-		manifest.file.manifest = `${rawURL}/master/src/module.json`;
+		manifest.file.manifest = `${rawURL}/master/${manifestRoot}/${manifest.name}`;
 		manifest.file.download = result;
 
 		const prettyProjectJson = stringify(manifest.file, {
@@ -476,9 +498,9 @@ function updateManifest(cb) {
 	}
 }
 
- function gitAdd() {
- 	return gulp.src('src').pipe(git.add({ args: '--no-all' }));
- }
+function gitAdd() {
+	return gulp.src('package').pipe(git.add({ args: '--no-all' }));
+}
 
 function gitCommit() {
 	return gulp.src('./*').pipe(
@@ -517,6 +539,8 @@ function gitTag() {
 	);
 }
 
+const execGit = gulp.series(gitAdd, gitCommit, gitPush, gitTag, gitPushTags);
+
 function gitPushTags() {
 	return new Promise((resolve, reject) => {
 		git.push('origin', 'master', { args: '--tags' }, function(err) {
@@ -547,9 +571,7 @@ async function jenkinsBuild() {
 	});
 }
 
-const execBuild = gulp.parallel(buildTS, buildLess, buildSASS, copyFiles);
-
-const execGit = gulp.series(gitAdd, gitCommit, gitPush, gitTag, gitPushTags);
+const execBuild = gulp.parallel(buildTS, buildJS, buildMJS, buildCSS, buildLess, buildSASS, copyFiles);
 
 exports.removeDebugHooks = removeDebugHooks;
 exports.build = gulp.series(clean, execBuild);
@@ -560,7 +582,10 @@ exports.package = packageBuild;
 exports.update = updateManifest;
 exports.publish = gulp.series(
 	removeDebugHooks,
+	clean,
 	updateManifest,
+	execBuild,
+	packageBuild,
 	execGit,
 	jenkinsBuild
 );

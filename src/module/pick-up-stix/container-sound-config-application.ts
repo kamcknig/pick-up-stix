@@ -4,6 +4,7 @@ import { updateItem } from "./main";
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {
+    //@ts-ignore
     return mergeObject(super.defaultOptions, {
       classes: ['pick-up-stix', 'container-sound-config-sheet'],
       closeOnSubmit: false,

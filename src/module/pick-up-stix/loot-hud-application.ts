@@ -3,8 +3,9 @@ import { LootEmitLightConfigApplication } from "./loot-emit-light-config-applica
 import { error, log } from "../../log";
 import { SettingKeys } from "./settings";
 
-export class LootHud extends BasePlaceableHUD {
+export class LootHud extends BasePlaceableHUD<PlaceableObject> {
   static get defaultOptions() {
+    //@ts-ignore
     return mergeObject(super.defaultOptions, {
       height: 'auto',
       minimizable: false,
@@ -16,7 +17,7 @@ export class LootHud extends BasePlaceableHUD {
   }
 
   private get itemId(): string {
-    return this.object.getFlag('pick-up-stix', 'pick-up-stix.itemId');
+    return <string>this.object.getFlag('pick-up-stix', 'pick-up-stix.itemId');
   }
 
   constructor() {
@@ -95,7 +96,9 @@ export class LootHud extends BasePlaceableHUD {
 
     const data = {
       canConfigure: game.user.can("TOKEN_CONFIGURE"),
+      //@ts-ignore
       visibilityClass: this.object.data.hidden ? 'active' : '',
+      //@ts-ignore
       lockedClass: this.object.data.locked ? 'active' : '',
       showPerceiveInput: game.settings.get('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal),
       minPerceiveValue: this.object.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue') ?? game.settings.get('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue),

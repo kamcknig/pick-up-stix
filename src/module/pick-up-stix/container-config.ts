@@ -21,7 +21,7 @@ import {
 import {
 	DropData
 } from "./models";
-import { SettingKeys } from './settings';
+import { getCanvas, SettingKeys } from './settings';
 
 /**
  * Application class to display to select an item that the token is
@@ -35,7 +35,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 		<div class="loader"></div>
 	</div>`);
 
-	static get defaultOptions(): ApplicationOptions {
+	static get defaultOptions(): Application.Options {
 		//@ts-ignore
 		return mergeObject(super.defaultOptions, {
 			closeOnSubmit: false,
@@ -63,7 +63,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 	}
 
 	get itemFlags(): ItemFlags {
-		return this.object.getFlag('pick-up-stix', 'pick-up-stix');
+		return <ItemFlags>this.object.getFlag('pick-up-stix', 'pick-up-stix');
 	}
 
 	get tokenDatas(): any[] {
@@ -76,7 +76,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 	}
 
 	constructor(object: Item, ...args) {
-		super(object, args);
+		super(object, <Partial<Options>>args);
 
 		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | constructor called with:`);
 		log([object]);
@@ -191,7 +191,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 				return prev;
 			}, {});
 
-
+    //@ts-ignore
 		let description = this.itemFlags?.container?.description ?? this.object.data?.data?.description?.value ?? '';
 		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
@@ -273,6 +273,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 	 * @param e
 	 * @param formData
 	 */
+  //@ts-ignore
 	protected async _updateObject(e, formData) {
 		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _updateObject called with args:`);
 		log([e, duplicate(formData)]);
@@ -281,13 +282,13 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 
 		formData = duplicate(formData);
 
-		const token = canvas.tokens.placeables.find(p => p.id === this._sourceTokenId);
-
-		formData.img = token?.getFlag('pick-up-stix', 'pick-up-stix')?.isOpen
+		const token = getCanvas().tokens.placeables.find(p => p.id === this._sourceTokenId);
+    //@ts-ignore
+		formData.img = <string>token?.getFlag('pick-up-stix', 'pick-up-stix')?.isOpen
 			? containerData?.imageOpenPath
 			: containerData?.imageClosePath;
 
-		const tokenLoot: ContainerLoot = containerData?.loot;
+		const tokenLoot: ContainerLoot = <ContainerLoot>containerData?.loot;
 
 		if (e.type === 'change') {
 			if ($(e.currentTarget).hasClass('currency-input')) {
@@ -380,7 +381,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 	private _onSelectActor = (e): void => {
 		log(`pick-up-stix | ContainerConfigApplication ${this.appId} | onActorSelect`);
 		this._selectedTokenId = e.currentTarget.dataset.token_id;
-		const options = { sourceTokenId: this._sourceTokenId };
+		const options:any = { sourceTokenId: this._sourceTokenId };
 		this.render(false, options);
 	}
 
@@ -393,7 +394,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 		log(`pick-up-stix | ContainerConfigApplication | _onDeleteItem`);
 		const itemId = e.currentTarget.dataset.id;
 
-		const loot: ContainerLoot = duplicate(this.itemFlags.container.loot);
+		const loot: ContainerLoot = <ContainerLoot>duplicate(this.itemFlags.container.loot);
 
 		Object.values(loot).forEach(lootItems => {
 			lootItems.findSplice(l => l._id === itemId);
@@ -416,7 +417,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 			return;
 		}
 
-		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+		const token = getCanvas().tokens.placeables.find(t => t.id === this._selectedTokenId);
 
 		$(this._html)
 			.find('.data-currency-input')
@@ -437,12 +438,12 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 			return;
 		}
 
-		const flags: ItemFlags = duplicate(this.itemFlags);
+		const flags: ItemFlags = <ItemFlags>duplicate(this.itemFlags);
 		const loot: ContainerLoot = flags.container.loot;
 		/* const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemId = e.currentTarget.dataset.id; */
 		const itemData = Object.values(loot)?.reduce((acc, itemDatas) => acc.concat(itemDatas), []);
-		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+		const token = getCanvas().tokens.placeables.find(t => t.id === this._selectedTokenId);
 
 		lootItem({ looterTokenId: token.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId, takeAll: true }).then(() => {
 			this._stopperElement.remove();
@@ -457,12 +458,12 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 			return;
 		}
 
-    const flags: ItemFlags = duplicate(this.itemFlags);
+    const flags: ItemFlags = <ItemFlags>duplicate(this.itemFlags);
 		const loot: ContainerLoot = flags.container.loot;
 		const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemId = e.currentTarget.dataset.id;
 		const itemData = loot?.[itemType]?.find(i => i._id === itemId);
-		const token = canvas.tokens.placeables.find(t => t.id === this._selectedTokenId);
+		const token = getCanvas().tokens.placeables.find(t => t.id === this._selectedTokenId);
 
 		this.addStopper();
 
@@ -473,7 +474,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 
 	protected _onEditImage = async (e) => {
 		log(`pick-up-stix | ContainerConfigApplication ${this.appId}  | _onEditImage`);
-
+    //@ts-ignore
 		new ContainerImageSelectionApplication(this.object).render(true);
 		Hooks.once('closeContainerImageSelectionApplication', (app, html) => {
 			log(`pick-up-stix | ContainerConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);

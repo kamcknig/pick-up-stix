@@ -3,7 +3,7 @@
 
 import { log, warn } from './log';
 import { TokenFlags } from './module/pick-up-stix/loot-token';
-import { SettingKeys } from './module/pick-up-stix/settings';
+import { getCanvas, SettingKeys } from './module/pick-up-stix/settings';
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
@@ -64,7 +64,7 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
 }
 
 export const collidedTokens = (options: { x: number, y:number }): Token[] => {
-  return canvas.tokens.placeables.filter((p: PlaceableObject) =>
+  return getCanvas().tokens.placeables.filter((p: PlaceableObject) =>
     options.x <= p.x + p.width - 1 && options.x >= p.x && options.y <= p.y + p.height - 1 && options.y >= p.y
   );
 }
@@ -192,5 +192,5 @@ export const canSeeLootToken = (token): boolean => {
 
   const tolerance = Math.min(token.w, token.h) / 4;
 
-  return (canvas.sight.testVisibility(token.center, {tolerance}) && canvas.tokens.controlled.some(t => t.actor?.data?.data?.skills?.prc?.passive >= minPerceive))
+  return (getCanvas().sight.testVisibility(token.center, {tolerance}) && getCanvas().tokens.controlled.some(t => t.actor?.data?.data?.skills?.prc?.passive >= minPerceive))
 }

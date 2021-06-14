@@ -8,13 +8,15 @@ import {
  * associated with
  */
 export default class ContainerImageSelectionApplication extends FormApplication {
-	static get defaultOptions(): FormApplicationOptions {
+
+	static get defaultOptions(): FormApplication.Options {
     return mergeObject(super.defaultOptions, {
       closeOnSubmit: false,
       submitOnChange: true,
       id: "pick-up-stix-container-image-selection",
 	    template: "modules/pick-up-stix/module/pick-up-stix/templates/container-image-selection.html",
       height: 'auto',
+      //@ts-ignore
       width: 'auto',
 		  minimizable: false,
       title: `Choose Container Images`
@@ -52,7 +54,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
       .css('font-family', `"Modesto Condensed", "Palatino Linotype", serif`);
 	}
 
-	getData() {
+	getData():any {
     const data = {
       data: this._item.data
     }
@@ -66,11 +68,14 @@ export default class ContainerImageSelectionApplication extends FormApplication 
     new FilePicker({
       type: "image",
       current,
-      callback: path => {
+      //@ts-ignore
+      callback: (path) => {
         e.currentTarget.src = path;
         this._onSubmit(e);
       },
+      //@ts-ignore
       top: this.position.top + 40,
+      //@ts-ignore
       left: this.position.left + 10
     }).browse(current);
   }
@@ -78,7 +83,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
   async _updateObject(e, formData) {
     log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
     log([e, formData]);
-
+    //@ts-ignore
     await updateItem(this.object.id, {
       'flags': {
         'pick-up-stix': {

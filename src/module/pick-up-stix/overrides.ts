@@ -1,14 +1,17 @@
 import { log, warn } from "../../log";
 import { canSeeLootToken } from "../../utils";
 import { TokenFlags } from "./loot-token";
+import { getCanvas } from "./settings";
 
 export function Token_tokenRelease(origFn: Function) {
 	return function(options={}) {
 		log(`pick-up-stix | tokenRelease | called with args`);
 		log(options);
 		origFn.call(this, options);
-		if (canvas.hud?.pickUpStixLootHud?.object === this) {
-			canvas.hud.pickUpStixLootHud.clear();
+    //@ts-ignore
+		if (getCanvas().hud?.pickUpStixLootHud?.object === this) {
+      //@ts-ignore
+			getCanvas().hud.pickUpStixLootHud.clear();
 		}
 		return true;
 	}
@@ -23,7 +26,7 @@ export function Token_isVisible() {
 
 		actualIsVisible = game.user.isGM || (tokenFlags && canSeeLootToken(this))
 	}
-	else if (!canvas.sight.tokenVision) {
+	else if (!getCanvas().sight.tokenVision) {
 		actualIsVisible = true;
 	}
 	else if ( this._controlled ) {
@@ -31,7 +34,7 @@ export function Token_isVisible() {
 	}
 	else {
 		const tolerance = Math.min(this.w, this.h) / 4;
-		actualIsVisible = canvas.sight.testVisibility(this.center, {tolerance});
+		actualIsVisible = getCanvas().sight.testVisibility(this.center, {tolerance});
 	}
 
 	return actualIsVisible

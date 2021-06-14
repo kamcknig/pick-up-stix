@@ -22,7 +22,7 @@ import {
 	SocketMessage,
 	SocketMessageType
 } from "./models";
-import { gmActionTimeout, SettingKeys } from "./settings";
+import { getCanvas, gmActionTimeout, SettingKeys } from "./settings";
 
 export const lootTokens: LootToken[] = [];
 window['lootTokens'] = lootTokens;
@@ -65,7 +65,7 @@ export const getValidControlledTokens = (data: string | Token): Token[] => {
 	let token: Token;
 
 	if (typeof data === 'string') {
-		token = canvas.tokens.placeables.find(p => p.id === data);
+		token = getCanvas().tokens.placeables.find(p => p.id === data);
 	}
 	else {
 		token = data;
@@ -79,19 +79,19 @@ export const getValidControlledTokens = (data: string | Token): Token[] => {
 	log(`pick-up-stix | getValidControlledTokens | Looking for tokens near '${token.id}' '${token.name}`);
 
 	log(`pick-up-stix | getValidControlledTokens | looping through currently controlled tokens`);
-	log([canvas.tokens.controlled]);
+	log([getCanvas().tokens.controlled]);
 
-	const controlled = canvas.tokens.controlled.filter(t => {
+	const controlled = getCanvas().tokens.controlled.filter(t => {
 		if (!t.actor) {
 			log(`pick-up-stix | getValidControlledTokens | token '${t.id}' '${t.name}' has no actor, skipping`);
 			return false;
 		}
 
 		return (
-			t.x + t.w > token.x - canvas.grid.size &&
-			t.x < token.x + token.w + canvas.grid.size &&
-			t.y + t.h > token.y - canvas.grid.size &&
-			t.y < token.y + token.h + canvas.grid.size
+			t.x + t.w > token.x - getCanvas().grid.size &&
+			t.x < token.x + token.w + getCanvas().grid.size &&
+			t.y + t.h > token.y - getCanvas().grid.size &&
+			t.y < token.y + token.h + getCanvas().grid.size
 		);
 	});
 
@@ -119,8 +119,8 @@ export const normalizeDropData = async (data: Partial<DropData>): Promise<DropDa
 		);
 
 	// if it's not a container, then we can assume it's an item. Create the item token
-	const hg = canvas.dimensions.size * .5;
-	const { x, y } = canvas.grid.getSnappedPosition(data.x - hg, data.y - hg, 1);
+	const hg = getCanvas().dimensions.size * .5;
+	const { x, y } = getCanvas().grid.getSnappedPosition(data.x - hg, data.y - hg, 1);
 	data.gridX = x;
 	data.gridY = y;
 
@@ -128,7 +128,7 @@ export const normalizeDropData = async (data: Partial<DropData>): Promise<DropDa
 }
 
 /**
- * Handles data dropped onto the canvas.
+ * Handles data dropped onto the getCanvas().
  *
  * @param dropData
  */
@@ -252,7 +252,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 				);
 			}
 			else if (lootType === ItemType.CONTAINER) {
-				const img: string = game.settings.get('pick-up-stix', SettingKeys.closeImagePath);
+				const img: string = <string>game.settings.get('pick-up-stix', SettingKeys.closeImagePath);
 
 				return !!await createLootToken(
 					{ ...tokenData, img },
@@ -793,7 +793,7 @@ export const deleteItem = async (id: string): Promise<string> => {
 
 	if (game.user.isGM) {
 		log(`pick-up-stix | deleteItem | user is GM, deleting entity`);
-		return await e.delete();
+		return (<Item>await e.delete())._id;
 	}
 
 	const msg: SocketMessage = {
@@ -873,7 +873,7 @@ export const createToken = async (data: any): Promise<string> => {
 
 	if (game.user.isGM) {
 		log(`pick-up-stix | createToken | user is GM, creating token`);
-		const t = await Token.create({
+		const t:any = await Token.create({
 			...data
 		});
 		return t.id;
@@ -926,10 +926,10 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 		});
 	}
 
-	const targetToken: Token = canvas.tokens.placeables.find(p => p.id === targetTokenId);
-	const targetTokenFlags: TokenFlags = targetToken.getFlag('pick-up-stix', 'pick-up-stix');
+	const targetToken: Token = getCanvas().tokens.placeables.find(p => p.id === targetTokenId);
+	const targetTokenFlags: TokenFlags = <TokenFlags>targetToken.getFlag('pick-up-stix', 'pick-up-stix');
 	const targetTokenItem = game.items.get(targetTokenFlags?.itemId);
-	const targetTokenItemFlags: ItemFlags = targetTokenItem?.getFlag('pick-up-stix', 'pick-up-stix');
+	const targetTokenItemFlags: ItemFlags = <ItemFlags>targetTokenItem?.getFlag('pick-up-stix', 'pick-up-stix');
 
 	if (!targetToken?.actor && targetTokenItemFlags?.itemType !== ItemType.CONTAINER) {
 		ui.notifications.error(`Cannot drop '${dropData.data.name}' onto ${targetToken.name}`);
@@ -949,7 +949,7 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 		log(`pick-up-stix | dropItemOnToken | item comes from directory or compendium, item data comes from directory or compendium`);
 		const pack = dropData.pack;
 		const id = dropData.id;
-		const item: Item = await game.items.get(id) ?? await game.packs.get(pack)?.getEntity(id);
+		const item: Item = <Item>(await game.items.get(id) ?? await game.packs.get(pack)?.getEntity(id));
 		if (!item) {
 			log(`pick-up-stix | dropItemOnToken | item '${id}' not found in game items or compendium`);
 			return false;
@@ -1031,7 +1031,7 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 		}
 
 		const containerItem = game.items.get(data.containerItemId);
-		const containerItemFlags: ItemFlags = duplicate(containerItem.getFlag('pick-up-stix', 'pick-up-stix'));
+		const containerItemFlags: ItemFlags = <ItemFlags>duplicate(containerItem.getFlag('pick-up-stix', 'pick-up-stix'));
 		const containerData = containerItemFlags?.container;
 
 		let loot: ContainerLoot = containerData?.loot;
@@ -1128,9 +1128,9 @@ export const  lootCurrency = async (data: { looterTokenId: string, currencies: a
 	if (game.user.isGM) {
 		log(`pick-up-stix | lootCurrency | User is GM, looting currency`);
 
-		const looterToken = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
+		const looterToken = getCanvas().tokens.placeables.find(p => p.id === data.looterTokenId);
 		const containerItem = game.items.get(data.containerItemId);
-		const containerFlags: ItemFlags = duplicate(containerItem.getFlag('pick-up-stix', 'pick-up-stix'));
+		const containerFlags: ItemFlags = <ItemFlags>duplicate(containerItem.getFlag('pick-up-stix', 'pick-up-stix'));
 		const containerCurrencies = containerFlags?.container?.currency;
 		const currencyToLoot = data.currencies;
 
@@ -1222,7 +1222,7 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 		console.log(`pick-up-stix | lootItem | User is GM`);
 
 		const qtyLootedById = {};
-		const looterToken = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
+		const looterToken = getCanvas().tokens.placeables.find(p => p.id === data.looterTokenId);
 		const looterActorId = looterToken.actor.id;
 		const itemDatas: ItemData[] = Array.isArray(data.itemData) ? data.itemData : [data.itemData];
 		const newItemDatas: ItemData[] = itemDatas.reduce((acc, itemData) => {
@@ -1247,7 +1247,7 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 
 		if (data.containerItemId) {
 			const containerItem = game.items.get(data.containerItemId);
-			const containerItemFlags: ItemFlags = duplicate(containerItem?.getFlag('pick-up-stix', 'pick-up-stix') ?? {});
+			const containerItemFlags: ItemFlags = <ItemFlags>duplicate(containerItem?.getFlag('pick-up-stix', 'pick-up-stix') ?? {});
 			const sourceLoot: ContainerLoot = containerItemFlags?.container?.loot;
 
 			for (let [itemType, itemsOfType] of Object.entries(sourceLoot)) {
@@ -1284,7 +1284,7 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 			}, {});
 		}
 		else if (data.lootTokenTokenId) {
-			const lootTokenToken: Token = canvas.tokens.placeables.find(p => p.id === data.lootTokenTokenId);
+			const lootTokenToken: Token = getCanvas().tokens.placeables.find(p => p.id === data.lootTokenTokenId);
 			await deleteToken(lootTokenToken.id, lootTokenToken.scene.id);
 		}
 

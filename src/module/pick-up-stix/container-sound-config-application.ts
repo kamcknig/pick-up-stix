@@ -27,8 +27,10 @@ export class ContainerSoundConfig extends FormApplication {
   protected _openFilePicker(e): void {
     new FilePicker({
       type: "audio",
-      current: this.object.getFlag('pick-up-sitx', `pick-up-stix.${e.currentTarget.dataset.edit}`),
-      callback: path => {
+      //@ts-ignore
+      current: <string>this.object.getFlag('pick-up-stix', `pick-up-stix.${e.currentTarget.dataset.edit}`),
+      //@ts-ignore
+      callback: (path) => {
         e.currentTarget.src = path;
         this._onSubmit(e);
       }
@@ -38,9 +40,9 @@ export class ContainerSoundConfig extends FormApplication {
   async _updateObject(e, formData) {
     log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
     log([formData]);
-
-    const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
-
+    //@ts-ignore
+    const flags: ItemFlags = duplicate(<ItemFlags>this.object.getFlag('pick-up-stix', 'pick-up-stix'));
+    //@ts-ignore
     await updateItem(this.object.id, {
       flags: {
         'pick-up-stix': {
@@ -54,11 +56,13 @@ export class ContainerSoundConfig extends FormApplication {
     });
   }
 
-  getData(options) {
+  getData(options):any {
     log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
     const data = {
-      openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
-      closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
+      //@ts-ignore
+      openSoundPath: <string>this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
+      //@ts-ignore
+      closeSoundPath: <string>this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
     }
     log(data);
     return data;

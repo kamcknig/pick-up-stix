@@ -5,7 +5,7 @@ import { initHook } from "./module/pick-up-stix/hooks/init-hook";
 import { readyHook } from "./module/pick-up-stix/hooks/ready-hook";
 import { preCreateItemHook } from "./module/pick-up-stix/hooks/pre-create-item-hook";
 import { onRenderLootHud } from "./module/pick-up-stix/hooks/render-loot-hud-hook";
-import { processHtml } from "./module/pick-up-stix/settings";
+import { getCanvas } from "./module/pick-up-stix/settings";
 import { deleteTokenHook } from "./module/pick-up-stix/hooks/delete-token-hook";
 import { lootTokenCreatedHook } from "./module/pick-up-stix/hooks/loot-token-created-hook";
 import { LootHud } from "./module/pick-up-stix/loot-hud-application";
@@ -21,7 +21,8 @@ import { makeContainerApi } from './module/pick-up-stix/main';
 // game startup hooks
 Hooks.once('init', initHook);
 Hooks.once('canvasReady', () => {
-  canvas.hud.pickUpStixLootHud = new LootHud();
+  //@ts-ignore
+  getCanvas().hud.pickUpStixLootHud = new LootHud();
 });
 Hooks.on('canvasReady', canvasReadyHook);
 Hooks.on('ready', readyHook);
@@ -46,7 +47,7 @@ Hooks.on('preUpdateToken', preUpdateTokenHook);
 
 // render hooks
 Hooks.on("renderSettingsConfig", (app, html, user) => {
-  processHtml(html);
+  // processHtml(html); // MOD 4535992 removed because filePicker is integrated on foundryvtt 0.8.6
 });
 Hooks.on('renderLootHud', onRenderLootHud);
 
@@ -89,8 +90,11 @@ Hooks.once('ready', () => {
     });
   }
   if (game.user.isGM) {
+    //@ts-ignore
     game.modules.get('pick-up-stix').apis = {};
+    //@ts-ignore
     game.modules.get('pick-up-stix').apis.v = 1;
+    //@ts-ignore
 		game.modules.get('pick-up-stix').apis.makeContainer = makeContainerApi;
 	}
 });

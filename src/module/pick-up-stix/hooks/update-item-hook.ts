@@ -2,6 +2,7 @@ import { log } from "../../../log";
 import { amIFirstGm } from "../../../utils";
 import { ItemFlags } from "../loot-token";
 import { getLootToken, updateToken } from "../main";
+import { getCanvas } from "../settings";
 
 export const updateItemHook = async (item, data, options, userId) => {
   log(`pick-up-stix | updateItemHook`);
@@ -32,5 +33,5 @@ export const updateItemHook = async (item, data, options, userId) => {
         : item.data.img
     });
   }
-canvas.tokens.updateMany(updates);
+getCanvas().tokens.updateMany(updates);
 }

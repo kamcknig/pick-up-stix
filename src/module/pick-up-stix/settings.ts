@@ -1,11 +1,22 @@
 import { log } from "../../log";
 
+export const MODULE_NAME = 'pick-up-stix';
 
-
-
-
-
-
+/**
+ * Because typescript doesn't know when in the lifecycle of foundry your code runs, we have to assume that the
+ * canvas is potentially not yet initialized, so it's typed as declare let canvas: Canvas | {ready: false}.
+ * That's why you get errors when you try to access properties on canvas other than ready.
+ * In order to get around that, you need to type guard canvas.
+ * Also be aware that this will become even more important in 0.8.x because no canvas mode is being introduced there.
+ * So you will need to deal with the fact that there might not be an initialized canvas at any point in time.
+ * @returns
+ */
+ export function getCanvas(): Canvas {
+	if (!(canvas instanceof Canvas) || !canvas.ready) {
+		throw new Error('Canvas Is Not Initialized');
+	}
+	return canvas;
+}
 
 export enum SettingKeys {
 	openImagePath = 'default-container-opened-image-path',
@@ -30,18 +41,18 @@ const systemCurrenciesImplemented = [
 ];
 
 export const gmActionTimeout = (multiplier: number = 1000): number => {
-	return (game.settings.get('pick-up-stix', SettingKeys.GMActionTimeout) ?? 2) * multiplier;
+	return (<number>(game.settings.get('pick-up-stix', SettingKeys.GMActionTimeout) ?? 2)) * multiplier;
 }
 
-const imageTypeFunc = (val) => {
-	return val;
-}
-Object.defineProperty(imageTypeFunc, 'name', {value: 'pick-up-stix-settings-image'});
+// const imageTypeFunc = (val) => {
+// 	return val;
+// }
+// Object.defineProperty(imageTypeFunc, 'name', {value: 'pick-up-stix-settings-image'});
 
-const audioTypeFunc = (val) => {
-	return val;
-}
-Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
+// const audioTypeFunc = (val) => {
+// 	return val;
+// }
+// Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
 export const registerSettings = function() {
 	log(`pick-up-stix | registerSettings`);
@@ -127,7 +138,10 @@ const registerWorldSettings = () => {
 		hint: 'Sets the path for the default image to use for opened containers',
 		scope: 'world',
 		config: true,
-		type: imageTypeFunc,
+		//type: imageTypeFunc,
+    type: String,
+    //@ts-ignore
+    filePicker: true,
 		default: 'modules/pick-up-stix/assets/chest-opened.png'
 	});
 
@@ -136,7 +150,10 @@ const registerWorldSettings = () => {
 		hint: 'Sets the path for the default image to use for closed containers',
 		scope: 'world',
 		config: true,
-		type: imageTypeFunc,
+		//type: imageTypeFunc,
+    type: String,
+    //@ts-ignore
+    filePicker: true,
 		default: 'modules/pick-up-stix/assets/chest-closed.png'
 	});
 
@@ -153,7 +170,10 @@ const registerWorldSettings = () => {
 		name: 'Default Container Open Sound',
 		hint: 'The default sound to play when opening a container.',
 		scope: 'world',
-		type: audioTypeFunc,
+		//type: audioTypeFunc,
+    type: String,
+    //@ts-ignore
+    filePicker: true,
 		config: true
 	});
 
@@ -161,7 +181,10 @@ const registerWorldSettings = () => {
 		name: 'Default Container Close Sound',
 		hint: 'The default sound to play when closing a container.',
 		scope: 'world',
-		type: audioTypeFunc,
+		//type: audioTypeFunc,
+    type: String,
+    //@ts-ignore
+    filePicker: true,
 		config: true
 	});
 
@@ -179,42 +202,42 @@ const registerClientSettings = () => {
 
 }
 
-export function processHtml(html) {
-	$(html)
-		.find('input[data-dtype="pick-up-stix-settings-image"')
-		.each(function() {
-			const settingName = $(this).attr('name').split('.')[1];
-			log(settingName);
+// export function processHtml(html) {
+// 	$(html)
+// 		.find('input[data-dtype="pick-up-stix-settings-image"')
+// 		.each(function() {
+// 			const settingName = $(this).attr('name').split('.')[1];
+// 			log(settingName);
 
-			let picker = new FilePicker({
-				type: 'image',
-				current: game.settings.get('pick-up-stix', settingName),
-				field: $(this)[0]
-			});
+// 			let picker = new FilePicker({
+// 				type: 'image',
+// 				current: <string>game.settings.get('pick-up-stix', settingName),
+// 				field: $(this)[0]
+// 			});
 
-			let pickerButton = $('<button type="button" class="file-picker" title="Pick image"><i class="fas fa-file-import fa-fw"></i></button>');
-			pickerButton.on("click", function () {
-				picker.render(true);
-			});
-			$(this).parent().append(pickerButton);
-		});
+// 			let pickerButton = $('<button type="button" class="file-picker" title="Pick image"><i class="fas fa-file-import fa-fw"></i></button>');
+// 			pickerButton.on("click", function () {
+// 				picker.render(true);
+// 			});
+// 			$(this).parent().append(pickerButton);
+// 		});
 
-		$(html)
-		.find('input[data-dtype="pick-up-stix-settings-audio"')
-		.each(function() {
-			const settingName = $(this).attr('name').split('.')[1];
-			log(settingName);
+// 		$(html)
+// 		.find('input[data-dtype="pick-up-stix-settings-audio"')
+// 		.each(function() {
+// 			const settingName = $(this).attr('name').split('.')[1];
+// 			log(settingName);
 
-			let picker = new FilePicker({
-				type: 'audio',
-				current: game.settings.get('pick-up-stix', settingName),
-				field: $(this)[0]
-			});
+// 			let picker = new FilePicker({
+// 				type: 'audio',
+// 				current: <string>game.settings.get('pick-up-stix', settingName),
+// 				field: $(this)[0]
+// 			});
 
-			let pickerButton = $('<button type="button" class="file-picker" title="Pick image"><i class="fas fa-file-import fa-fw"></i></button>');
-			pickerButton.on("click", function () {
-				picker.render(true);
-			});
-			$(this).parent().append(pickerButton);
-		})
-}
+// 			let pickerButton = $('<button type="button" class="file-picker" title="Pick image"><i class="fas fa-file-import fa-fw"></i></button>');
+// 			pickerButton.on("click", function () {
+// 				picker.render(true);
+// 			});
+// 			$(this).parent().append(pickerButton);
+// 		})
+// }

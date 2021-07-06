@@ -1,3 +1,4 @@
+// import { ItemFlags } from './loot-token';
 import { error, log } from "../../log";
 import { getPriceDataPath, getQuantityDataPath, getWeightDataPath } from "../../utils";
 import {
@@ -6,6 +7,7 @@ import {
 	updateToken
 } from "./main";
 import { ItemType } from "./models";
+import { getCanvas } from "./settings";
 
 /**
  * These are the flags stored on a Token instance.
@@ -95,7 +97,7 @@ export class LootToken {
 	private _sceneId: string;
 
 	get itemFlags(): ItemFlags {
-		return this.item.getFlag('pick-up-stix', 'pick-up-stix');
+		return <ItemFlags>this.item.getFlag('pick-up-stix', 'pick-up-stix');
 	}
 
 	get isOpen(): boolean {
@@ -134,7 +136,7 @@ export class LootToken {
 	}
 
 	get token(): any {
-		return canvas.tokens.placeables.find(p => p.id === this.tokenId) ?? null;
+		return getCanvas().tokens.placeables.find(p => p.id === this.tokenId) ?? null;
 	}
 
 	get tokenData(): any {
@@ -169,7 +171,7 @@ export class LootToken {
 	}
 
 	public activateListeners = (): void => {
-		if (!canvas.tokens.placeables.find(p => p.id === this.tokenData._id)) {
+		if (!getCanvas().tokens.placeables.find(p => p.id === this.tokenData._id)) {
 			return;
 		}
 
@@ -371,7 +373,7 @@ export class LootToken {
 		for (let item of game.items) {
 			const i: Item = (item as any) as Item;
 
-      const flags: ItemFlags = i.getFlag('pick-up-stix', 'pick-up-stix');
+      const flags: ItemFlags = <ItemFlags>i.getFlag('pick-up-stix', 'pick-up-stix');
 
       if (this.itemId === i.id || flags === undefined) {
         continue;
@@ -433,7 +435,7 @@ export class LootToken {
 
 		// Create the interaction manager
 		if (token) {
-			return new MouseInteractionManager(token, canvas.stage, permissions, callbacks, options).activate();
+			return new MouseInteractionManager(token, getCanvas().stage, permissions, callbacks, options).activate();
 		}
 	}
 
@@ -449,7 +451,7 @@ export class LootToken {
 			return;
 		}
 
-		const allControlled = canvas.tokens.controlled;
+		const allControlled = getCanvas().tokens.controlled;
 		const tokens = getValidControlledTokens(token);
 
 		// checking for double click, the double click handler clears this timeout
@@ -512,10 +514,11 @@ export class LootToken {
 		log(`pick-up-stix | LootToken | handleClickRight`);;
 		clearTimeout(this._clickTimeout);
 
-		canvas.tokens.hud.clear();
+		getCanvas().tokens.hud.clear();
 
 		const token = this.token;
-		const hud = canvas.hud.pickUpStixLootHud;
+    //@ts-ignore
+		const hud = getCanvas().hud.pickUpStixLootHud;
 		if (hud) {
 			token?.control({releaseOthers: true});
 			if (hud.object === token) {

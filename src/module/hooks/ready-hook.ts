@@ -1,5 +1,5 @@
-import { error, log } from "../../../log";
-import { amIFirstGm, versionDiff } from "../../../utils";
+import { error, log } from "../log.ts.bak";
+import { amIFirstGm, versionDiff } from "../utils";
 import ContainerConfigApplication from "../container-config";
 import { LootToken, TokenFlags } from "../loot-token";
 import {
@@ -43,7 +43,6 @@ export async function readyHook() {
 	// add the default sheet to the container Item type
 	CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
 			'pick-up-stix.ContainerConfigApplication': {
-        //@ts-ignore
 				cls: ContainerConfigApplication,
 			default: true,
 			id: 'pick-up-stix.ContainerConfigApplication'
@@ -94,7 +93,7 @@ export async function readyHook() {
 			item.data.type = ItemType.CONTAINER;
 		}
 	}
-  //@ts-ignore
+
 	const activeVersion = <string>game.modules.get('pick-up-stix').data.version;
 	const previousVersion = <string>game.settings.get('pick-up-stix', SettingKeys.version);
 
@@ -158,7 +157,7 @@ const createDefaultFolders = async () => {
 	log(`pick-up-stix | createDefaultFolders`);
 
 	// check if the parent folder exists and create it if not
-	let parentFolderId = <string>game.settings.get('pick-up-stix', SettingKeys.parentItemFolderId);
+	let parentFolderId = game.settings.get('pick-up-stix', SettingKeys.parentItemFolderId);
 	let folder = Folder.collection.get(parentFolderId);
 
 	if (!folder) {
@@ -178,11 +177,10 @@ const createDefaultFolders = async () => {
 	}
 
 	// check if the tokens folder exist and create it if not
-	folder = Folder.collection.get(<string>game.settings.get('pick-up-stix', SettingKeys.tokenFolderId));
+	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.tokenFolderId));
 
 	if (!folder) {
 		log(`pick-up-stix | createDefaultFolders | couldn't find tokens folder, creating it now`);
-    //@ts-ignore
 		folder = await Folder.create({
 			color: '',
 			name: 'Tokens',
@@ -197,11 +195,10 @@ const createDefaultFolders = async () => {
 	}
 
 	// check if the items folder exists and create it if not
-	folder = Folder.collection.get(<string>game.settings.get('pick-up-stix', SettingKeys.itemFolderId));
+	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.itemFolderId));
 
 	if (!folder) {
 		log(`pick-up-stix | createDefaultFolders | couldn't find items folder`);
-    //@ts-ignore
 		folder = await Folder.create({
 			color: '',
 			name: 'Items',

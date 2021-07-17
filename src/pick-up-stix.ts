@@ -1,22 +1,43 @@
-import { canvasReadyHook } from "./module/pick-up-stix/hooks/canvas-ready-hook";
-import { createActorHook } from "./module/pick-up-stix/hooks/create-actor-hook";
-import { createItemHook as createItemHook } from "./module/pick-up-stix/hooks/create-item-hook";
-import { initHook } from "./module/pick-up-stix/hooks/init-hook";
-import { readyHook } from "./module/pick-up-stix/hooks/ready-hook";
-import { preCreateItemHook } from "./module/pick-up-stix/hooks/pre-create-item-hook";
-import { onRenderLootHud } from "./module/pick-up-stix/hooks/render-loot-hud-hook";
-import { getCanvas } from "./module/pick-up-stix/settings";
-import { deleteTokenHook } from "./module/pick-up-stix/hooks/delete-token-hook";
-import { lootTokenCreatedHook } from "./module/pick-up-stix/hooks/loot-token-created-hook";
-import { LootHud } from "./module/pick-up-stix/loot-hud-application";
-import { updateItemHook } from "./module/pick-up-stix/hooks/update-item-hook";
-import { deleteItemHook } from "./module/pick-up-stix/hooks/delete-item-hook";
-import { preUpdateItemHook } from "./module/pick-up-stix/hooks/pre-update-item-hook";
-import { renderItemDirectoryHook } from "./module/pick-up-stix/hooks/render-item-directory-hook";
-import { preUpdateTokenHook } from "./module/pick-up-stix/hooks/pre-update-token-hook";
-import { log } from "./log";
-import { PickUpStixHooks } from "./module/pick-up-stix/models";
-import { makeContainerApi } from './module/pick-up-stix/main';
+import { canvasReadyHook } from "./module/hooks/canvas-ready-hook";
+import { createActorHook } from "./module/hooks/create-actor-hook";
+import { createItemHook as createItemHook } from "./module/hooks/create-item-hook";
+import { initHook } from "./module/hooks/init-hook";
+import { readyHook } from "./module/hooks/ready-hook";
+import { preCreateItemHook } from "./module/hooks/pre-create-item-hook";
+import { onRenderLootHud } from "./module/hooks/render-loot-hud-hook";
+import { getCanvas } from "./module/settings";
+import { deleteTokenHook } from "./module/hooks/delete-token-hook";
+import { lootTokenCreatedHook } from "./module/hooks/loot-token-created-hook";
+import { LootHud } from "./module/loot-hud-application";
+import { updateItemHook } from "./module/hooks/update-item-hook";
+import { deleteItemHook } from "./module/hooks/delete-item-hook";
+import { preUpdateItemHook } from "./module/hooks/pre-update-item-hook";
+import { renderItemDirectoryHook } from "./module/hooks/render-item-directory-hook";
+import { preUpdateTokenHook } from "./module/hooks/pre-update-token-hook";
+import { PickUpStixHooks } from "./module/models";
+import { makeContainerApi } from './module/main';
+import { getGame, PICK_UP_STIX_MODULE_NAME } from "./module/settings";
+
+export let debugEnabled = 0;
+// 0 = none, warnings = 1, debug = 2, all = 3
+export let debug = (...args) => {if (debugEnabled > 1) console.log(`DEBUG:${PICK_UP_STIX_MODULE_NAME} | `, ...args)};
+export let log = (...args) => console.log(`${PICK_UP_STIX_MODULE_NAME} | `, ...args);
+export let warn = (...args) => {if (debugEnabled > 0) console.warn(`${PICK_UP_STIX_MODULE_NAME} | `, ...args)};
+export let error = (...args) => console.error(`${PICK_UP_STIX_MODULE_NAME} | `, ...args);
+export let timelog = (...args) => warn(`${PICK_UP_STIX_MODULE_NAME} | `, Date.now(), ...args);
+
+export let i18n = key => {
+  return getGame().i18n.localize(key);
+};
+export let i18nFormat = (key, data = {}) => {
+  return getGame().i18n.format(key, data);
+}
+
+export let setDebugLevel = (debugText: string) => {
+  debugEnabled = {"none": 0, "warn": 1, "debug": 2, "all": 3}[debugText] || 0;
+  // 0 = none, warnings = 1, debug = 2, all = 3
+  if (debugEnabled >= 3) CONFIG.debug.hooks = true;
+}
 
 // game startup hooks
 Hooks.once('init', initHook);
@@ -56,9 +77,9 @@ Hooks.on(PickUpStixHooks.lootTokenCreated, lootTokenCreatedHook);
 Hooks.once('ready', () => {
   log('pick-up-stix | ready once hook');
 
-  if (game.system.id === 'dnd5e') {
+  if (getGame().system.id === 'dnd5e') {
     Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
-      log(`pick-up-stix | renderItemSheet5e`);
+      log(`${PICK_UP_STIX_MODULE_NAME} | renderItemSheet5e`);
       log([app, protoHtml, data]);
 
       const item: Item = app.object;
@@ -71,16 +92,19 @@ Hooks.once('ready', () => {
       if (html[0].localName !== "div") {
         html = $(html[0].parentElement.parentElement);
       }
-
+      //@ts-ignore
+      const width:number = item?.data?.flags[PICK_UP_STIX_MODULE_NAME]?.tokenData?.width ?? 1;
+      //@ts-ignore
+      const height:number = item?.data?.flags[PICK_UP_STIX_MODULE_NAME]?.tokenData?.height ?? 1;
       const content = `
       <div class="form-group">
         <label>Width</label>
-        <input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.width" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1}" data-dtype="Number">
+        <input type="text" name="flags.pick-up-stix.tokenData.width" value="${width}" data-dtype="Number">
       </div>
 
       <div class="form-group">
         <label>Height</label>
-        <input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.height" value="${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1}" data-dtype="Number">
+        <input type="text" name="flags.pick-up-stix.tokenData.height" value="${height}" data-dtype="Number">
       </div>
     `
       $(html)
@@ -89,12 +113,12 @@ Hooks.once('ready', () => {
         .after(content);
     });
   }
-  if (game.user.isGM) {
+  if (getGame().user?.isGM) {
     //@ts-ignore
-    game.modules.get('pick-up-stix').apis = {};
+    getGame().modules.get(PICK_UP_STIX_MODULE_NAME).apis = {};
     //@ts-ignore
-    game.modules.get('pick-up-stix').apis.v = 1;
+    getGame().modules.get(PICK_UP_STIX_MODULE_NAME).apis.v = 1;
     //@ts-ignore
-		game.modules.get('pick-up-stix').apis.makeContainer = makeContainerApi;
+		getGame().modules.get(PICK_UP_STIX_MODULE_NAME).apis.makeContainer = makeContainerApi;
 	}
 });

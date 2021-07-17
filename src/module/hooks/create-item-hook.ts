@@ -1,4 +1,4 @@
-import { log } from "../../../log";
+import { log } from "../log.ts.bak";
 import { ItemType } from "../models";
 
 export async function createItemHook(item: Item, options: any, userId: string) {

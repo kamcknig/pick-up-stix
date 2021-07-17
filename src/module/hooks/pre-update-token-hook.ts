@@ -1,5 +1,5 @@
-import { error, log } from "../../../log";
-import { collidedTokens } from "../../../utils";
+import { error, log } from "../log.ts.bak";
+import { collidedTokens } from "../utils";
 import { TokenFlags } from "../loot-token";
 import { deleteToken, getLootToken, handleItemDropped, normalizeDropData } from "../main";
 

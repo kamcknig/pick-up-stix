@@ -1,5 +1,5 @@
-import { log } from "../../../log";
-import { amIFirstGm } from "../../../utils";
+import { log } from "../log.ts.bak";
+import { amIFirstGm } from "../utils";
 import { updateOwnedItem } from "../main";
 
 export const createActorHook = async (actor: Actor, userId: string) => {

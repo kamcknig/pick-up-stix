@@ -1,4 +1,4 @@
-import { log } from "../../../log";
+import { log } from "../log.ts.bak";
 import { createLootToken, getLootToken } from "../main";
 import { getCanvas } from "../settings";
 

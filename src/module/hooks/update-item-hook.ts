@@ -1,5 +1,5 @@
-import { log } from "../../../log";
-import { amIFirstGm } from "../../../utils";
+import { log } from "../log.ts.bak";
+import { amIFirstGm } from "../utils";
 import { ItemFlags } from "../loot-token";
 import { getLootToken, updateToken } from "../main";
 import { getCanvas } from "../settings";

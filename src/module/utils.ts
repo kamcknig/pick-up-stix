@@ -1,9 +1,10 @@
 //@ts-ignore
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
-import { log, warn } from './log';
-import { TokenFlags } from './module/pick-up-stix/loot-token';
-import { getCanvas, SettingKeys } from './module/pick-up-stix/settings';
+import { log, warn } from './log.ts.bak';
+import { TokenFlags } from './loot-token';
+import { getCanvas, SettingKeys } from './settings';
+import { getGame } from './settings';
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
@@ -12,7 +13,7 @@ export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
 
 export const getCurrencyTypes = (): { [short: string]: string } =>  {
   log(`pick-up-stix | utils | getCurrencies`);
-  if (game.system.id === 'dnd5e') {
+  if (getGame().system.id === 'dnd5e') {
     log(`pick-up-stix | utils | getCurrencies | using system 'dnd5e'`);
     //@ts-ignore
     import('../../systems/dnd5e/module/config.js').then(r => {
@@ -21,7 +22,7 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
       };
     });
   }
-  else if (game.system.id === 'D35E') {
+  else if (getGame().system.id === 'D35E') {
     return {
       cp: 'Copper',
       gp: 'Gold',
@@ -29,7 +30,7 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
       sp: 'Silver'
     }
   }
-  else if (game.system.id === 'pf2e') {
+  else if (getGame().system.id === 'pf2e') {
     return {
       cp: 'Copper',
       gp: 'Gold',
@@ -38,7 +39,7 @@ export const getCurrencyTypes = (): { [short: string]: string } =>  {
     }
   }
   else {
-    warn(`System ${game.system.id} currencies have not been implemented and therefore might not work properly.`);
+    warn(`System ${getGame().system.id} currencies have not been implemented and therefore might not work properly.`);
   }
 
   return {
@@ -63,8 +64,8 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
   return v1Parts[0] - v2Parts[0];
 }
 
-export const collidedTokens = (options: { x: number, y:number }): Token[] => {
-  return getCanvas().tokens.placeables.filter((p: PlaceableObject) =>
+export const collidedTokens = (options: { x: number, y:number }): Token[]|undefined => {
+  return getCanvas().tokens?.placeables.filter((p: PlaceableObject) =>
     options.x <= p.x + p.width - 1 && options.x >= p.x && options.y <= p.y + p.height - 1 && options.y >= p.y
   );
 }
@@ -85,7 +86,7 @@ export function onChangeInputDelta(event) {
 export function getQuantityDataPath(): string {
   let path;
 
-  switch (game.system.id) {
+  switch (getGame().system.id) {
     case 'dnd5e':
       path = 'quantity'
       break;
@@ -96,7 +97,7 @@ export function getQuantityDataPath(): string {
       path = 'quantity.value'
       break;
     default:
-      warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
+      warn(`System ${getGame().system.id} quantity data path not implemented and therefore might not work with item data.`);
       path = 'quantity';
       break;
   }
@@ -107,7 +108,7 @@ export function getQuantityDataPath(): string {
 export function getPriceDataPath(): string {
   let path;
 
-  switch (game.system.id) {
+  switch (getGame().system.id) {
     case 'dnd5e':
       path = 'price'
       break;
@@ -118,7 +119,7 @@ export function getPriceDataPath(): string {
       path = 'price.value'
       break;
     default:
-      warn(`System ${game.system.id} price data path not implemented and therefore might not work with item data.`);
+      warn(`System ${getGame().system.id} price data path not implemented and therefore might not work with item data.`);
       path = 'price';
       break;
   }
@@ -129,7 +130,7 @@ export function getPriceDataPath(): string {
 export function getWeightDataPath(): string {
   let path;
 
-  switch (game.system.id) {
+  switch (getGame().system.id) {
     case 'dnd5e':
       path = 'weight'
       break;
@@ -140,7 +141,7 @@ export function getWeightDataPath(): string {
       path = 'weight.value'
       break;
     default:
-      warn(`System ${game.system.id} weight data path not implemented and therefore might not work with item data.`);
+      warn(`System ${getGame().system.id} weight data path not implemented and therefore might not work with item data.`);
       path = 'weight';
       break;
   }
@@ -151,14 +152,14 @@ export function getWeightDataPath(): string {
 export const getActorCurrencyPath = (): string => {
   let path;
 
-  switch (game.system.id) {
+  switch (getGame().system.id) {
     case 'dnd5e':
     case 'D35E':
     case 'pf2e':
       path = 'data.currency'
       break;
     default:
-      warn(`System ${game.system.id} quantity data path not implemented and therefore might not work with item data.`);
+      warn(`System ${getGame().system.id} quantity data path not implemented and therefore might not work with item data.`);
       path = 'data.currency';
       break;
   }
@@ -168,11 +169,15 @@ export const getActorCurrencyPath = (): string => {
 
 export const amIFirstGm = (): boolean => {
   const firstGm = firstGM();
-  return firstGm && game.user === firstGm
+  if(firstGm){
+    return getGame().user === firstGm;
+  }else{
+    return false;
+  }
 }
 
 export const firstGM = () => {
-  const firstGm = game.users.find(u => u.isGM && u.active);
+  const firstGm = getGame().users?.find(u => u.isGM && u.active);
   return firstGm;
 }
 
@@ -188,9 +193,12 @@ export const canSeeLootToken = (token): boolean => {
   const tokenFlags: TokenFlags = token.getFlag('pick-up-stix', 'pick-up-stix');
 
   // right now this is dnd5e only so this code is speicific to that
-  const minPerceive = tokenFlags?.minPerceiveValue ?? game.settings.get('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue);
+  const minPerceive = tokenFlags?.minPerceiveValue ?? getGame().settings.get('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue);
 
   const tolerance = Math.min(token.w, token.h) / 4;
-
-  return (getCanvas().sight.testVisibility(token.center, {tolerance}) && getCanvas().tokens.controlled.some(t => t.actor?.data?.data?.skills?.prc?.passive >= minPerceive))
+  const visibility = getCanvas().sight?.testVisibility(token.center, {tolerance})
+  //@ts-ignore
+  const perception = getCanvas().tokens?.controlled.some((t:Token) => t.actor?.data?.data?.skills?.prc?.passive >= minPerceive);
+  //@ts-ignore
+  return visibility && perception;
 }

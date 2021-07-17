@@ -1,8 +1,8 @@
 import { ItemType } from "../models";
 import { SettingKeys } from "../settings";
-import { getCurrencyTypes } from "../../../utils";
+import { getCurrencyTypes } from "../utils";
 import { ItemFlags } from "../loot-token";
-import { error, log } from "../../../log";
+import { error, log } from "../log.ts.bak";
 
 export async function preCreateItemHook(itemData: any, options: any = {}, userId: string) {
 	log(`pick-up-stix | preCreateItemHook | called with args:`);

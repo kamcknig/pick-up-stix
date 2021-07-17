@@ -1,5 +1,5 @@
-import { log, warn } from "../../../log";
-import { amIFirstGm } from "../../../utils";
+import { log, warn } from "../log.ts.bak";
+import { amIFirstGm } from "../utils";
 import { LootToken } from "../loot-token"
 import { deleteItem, getLootToken, lootTokens } from "../main"
 

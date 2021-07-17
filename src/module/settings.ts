@@ -1,6 +1,7 @@
-import { log } from "../../log";
+import { log } from "console";
 
-export const MODULE_NAME = 'pick-up-stix';
+
+export const PICK_UP_STIX_MODULE_NAME = 'pick-up-stix';
 
 /**
  * Because typescript doesn't know when in the lifecycle of foundry your code runs, we have to assume that the
@@ -16,6 +17,22 @@ export const MODULE_NAME = 'pick-up-stix';
 		throw new Error('Canvas Is Not Initialized');
 	}
 	return canvas;
+}
+
+/**
+ * Because typescript doesn't know when in the lifecycle of foundry your code runs, we have to assume that the
+ * canvas is potentially not yet initialized, so it's typed as declare let canvas: Canvas | {ready: false}.
+ * That's why you get errors when you try to access properties on canvas other than ready.
+ * In order to get around that, you need to type guard canvas.
+ * Also be aware that this will become even more important in 0.8.x because no canvas mode is being introduced there.
+ * So you will need to deal with the fact that there might not be an initialized canvas at any point in time.
+ * @returns
+ */
+export function getGame(): Game {
+	if (!(game instanceof Game)) {
+		throw new Error("Game Is Not Initialized");
+	}
+	return game;
 }
 
 export enum SettingKeys {
@@ -41,7 +58,7 @@ const systemCurrenciesImplemented = [
 ];
 
 export const gmActionTimeout = (multiplier: number = 1000): number => {
-	return (<number>(game.settings.get('pick-up-stix', SettingKeys.GMActionTimeout) ?? 2)) * multiplier;
+	return (<number>(getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.GMActionTimeout) ?? 2)) * multiplier;
 }
 
 // const imageTypeFunc = (val) => {
@@ -55,14 +72,14 @@ export const gmActionTimeout = (multiplier: number = 1000): number => {
 // Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
 export const registerSettings = function() {
-	log(`pick-up-stix | registerSettings`);
+	log(`${PICK_UP_STIX_MODULE_NAME} | registerSettings`);
 	registerHiddenSettings();
 	registerWorldSettings();
 	registerClientSettings();
 }
 
 const registerHiddenSettings = () => {
-	game.settings.register('pick-up-stix', SettingKeys.GMActionTimeout, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.GMActionTimeout, {
 		name: 'GM Action Timeout',
 		hint: 'Controls the amount of time to wait for a GM client to perform a GM action before giving up',
 		scope: 'world',
@@ -71,7 +88,7 @@ const registerHiddenSettings = () => {
 		config: false
 	});
 
-  game.settings.register('pick-up-stix', SettingKeys.version13updatemessage, {
+  getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.version13updatemessage, {
     name: 'Version 13 Update Message',
     hint: 'Tracks if user received the version 13 update message',
     scope: 'world',
@@ -80,7 +97,7 @@ const registerHiddenSettings = () => {
     default: false
   });
 
-	game.settings.register('pick-up-stix', SettingKeys.version, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.version, {
 		name: 'Version',
 		hint: 'Used to track which version is last loaded, so that we can give updates to users',
 		scope: 'world',
@@ -89,7 +106,7 @@ const registerHiddenSettings = () => {
 		default: '0.0.0'
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.parentItemFolderId, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.parentItemFolderId, {
 		name: 'Parent Item Folder ID',
 		hint: 'The folder ID of the main Pick-Up-Stix folder in the Items Directory',
 		scope: 'world',
@@ -97,7 +114,7 @@ const registerHiddenSettings = () => {
 		type: String
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.itemFolderId, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId, {
 		name: 'Items Folder ID',
 		hint: 'The Folder ID of the sub folder to hold templates for loot',
 		scope: 'world',
@@ -105,7 +122,7 @@ const registerHiddenSettings = () => {
 		type: String
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.tokenFolderId, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.tokenFolderId, {
 		name: 'Tokens folder ID',
 		hint: 'The Folder ID of the sub folder to hold Items representing tokens',
 		scope: 'world',
@@ -115,25 +132,25 @@ const registerHiddenSettings = () => {
 }
 
 const registerWorldSettings = () => {
-	game.settings.register('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.enableLootTokenPerceiveReveal, {
 		name: 'Loot Token Reveal',
 		hint: `Enables auto-revealing loot tokens that players with controlled tokens are able to see with their passive 'perceive' value.`,
 		scope: 'world',
-		config: game.system.id === 'dnd5e',
+		config: getGame().system.id === 'dnd5e',
 		type: Boolean,
 		default: false
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultMinimumPerceiveValue, {
 		name: 'Minimum Perceive Value',
 		hint: `The minimum value a token's actor must have in order to perceive a hidden loot token.`,
 		scope: 'world',
-		config: game.system.id === 'dnd5e',
+		config: getGame().system.id === 'dnd5e',
 		type: Number,
 		default: 10
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.openImagePath, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.openImagePath, {
 		name: 'Default Container Opened Image',
 		hint: 'Sets the path for the default image to use for opened containers',
 		scope: 'world',
@@ -145,7 +162,7 @@ const registerWorldSettings = () => {
 		default: 'modules/pick-up-stix/assets/chest-opened.png'
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.closeImagePath, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.closeImagePath, {
 		name: 'Default Container Closed Image',
 		hint: 'Sets the path for the default image to use for closed containers',
 		scope: 'world',
@@ -157,16 +174,16 @@ const registerWorldSettings = () => {
 		default: 'modules/pick-up-stix/assets/chest-closed.png'
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.disableCurrencyLoot, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.disableCurrencyLoot, {
 		name: 'Disable Currency Loot',
 		hint: `This option is enabled by default for systems that have not been implemented in Pick-Up-Stix yet. You can also use it to manually disable currency if you don't wish to have currency as loot.`,
 		scope: 'world',
 		config: true,
 		type: Boolean,
-		default: !systemCurrenciesImplemented.includes(game.system.id)
+		default: !systemCurrenciesImplemented.includes(getGame().system.id)
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.defaultContainerOpenSound, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerOpenSound, {
 		name: 'Default Container Open Sound',
 		hint: 'The default sound to play when opening a container.',
 		scope: 'world',
@@ -177,7 +194,7 @@ const registerWorldSettings = () => {
 		config: true
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.defaultContainerCloseSound, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerCloseSound, {
 		name: 'Default Container Close Sound',
 		hint: 'The default sound to play when closing a container.',
 		scope: 'world',
@@ -188,7 +205,7 @@ const registerWorldSettings = () => {
 		config: true
 	});
 
-	game.settings.register('pick-up-stix', SettingKeys.addItemOnContainerCreation, {
+	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.addItemOnContainerCreation, {
 		name: 'Auto-add Item',
 		hint: `When enabled and dragging an Item to the canvas in order to create a container, the Item used to create the container will automatically be added to the created container rather than creating an empty container.`,
 		scope: 'world',
@@ -211,7 +228,7 @@ const registerClientSettings = () => {
 
 // 			let picker = new FilePicker({
 // 				type: 'image',
-// 				current: <string>game.settings.get('pick-up-stix', settingName),
+// 				current: <string>getGame().settings.get(PICK_UP_STIX_MODULE_NAME, settingName),
 // 				field: $(this)[0]
 // 			});
 
@@ -230,7 +247,7 @@ const registerClientSettings = () => {
 
 // 			let picker = new FilePicker({
 // 				type: 'audio',
-// 				current: <string>game.settings.get('pick-up-stix', settingName),
+// 				current: <string>getGame().settings.get(PICK_UP_STIX_MODULE_NAME, settingName),
 // 				field: $(this)[0]
 // 			});
 

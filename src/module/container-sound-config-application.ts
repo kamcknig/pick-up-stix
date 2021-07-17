@@ -1,10 +1,10 @@
 import { log } from "../../log";
 import { ItemFlags } from "./loot-token";
 import { updateItem } from "./main";
+import { PICK_UP_STIX_MODULE_NAME } from "./settings";
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {
-    //@ts-ignore
     return mergeObject(super.defaultOptions, {
       classes: ['pick-up-stix', 'container-sound-config-sheet'],
       closeOnSubmit: false,
@@ -15,7 +15,7 @@ export class ContainerSoundConfig extends FormApplication {
       submitOnChange: true,
       submitOnClose: true,
       width: 350,
-      template: 'modules/pick-up-stix/module/pick-up-stix/templates/container-sound-config.html',
+      template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/container-sound-config.html`,
       title: 'Configure Container Sounds'
     })
   }
@@ -27,10 +27,8 @@ export class ContainerSoundConfig extends FormApplication {
   protected _openFilePicker(e): void {
     new FilePicker({
       type: "audio",
-      //@ts-ignore
-      current: <string>this.object.getFlag('pick-up-stix', `pick-up-stix.${e.currentTarget.dataset.edit}`),
-      //@ts-ignore
-      callback: (path) => {
+      current: <string>this.object.getFlag('pick-up-sitx', `pick-up-stix.${e.currentTarget.dataset.edit}`),
+      callback: path => {
         e.currentTarget.src = path;
         this._onSubmit(e);
       }
@@ -40,9 +38,9 @@ export class ContainerSoundConfig extends FormApplication {
   async _updateObject(e, formData) {
     log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
     log([formData]);
-    //@ts-ignore
-    const flags: ItemFlags = duplicate(<ItemFlags>this.object.getFlag('pick-up-stix', 'pick-up-stix'));
-    //@ts-ignore
+
+    const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
+
     await updateItem(this.object.id, {
       flags: {
         'pick-up-stix': {
@@ -56,13 +54,11 @@ export class ContainerSoundConfig extends FormApplication {
     });
   }
 
-  getData(options):any {
+  getData(options) {
     log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
     const data = {
-      //@ts-ignore
-      openSoundPath: <string>this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
-      //@ts-ignore
-      closeSoundPath: <string>this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
+      openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
+      closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
     }
     log(data);
     return data;

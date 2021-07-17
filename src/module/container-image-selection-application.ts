@@ -1,7 +1,9 @@
-import { log } from "../../log";
+
+import { log } from "../pick-up-stix";
 import {
   updateItem
 } from "./main";
+import { PICK_UP_STIX_MODULE_NAME } from "./settings";
 
 /**
  * Application class to display to select an item that the token is
@@ -14,7 +16,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
       closeOnSubmit: false,
       submitOnChange: true,
       id: "pick-up-stix-container-image-selection",
-	    template: "modules/pick-up-stix/module/pick-up-stix/templates/container-image-selection.html",
+	    template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/container-image-selection.html`,
       height: 'auto',
       //@ts-ignore
       width: 'auto',
@@ -27,12 +29,12 @@ export default class ContainerImageSelectionApplication extends FormApplication 
 
 	constructor(private _item: Item) {
 		super(_item);
-		log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | constructed with args:`)
+		log(`ContainerImageSelectionApplication ${this.appId} | constructed with args:`)
 		log([this._item]);
 	}
 
 	activateListeners(html) {
-    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | activateListeners called with args:`);
+    log(`ContainerImageSelectionApplication ${this.appId} | activateListeners called with args:`);
 		log([html]);
 
     this._html = html;
@@ -81,16 +83,13 @@ export default class ContainerImageSelectionApplication extends FormApplication 
   }
 
   async _updateObject(e, formData) {
-    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
+    log(`ContainerImageSelectionApplication ${this.appId} | _updateObject`);
     log([e, formData]);
-    //@ts-ignore
     await updateItem(this.object.id, {
       'flags': {
-        'pick-up-stix': {
-          'pick-up-stix': {
-            container: {
-              ...formData
-            }
+        PICK_UP_STIX_MODULE_NAME: {
+          container: {
+            ...formData
           }
         }
       }

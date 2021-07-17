@@ -1,4 +1,4 @@
-import { log } from "../../../log";
+import { log } from "../log.ts.bak";
 import { ItemFlags } from "../loot-token";
 import { ItemType } from "../models";
 

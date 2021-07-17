@@ -1,4 +1,4 @@
-import { log } from "../../../log";
+import { log } from "../log.ts.bak";
 import { LootHud } from "../loot-hud-application";
 
 // TODO: maybe this can go in loot hud class?

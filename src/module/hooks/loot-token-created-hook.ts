@@ -1,5 +1,5 @@
-import { log } from "../../../log";
-import { createLootToken, getLootToken } from "../main";
+import { log } from '../../main';
+import { createLootToken, getLootToken } from "../mainEntry";
 
 export const lootTokenCreatedHook = async (tokenId) => {
   log(` lootTokenCreatedHook:`);

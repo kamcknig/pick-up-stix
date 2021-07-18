@@ -1,4 +1,4 @@
-import { log, warn } from "../../log";
+import { log, warn } from '../main';
 import { canSeeLootToken } from "../../utils";
 import { TokenFlags } from "./loot-token";
 

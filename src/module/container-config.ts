@@ -1,4 +1,4 @@
-import { log } from '../../log';
+import { log } from '../main';
 import {
 	getCurrencyTypes,
 	getPriceDataPath,
@@ -17,7 +17,7 @@ import {
 	lootItem,
 	normalizeDropData,
 	updateItem
-} from './main';
+} from './mainEntry';
 import {
 	DropData
 } from "./models";

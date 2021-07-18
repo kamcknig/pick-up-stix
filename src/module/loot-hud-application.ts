@@ -1,6 +1,6 @@
-import { getLootToken } from "./main";
+import { getLootToken } from "./mainEntry";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
-import { error, log } from "../../log";
+import { error, log } from '../main';
 import { SettingKeys } from "./settings";
 
 export class LootHud extends BasePlaceableHUD {

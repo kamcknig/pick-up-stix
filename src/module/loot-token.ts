@@ -1,10 +1,10 @@
-import { error, log } from "../../log";
+import { error, log } from '../main';
 import { getPriceDataPath, getQuantityDataPath, getWeightDataPath } from "../../utils";
 import {
 	getValidControlledTokens,
 	lootItem, updateItem,
 	updateToken
-} from "./main";
+} from "./mainEntry";
 import { ItemType } from "./models";
 
 /**

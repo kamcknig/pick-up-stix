@@ -1,6 +1,6 @@
-import { log } from "../../../log";
+import { log } from '../../main';
 import { amIFirstGm } from "../../../utils";
-import { updateOwnedItem } from "../main";
+import { updateOwnedItem } from "../mainEntry";
 
 export const createActorHook = async (actor: Actor, userId: string) => {
 	log(` createActorHook | called with args:`);

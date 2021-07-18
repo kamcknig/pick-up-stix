@@ -1,6 +1,6 @@
-import { log } from "../../log";
+import { log } from '../main';
 import { ItemFlags } from "./loot-token";
-import { updateItem } from "./main";
+import { updateItem } from "./mainEntry";
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {

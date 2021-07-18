@@ -1,7 +1,7 @@
-import { log } from "../../log";
+import { log } from '../main';
 import {
   updateItem
-} from "./main";
+} from "./mainEntry";
 
 /**
  * Application class to display to select an item that the token is

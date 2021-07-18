@@ -1,4 +1,4 @@
-import { updateItem, updateToken } from "./main";
+import { updateItem, updateToken } from "./mainEntry";
 
 export class LootEmitLightConfigApplication extends FormApplication {
   static get defaultOptions() {

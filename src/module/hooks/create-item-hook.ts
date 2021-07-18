@@ -1,4 +1,4 @@
-import { log } from "../../../log";
+import { log } from '../../main';
 import { ItemType } from "../models";
 
 export async function createItemHook(item: Item, options: any, userId: string) {

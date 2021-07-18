@@ -1,7 +1,7 @@
 import { error, log } from "../../../log";
 import { collidedTokens } from "../../../utils";
 import { TokenFlags } from "../loot-token";
-import { deleteToken, getLootToken, handleItemDropped, normalizeDropData } from "../main";
+import { deleteToken, getLootToken, handleItemDropped, normalizeDropData } from "../mainEntry";
 
 /**
  * One thing we want to check before a token is updated would be if the x or y positions are changing. If they are

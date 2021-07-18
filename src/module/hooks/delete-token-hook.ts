@@ -1,7 +1,7 @@
-import { log, warn } from "../../../log";
+import { log, warn } from '../../main';
 import { amIFirstGm } from "../../../utils";
 import { LootToken } from "../loot-token"
-import { deleteItem, getLootToken, lootTokens } from "../main"
+import { deleteItem, getLootToken, lootTokens } from "../mainEntry"
 
 export const deleteTokenHook = async (scene, tokenData, options, userId) => {
   log(` deleteTokenHook:`);

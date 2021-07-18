@@ -2,8 +2,8 @@
 // import { DND5E } from  ../../systems/dnd5e/module/config.js";
 
 import { log, warn } from './log';
-import { TokenFlags } from './module/pick-up-stix/loot-token';
-import { SettingKeys } from './module/pick-up-stix/settings';
+import { TokenFlags } from './loot-token';
+import { SettingKeys } from './settings';
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {

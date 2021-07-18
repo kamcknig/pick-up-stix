@@ -1,10 +1,10 @@
-import { log } from "../../../log";
+import { log } from '../../main';
 import { LootToken, TokenFlags } from "../loot-token";
 import {
 	getLootToken,
 	handleItemDropped,
 	normalizeDropData
-} from "../main";
+} from "../mainEntry";
 
 /**
  * Handler for the dropCanvasData Foundry hook. This is used

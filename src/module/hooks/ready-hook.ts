@@ -1,4 +1,4 @@
-import { error, log } from "../../../log";
+import { error, log } from '../../main';
 import { amIFirstGm, versionDiff } from "../../../utils";
 import ContainerConfigApplication from "../container-config";
 import { LootToken, TokenFlags } from "../loot-token";
@@ -19,7 +19,7 @@ import {
 	lootCurrency,
 	addItemToContainer,
 	dropItemOnToken
-} from "../main";
+} from "../mainEntry";
 import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from "../models";
 import { SettingKeys } from "../settings";
 

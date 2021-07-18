@@ -1,7 +1,7 @@
-import { log } from "../../../log";
+import { log } from '../../main';
 import { amIFirstGm } from "../../../utils";
 import { ItemFlags } from "../loot-token";
-import { getLootToken, updateToken } from "../main";
+import { getLootToken, updateToken } from "../mainEntry";
 
 export const updateItemHook = async (item, data, options, userId) => {
   log(` updateItemHook`);

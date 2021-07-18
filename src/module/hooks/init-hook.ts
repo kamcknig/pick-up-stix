@@ -4,7 +4,7 @@
 import { registerSettings } from "../settings";
 import { preloadTemplates } from "../preloadTemplates";
 import { Token_isVisible, Token_tokenRelease } from "../overrides";
-import { info, log } from "../../../log";
+import { info, log } from '../../main';
 
 /* ------------------------------------ */
 export async function initHook() {

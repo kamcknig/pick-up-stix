@@ -24,7 +24,7 @@ export async function initHook() {
 	Token.prototype.release = Token_tokenRelease(Token.prototype.release);
 
 	if (game.system.id === 'dnd5e') {
-		info(`pick-up-stix | initHook | System is '${game.system.id}' enabling Token.isVisible override.`);
+		info(` initHook | System is '${game.system.id}' enabling Token.isVisible override.`);
 
 		Object.defineProperty(Token.prototype, 'isVisible', {
 			get: Token_isVisible,

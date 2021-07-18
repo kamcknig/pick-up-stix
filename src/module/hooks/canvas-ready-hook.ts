@@ -13,7 +13,7 @@ import {
  * @param dropData
  */
 const dropCanvasHandler = async (canvas, dropData) => {
-	log(`pick-up-stix | dropCanvasData | called with args:`);
+	log(` dropCanvasData | called with args:`);
 	log(canvas, dropData);
 
 	if (dropData.type === "Item") {
@@ -22,7 +22,7 @@ const dropCanvasHandler = async (canvas, dropData) => {
 }
 
 export const canvasReadyHook = async (canvas) => {
-  log(`pick-up-stix | canvasReadyHook`);
+  log(` canvasReadyHook`);
   log([canvas]);
 	for (let token of canvas.tokens.placeables?.filter(p => p instanceof Token)) {
 		const tokenFlags: TokenFlags = token.getFlag('pick-up-stix', 'pick-up-stix');
@@ -30,7 +30,7 @@ export const canvasReadyHook = async (canvas) => {
 			continue;
 		}
 
-		log(`pick-up-stix | canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemId}'`);
+		log(` canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemId}'`);
 
 		let lootToken: LootToken = getLootToken({ itemId: tokenFlags.itemId, tokenId: token.id })?.[0];
 

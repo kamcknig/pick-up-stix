@@ -35,7 +35,7 @@ declare class EntitySheetConfig {
 /* ------------------------------------ */
 export async function readyHook() {
 	// Do anything once the module is ready
-	log(`pick-up-stix | readyHook`);
+	log(` readyHook`);
 
 	// this adds the 'container' type to the game system's entity types.
 	game.system.entityTypes.Item.push(ItemType.CONTAINER);
@@ -65,7 +65,7 @@ export async function readyHook() {
 			let lootToken = getLootToken({ itemId: tokenFlags?.itemId, tokenId: token._id })?.[0];
 
 			if (tokenFlags?.itemId && !lootToken) {
-				log(`pick-up-stix | readyHook | Creating new LootToken for Token '${token._id}' and Item '${tokenFlags.itemId}'`);
+				log(` readyHook | Creating new LootToken for Token '${token._id}' and Item '${tokenFlags.itemId}'`);
 				lootToken = await createLootToken(token._id, tokenFlags.itemId, false);
 			}
 		}
@@ -103,13 +103,13 @@ export async function readyHook() {
 
 	const diff = versionDiff(activeVersion, previousVersion);
 	if (diff < 0) {
-		log(`pick-up-stix | readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
+		log(` readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
 	}
 	else if (diff > 0) {
-		log(`pick-up-stix | readyHook | current version ${activeVersion} is greater than previous version ${previousVersion}`);
+		log(` readyHook | current version ${activeVersion} is greater than previous version ${previousVersion}`);
 	}
 	else {
-		log(`pick-up-stix | readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
+		log(` readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
   }
 
   const el = document.createElement('div');
@@ -154,14 +154,14 @@ export async function readyHook() {
 };
 
 const createDefaultFolders = async () => {
-	log(`pick-up-stix | createDefaultFolders`);
+	log(` createDefaultFolders`);
 
 	// check if the parent folder exists and create it if not
 	let parentFolderId = game.settings.get('pick-up-stix', SettingKeys.parentItemFolderId);
 	let folder = Folder.collection.get(parentFolderId);
 
 	if (!folder) {
-		log(`pick-up-stix | createDefaultFolders | couldn't parent folder creating it now`);
+		log(` createDefaultFolders | couldn't parent folder creating it now`);
 		folder = await Folder.create({
 			color: '',
 			name: 'Pick-Up-Stix',
@@ -173,14 +173,14 @@ const createDefaultFolders = async () => {
 		await game.settings.set('pick-up-stix', SettingKeys.parentItemFolderId, parentFolderId);
 	}
 	else {
-		log(`pick-up-stix | createDefaultFolders | parent folder '${folder.name}' found`);
+		log(` createDefaultFolders | parent folder '${folder.name}' found`);
 	}
 
 	// check if the tokens folder exist and create it if not
 	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.tokenFolderId));
 
 	if (!folder) {
-		log(`pick-up-stix | createDefaultFolders | couldn't find tokens folder, creating it now`);
+		log(` createDefaultFolders | couldn't find tokens folder, creating it now`);
 		folder = await Folder.create({
 			color: '',
 			name: 'Tokens',
@@ -191,14 +191,14 @@ const createDefaultFolders = async () => {
 		await game.settings.set('pick-up-stix', SettingKeys.tokenFolderId, folder.id);
 	}
 	else {
-		log(`pick-up-stix | createDefaultFolders | tokens folder '${folder.name}' found`);
+		log(` createDefaultFolders | tokens folder '${folder.name}' found`);
 	}
 
 	// check if the items folder exists and create it if not
 	folder = Folder.collection.get(game.settings.get('pick-up-stix', SettingKeys.itemFolderId));
 
 	if (!folder) {
-		log(`pick-up-stix | createDefaultFolders | couldn't find items folder`);
+		log(` createDefaultFolders | couldn't find items folder`);
 		folder = await Folder.create({
 			color: '',
 			name: 'Items',
@@ -209,12 +209,12 @@ const createDefaultFolders = async () => {
 		await game.settings.set('pick-up-stix', SettingKeys.itemFolderId, folder.id);
 	}
 	else {
-		log(`pick-up-stix | createDefaultFolders | items folder '${folder.name}' found`);
+		log(` createDefaultFolders | items folder '${folder.name}' found`);
 	}
 };
 
 export const handleSocketMessage = async (msg: SocketMessage) => {
-	log(`pick-up-stix | handleSocketMessage | received socket message with args:`);
+	log(` handleSocketMessage | received socket message with args:`);
 	log([msg]);
 
 	if (handleNonGMMessage(msg)) {
@@ -222,7 +222,7 @@ export const handleSocketMessage = async (msg: SocketMessage) => {
 	}
 
 	/* if (msg.sender === game.user.id) {
-		log(`pick-up-stix | handleSocketMessage | i sent this, ignoring`);
+		log(` handleSocketMessage | i sent this, ignoring`);
 		return;
 	} */
 
@@ -274,7 +274,7 @@ export const handleSocketMessage = async (msg: SocketMessage) => {
 			await dropItemOnToken(msg.data);
 			break;
 		default:
-			error(`pick-up-stix | handleSocketMessage | No valid socket message handler for '${msg.type}' with arg:`);
+			error(` handleSocketMessage | No valid socket message handler for '${msg.type}' with arg:`);
 			log([msg])
 	}
 };

@@ -4,7 +4,7 @@ import { LootToken } from "../loot-token"
 import { deleteItem, getLootToken, lootTokens } from "../main"
 
 export const deleteTokenHook = async (scene, tokenData, options, userId) => {
-  log(`pick-up-stix | deleteTokenHook:`);
+  log(` deleteTokenHook:`);
   log([scene, tokenData, options, userId]);
 
   const removed: LootToken = lootTokens.findSplice((lt: LootToken) => lt.sceneId === scene.id && lt.tokenId === tokenData._id);
@@ -16,7 +16,7 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
   removed.deactivateListeners();
 
   if (!amIFirstGm()) {
-    log(`pick-up-stix | deleteTokenHook | User is not first GM`);
+    log(` deleteTokenHook | User is not first GM`);
     return;
   }
 
@@ -24,11 +24,11 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
 
   if (itemId && getLootToken({ itemId: removed?.itemId }).length === 0) {
     if (itemId) {
-      log(`pick-up-stix | deleteTokenHook | No LootTokens left, deleting Item '${itemId}' for LootToken`);
+      log(` deleteTokenHook | No LootTokens left, deleting Item '${itemId}' for LootToken`);
       await deleteItem(itemId);
     }
     else {
-      warn(`pick-up-stix | deleteTokenHook | Item ID not found on TokenFlags for token:`);
+      warn(` deleteTokenHook | Item ID not found on TokenFlags for token:`);
       console.debug([tokenData]);
     }
   }

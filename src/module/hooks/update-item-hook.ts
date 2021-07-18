@@ -4,15 +4,15 @@ import { ItemFlags } from "../loot-token";
 import { getLootToken, updateToken } from "../main";
 
 export const updateItemHook = async (item, data, options, userId) => {
-  log(`pick-up-stix | updateItemHook`);
+  log(` updateItemHook`);
   log([item, data, options, userId]);
 
   const itemFlags: ItemFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
-  log(`pick-up-stix | updateItemHook | itemFlags:`);
+  log(` updateItemHook | itemFlags:`);
   log([itemFlags]);
 
   if (!amIFirstGm()) {
-    log(`pick-up-stix | updateItemHook | User is not GM`);
+    log(` updateItemHook | User is not GM`);
     return;
   }
 

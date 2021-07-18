@@ -3,7 +3,7 @@ import { ItemFlags } from "../loot-token";
 import { ItemType } from "../models";
 
 export const preUpdateItemHook = async (item, data, options, userId) => {
-  log(`pick-up-stix | preUpdateItemHook:`);
+  log(` preUpdateItemHook:`);
   log([item, data, options, userId]);
 
   const itemFlags: ItemFlags = item.getFlag('pick-up-stix', 'pick-up-stix');

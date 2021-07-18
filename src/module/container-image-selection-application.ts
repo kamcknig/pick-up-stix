@@ -25,12 +25,12 @@ export default class ContainerImageSelectionApplication extends FormApplication 
 
 	constructor(private _item: Item) {
 		super(_item);
-		log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | constructed with args:`)
+		log(` ContainerImageSelectionApplication ${this.appId} | constructed with args:`)
 		log([this._item]);
 	}
 
 	activateListeners(html) {
-    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | activateListeners called with args:`);
+    log(` ContainerImageSelectionApplication ${this.appId} | activateListeners called with args:`);
 		log([html]);
 
     this._html = html;
@@ -76,7 +76,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
   }
 
   async _updateObject(e, formData) {
-    log(`pick-up-stix | ContainerImageSelectionApplication ${this.appId} | _updateObject`);
+    log(` ContainerImageSelectionApplication ${this.appId} | _updateObject`);
     log([e, formData]);
 
     await updateItem(this.object.id, {

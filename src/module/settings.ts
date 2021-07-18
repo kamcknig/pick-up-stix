@@ -72,7 +72,7 @@ const audioTypeFunc = (val) => {
 Object.defineProperty(audioTypeFunc, 'name', {value: 'pick-up-stix-settings-audio'});
 
 export const registerSettings = function() {
-	log(`pick-up-stix | registerSettings`);
+	log(`registerSettings`);
 	registerHiddenSettings();
 	registerWorldSettings();
 	registerClientSettings();

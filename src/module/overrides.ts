@@ -4,7 +4,7 @@ import { TokenFlags } from "./loot-token";
 
 export function Token_tokenRelease(origFn: Function) {
 	return function(options={}) {
-		log(`pick-up-stix | tokenRelease | called with args`);
+		log(` tokenRelease | called with args`);
 		log(options);
 		origFn.call(this, options);
 		if (canvas.hud?.pickUpStixLootHud?.object === this) {
@@ -15,8 +15,8 @@ export function Token_tokenRelease(origFn: Function) {
 }
 
 export function Token_isVisible() {
-	log(`pick-up-stix | Token_isVisible | called with args`);
-	warn(`pick-up-stix | Token_isVisible | This method overrides isVisible of Token`);
+	log(` Token_isVisible | called with args`);
+	warn(` Token_isVisible | This method overrides isVisible of Token`);
 	let actualIsVisible: boolean;
 	if ( this.data.hidden ) {
 		const tokenFlags: TokenFlags = this.getFlag('pick-up-stix', 'pick-up-stix');

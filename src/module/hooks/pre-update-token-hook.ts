@@ -15,7 +15,7 @@ import { deleteToken, getLootToken, handleItemDropped, normalizeDropData } from 
  * @returns True if the token should update should proces, false if it should not
  */
 export const preUpdateTokenHook = async (scene, tokenData, updates, options, userId): Promise<boolean> => {
-	log(`pick-up-stix | preUpdateTokenHook:`);
+	log(` preUpdateTokenHook:`);
 	log([scene, tokenData, updates, options, userId]);
 
 	const tokenFlags: TokenFlags = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix');

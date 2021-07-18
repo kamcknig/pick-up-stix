@@ -163,7 +163,7 @@ export class LootToken {
 			const token = scene.getEmbeddedEntity('Token', this._tokenId);
 			if (token) {
 				this._sceneId = scene.id;
-				log(`pick-up-stix | LootToken | constructor | scene id set to '${this._sceneId}'`);
+				log(` LootToken | constructor | scene id set to '${this._sceneId}'`);
 			}
 		}
 	}
@@ -173,7 +173,7 @@ export class LootToken {
 			return;
 		}
 
-		log(`pick-up-stix | LootToken | activateListeners`);
+		log(` LootToken | activateListeners`);
 
 		const token = this.token;
 
@@ -186,7 +186,7 @@ export class LootToken {
 	}
 
 	public deactivateListeners = (): void => {
-		log(`pick-up-stix | LootToken | deactivateListeners`);
+		log(` LootToken | deactivateListeners`);
 		Hooks.off('updateToken', this.updateTokenHook);
 
 		const token = this.token;
@@ -200,18 +200,18 @@ export class LootToken {
 
 		const token = this.token;
 
-		log(`pick-up-stix | LootToken | updateTokenHook`);
+		log(` LootToken | updateTokenHook`);
 		log([scene, tokenData, data, options, userId]);
 
 		if (tokenData.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked) {
-			log(`pick-up-stix | LootToken | updateTokenHook | token is locked, draw lock icon`);
+			log(` LootToken | updateTokenHook | token is locked, draw lock icon`);
 			this.drawLock();
 		}
 		else {
 			const lock = token?.getChildByName('pick-up-stix-lock');
 
 			if (lock) {
-				log(`pick-up-stix | LootToken | updateTokenHook | token is not locked, but found lock icon, remove it`);
+				log(` LootToken | updateTokenHook | token is not locked, but found lock icon, remove it`);
 				token.removeChild(lock);
 				lock.destroy();
 			}
@@ -219,17 +219,17 @@ export class LootToken {
 	}
 
 	public drawLock = async () => {
-		log(`pick-up-stix | LootToken | drawLockIcon`);
+		log(` LootToken | drawLockIcon`);
 
 		if (!game.user.isGM) {
-			log(`pick-up-stix | LootToken | drawLockIcon | user is not GM, not drawing lock`);
+			log(` LootToken | drawLockIcon | user is not GM, not drawing lock`);
 			return;
 		}
 
 		const token = this.token;
 		const lock = token?.getChildByName('pick-up-stix-lock');
 		if (lock) {
-			log(`pick-up-stix | LootToken | drawLock | found previous lock icon, removing it`)
+			log(` LootToken | drawLock | found previous lock icon, removing it`)
 			token.removeChild(lock);
 			lock.destroy();
 		}
@@ -245,7 +245,7 @@ export class LootToken {
 	}
 
 	toggleLocked = async () => {
-		log(`pick-up-stix | LootToken | toggleLocked`);
+		log(` LootToken | toggleLocked`);
 		const locked = this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked ?? false;
     updateToken(this.sceneId, {
       _id: this.tokenId,
@@ -313,7 +313,7 @@ export class LootToken {
 			);
 
 		if (existingItem) {
-			log(`pick-up-stix | LootToken | addItem | found existing item for item '${itemData._id}`);
+			log(` LootToken | addItem | found existing item for item '${itemData._id}`);
 			const quantityDataPath = getQuantityDataPath();
 			if(!getProperty(existingItem.data, quantityDataPath)) {
 				setProperty(existingItem.data, quantityDataPath, 1);
@@ -354,7 +354,7 @@ export class LootToken {
 		log([tokens, options]);
 
 		const closeContainerConfigApplicationHook = async (app, html) => {
-      log(`pick-up-stix | LootToken | openConfigSheet | closeContainerConfigApplicationHook`);
+      log(` LootToken | openConfigSheet | closeContainerConfigApplicationHook`);
 			log([app, html]);
 
 			if (app.appId !== appId) {
@@ -394,7 +394,7 @@ export class LootToken {
 	 **************************/
 
 	private setupMouseManager = (): MouseInteractionManager => {
-		log(`pick-up-stix | setupMouseManager`);
+		log(` setupMouseManager`);
 
 		const token = this.token;
 
@@ -441,7 +441,7 @@ export class LootToken {
 		const token = this.token;
 
 		if (!token.isVisible) {
-			log(`pick-up-stix | LootToken | handleClickLeft | token is hidden`);
+			log(` LootToken | handleClickLeft | token is hidden`);
 			// if the loot token is hidden, pass the click on
 			// to the token's normal left click method for Foundry
 			// to handle
@@ -464,7 +464,7 @@ export class LootToken {
 
 		// if it's locked then it can't be opened
 		if (this.isLocked) {
-			log(`pick-up-stix | LootToken | finalizeClickLeft | item is locked`);
+			log(` LootToken | finalizeClickLeft | item is locked`);
 			var audio = new Audio(CONFIG.sounds.lock);
 			audio.play();
 			return;
@@ -487,14 +487,14 @@ export class LootToken {
 		}
 
 		if (this.itemFlags.itemType === ItemType.ITEM) {
-			log(`pick-up-stix | LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
+			log(` LootToken | finalizeClickLeft | token is an ItemType.ITEM`);
 
 			this.collect(tokens[0]);
 			return;
 		}
 
 		if (this.itemFlags.itemType === ItemType.CONTAINER) {
-			log(`pick-up-stix | LootToken | finalizeClickLeft | item is a container`);
+			log(` LootToken | finalizeClickLeft | item is a container`);
 
 			if (this.isOpen) {
 				this.openConfigSheet(tokens);
@@ -509,7 +509,7 @@ export class LootToken {
 
 	private _clickTimeout;
 	private handleClickRight = () => {
-		log(`pick-up-stix | LootToken | handleClickRight`);;
+		log(` LootToken | handleClickRight`);;
 		clearTimeout(this._clickTimeout);
 
 		canvas.tokens.hud.clear();

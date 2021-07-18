@@ -5,7 +5,7 @@ import { ItemFlags } from "../loot-token";
 import { error, log } from "../../../log";
 
 export async function preCreateItemHook(itemData: any, options: any = {}, userId: string) {
-	log(`pick-up-stix | preCreateItemHook | called with args:`);
+	log(` preCreateItemHook | called with args:`);
 	log([itemData, options, userId]);
 
 	if (itemData.type.toLowerCase() === ItemType.CONTAINER) {
@@ -50,7 +50,7 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
 		options.renderSheet = false;
 	}
 
-	log(`pick-up-stix | preCreateItemHook | final data:`);
+	log(` preCreateItemHook | final data:`);
 
 	log(itemData);
 }

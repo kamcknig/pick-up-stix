@@ -3,11 +3,11 @@ import { amIFirstGm } from "../../../utils";
 import { deleteToken, getLootToken } from "../main";
 
 export const deleteItemHook = async (item, options, userId) => {
-  log(`pick-up-stix | deleteItemHook:`);
+  log(` deleteItemHook:`);
   log([item, options, userId]);
 
   if (!amIFirstGm()) {
-    log(`pick-up-stix | deleteItemHook | User is not first GM`);
+    log(` deleteItemHook | User is not first GM`);
     return;
   }
 

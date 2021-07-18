@@ -57,7 +57,7 @@ Hooks.once('ready', () => {
 
   if (game.system.id === 'dnd5e') {
     Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
-      log(`pick-up-stix | renderItemSheet5e`);
+      log(` renderItemSheet5e`);
       log([app, protoHtml, data]);
 
       const item: Item = app.object;

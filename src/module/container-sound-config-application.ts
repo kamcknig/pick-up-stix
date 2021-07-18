@@ -35,7 +35,7 @@ export class ContainerSoundConfig extends FormApplication {
   }
 
   async _updateObject(e, formData) {
-    log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | _updateObject`);
+    log(` ContainerSoundConfigApplication ${this.appId} | _updateObject`);
     log([formData]);
 
     const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
@@ -54,7 +54,7 @@ export class ContainerSoundConfig extends FormApplication {
   }
 
   getData(options) {
-    log(`pick-up-stix | ContainerSoundConfigApplication ${this.appId} | getData`);
+    log(` ContainerSoundConfigApplication ${this.appId} | getData`);
     const data = {
       openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
       closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''

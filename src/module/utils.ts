@@ -11,9 +11,9 @@ export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
 };
 
 export const getCurrencyTypes = (): { [short: string]: string } =>  {
-  log(`pick-up-stix | utils | getCurrencies`);
+  log(` utils | getCurrencies`);
   if (game.system.id === 'dnd5e') {
-    log(`pick-up-stix | utils | getCurrencies | using system 'dnd5e'`);
+    log(` utils | getCurrencies | using system 'dnd5e'`);
     //@ts-ignore
     import('../../systems/dnd5e/module/config.js').then(r => {
       return {
@@ -70,7 +70,7 @@ export const collidedTokens = (options: { x: number, y:number }): Token[] => {
 }
 
 export function onChangeInputDelta(event) {
-  log(`pick-up-stix | onChangeInputDelta`);
+  log(` onChangeInputDelta`);
   log([event]);
   const input = event.target;
   const value = input.value;

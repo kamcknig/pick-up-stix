@@ -21,12 +21,12 @@ export class LootHud extends BasePlaceableHUD {
 
   constructor() {
     super({});
-    log(`pick-up-stix | LootHud ${this.appId} | constructor called with args`);
+    log(` LootHud ${this.appId} | constructor called with args`);
     log(LootHud.defaultOptions);
   }
 
   activateListeners(html) {
-    log(`pick-up-stix | LootHud ${this.appId} | activateListeners called with args`);
+    log(` LootHud ${this.appId} | activateListeners called with args`);
     log([html]);
     super.activateListeners(html);
     html.find(".config").click(this.onTokenConfig);
@@ -36,7 +36,7 @@ export class LootHud extends BasePlaceableHUD {
   }
 
   private onPerceiveValueChanged = (e) => {
-    log(`pick-up-stix | LootHudApplication ${this.appId} | onPerceivedValueChanged`);
+    log(` LootHudApplication ${this.appId} | onPerceivedValueChanged`);
     const val = +e.currentTarget.value;
     log([val]);
 
@@ -62,12 +62,12 @@ export class LootHud extends BasePlaceableHUD {
   }
 
   private onConfigureLightEmission = async (event) => {
-    log(`pick-up-stix | LootHud ${this.appId} | _onConfigureLightEmission`);
+    log(` LootHud ${this.appId} | _onConfigureLightEmission`);
     const f = new LootEmitLightConfigApplication(this.object, {}).render(true);
   }
 
   private _onToggleItemLocked = async (event) => {
-    log(`pick-up-stix | LootHud ${this.appId} | _onToggleItemLocked`);
+    log(` LootHud ${this.appId} | _onToggleItemLocked`);
     const lootToken = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];
 
     if (!lootToken) {
@@ -80,14 +80,14 @@ export class LootHud extends BasePlaceableHUD {
   }
 
   private onTokenConfig = async (event) => {
-    log(`pick-up-stix | LootHud ${this.appId} | _onTokenConfig`);
+    log(` LootHud ${this.appId} | _onTokenConfig`);
 
     const item = game.items.get(this.itemId);
     item.sheet.render(true, { renderData: { sourceToken: this.object.data._id }});
   }
 
   getData(options) {
-    log(`pick-up-stix | LootHud ${this.appId} | getData`);
+    log(` LootHud ${this.appId} | getData`);
     const lootData = getLootToken({ itemId: this.itemId, tokenId: this.object.id })?.[0];;
     if (!lootData) {
       error(`No valid LootToken instance found for token '${this.object.id}' on scene '${this.object.scene.id}'`);

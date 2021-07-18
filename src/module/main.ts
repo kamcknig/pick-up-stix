@@ -59,7 +59,7 @@ export const getLootToken = (options: { itemId?: string, tokenId?: string, scene
  * @param data Either a Token or a Token ID
  */
 export const getValidControlledTokens = (data: string | Token): Token[] => {
-	log(`pick-up-stix | getValidControlledTokens:`);
+	log(` getValidControlledTokens:`);
 	log([data]);
 
 	let token: Token;
@@ -72,18 +72,18 @@ export const getValidControlledTokens = (data: string | Token): Token[] => {
 	}
 
 	if (!token) {
-		log(`pick-up-stix | getValidControlledTokens | no token provided so returning nothing`);
+		log(` getValidControlledTokens | no token provided so returning nothing`);
 		return [];
 	}
 
-	log(`pick-up-stix | getValidControlledTokens | Looking for tokens near '${token.id}' '${token.name}`);
+	log(` getValidControlledTokens | Looking for tokens near '${token.id}' '${token.name}`);
 
-	log(`pick-up-stix | getValidControlledTokens | looping through currently controlled tokens`);
+	log(` getValidControlledTokens | looping through currently controlled tokens`);
 	log([canvas.tokens.controlled]);
 
 	const controlled = canvas.tokens.controlled.filter(t => {
 		if (!t.actor) {
-			log(`pick-up-stix | getValidControlledTokens | token '${t.id}' '${t.name}' has no actor, skipping`);
+			log(` getValidControlledTokens | token '${t.id}' '${t.name}' has no actor, skipping`);
 			return false;
 		}
 
@@ -95,7 +95,7 @@ export const getValidControlledTokens = (data: string | Token): Token[] => {
 		);
 	});
 
-	log(`pick-up-stix | getValidControlledTokens | controlled tokens within range`);
+	log(` getValidControlledTokens | controlled tokens within range`);
 	log([controlled]);
 	return controlled;
 }
@@ -133,7 +133,7 @@ export const normalizeDropData = async (data: Partial<DropData>): Promise<DropDa
  * @param dropData
  */
 export async function handleItemDropped(dropData: DropData): Promise<boolean> {
-	log(`pick-up-stix | handleItemDropped | called with args:`);
+	log(` handleItemDropped | called with args:`);
 	log(dropData);
 
 	// The data here should already be normalized, meaning that if we were able to determine the actor reference,
@@ -160,7 +160,7 @@ export async function handleItemDropped(dropData: DropData): Promise<boolean> {
 }
 
 const dropItemOnCanvas = async ({ dropData }) => {
-	log(`pick-up-stix | dropItemOnCanvas:`);
+	log(` dropItemOnCanvas:`);
 	log([dropData]);
 
 	let itemData: any = duplicate(dropData.data);
@@ -205,7 +205,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 
 	// if the item being dropped is a container, just create the empty container
 	if (droppedItemFlags?.itemType === ItemType.CONTAINER) {
-		log(`pick-up-stix | dropItemOnCanvas | dropped item is a container`);
+		log(` dropItemOnCanvas | dropped item is a container`);
 		const img: string = droppedItemFlags.container.imageClosePath;
 
 		return lootTokens.length > 0
@@ -226,15 +226,15 @@ const dropItemOnCanvas = async ({ dropData }) => {
 			} as ItemData);
 	}
 
-	log(`pick-up-stix | dropItemOnCanvas | Dropped item is not a container`);
+	log(` dropItemOnCanvas | Dropped item is not a container`);
 
 	// if we don't have any loot tokens already associated with the item, we'll create a new
 	// loot token
 	if (!dropData.actor) {
-		log(`pick-up-stix | dropItemOnCanvas | Dropped item comes from an actor`);
+		log(` dropItemOnCanvas | Dropped item comes from an actor`);
 
 	 	if (lootTokens.length === 0) {
-			log(`pick-up-stix | dropItemOnCanvas | No LootTokens for the dropped item currently`);
+			log(` dropItemOnCanvas | No LootTokens for the dropped item currently`);
 			const lootType = await chooseLootTokenType();
 
 			if (lootType === ItemType.ITEM) {
@@ -302,7 +302,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 			}
 		}
 		else {
-			log(`pick-up-stix | dropItemOnCanvas | LootTokens for the dropped item already exist, create new token with same item data`);
+			log(` dropItemOnCanvas | LootTokens for the dropped item already exist, create new token with same item data`);
 			// we already have loot tokens, so create a new loot token but use the previous item ID
 			return !!await createLootToken(
 				{ ...tokenData },
@@ -311,7 +311,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 		}
 	}
 
-	log(`pick-up-stix | dropItemOnCanvas | Dropped data comes from actor '${dropData.actor.name}', delete it first`);
+	log(` dropItemOnCanvas | Dropped data comes from actor '${dropData.actor.name}', delete it first`);
 	await deleteOwnedItem(dropData.actor.id, itemData._id);
 
 	return !!await createLootToken(
@@ -336,7 +336,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
  * @param tokenDataOverride available values to override are width, height , closeImg, openImg
  */
 export const makeContainerApi = async (items, currency, position, tokenDataOverride = {width:1,height:1, closeImg:undefined, openImg:undefined }) => {
-	log(`pick-up-stix | makeContainerApi:`);
+	log(` makeContainerApi:`);
 	log([items, currency, position]);
 
 	let lootData = {};
@@ -433,7 +433,7 @@ export const makeContainerApi = async (items, currency, position, tokenDataOverr
 };
 
 const chooseLootTokenType = (): Promise<ItemType> => {
-	log(`pick-up-stix | chooseLootTokenType | creating dialog`);
+	log(` chooseLootTokenType | creating dialog`);
 	return new Promise(resolve => {
 		// render the item type selection form
 		new Dialog({
@@ -445,7 +445,7 @@ const chooseLootTokenType = (): Promise<ItemType> => {
 					icon: '<i class="fas fa-box"></i>',
 					label: 'Item',
 					callback: async () => {
-						log(`pick-up-stix | chooseLootTokenType | '${ItemType.ITEM}' type chosen`);
+						log(` chooseLootTokenType | '${ItemType.ITEM}' type chosen`);
 						resolve(ItemType.ITEM);
 					}
 				},
@@ -453,7 +453,7 @@ const chooseLootTokenType = (): Promise<ItemType> => {
 					icon: '<i class="fas fa-boxes"></i>',
 					label: 'Container',
 					callback: async () => {
-						log(`pick-up-stix | chooseLootTokenType | '${ItemType.CONTAINER}' type chosen`);
+						log(` chooseLootTokenType | '${ItemType.CONTAINER}' type chosen`);
 						resolve(ItemType.CONTAINER);
 					}
 				}
@@ -463,7 +463,7 @@ const chooseLootTokenType = (): Promise<ItemType> => {
 }
 
 export const createLootToken: CreateLootToken = async (tokenData: any, itemData: any, notify: boolean=true) => {
-	log(`pick-up-stix | createLootToken:`)
+	log(` createLootToken:`)
 	log([tokenData, itemData, notify]);
 
 	if (game.user.isGM) {
@@ -510,11 +510,11 @@ export const createLootToken: CreateLootToken = async (tokenData: any, itemData:
 }
 
 export const deleteToken = async (tokenId: string, sceneId: string): Promise<string> => {
-	log(`pick-up-stix | deleteToken with args:`);
+	log(` deleteToken with args:`);
 	log([tokenId, sceneId]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | deleteToken | user is GM, deleting token '${tokenId}' from scene '${sceneId}'`);
+		log(` deleteToken | user is GM, deleting token '${tokenId}' from scene '${sceneId}'`);
 		const scene = Scene.collection.get(sceneId);
 		const { _id } = await scene?.deleteEmbeddedEntity('Token', tokenId);
 		return _id;
@@ -535,23 +535,23 @@ export const deleteToken = async (tokenId: string, sceneId: string): Promise<str
 		}
 
 		Hooks.once('deleteToken', (scene, data, options, userId) => {
-			log(`pick-up-stix | deleteToken | deleteToken hook`);
+			log(` deleteToken | deleteToken hook`);
 			clearTimeout(timeout);
 			resolve(data._id);
 		});
 
-		log(`pick-up-stix | deleteToken | user is not GM, sending socket msg:`);
+		log(` deleteToken | user is not GM, sending socket msg:`);
 		log([msg]);
 		game.socket.emit('module.pick-up-stix', msg);
 	});
 }
 
 export async function updateToken(sceneId: string, updates: { _id: string; [key: string]: any } | { _id: string; [key: string]: any }[]): Promise<{ tokenId: string; sceneId: string }> {
-	log(`pick-up-stix | updateToken with args:`);
+	log(` updateToken with args:`);
 	log([sceneId, updates]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | updateToken | user is GM, making update`);
+		log(` updateToken | user is GM, making update`);
 		const { _id } = await Scene.collection.get(sceneId).updateEmbeddedEntity('Token', updates);
 		return { tokenId: _id, sceneId: sceneId };
 	}
@@ -571,12 +571,12 @@ export async function updateToken(sceneId: string, updates: { _id: string; [key:
 		}, gmActionTimeout());
 
 		Hooks.once('updateToken', (scene, tokenData, options, userId) => {
-			log(`pick-up-stix | updateToken | updateToken hook`);
+			log(` updateToken | updateToken hook`);
 			clearTimeout(timeout);
 			resolve({ tokenId: tokenData._id, sceneId });
 		});
 
-		log(`pick-up-stix | updateToken | user is not GM, sending socket msg:`);
+		log(` updateToken | user is not GM, sending socket msg:`);
 		log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -584,7 +584,7 @@ export async function updateToken(sceneId: string, updates: { _id: string; [key:
 }
 
 export async function updateItem(id, updates): Promise<string> {
-	log(`pick-up-stix | updateItem:`);
+	log(` updateItem:`);
 	log([id, updates]);
 
 	if (game.user.isGM) {
@@ -609,12 +609,12 @@ export async function updateItem(id, updates): Promise<string> {
 		};
 
 		Hooks.once('updateItem', (entity, data, options, userId) => {
-			log(`pick-up-stix | updateItem | updateItem hook`);
+			log(` updateItem | updateItem hook`);
 			clearTimeout(timeout);
 			resolve(entity.id);
 		});
 
-		log(`pick-up-stix | updateItem | user is not GM, sending socket msg:`);
+		log(` updateItem | user is not GM, sending socket msg:`);
 		log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -626,7 +626,7 @@ export async function updateActor(actor: Actor, updates): Promise<string> {
 	log([actor, updates]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | updateActor | user is GM, udating actor`);
+		log(` updateActor | user is GM, udating actor`);
 		const { _id } = await actor.update(updates);
 		return _id;
 	}
@@ -646,12 +646,12 @@ export async function updateActor(actor: Actor, updates): Promise<string> {
 		};
 
 		Hooks.once('updateActor', (actor, data, options, userId) => {
-			log(`pick-up-stix | updateActor | updateActor hook`);
+			log(` updateActor | updateActor hook`);
 			clearTimeout(timeout);
 			resolve(actor.id);
 		});
 
-		log(`pick-up-stix | updateActor | user is not GM, sending socket msg:`);
+		log(` updateActor | user is not GM, sending socket msg:`);
 		log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -666,7 +666,7 @@ export async function createOwnedItem(actorId: string, data: any | any[]): Promi
 	const actor = game.actors.get(actorId);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | createOwnedItem | user is GM, creating owned item`);
+		log(` createOwnedItem | user is GM, creating owned item`);
 		await actor.createOwnedItem(data);
 		return true;
 	}
@@ -686,12 +686,12 @@ export async function createOwnedItem(actorId: string, data: any | any[]): Promi
 		};
 
 		Hooks.once('createOwnedItem', (actor, item, options, userId) => {
-			log(`pick-up-stix | createOwnedItem | createOwnedItem hook | item '${item._id}' created`);
+			log(` createOwnedItem | createOwnedItem hook | item '${item._id}' created`);
 			clearTimeout(timeout);
 			resolve(true);
 		});
 
-		log(`pick-up-stix | createOwnedItem | user is not GM, sending socket msg:`);
+		log(` createOwnedItem | user is not GM, sending socket msg:`);
 		log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -706,11 +706,11 @@ export async function createOwnedItem(actorId: string, data: any | any[]): Promi
  * @returns The ID of the Item entity created or null if it was not created
  */
 export const createItem = async (data: any, options: any = {}): Promise<string> => {
-	log(`pick-up-stix | createItem | called with args:`);
+	log(` createItem | called with args:`);
 	log([data]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | | createItem | user is GM, creating entity`);
+		log(` | createItem | user is GM, creating entity`);
 		const e = await Item.create(data, options);
 		return e.id;
 	}
@@ -730,12 +730,12 @@ export const createItem = async (data: any, options: any = {}): Promise<string> 
 		};
 
 		Hooks.once('createItem', (item, options, userId) => {
-			log(`pick-up-stix | createItem | createItem hook | item '${item.id}' created`);
+			log(` createItem | createItem hook | item '${item.id}' created`);
 			clearTimeout(timeout);
 			resolve(item.id);
 		});
 
-		log(`pick-up-stix | createItem | user is not GM, sending socket msg:`);
+		log(` createItem | user is not GM, sending socket msg:`);
 		log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -747,7 +747,7 @@ export const deleteOwnedItem = async (actorId: string, itemId: string): Promise<
 	log([actorId, itemId]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | deleteOwnedItem | user is GM, deleting owned item`);
+		log(` deleteOwnedItem | user is GM, deleting owned item`);
 		const actor = game.actors.get(actorId);
 		await actor.deleteOwnedItem(itemId);
 		return { actorId, itemId };
@@ -787,12 +787,12 @@ export const deleteItem = async (id: string): Promise<string> => {
 	const e = game.items.get(id);
 
 	if (!e) {
-		log(`pick-up-stix | deleteItem | Item '${id}' not found`);
+		log(` deleteItem | Item '${id}' not found`);
 		return null;
 	}
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | deleteItem | user is GM, deleting entity`);
+		log(` deleteItem | user is GM, deleting entity`);
 		return await e.delete();
 	}
 
@@ -815,7 +815,7 @@ export const deleteItem = async (id: string): Promise<string> => {
 			resolve(item.id);
 		});
 
-		log(`pick-up-stix | deleteItem | user is not GM, sending socket msg:`);
+		log(` deleteItem | user is not GM, sending socket msg:`);
 		log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -829,12 +829,12 @@ export const updateOwnedItem = async (actorId, data): Promise<{ actorId: string;
 	const actor = game.actors.get(actorId);
 
 	if (!actor) {
-		log(`pick-up-stix | updateOwnedItem | Actor '${actorId}' not found`);
+		log(` updateOwnedItem | Actor '${actorId}' not found`);
 		return null;
 	}
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | updateOwnedItem | user is GM, updating embedded entity`);
+		log(` updateOwnedItem | user is GM, updating embedded entity`);
 		const { _id } = await actor.updateOwnedItem(data);
 		return { actorId: actor.id, id: _id };
 	}
@@ -854,7 +854,7 @@ export const updateOwnedItem = async (actorId, data): Promise<{ actorId: string;
 		}, gmActionTimeout());
 
 		Hooks.once(`updateOwnedItem`, (parent, data, update, options, userId) => {
-			log(`pick-up-stix | updateOwnedItem | updateOwnedItem hook`);
+			log(` updateOwnedItem | updateOwnedItem hook`);
 			clearTimeout(timeout);
 			resolve({ actorId: parent.id, id: data._id });
 		});
@@ -868,11 +868,11 @@ export const updateOwnedItem = async (actorId, data): Promise<{ actorId: string;
 }
 
 export const createToken = async (data: any): Promise<string> => {
-	log(`pick-up-stix | createToken | called with args:`);
+	log(` createToken | called with args:`);
 	log([data]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | createToken | user is GM, creating token`);
+		log(` createToken | user is GM, creating token`);
 		const t = await Token.create({
 			...data
 		});
@@ -891,7 +891,7 @@ export const createToken = async (data: any): Promise<string> => {
 		}, gmActionTimeout());
 
 		Hooks.once('createToken', (scene, data) => {
-			log(`pick-up-stix | createToken | createToken hook | Token '${data.id}' created`);
+			log(` createToken | createToken hook | Token '${data.id}' created`);
 			clearTimeout(timeout);
 			resolve(data._id);
 		});
@@ -904,7 +904,7 @@ export const createToken = async (data: any): Promise<string> => {
 }
 
 export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: DropData, targetTokenId: string }): Promise<boolean> => {
-	log(`pick-up-stix | dropItemOnToken:`);
+	log(` dropItemOnToken:`);
 	log([dropData, targetTokenId]);
 
 	if (!game.user.isGM) {
@@ -940,24 +940,24 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 
 	if (dropData.actor) {
 		// if the dropped item comes from an actor, we need to delete the item from that actor and get the data from the dropped data
-		log(`pick-up-stix | dropItemOnToken | Actor '${dropData.actor.id}' dropped item '${dropData.data._id}', get item data from the dropped item's original item data`);
+		log(` dropItemOnToken | Actor '${dropData.actor.id}' dropped item '${dropData.data._id}', get item data from the dropped item's original item data`);
 		itemData = duplicate(dropData.data);
 		await deleteOwnedItem(dropData.actor.id, dropData.data._id);
 	}
 	else {
 		// if the dropped item doesn't come from an actor, get it from the game's items or a compendium
-		log(`pick-up-stix | dropItemOnToken | item comes from directory or compendium, item data comes from directory or compendium`);
+		log(` dropItemOnToken | item comes from directory or compendium, item data comes from directory or compendium`);
 		const pack = dropData.pack;
 		const id = dropData.id;
 		const item: Item = await game.items.get(id) ?? await game.packs.get(pack)?.getEntity(id);
 		if (!item) {
-			log(`pick-up-stix | dropItemOnToken | item '${id}' not found in game items or compendium`);
+			log(` dropItemOnToken | item '${id}' not found in game items or compendium`);
 			return false;
 		}
 		itemData = duplicate(item.data);
 	}
 
-	log(`pick-up-stix | dropItemOnToken | item data:`);
+	log(` dropItemOnToken | item data:`);
 	log([itemData]);
 
 	if (targetToken.actor) {
@@ -1013,11 +1013,11 @@ export const dropItemOnToken = async ({ dropData, targetTokenId }: { dropData: D
 }
 
 export const addItemToContainer = async (data: { itemData: any, containerItemId: string }): Promise<boolean> => {
-	log(`pick-up-stix | addItemToContainer:`);
+	log(` addItemToContainer:`);
 	log([data]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | addItemToContainer | User is GM`);
+		log(` addItemToContainer | User is GM`);
 
 		const itemData = data.itemData;
 		const itemType = itemData.type;
@@ -1025,7 +1025,7 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 
 		if (itemFlags?.itemType === ItemType.CONTAINER) {
 			// if the item being dropped is a container, you can't add it to another token
-			log(`pick-up-stix | addItemToContainer | Cannot add item '${itemData._id}' to container because it's a container`);
+			log(` addItemToContainer | Cannot add item '${itemData._id}' to container because it's a container`);
 			ui.notifications.error('A container may only be placed onto an empty square without any tokens.');
 			return false;
 		}
@@ -1047,7 +1047,7 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 		// dropped it'll be undefined, so create an empty array, to hold
 		// loot of that item type
 		if (!loot[itemType]) {
-			log(`pick-up-stix | addItemToContainer | No items of type '${itemType}', creating new slot`);
+			log(` addItemToContainer | No items of type '${itemType}', creating new slot`);
 			loot[itemType] = [];
 		}
 
@@ -1063,11 +1063,11 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 			);
 
 		if (existingItem) {
-			log(`pick-up-stix | addItemToContainer | existing data for type '${itemType}', increase quantity by 1`);
+			log(` addItemToContainer | existing data for type '${itemType}', increase quantity by 1`);
 			setProperty(existingItem.data, qtyDataPath, +getProperty(existingItem.data, qtyDataPath) + 1)
 		}
 		else {
-			log(`pick-up-stix | addItemToContainer | existing data for item '${itemData._id}' does not exist, set quantity to 1 and add to slot`);
+			log(` addItemToContainer | existing data for item '${itemData._id}' does not exist, set quantity to 1 and add to slot`);
 			setProperty(itemData.data, qtyDataPath, 1);
 			loot[itemType].push({
 				...itemData
@@ -1108,11 +1108,11 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 			data
 		};
 
-		log(`pick-up-stix | addItemToContainer | User is not GM, sending socket msg:`);
+		log(` addItemToContainer | User is not GM, sending socket msg:`);
 		log([msg]);
 
 		Hooks.once(PickUpStixHooks.itemAddedToContainer, () => {
-			log(`pick-up-stix | addItemToContainer | pick-up-stix.itemAddedToContainer hook | User is not GM, sending socket msg:`);
+			log(` addItemToContainer | pick-up-stix.itemAddedToContainer hook | User is not GM, sending socket msg:`);
 			clearTimeout(timeout);
 			resolve(true);
 		});
@@ -1122,11 +1122,11 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 }
 
 export const  lootCurrency = async (data: { looterTokenId: string, currencies: any; containerItemId: string }): Promise<boolean> => {
-	log(`pick-up-stix | lootCurrency:`);
+	log(` lootCurrency:`);
 	console.log([data]);
 
 	if (game.user.isGM) {
-		log(`pick-up-stix | lootCurrency | User is GM, looting currency`);
+		log(` lootCurrency | User is GM, looting currency`);
 
 		const looterToken = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
 		const containerItem = game.items.get(data.containerItemId);
@@ -1191,12 +1191,12 @@ export const  lootCurrency = async (data: { looterTokenId: string, currencies: a
 		}
 
 		Hooks.once(PickUpStixHooks.currencyLooted, () => {
-			log(`pick-up-stix | lootCurrency | pick-up-stix.currencyLooted hook`);
+			log(` lootCurrency | pick-up-stix.currencyLooted hook`);
 			clearTimeout(timeout);
 			resolve(true);
 		});
 
-		log(`pick-up-stix | lootCurrency | User is not GM, sending socket msg:`);
+		log(` lootCurrency | User is not GM, sending socket msg:`);
 		log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -1215,11 +1215,11 @@ interface LootItemFunction {
 }
 
 export const lootItem: LootItemFunction = async (data: any): Promise<boolean> => {
-	log(`pick-up-stix | lootItem:`);
+	log(` lootItem:`);
 	log([data]);
 
 	if (game.user.isGM) {
-		console.log(`pick-up-stix | lootItem | User is GM`);
+		console.log(` lootItem | User is GM`);
 
 		const qtyLootedById = {};
 		const looterToken = canvas.tokens.placeables.find(p => p.id === data.looterTokenId);
@@ -1237,7 +1237,7 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 			return acc.concat(datas);
 		}, []);
 
-    log(`pick-up-stix | lootItem | Items being looted:`);
+    log(` lootItem | Items being looted:`);
     console.log([newItemDatas]);
 
 		await createOwnedItem(
@@ -1260,11 +1260,11 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
           const newQty = oldQty - qtyLootedById[itemData._id];
 
 					if (newQty <= 0) {
-						log(`pick-up-stix | lootItem | Quantity is now 0, removing item from loot`);
+						log(` lootItem | Quantity is now 0, removing item from loot`);
 						sourceLoot?.[itemType]?.findSplice(v => v._id === itemData._id);
 					}
 					else {
-            log(`pick-up-stix | lootItem | Subtracting one from quantity`);
+            log(` lootItem | Subtracting one from quantity`);
             mergeObject(
               itemData.data,
               {
@@ -1330,12 +1330,12 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 		}
 
 		Hooks.once(PickUpStixHooks.itemCollected, () => {
-			console.log(`pick-up-stix | lootItem | pick-up-stix.itemCollected hook`);
+			console.log(` lootItem | pick-up-stix.itemCollected hook`);
 			clearTimeout(timeout);
 			resolve(true);
 		});
 
-		console.log(`pick-up-stix | lootItem | User is not GM send msg:`);
+		console.log(` lootItem | User is not GM send msg:`);
 		console.log([msg]);
 
 		game.socket.emit('module.pick-up-stix', msg);
@@ -1343,7 +1343,7 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 }
 
 export const currencyCollected = async (token, currency) => {
-	log(`pick-up-stix | currencyCollected | called with args:`);
+	log(` currencyCollected | called with args:`);
 	log([token, currency]);
 	let chatContent = '';
 	Object.entries(currency).forEach(([k, v]) => {

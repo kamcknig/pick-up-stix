@@ -1,0 +1,34 @@
+<form id="{{id}}" class="{{classes}}" data-appid="{{appId}}" autocomplete="off" onsubmit="event.preventDefault();">
+
+  <div class="col left">
+    {{#if canConfigure}}
+      <div class="control-icon config">
+          <i class="fas fa-cog"></i>
+      </div>
+
+      <div class="control-icon emit-light">
+        <i title="Configure light emission" width="36" height="36" class="far fa-lightbulb"></i>
+      </div>
+    {{/if}}
+  </div>
+
+  <div class="col middle"></div>
+
+  <div class="col right">
+    {{#if isGM}}
+      <div class="visibility-wrapper">
+        {{#if showPerceiveInput}}
+          <input class="visibility-perceive-input" type="text" name="flags.pick-up-stix.pick-up-stix.minPerceiveValue" value="{{minPerceiveValue}}">
+        {{/if}}
+
+        <div class="control-icon visibility {{visibilityClass}}">
+          <img src="{{icons.visibility}}" width="36" height="36" title="Toggle Visibility"/>
+        </div>
+      </div>
+
+      <div class="control-icon locked {{lockedClass}}">
+        <img src="{{icons.lock}}" width="36" height="36" title="Toggle Locked"/>
+      </div>
+    {{/if}}
+  </div>
+</form>

@@ -21,7 +21,7 @@ import {
 import {
 	DropData
 } from "./models";
-import { SettingKeys } from './settings';
+import { PICK_UP_STIX_MODULE_NAME, SettingKeys } from './settings';
 
 /**
  * Application class to display to select an item that the token is
@@ -41,7 +41,7 @@ export default class ContainerConfigApplication extends BaseEntitySheet {
 			submitOnClose: false,
 			submitOnChange: true,
 			id: "pick-up-stix-item-config",
-			template: "modules/pick-up-stix/module/pick-up-stix/templates/container-config.html",
+			template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/container-config.html`,
 			width: 900,
 			title: `${game.user.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
 			resizable: true,

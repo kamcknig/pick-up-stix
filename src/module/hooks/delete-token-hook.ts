@@ -1,5 +1,5 @@
 import { log, warn } from '../../main';
-import { amIFirstGm } from "../../../utils";
+import { amIFirstGm } from "../utils";
 import { LootToken } from "../loot-token"
 import { deleteItem, getLootToken, lootTokens } from "../mainEntry"
 
@@ -7,7 +7,7 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
   log(` deleteTokenHook:`);
   log([scene, tokenData, options, userId]);
 
-  const removed: LootToken = lootTokens.findSplice((lt: LootToken) => lt.sceneId === scene.id && lt.tokenId === tokenData._id);
+  const removed: LootToken = <LootToken>lootTokens.findSplice((lt: LootToken) => lt.sceneId === scene.id && lt.tokenId === tokenData._id);
 
   if (!removed) {
     return;

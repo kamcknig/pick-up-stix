@@ -1,6 +1,7 @@
 import { log } from '../main';
 import { ItemFlags } from "./loot-token";
 import { updateItem } from "./mainEntry";
+import { PICK_UP_STIX_MODULE_NAME } from './settings';
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {
@@ -14,7 +15,7 @@ export class ContainerSoundConfig extends FormApplication {
       submitOnChange: true,
       submitOnClose: true,
       width: 350,
-      template: 'modules/pick-up-stix/module/pick-up-stix/templates/container-sound-config.html',
+      template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/container-sound-config.html`,
       title: 'Configure Container Sounds'
     })
   }

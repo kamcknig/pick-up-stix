@@ -1,4 +1,5 @@
 import { updateItem, updateToken } from "./mainEntry";
+import { PICK_UP_STIX_MODULE_NAME } from "./settings";
 
 export class LootEmitLightConfigApplication extends FormApplication {
   static get defaultOptions() {
@@ -12,7 +13,7 @@ export class LootEmitLightConfigApplication extends FormApplication {
       submitOnChange: true,
       submitOnClose: true,
       minimizable: false,
-      template: 'modules/pick-up-stix/module/pick-up-stix/templates/loot-emit-light-config.html',
+      template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/loot-emit-light-config.html`,
       title: 'Loot Light Emission'
     });
   }

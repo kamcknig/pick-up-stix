@@ -2,6 +2,7 @@ import { log } from '../main';
 import {
   updateItem
 } from "./mainEntry";
+import { PICK_UP_STIX_MODULE_NAME } from './settings';
 
 /**
  * Application class to display to select an item that the token is
@@ -13,7 +14,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
       closeOnSubmit: false,
       submitOnChange: true,
       id: "pick-up-stix-container-image-selection",
-	    template: "modules/pick-up-stix/module/pick-up-stix/templates/container-image-selection.html",
+	    template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/container-image-selection.html`,
       height: 'auto',
       width: 'auto',
 		  minimizable: false,

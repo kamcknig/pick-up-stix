@@ -4,6 +4,10 @@ Pick-Up-Stix allows you to create tokens out of items. These tokens can then be 
 
 I mainly play Dungeons and Dragons 5th and therefore I develop and test with that in mind and with the modules that I use in mind. So I apologize if it might take time to get to things sometimes. Please message me on discord @kamcknig anytime though with any quetions and I will get back when I can.
 
+### This is just a personal fork for this module , hoping to see back Kyle McKnight because i don't hav so much time for this
+
+## NOTE: If you are a javascript developer and not a typescript developer, you can just use the javascript files under the dist folder or rename the file from .ts to .js
+
 ## Features
 - Drop items from the items directory, compediums, or a player's inventory onto the canvas, player tokens, or container tokens.
 - Players may pick up item tokens directly into their inventory

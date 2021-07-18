@@ -1,1 +1,0 @@
-{"version":3,"sources":["module/settings.ts"],"names":[],"mappings":"AAAA,MAAM,CAAC,MAAM,gBAAgB,GAAG;IAC/B,2CAA2C;AAC5C,CAAC,CAAA","file":"../../src/module/settings.js","sourcesContent":["export const registerSettings = function() {\r\n\t// Register any custom module settings here\r\n}\r\n"]}

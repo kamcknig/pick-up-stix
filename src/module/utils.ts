@@ -1,4 +1,4 @@
-//@ts-ignore
+
 // import { DND5E } from '../../systems/dnd5e/module/config.js';
 
 import { log, warn } from '../main';

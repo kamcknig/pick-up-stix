@@ -39,7 +39,9 @@
     }
   ],
 	"scripts": [],
-	"esmodules": ["main.js"],
+	"esmodules": [
+		"main.js"
+	],
 	"styles": [
 		"styles/pick-up-stix.css",
 		"styles/loot-hud.css",
@@ -48,6 +50,7 @@
 	],
 	"packs": [],
 	"languages": [],
+	"manifestPlusVersion": "1.2.0",
 	"minimumCoreVersion": "0.8.6",
 	"compatibleCoreVersion": "0.8.8",
 	"url": "https://github.com/p4535992/pick-up-stix/",

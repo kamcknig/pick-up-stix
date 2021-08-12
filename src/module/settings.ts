@@ -1,4 +1,5 @@
-import { log } from "console";
+
+import { log } from "../main";
 import ImagePicker from "./libs/ImagePicker";
 import SoundPicker from "./libs/SoundPicker";
 

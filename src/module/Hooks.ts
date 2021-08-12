@@ -1,6 +1,6 @@
-//@ts-ignore
+
 // import * as Module from "module";
-//@ts-ignore
+
 // import { DND5E } from "../../../systems/dnd5e/module/config.js";
 import { error, log, warn } from "../main.js";
 import ContainerConfigApplication from "./container-config.js";

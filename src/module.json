@@ -50,12 +50,12 @@
 	"languages": [],
 	"minimumCoreVersion": "0.8.6",
 	"compatibleCoreVersion": "0.8.8",
-	"url": "https://github.com/kamcknig/pick-up-stix/",
-	"manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",
-	"download": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/package/pick-up-stix-v2.0.0.zip",
+	"url": "https://github.com/p4535992/pick-up-stix/",
+	"manifest": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/src/module.json",
+	"download": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/package/pick-up-stix-v2.0.0.zip",
 	"license": "",
 	"readme": "",
-	"bugs": "https://github.com/kamcknig/pick-up-stix/issues",
-  "changelog": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/changelog.md",
+	"bugs": "https://github.com/p4535992/pick-up-stix/issues",
+  "changelog": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/changelog.md",
   "allowBugReporter": true
 }

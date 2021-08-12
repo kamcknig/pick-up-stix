@@ -1,4 +1,4 @@
-import { log } from '../../main';
+import { log } from '../../pick-up-stix-main';
 import { amIFirstGm } from "../utils";
 import { ItemFlags, LootToken } from "../loot-token";
 import { getLootToken, updateToken } from "../mainEntry";

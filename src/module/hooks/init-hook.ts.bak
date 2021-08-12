@@ -1,0 +1,77 @@
+/* ------------------------------------ */
+/* Initialize module					*/
+
+import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, registerSettings } from "../settings";
+import { preloadTemplates } from "../preloadTemplates";
+import { Token_isVisible, Token_tokenRelease } from "../overrides";
+import { info, log } from "../../../log";
+import { warn } from "../../pick-up-stix-main";
+import { canSeeLootToken } from "../utils";
+
+/* ------------------------------------ */
+export async function initHook() {
+	log('pick-up-stix | initHook');
+
+	// CONFIG.debug.hooks = true;
+	// CONFIG.debug['pickUpStix'] = true;
+
+	// Assign custom classes and constants here
+
+	// Register custom module settings
+	registerSettings();
+
+	// Preload Handlebars templates
+	await preloadTemplates();
+
+	// Token.prototype.release = Token_tokenRelease(Token.prototype.release);
+
+	//@ts-ignore
+	libWrapper.register(PICK_UP_STIX_MODULE_NAME,"Token.prototype.release", TokenPrototypeReleaseHandler, "MIXED");
+	//@ts-ignore
+	libWrapper.register(PICK_UP_STIX_MODULE_NAME,"Token.prototype.isVisible", TokenPrototypeIsVisibleHandler, "MIXED");
+
+	// if (game.system.id === 'dnd5e') {
+	// 	info(`pick-up-stix | initHook | System is '${game.system.id}' enabling Token.isVisible override.`);
+
+	// 	Object.defineProperty(Token.prototype, 'isVisible', {
+	// 		get: Token_isVisible,
+	// 		enumerable: true,
+	// 		configurable: true
+	// 	});
+	// }
+	
+};
+
+export const TokenPrototypeReleaseHandler = function (wrapped, ...args) {
+	const [ options ] = args;
+	log(` tokenRelease | called with args`);
+	log(options);
+	//origFn.call(this, options);
+	//@ts-ignore
+	if (getCanvas().hud?.pickUpStixLootHud?.object === this) {
+		//@ts-ignore
+		getCanvas().hud.pickUpStixLootHud.clear();
+	}
+	return wrapped(...args);	
+}
+
+export function TokenPrototypeIsVisibleHandler = function (wrapped, ...args) {
+	log(` Token_isVisible | called with args`);
+	warn(` Token_isVisible | This method overrides isVisible of Token`);
+	let actualIsVisible: boolean;
+	if ( this.data.hidden ) {
+		const tokenFlags = this.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
+		actualIsVisible = getGame().user?.isGM || (tokenFlags && canSeeLootToken(this))
+	}
+	else if (!getCanvas().sight?.tokenVision) {
+		actualIsVisible = true;
+	}
+	else if ( this._controlled ) {
+		actualIsVisible = true;
+	}
+	else {
+		const tolerance = Math.min(this.w, this.h) / 4;
+		actualIsVisible = <boolean>getCanvas().sight?.testVisibility(this.center, {tolerance});
+	}
+	return wrapped(...args);
+}

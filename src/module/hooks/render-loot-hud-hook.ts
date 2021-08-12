@@ -1,4 +1,4 @@
-import { log } from '../../main';
+import { log } from '../../pick-up-stix-main';
 import { LootHud } from "../loot-hud-application";
 
 // TODO: maybe this can go in loot hud class?

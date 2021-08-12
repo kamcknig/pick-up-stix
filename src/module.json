@@ -2,7 +2,7 @@
 	"name": "pick-up-stix",
 	"title": "Pick-Up-Stix",
 	"description": "Allows Items to be placed on the map as Tokens that players are able to pick up.",
-	"version": "0.14.0",
+	"version": "2.0.0",
 	"author": "Kyle McKnight",
 	"authors": [
 		{
@@ -39,7 +39,7 @@
     }
   ],
 	"scripts": [],
-	"esmodules": ["pick-up-stix.js"],
+	"esmodules": ["pick-up-stix-main.js"],
 	"styles": [
 		"styles/pick-up-stix.css",
 		"styles/loot-hud.css",
@@ -48,11 +48,11 @@
 	],
 	"packs": [],
 	"languages": [],
-	"minimumCoreVersion": "0.7.10",
-	"compatibleCoreVersion": "0.8.6",
+	"minimumCoreVersion": "0.8.6",
+	"compatibleCoreVersion": "0.8.8",
 	"url": "https://github.com/kamcknig/pick-up-stix/",
 	"manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/src/module.json",
-	"download": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/package/pick-up-stix-v0.14.0.zip",
+	"download": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/master/package/pick-up-stix-v2.0.0.zip",
 	"license": "",
 	"readme": "",
 	"bugs": "https://github.com/kamcknig/pick-up-stix/issues",

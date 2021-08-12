@@ -2,7 +2,7 @@
 import * as Module from "module";
 //@ts-ignore
 import { DND5E } from "../../../systems/dnd5e/module/config.js";
-import { error, log, warn } from "../main.js";
+import { error, log, warn } from "../pick-up-stix-main.js";
 import ContainerConfigApplication from "./container-config.js";
 import { canvasReadyHook } from "./hooks/canvas-ready-hook.js";
 import { createActorHook } from "./hooks/create-actor-hook.js";

@@ -4,11 +4,24 @@ Pick-Up-Stix allows you to create tokens out of items. These tokens can then be 
 
 I mainly play Dungeons and Dragons 5th and therefore I develop and test with that in mind and with the modules that I use in mind. So I apologize if it might take time to get to things sometimes. Please message me on discord @kamcknig anytime though with any quetions and I will get back when I can.
 
-### This is just a personal fork for this module , hoping to see back Kyle McKnight because i don't hav so much time for this
+### This is just a personal fork for this module , hoping to see back Kyle McKnight because i don't have so much time for this
 
 ## NOTE: If you are a javascript developer and not a typescript developer, you can just use the javascript files under the dist folder or rename the file from .ts to .js
 
+## Installation
+
+It's always easiest to install modules from the in game add-on browser.
+
+To install this module manually:
+1.  Inside the Foundry "Configuration and Setup" screen, click "Add-on Modules"
+2.  Click "Install Module"
+3.  In the "Manifest URL" field, paste the following url:
+`https://raw.githubusercontent.com/p4535992/pick-up-stix/master/src/module.json`
+1.  Click 'Install' and wait for installation to complete
+2.  Don't forget to enable the module in game using the "Manage Module" button
+3.  
 ## Features
+
 - Drop items from the items directory, compediums, or a player's inventory onto the canvas, player tokens, or container tokens.
 - Players may pick up item tokens directly into their inventory
 - Players may interact with container tokens by opening them to see a loot sheet which they can then interact with to pick up items or currency from the container.
@@ -17,12 +30,14 @@ I mainly play Dungeons and Dragons 5th and therefore I develop and test with tha
 - GMs may edit item and container token instances' light configuration, lock them so that players cannot interact with them, or make them invisible by opening the right click HUD on the tokens.
 
 ## Limitations
+
 - Only one player at a time may interact with a container. This is due to the complicated nature of syncing the data between clients and the limitations of Foundry at the current time.
 - You might notice a slight delay when looting items, usually this is no more than a couple hundred milliseconds or less. This again is due to the nature of syncing the data across all clients.
 - Currently, to interact with an item or container token, a player's token must be within one square of the token.
 - Container/item tokens cannot be copied/pasted
 
 ## Future Considrations and Plans
+
 - Using roll tables to fill loot container
 - Loot dead bodies
 - Steal from living bodies using DC checks and notifications to GM if it fails

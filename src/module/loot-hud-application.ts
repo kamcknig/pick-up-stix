@@ -1,6 +1,6 @@
 import { getLootToken } from "./mainEntry";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
-import { error, log } from '../main';
+import { error, log } from '../pick-up-stix-main';
 import { getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_ITEM_ID_FLAG, PICK_UP_STIX_MODULE_NAME, SettingKeys } from "./settings";
 import { LootToken } from "./loot-token";
 

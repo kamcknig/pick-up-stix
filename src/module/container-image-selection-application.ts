@@ -1,4 +1,4 @@
-import { log } from "../main";
+import { log } from "../pick-up-stix-main";
 import { updateItem } from "./mainEntry";
 import { PICK_UP_STIX_MODULE_NAME } from "./settings";
 

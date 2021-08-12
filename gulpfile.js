@@ -1,6 +1,6 @@
 const gulp = require('gulp');
-const replace = require('gulp-replace');
-var sourcemaps = require('gulp-sourcemaps');
+// const replace = require('gulp-replace');
+// var sourcemaps = require('gulp-sourcemaps');
 const fs = require('fs-extra');
 const path = require('path');
 const chalk = require('chalk');
@@ -12,11 +12,11 @@ const ts = require('gulp-typescript');
 const less = require('gulp-less');
 const sass = require('gulp-sass');
 const git = require('gulp-git');
-const axios = require('axios');
+// const axios = require('axios');
 
 const argv = require('yargs').argv;
-const JENKINS_TRIGGER_TOKEN = 'fkj238u87v8uxvijn;askdjfh2yfah;jhkjfmn23k';
-const JENKINS_BUILD_URL = `https://jenkins.turkeysunite.com/job/pick-up-stix/buildWithParameters?token=${JENKINS_TRIGGER_TOKEN}`;
+// const JENKINS_TRIGGER_TOKEN = 'fkj238u87v8uxvijn;askdjfh2yfah;jhkjfmn23k';
+// const JENKINS_BUILD_URL = `https://jenkins.turkeysunite.com/job/pick-up-stix/buildWithParameters?token=${JENKINS_TRIGGER_TOKEN}`;
 
 sass.compiler = require('sass');
 
@@ -141,7 +141,8 @@ const tsConfig = ts.createProject('tsconfig.json', {
  * Build TypeScript
  */
 function buildTS() {
-	return gulp.src('src/**/*.ts').pipe(sourcemaps.init()).pipe(tsConfig()).pipe(sourcemaps.write('maps')).pipe(gulp.dest('dist'));
+	// return gulp.src('src/**/*.ts').pipe(sourcemaps.init()).pipe(tsConfig()).pipe(sourcemaps.write('maps')).pipe(gulp.dest('dist'));
+	return gulp.src('src/**/*.ts').pipe(tsConfig()).pipe(gulp.dest('dist'));
 }
 
 /**
@@ -387,12 +388,12 @@ async function packageBuild() {
 /*		PACKAGE		 */
 /*********************/
 
-function removeDebugHooks() {
-	return gulp.src('src/**')
-		.pipe(replace(/(?<!\/\/\s*)(CONFIG\.debug\.hooks\s*=\s*.*;?)/g, '// $1'))
-		.pipe(replace(/(?<!\/\/\s*)(CONFIG\.debug\['pickUpStix'\]\s*=\s*.*;?)/g, '// $1'))
-		.pipe(gulp.dest('src/'));
-}
+// function removeDebugHooks() {
+// 	return gulp.src('src/**')
+// 		.pipe(replace(/(?<!\/\/\s*)(CONFIG\.debug\.hooks\s*=\s*.*;?)/g, '// $1'))
+// 		.pipe(replace(/(?<!\/\/\s*)(CONFIG\.debug\['pickUpStix'\]\s*=\s*.*;?)/g, '// $1'))
+// 		.pipe(gulp.dest('src/'));
+// }
 
 /**
  * Update version and URLs in the manifest JSON
@@ -532,48 +533,49 @@ function gitTag() {
 		`Updated to ${manifest.file.version}`,
 		(err) => {
 			if (err) {
-				console.log(err);
+				//console.log(err);
 				throw err
 			};
 		}
 	);
 }
 
-const execGit = gulp.series(gitAdd, gitCommit, gitPush, gitTag, gitPushTags);
+const execGit = gulp.series(gitAdd, gitCommit, gitTag);
+// const execGit = gulp.series(gitAdd, gitCommit, gitPush, gitTag, gitPushTags);
 
-function gitPushTags() {
-	return new Promise((resolve, reject) => {
-		git.push('origin', 'master', { args: '--tags' }, function(err) {
-			if (err) {
-				console.log(err);
-				reject();
-				throw err
-			};
+// function gitPushTags() {
+// 	return new Promise((resolve, reject) => {
+// 		git.push('origin', 'master', { args: '--tags' }, function(err) {
+// 			if (err) {
+// 				console.log(err);
+// 				reject();
+// 				throw err
+// 			};
 
-			resolve();
-		});
-	})
-}
+// 			resolve();
+// 		});
+// 	})
+// }
 
-async function jenkinsBuild() {
-	const manifest = getManifest();
-	return new Promise((resolve, reject) => {
-		axios({
-			method: 'get',
-			url: `${JENKINS_BUILD_URL}&TAG=v${manifest.file.version}`
-		})
-		.then(response => {
-			resolve();
-		})
-		.catch(err => {
-			reject(err);
-		});
-	});
-}
+// async function jenkinsBuild() {
+// 	const manifest = getManifest();
+// 	return new Promise((resolve, reject) => {
+// 		axios({
+// 			method: 'get',
+// 			url: `${JENKINS_BUILD_URL}&TAG=v${manifest.file.version}`
+// 		})
+// 		.then(response => {
+// 			resolve();
+// 		})
+// 		.catch(err => {
+// 			reject(err);
+// 		});
+// 	});
+// }
 
 const execBuild = gulp.parallel(buildTS, buildJS, buildMJS, buildCSS, buildLess, buildSASS, copyFiles);
 
-exports.removeDebugHooks = removeDebugHooks;
+// exports.removeDebugHooks = removeDebugHooks;
 exports.build = gulp.series(clean, execBuild);
 exports.watch = buildWatch;
 exports.clean = clean;
@@ -581,11 +583,10 @@ exports.link = linkUserData;
 exports.package = packageBuild;
 exports.update = updateManifest;
 exports.publish = gulp.series(
-	removeDebugHooks,
 	clean,
 	updateManifest,
 	execBuild,
 	packageBuild,
 	execGit,
-	jenkinsBuild
+	// jenkinsBuild
 );

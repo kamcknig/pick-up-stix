@@ -1,4 +1,4 @@
-import { log, warn } from '../../pick-up-stix-main';
+import { debug, log, warn } from '../../main';
 import { amIFirstGm } from "../utils";
 import { LootToken } from "../loot-token"
 import { deleteItem, getLootToken, lootTokens } from "../mainEntry"
@@ -30,7 +30,7 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
     }
     else {
       warn(` deleteTokenHook | Item ID not found on TokenFlags for token:`);
-      console.debug([tokenData]);
+      debug([tokenData]);
     }
   }
 }

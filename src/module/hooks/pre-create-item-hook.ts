@@ -1,7 +1,7 @@
 import { ItemType } from "../models";
 import { getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, SettingKeys } from "../settings";
 import { ItemFlags } from "../loot-token";
-import { error, log } from '../../pick-up-stix-main';
+import { error, log } from '../../main';
 import { getCurrencyTypes } from "../utils";
 
 export async function preCreateItemHook(itemData: any, options: any = {}, userId: string) {

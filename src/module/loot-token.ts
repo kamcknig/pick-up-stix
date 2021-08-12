@@ -1,4 +1,4 @@
-import { error, log } from '../pick-up-stix-main';
+import { error, log } from '../main';
 import { getPriceDataPath, getQuantityDataPath, getWeightDataPath } from "./utils";
 import {
 	getValidControlledTokens,

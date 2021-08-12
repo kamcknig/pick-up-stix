@@ -1,5 +1,5 @@
 
-import { log } from '../pick-up-stix-main';
+import { log } from '../main';
 import {
 	collidedTokens,
 	getActorCurrencyPath,
@@ -26,7 +26,6 @@ import {
 	SocketMessageType
 } from "./models";
 import { getCanvas, getGame, gmActionTimeout, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_SOCKET, SettingKeys } from "./settings";
-import Document from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/document.mjs';
 
 export const lootTokens: LootToken[] = [];
 window['lootTokens'] = lootTokens;
@@ -521,6 +520,7 @@ export const deleteToken = async (tokenId: string, sceneId: string): Promise<str
 		log(` deleteToken | user is GM, deleting token '${tokenId}' from scene '${sceneId}'`);
 		const scene = getGame().scenes?.get(sceneId);//Scene.collection.get(sceneId);
 		let array = [tokenId];
+		//@ts-ignore
 		const _id = <string>(<Document<any,any>[]>await scene?.deleteEmbeddedDocuments('Token', array))[0].id;
 		return _id;
 	}
@@ -560,6 +560,7 @@ export async function updateToken(sceneId: string, updates: { _id: string; [key:
 		const scene = getGame().scenes?.get(sceneId);//Scene.collection.get(sceneId);
 		let record:Record<string, unknown> = initiateRecord<unknown>(updates, null);
 		let array = [record];
+		//@ts-ignore
 		const _id = <string>(<Document<any,any>[]>await scene?.updateEmbeddedDocuments('Token', array))[0].id;
 		return { tokenId: _id, sceneId: sceneId };
 	}
@@ -844,6 +845,7 @@ export const updateOwnedItem = async (actorId, data): Promise<{ actorId: string;
 
 	if (getGame().user?.isGM) {
 		log(` updateOwnedItem | user is GM, updating embedded entity`);
+		//@ts-ignore
 		const _id  = <string>(<Document<any,any>[]>await actor.updateEmbeddedDocuments(data))[0].id;
 		return { actorId: <string>actor.id, id: _id };
 	}
@@ -1132,7 +1134,7 @@ export const addItemToContainer = async (data: { itemData: any, containerItemId:
 
 export const  lootCurrency = async (data: { looterTokenId: string, currencies: any; containerItemId: string }): Promise<boolean> => {
 	log(` lootCurrency:`);
-	console.log([data]);
+	log([data]);
 
 	if (getGame().user?.isGM) {
 		log(` lootCurrency | User is GM, looting currency`);
@@ -1228,7 +1230,7 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 	log([data]);
 
 	if (getGame().user?.isGM) {
-		console.log(` lootItem | User is GM`);
+		log(` lootItem | User is GM`);
 
 		const qtyLootedById = {};
 		const looterToken = <Token>getCanvas().tokens?.placeables.find(p => p.id === data.looterTokenId);
@@ -1250,7 +1252,7 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 		}, []);
 
     log(` lootItem | Items being looted:`);
-    console.log([newItemDatas]);
+    log([newItemDatas]);
 
 		await createOwnedItem(
 			looterActorId,
@@ -1342,13 +1344,13 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
 		}
 
 		Hooks.once(PickUpStixHooks.itemCollected, () => {
-			console.log(` lootItem | pick-up-stix.itemCollected hook`);
+			log(` lootItem | pick-up-stix.itemCollected hook`);
 			clearTimeout(timeout);
 			resolve(true);
 		});
 
-		console.log(` lootItem | User is not GM send msg:`);
-		console.log([msg]);
+		log(` lootItem | User is not GM send msg:`);
+		log([msg]);
 
 		getGame().socket?.emit(PICK_UP_STIX_SOCKET, msg);
 	});

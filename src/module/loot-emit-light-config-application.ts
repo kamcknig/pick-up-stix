@@ -1,4 +1,3 @@
-import { Data } from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/foundry.js/roll";
 import { updateItem, updateToken } from "./mainEntry";
 import { PICK_UP_STIX_MODULE_NAME } from "./settings";
 

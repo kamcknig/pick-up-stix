@@ -39,7 +39,7 @@
     }
   ],
 	"scripts": [],
-	"esmodules": ["pick-up-stix-main.js"],
+	"esmodules": ["main.js"],
 	"styles": [
 		"styles/pick-up-stix.css",
 		"styles/loot-hud.css",

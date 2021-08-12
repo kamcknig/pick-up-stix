@@ -1,4 +1,4 @@
-import { log } from '../../pick-up-stix-main';
+import { log } from '../../main';
 import { createLootToken, getLootToken } from "../mainEntry";
 import { getCanvas, PICK_UP_STIX_ITEM_ID_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';
 

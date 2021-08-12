@@ -1,8 +1,8 @@
 //@ts-ignore
-import * as Module from "module";
+// import * as Module from "module";
 //@ts-ignore
-import { DND5E } from "../../../systems/dnd5e/module/config.js";
-import { error, log, warn } from "../pick-up-stix-main.js";
+// import { DND5E } from "../../../systems/dnd5e/module/config.js";
+import { error, log, warn } from "../main.js";
 import ContainerConfigApplication from "./container-config.js";
 import { canvasReadyHook } from "./hooks/canvas-ready-hook.js";
 import { createActorHook } from "./hooks/create-actor-hook.js";
@@ -26,7 +26,7 @@ import { amIFirstGm, canSeeLootToken, versionDiff } from "./utils.js";
 
 export let readyHooks = async () => {
 
-	log('pick-up-stix | ready once hook');
+	log(' ready once hook');
 
 	if (getGame().system.id === 'dnd5e') {
 		Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {

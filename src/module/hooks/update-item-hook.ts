@@ -1,11 +1,8 @@
-import { log } from '../../pick-up-stix-main';
+import { log } from '../../main';
 import { amIFirstGm } from "../utils";
 import { ItemFlags, LootToken } from "../loot-token";
 import { getLootToken, updateToken } from "../mainEntry";
-import { TokenData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/module.mjs';
 import { getCanvas, getGame } from '../settings';
-import { TokenBarDataProperties } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/tokenBarData';
-import { TokenDataProperties } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/data.mjs/tokenData';
 
 export const updateItemHook = async (item, data, options, userId) => {
   log(` updateItemHook`);

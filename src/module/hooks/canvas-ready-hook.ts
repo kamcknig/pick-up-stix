@@ -1,4 +1,4 @@
-import { log } from '../../pick-up-stix-main';
+import { log } from '../../main';
 import { LootToken, TokenFlags } from "../loot-token";
 import {
 	getLootToken,

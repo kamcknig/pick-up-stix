@@ -1,4 +1,4 @@
-import { log } from "../../pick-up-stix-main";
+import { log } from "../../main";
 import { TokenFlags } from "../loot-token";
 import { deleteToken, getLootToken, handleItemDropped, normalizeDropData } from "../mainEntry";
 import { getGame } from "../settings";

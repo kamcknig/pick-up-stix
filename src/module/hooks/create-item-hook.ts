@@ -1,4 +1,4 @@
-import { log } from '../../pick-up-stix-main';
+import { log } from '../../main';
 import { ItemFlags } from '../loot-token';
 import { ItemType } from "../models";
 import { PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';

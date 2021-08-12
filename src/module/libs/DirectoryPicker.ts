@@ -1,3 +1,5 @@
+import { log } from "../../main";
+
 /**
  * Game Settings: Directory
  * @href https://github.com/MrPrimate/vtta-tokenizer/blob/master/src/libs/DirectoryPicker.js
@@ -84,7 +86,7 @@
       .find(`input[data-dtype="Directory"]`)
       .each(function () {
         if (!$(this).next().length) {
-          console.log("Adding Picker Button");
+          log("Adding Picker Button");
           let picker = new DirectoryPicker({
             field: $(this)[0],
             //@ts-ignore

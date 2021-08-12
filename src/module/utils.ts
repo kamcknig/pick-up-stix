@@ -1,7 +1,7 @@
 //@ts-ignore
-import { DND5E } from '../../systems/dnd5e/module/config.js';
+// import { DND5E } from '../../systems/dnd5e/module/config.js';
 
-import { log, warn } from '../pick-up-stix-main';
+import { log, warn } from '../main';
 import { TokenFlags } from './loot-token';
 import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, SettingKeys } from './settings';
 

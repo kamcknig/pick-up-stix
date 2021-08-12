@@ -34,6 +34,16 @@ This module uses the [libWrapper](https://github.com/ruipin/fvtt-lib-wrapper) li
 - When interacting with a container, a selection is shown that allows players to choose which token's actor will loot the container.
 - GMs may edit item and container token instances' light configuration, lock them so that players cannot interact with them, or make them invisible by opening the right click HUD on the tokens.
 
+### New feature (version pre 2.0.0)
+
+I have made some improvements that should hopefully speed up the module but want to point out a few changes
+
+First off you'll notice new Item folders have been created. A parent folder named **Pick-Up-Stix** and two folders within there named **Items**, and **Tokens**. Once these folders have been created, you are free to move them around however, if you delete them as of now there is no way to recover any previous contents, though the folder should be recreated on the next startup. These folders can not be seen by players that are not GMs.
+
+The **Tokens** folder contains Items that represent any loot token instances that are in a scene. If you edit one of them from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance, simply drag one of the Items from the **Tokens** Item folder and you'll have a copy of that Item that will update when it updates. If you delete an Item from the **Tokens** folder, then all loot token instances will be removed from all scenes. If you delete all loot token instances from all scenes, the Item associated with it in the **Tokens** folder will also be deleted
+
+The **Items** folder is a template folder. When you create an Item and choose the 'container' type, you'll get an Item created in the **Items** folder. If you drag one of these onto the canvas, you'll create a new loot token based on the properties of that Item, but you'll notice that a new Item is created in the **Tokens** folder. You can updated this new loot token by either updating it's new corresponding Item or through the token's config menu. You can also update that token and then drag a copy of it from the **Tokens** folder NOT the **Items** folder to create a new loot token with the udpated properties. Items in the **Items** folder are not deleted when any loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the **Items** directory are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.
+
 ## Limitations
 
 - Only one player at a time may interact with a container. This is due to the complicated nature of syncing the data between clients and the limitations of Foundry at the current time.

@@ -1,7 +1,8 @@
 
 // import * as Module from "module";
-
 // import { DND5E } from "../../../systems/dnd5e/module/config.js";
+//@ts-ignore
+import ItemSheet5e from "../../../systems/dnd5e/module/item/sheet.js";
 import { error, log, warn } from "../main.js";
 import ContainerConfigApplication from "./container-config.js";
 import { canvasReadyHook } from "./hooks/canvas-ready-hook.js";
@@ -17,7 +18,7 @@ import { renderItemDirectoryHook } from "./hooks/render-item-directory-hook.js";
 import { onRenderLootHud } from "./hooks/render-loot-hud-hook.js";
 import { updateItemHook } from "./hooks/update-item-hook.js";
 import { LootHud } from "./loot-hud-application.js";
-import { TokenFlags } from "./loot-token.js";
+import { ItemFlags, TokenFlags } from "./loot-token.js";
 import { addItemToContainer, createItem, createLootToken, createOwnedItem, createToken, deleteItem, deleteOwnedItem, deleteToken, dropItemOnToken, getLootToken, lootCurrency, lootItem, updateActor, updateItem, updateOwnedItem, updateToken } from "./mainEntry.js";
 import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from "./models.js";
 import { preloadTemplates } from "./preloadTemplates.js";
@@ -30,47 +31,52 @@ export let readyHooks = async () => {
 
 	if (getGame().system.id === 'dnd5e') {
 		Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
-		log(` renderItemSheet5e`);
-		log([app, protoHtml, data]);
+			log(` renderItemSheet5e`);
+			log([app, protoHtml, data]);
 
-		const item: Item = app.object;
+			const item: Item = app.object;
 
-		// can't edit the size of owned items
-		if (item.actor) return;
+			// can't edit the size of owned items
+			if (item.actor) return;
 
-		let html = protoHtml;
+			let html = protoHtml;
 
-		if (html[0].localName !== "div") {
-			html = $(html[0].parentElement.parentElement);
-		}
-		const flagValue = (<any>item.getFlag(PICK_UP_STIX_MODULE_NAME,PICK_UP_STIX_FLAG))?.tokenData;
-		const widthValue = flagValue?.width ?? 1; // ${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1}
-		const heightValue = flagValue?.height ?? 1; // ${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1}
-		const content = `
-		<div class="form-group">
-			<label>Width</label>
-			<input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.width" value="${widthValue}" data-dtype="Number">
-		</div>
+			if (html[0].localName !== "div") {
+				html = $(html[0].parentElement.parentElement);
+			}
+			const flagValue = (<any>item.getFlag(PICK_UP_STIX_MODULE_NAME,PICK_UP_STIX_FLAG))?.tokenData;
+			const widthValue = flagValue?.width ?? 1; // ${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.width ?? 1}
+			const heightValue = flagValue?.height ?? 1; // ${item.data.flags?.['pick-up-stix']?.['pick-up-stix']?.tokenData?.height ?? 1}
+			const content = `
+			<div class="form-group">
+				<label>Width</label>
+				<input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.width" value="${widthValue}" data-dtype="Number">
+			</div>
 
-		<div class="form-group">
-			<label>Height</label>
-			<input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.height" value="${heightValue}" data-dtype="Number">
-		</div>
-		`
-		$(html)
-			.find('div.item-properties div.form-group')
-			.last()
-			.after(content);
+			<div class="form-group">
+				<label>Height</label>
+				<input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.height" value="${heightValue}" data-dtype="Number">
+			</div>
+			`
+			$(html)
+				.find('div.item-properties div.form-group')
+				.last()
+				.after(content);
 		});
+
+		//@ts-ignore
+		// Items.registerSheet(getGame().system.id, ItemSheet5e, {makeDefault: false, types:[ItemType.CONTAINER]});
 	}
-	if (getGame().user?.isGM) {
-		//@ts-ignore
-		getGame().modules?.get(PICK_UP_STIX_MODULE_NAME).apis = {};
-		//@ts-ignore
-		getGame().modules?.get(PICK_UP_STIX_MODULE_NAME).apis.v = 1;
-		//@ts-ignore
-		getGame().modules?.get(PICK_UP_STIX_MODULE_NAME).apis.makeContainer = makeContainerApi;
-	}
+
+	// RMEOVED ON VERSION 2.0.0 (FoundryVTT 0.8.8)
+	// if (getGame().user?.isGM) {
+	// 	//@ts-ignore
+	// 	getGame().modules?.get(PICK_UP_STIX_MODULE_NAME).apis = {};
+	// 	//@ts-ignore
+	// 	getGame().modules?.get(PICK_UP_STIX_MODULE_NAME).apis.v = 1;
+	// 	//@ts-ignore
+	// 	getGame().modules?.get(PICK_UP_STIX_MODULE_NAME).apis.makeContainer = makeContainerApi;
+	// }
 
 	// this adds the 'container' type to the game system's entity types.
 	getGame().system.entityTypes.Item.push(ItemType.CONTAINER);
@@ -127,7 +133,7 @@ export let readyHooks = async () => {
 	const items = <IterableIterator<Item>>getGame().items?.values();
 	for (let item of items) {
 		//if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
-		if ((<any>item.getFlag(PICK_UP_STIX_MODULE_NAME,PICK_UP_STIX_FLAG)).itemType === ItemType.CONTAINER) {
+		if ((<ItemFlags>item.getFlag(PICK_UP_STIX_MODULE_NAME,PICK_UP_STIX_FLAG))?.itemType === ItemType.CONTAINER) {
 			item.data.type = ItemType.CONTAINER;
 		}
 	}
@@ -192,7 +198,7 @@ export let readyHooks = async () => {
 
 	Hooks.once('canvasReady', () => {
 		//@ts-ignore
-		getCanvas().hud?.pickUpStixLootHud = new LootHud();
+		getCanvas().hud.pickUpStixLootHud = new LootHud();
 	});
 	Hooks.on('canvasReady', canvasReadyHook);
 	//Hooks.on('ready', readyHook);
@@ -275,9 +281,9 @@ export const TokenPrototypeReleaseHandler = function (wrapped, ...args) {
 	log(options);
 	//origFn.call(this, options);
 	//@ts-ignore
-	if (getCanvas().hud?.pickUpStixLootHud?.object === this) {
+	if (getCanvas().hud.pickUpStixLootHud?.object === this) {
 		//@ts-ignore
-		getCanvas().hud?.pickUpStixLootHud.clear();
+		getCanvas().hud.pickUpStixLootHud.clear();
 	}
 	return wrapped(...args);	
 }

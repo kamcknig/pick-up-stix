@@ -1,6 +1,6 @@
 const gulp = require('gulp');
-// const replace = require('gulp-replace');
-// var sourcemaps = require('gulp-sourcemaps');
+const replace = require('gulp-replace');
+var sourcemaps = require('gulp-sourcemaps');
 const fs = require('fs-extra');
 const path = require('path');
 const chalk = require('chalk');
@@ -12,11 +12,11 @@ const ts = require('gulp-typescript');
 const less = require('gulp-less');
 const sass = require('gulp-sass');
 const git = require('gulp-git');
-// const axios = require('axios');
+const axios = require('axios');
 
 const argv = require('yargs').argv;
-// const JENKINS_TRIGGER_TOKEN = 'fkj238u87v8uxvijn;askdjfh2yfah;jhkjfmn23k';
-// const JENKINS_BUILD_URL = `https://jenkins.turkeysunite.com/job/pick-up-stix/buildWithParameters?token=${JENKINS_TRIGGER_TOKEN}`;
+const JENKINS_TRIGGER_TOKEN = 'fkj238u87v8uxvijn;askdjfh2yfah;jhkjfmn23k';
+const JENKINS_BUILD_URL = `https://jenkins.turkeysunite.com/job/pick-up-stix/buildWithParameters?token=${JENKINS_TRIGGER_TOKEN}`;
 
 sass.compiler = require('sass');
 
@@ -141,8 +141,8 @@ const tsConfig = ts.createProject('tsconfig.json', {
  * Build TypeScript
  */
 function buildTS() {
-	// return gulp.src('src/**/*.ts').pipe(sourcemaps.init()).pipe(tsConfig()).pipe(sourcemaps.write('maps')).pipe(gulp.dest('dist'));
-	return gulp.src('src/**/*.ts').pipe(tsConfig()).pipe(gulp.dest('dist'));
+	return gulp.src('src/**/*.ts').pipe(sourcemaps.init()).pipe(tsConfig()).pipe(sourcemaps.write('maps')).pipe(gulp.dest('dist'));
+	// return gulp.src('src/**/*.ts').pipe(tsConfig()).pipe(gulp.dest('dist'));
 }
 
 /**

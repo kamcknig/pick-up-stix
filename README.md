@@ -17,9 +17,14 @@ To install this module manually:
 2.  Click "Install Module"
 3.  In the "Manifest URL" field, paste the following url:
 `https://raw.githubusercontent.com/p4535992/pick-up-stix/master/src/module.json`
-1.  Click 'Install' and wait for installation to complete
-2.  Don't forget to enable the module in game using the "Manage Module" button
-3.  
+4.  Click 'Install' and wait for installation to complete
+5.  Don't forget to enable the module in game using the "Manage Module" button
+
+### libWrapper
+
+This module uses the [libWrapper](https://github.com/ruipin/fvtt-lib-wrapper) library for wrapping core methods. It is a hard dependency and it is recommended for the best experience and compatibility with other modules.
+
+
 ## Features
 
 - Drop items from the items directory, compediums, or a player's inventory onto the canvas, player tokens, or container tokens.

@@ -1,0 +1,8 @@
+<div class="flexcol wrapper">
+  {{#each tokens}}
+    <div class="flexrow token-selection" data-token-id="{{this._id}}">
+      <img src="{{this.img}}" />
+      <span class="token-name">{{this.name}}</span>
+    </div>
+  {{/each}}
+</div>

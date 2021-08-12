@@ -1,0 +1,464 @@
+$groove-color: #eeede0;
+
+.system-D35E {
+    .pick-up-stix {
+        font-family: "Signika", sans-serif;
+
+        & * {
+          font-family: inherit;
+        }
+
+        & .fa,
+        & .fas,
+        & .far {
+          font-family: "Font Awesome 5 Free";
+        }
+
+        &.item-config-sheet {
+          min-height: 500px;
+        }
+
+        & .currency-wrapper {
+          margin-bottom: 10px;
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+
+          & > * {
+            margin-right: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+
+          & > * div {
+            width: 32px;
+            height: 32px;
+          }
+
+          & > * input {
+            width: 60px;
+          }
+
+          & .plat {
+            margin-right: 5px;
+            background: url(../assets/currency-sprite.png);
+          }
+
+          & .gold {
+            margin-right: 5px;
+            background: url(../assets/currency-sprite.png) -34px 0px;
+          }
+
+          & .electrum {
+            margin-right: 5px;
+            background: url(../assets/currency-sprite.png) -66px 0px;
+          }
+
+          & .silver {
+            margin-right: 5px;
+            background: url(../assets/currency-sprite.png) -98px 0px;
+          }
+
+          & .copper {
+            margin-right: 5px;
+            background: url(../assets/currency-sprite.png) -130px 0px;
+          }
+        }
+
+        /**
+         * Sheet header styles
+         */
+        & .sheet-section {
+          border-bottom: 2px groove $groove-color;
+        }
+
+        /**
+         * Header profile styles
+         */
+        & .sheet-header {
+          & .profile {
+            border: unset;
+            max-width: 160px;
+            height: auto;
+          }
+
+          /**
+           * Header details section styles
+           */
+          & .header-details {
+            padding: 5px;
+            border-left: 2px groove $groove-color;
+
+            & .container-name {
+              font-family: "Modesto Condensed", "Palatino Linotype", serif;
+              height: 60px;
+              font-size: 3em;
+            }
+
+            & .container-description {
+              font-family: "Signika", sans-serif;
+              font-weight: 400;
+            }
+          }
+        }
+
+        & textarea {
+          border: 1px solid transparent;
+          background: unset;
+        }
+
+        & textarea:focus,
+        & textarea:hover {
+          outline: unset;
+          box-shadow: unset;
+          border: 1px solid black;
+        }
+
+        /**
+         * Input styles
+         */
+        & input[type="text"] {
+          background: unset;
+          box-shadow: unset;
+          outline: unset;
+          border: 1px solid transparent;
+          border-bottom: 2px groove $groove-color;
+
+          &:focus:not(.isNotGM),
+          &:hover:not(.isNotGM) {
+            border: 1px solid black;
+          }
+        }
+
+        & .inventory-details,
+        & .currency-details {
+          padding-top: 5px;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        /**
+         * Currency details section styles
+         */
+        & .currency-details {
+            border-bottom: none;
+            .currency-header {
+                position: relative;
+                flex: 0 0 20px;
+                margin: 0.25rem;
+                font-family: "Nodesto", "Signika", "Palatino Linotype", serif;
+                font-size: 20px;
+                border: none;
+                display: flex;
+                flex: 1;
+                align-items: center;
+                &::after {
+                    content: '';
+                    flex: 1;
+                    margin-left: 0.5rem;
+                    height: 0px;
+                    background-color: transparent;
+                    border-top: 2px groove #eeede0;
+                }
+                i {
+                    display: none;
+                }
+            }
+
+
+          & .currency-list {
+            list-style: none;
+            align-items: center;
+          }
+
+          & .currency-list input[type="text"] {
+            text-align: center;
+          }
+        }
+
+        /**
+         * Inventory list styles
+         */
+        & .inventory-details {
+          & ol {
+            padding: 0;
+          }
+
+          > .flexrow h3:first-child {
+            position: relative;
+            flex: 1;
+            margin: 0.25rem !important;
+            font-family: "Nodesto", "Signika", "Palatino Linotype", serif;
+            font-size: 20px;
+            border: none;
+            display: flex;
+            align-items: center;
+            &::after {
+                content: '';
+                flex: 1;
+                margin-left: 0.5rem;
+                height: 0px;
+                background-color: transparent;
+                border-top: 2px groove #eeede0;
+            }
+            i {
+                display: none;
+            }
+          }
+
+          & .inventory-header {
+            background: rgba(0, 0, 0, .05);
+            border: 2px groove $groove-color;
+            font-weight: 400;
+            font-size: 11px;
+            padding: 5px;
+            margin: 2px 0px;
+            font-family: "Signika", sans-serif;
+            & h3 {
+              margin: 0;
+              text-transform: capitalize;
+            }
+          }
+
+          & .inventory-list {
+            &:not(:last-child) {
+              border-right: 1px solid #c9c7b8;
+            }
+
+            & .item {
+              align-items: center;
+              line-height: 24px;
+                padding: 0 2px;
+            }
+
+            & .item {
+              & h4 {
+                padding: 0;
+                margin: 0;
+              }
+
+              & .item-name {
+                align-items: center;
+              }
+
+              & .item-name * {
+                padding-left: 5px;
+              }
+            }
+
+            & .item-image {
+              flex: 0 0 24px;
+              width: 24px;
+              height: 24px;
+              background-size: contain;
+              background-repeat: no-repeat;
+            }
+
+            & .item-details {
+              flex: 0 0 60px;
+              border-left: 1px solid #c9c7b8;
+              color: #7a7971;
+              overflow: hidden;
+              text-align: center;
+            }
+
+            & .item-list {
+                margin: 0;
+              }
+          }
+        }
+
+        & .item-controls {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+
+          & a {
+            flex: 1;
+            text-align: center;
+            color: #7a7971;
+          }
+        }
+
+        &.choose-token {
+          // the list wrapper, gives the outter padding
+          & .wrapper {
+            padding: 5px;
+            justify-content: flex-start;
+            flex: 0;
+          }
+
+          // the "List item" that displays the token image and name
+          & .token-selection {
+            cursor: pointer;
+            border: 2px groove $groove-color;
+            align-items: center;
+            margin-bottom: -2px;
+
+            & * {
+              margin-bottom: 5px;
+            }
+
+            & img {
+              border: none;
+              margin-right: 5px;
+              max-width: 80px;
+              height: auto;
+            }
+
+            & .token-name {
+              font-family: "Modesto";
+              font-size: 24px;
+              font-weight: 700;
+            }
+
+            &:hover {
+              background-color: rgba(0, 0, 0, .09);
+            }
+          }
+        }
+      }
+
+    &.d35ecustom {
+        .pick-up-stix.container-config-sheet {
+            font-family: "Signika", sans-serif;
+            border: 6px solid #55493B;
+            border-image: url(/systems/D35E/icons/ui/dialog-frame.png) 20 round;
+
+            .window-header {
+                color: white;
+                background: url(/systems/D35E/icons/ui/background-header.png) repeat;
+                border-bottom: 2px solid rgba(255,255,255,0.2);
+                line-height: 28px;
+              }
+
+              .window-content {
+
+                background: url(/systems/D35E/icons/ui/background-window.png) repeat;
+              }
+
+              .sheet-section, .inventory-details {
+                background: url(/systems/D35E/icons/ui/parchment-2.png) repeat;
+                margin: 4px 0;
+                border-radius: 2px;
+              }
+
+              .sheet-header {
+                  border-bottom: none;
+              }
+              & .inventory-details {
+                padding-top: 0px;
+                & ol {
+                  padding: 0;
+                }
+
+                > .flexrow h3:first-child {
+                    &::before {
+                        border-top: 2px solid #75514b !important;
+                      }
+                      &::after {
+                        border-top: 2px solid #75514b !important;
+                      }
+                }
+            }
+            .currency-details {
+
+                padding-top: 0px;
+            }
+            .currency-header {
+                &::before {
+                    border-top: 2px solid #75514b !important;
+                  }
+                  &::after {
+                    border-top: 2px solid #75514b !important;
+                  }
+            }
+
+            .item-controls a {
+                    color: #2C606D;
+                    &:hover {
+                    text-shadow: 0 0 10px #2C606D !important;
+                      color: #2C606D !important;
+                    }
+            }
+
+            .loot-all-button {
+                background: linear-gradient(to right, rgba(255, 255, 255, 0.0) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.0)100%), linear-gradient(rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.0) 10%, rgba(255, 255, 255, 0.0) 90%, rgba(255, 255, 255, 0.3)100%), url(/systems/D35E/icons/ui/button-texture.png) repeat !important;
+                border: 1px solid rgba(0,0,0,0.7) !important;
+                color: rgba(255,255,255,0.9) !important;
+                border-radius: 2px !important;
+                line-height: 23px;
+                height: 26px;
+                &:hover {
+                  background: linear-gradient(to right, rgba(255, 255, 255, 0.0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0.0)100%), linear-gradient(rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.0) 10%, rgba(255, 255, 255, 0.0) 90%, rgba(255, 255, 255, 0.3)100%), url(/systems/D35E/icons/ui/button-texture.png) repeat !important;
+                  text-shadow: none !important;
+                  box-shadow: none !important;
+                }
+                 i {
+                    font-size: 12px;
+                 }
+            }
+
+
+
+              input[type="text"], textarea {
+                border: 1px solid rgba(0, 0, 0, 0.2) !important;
+                height: 24px;
+                &:hover {
+                  border: 1px solid #2C606D !important;
+                  box-shadow: 0 0 8px #4d8d9d;
+                }
+                &:focus {
+                  border: 1px solid #2C606D !important;
+                  box-shadow: 0 0 8px #2C606D;
+                }
+              }
+              .header-details {
+                border-left: none;
+                  input {
+                    color: #193f48;
+                    margin: 8px 3px;
+                    height: unset;
+                  }
+              }
+              .inventory-header {
+                border: none;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+              }
+
+              .inventory-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                overflow-y: auto;
+                background: rgba(255, 255, 255, 0.2);
+                border: 1px solid rgba(0, 0, 0, 0.3);
+                border-radius: 4px;
+              }
+
+              .sheet-section-right {
+                  border-right: none;
+              }
+
+              .character-selection .row {
+                background: url(/systems/D35E/icons/ui/parchment-2.png) repeat;
+                margin: 4px 0;
+                border-radius: 2px;
+              }
+
+        }
+
+        .container-sound-config-sheet {
+            border: 8px solid #55493B;
+            border-image: url(/systems/D35E/icons/ui/dialog-frame.png) 30 round;
+            background: url(/systems/D35E/icons/ui/sidebar-bg.png);
+            border-radius: 0;
+            .window-content {
+            color: white;
+            background: none;
+            }
+        }
+    }
+}

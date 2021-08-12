@@ -39,7 +39,7 @@ export interface ContainerData {
 	soundClosePath: string;
 	imageClosePath: string;
 	imageOpenPath: string;
-	loot?: ContainerLoot;
+	loot: ContainerLoot;
 	currency?: any;
 	description?: string;
 }
@@ -301,7 +301,7 @@ export class LootToken {
 
 		log('pick-up-stix | LootToken | addItem');
 
-		const itemFlags = duplicate(this.itemFlags);
+		const itemFlags = <ItemFlags>duplicate(this.itemFlags);
 
 		const existingItem = Object.values(itemFlags?.container?.loot?.[itemData?.type] ?? [])
 			?.find(i =>
@@ -323,15 +323,15 @@ export class LootToken {
 			}
 		}
 		else {
-			if (!itemFlags.container?.loot) {
-				//@ts-ignore
-				itemFlags.container?.loot = {};
+			let containerData:ContainerData = <ContainerData>itemFlags.container;
+			if (!containerData?.loot) {
+				containerData.loot = {};
 			}
-			if (!itemFlags.container?.loot[itemData.type]) {
-				//@ts-ignore
-				itemFlags.container?.loot[itemData.type] = [];
+			if (!containerData?.loot[itemData.type]) {
+				containerData.loot[itemData.type] = [];
 			}
-			itemFlags.container?.loot[itemData.type].push(itemData);
+			containerData.loot[itemData.type].push(itemData);
+			itemFlags.container = containerData;
 		}
 
 		updateItem(this.itemId, {
@@ -528,7 +528,7 @@ export class LootToken {
 
 		const token = this.token;
 		//@ts-ignore
-		const hud = getCanvas().hud?.pickUpStixLootHud;
+		const hud = getCanvas().hud.pickUpStixLootHud;
 		if (hud) {
 			token?.control({releaseOthers: true});
 			if (hud.object === token) {

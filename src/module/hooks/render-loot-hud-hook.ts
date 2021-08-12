@@ -5,5 +5,5 @@ import { LootHud } from "../loot-hud-application";
 export function onRenderLootHud(hud: LootHud, hudHtml, tokenData) {
 	log(` onRenderLootHud | called with args:`);
 	log([hud, hudHtml, tokenData]);
-	document.getElementById('hud').appendChild(hud.element[0]);
+	document.getElementById('hud')?.appendChild(hud.element[0]);
 }

@@ -1,7 +1,8 @@
-import { error, log } from "../../../log";
-import { collidedTokens } from "../../../utils";
+import { log } from "../../main";
 import { TokenFlags } from "../loot-token";
 import { deleteToken, getLootToken, handleItemDropped, normalizeDropData } from "../mainEntry";
+import { getGame } from "../settings";
+import { collidedTokens } from "../utils";
 
 /**
  * One thing we want to check before a token is updated would be if the x or y positions are changing. If they are
@@ -33,7 +34,7 @@ export const preUpdateTokenHook = async (scene, tokenData, updates, options, use
 
 	if (tokens.length > 1) {
 		// if we are dropping it onto more than one token, then we can't know which to drop it onto, notify the user
-		ui.notifications.error('You can drop an item onto one and only one target');
+		ui.notifications?.error('You can drop an item onto one and only one target');
 		return false;
 	}
 	else if (tokens.length === 0) {
@@ -41,9 +42,9 @@ export const preUpdateTokenHook = async (scene, tokenData, updates, options, use
 		return true;
 	}
 
-	const item = game.items.get(tokenFlags.itemId);
+	const item = <Item>getGame().items?.get(tokenFlags.itemId);
 
-	const itemDropSuccess = await handleItemDropped(await normalizeDropData({ x: updates.x ?? tokenData.x, y: updates.y ?? tokenData.y, type: item.data.type, id: item.id }));
+	const itemDropSuccess = await handleItemDropped(await normalizeDropData({ x: updates.x ?? tokenData.x, y: updates.y ?? tokenData.y, type: item.data.type, id: <string>item.id }));
 
 	if (itemDropSuccess) {
 		await deleteToken(tokenData._id, scene.id);

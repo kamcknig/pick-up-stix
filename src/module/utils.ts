@@ -1,9 +1,9 @@
 //@ts-ignore
-import { DND5E } from  ../../systems/dnd5e/module/config.js";
+import { DND5E } from '../../systems/dnd5e/module/config.js';
 
 import { log, warn } from '../main';
 import { TokenFlags } from './loot-token';
-import { SettingKeys } from './settings';
+import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, SettingKeys } from './settings';
 
 // get the distance to the token and if it's too far then can't pick it up
 export const dist = (p1: PlaceableObject, p2: PlaceableObject): number => {
@@ -64,7 +64,7 @@ export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number 
 }
 
 export const collidedTokens = (options: { x: number, y:number }): Token[] => {
-  return getCanvas().tokens.placeables.filter((p: PlaceableObject) =>
+  return <Token[]>getCanvas().tokens?.placeables.filter((p: PlaceableObject) =>
     options.x <= p.x + p.width - 1 && options.x >= p.x && options.y <= p.y + p.height - 1 && options.y >= p.y
   );
 }
@@ -167,12 +167,12 @@ export const getActorCurrencyPath = (): string => {
 }
 
 export const amIFirstGm = (): boolean => {
-  const firstGm = firstGM();
-  return firstGm && getGame().user === firstGm
+  const firstGm = <User>firstGM();
+  return firstGm && (getGame().user === firstGm)
 }
 
 export const firstGM = () => {
-  const firstGm = getGame().users.find(u => u.isGM && u.active);
+  const firstGm = getGame().users?.find(u => u.isGM && u.active);
   return firstGm;
 }
 
@@ -185,12 +185,20 @@ export class Util {
 
 }
 export const canSeeLootToken = (token): boolean => {
-  const tokenFlags: TokenFlags = token.getFlag(PICK_UP_STIX_MODULE_NAME, 'pick-up-stix');
+  const tokenFlags: TokenFlags = token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
 
   // right now this is dnd5e only so this code is speicific to that
   const minPerceive = tokenFlags?.minPerceiveValue ?? getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultMinimumPerceiveValue);
 
   const tolerance = Math.min(token.w, token.h) / 4;
 
-  return (getCanvas().sight?.testVisibility(token.center, {tolerance}) && getCanvas().tokens.controlled.some(t => t.actor?.data?.data?.skills?.prc?.passive >= minPerceive))
+  return <boolean>(getCanvas().sight?.testVisibility(token.center, {tolerance}) 
+    && getCanvas().tokens?.controlled.some(t => {
+      //@ts-ignore
+      t.actor?.data?.data?.skills?.prc?.passive >= minPerceive
+    }))
+}
+
+export const initiateRecord = function<Y> (enumX: {[index: string]: any}, defaultValue: Y): Record<string,Y> {
+  return Object.assign({},...Object.keys(enumX).map(x=>({[x]:defaultValue})))
 }

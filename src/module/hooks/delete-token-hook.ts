@@ -2,6 +2,7 @@ import { log, warn } from '../../main';
 import { amIFirstGm } from "../utils";
 import { LootToken } from "../loot-token"
 import { deleteItem, getLootToken, lootTokens } from "../mainEntry"
+import { PICK_UP_STIX_ITEM_ID_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';
 
 export const deleteTokenHook = async (scene, tokenData, options, userId) => {
   log(` deleteTokenHook:`);
@@ -20,7 +21,7 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
     return;
   }
 
-  const itemId = getProperty(tokenData, 'flags.pick-up-stix.pick-up-stix.itemId');
+  const itemId = getProperty(tokenData, 'flags.'+PICK_UP_STIX_MODULE_NAME+'.'+PICK_UP_STIX_ITEM_ID_FLAG);
 
   if (itemId && getLootToken({ itemId: removed?.itemId }).length === 0) {
     if (itemId) {

@@ -1,15 +1,14 @@
-import { log } from '../main';
-import {
-  updateItem
-} from "./mainEntry";
-import { PICK_UP_STIX_MODULE_NAME } from './settings';
+import { log } from "../main";
+import { updateItem } from "./mainEntry";
+import { PICK_UP_STIX_MODULE_NAME } from "./settings";
 
 /**
  * Application class to display to select an item that the token is
  * associated with
  */
 export default class ContainerImageSelectionApplication extends FormApplication {
-	static get defaultOptions(): FormApplicationOptions {
+
+	static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
       closeOnSubmit: false,
       submitOnChange: true,
@@ -58,7 +57,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
       data: this._item.data
     }
     log(data);
-    return data;
+    return <any>data;
   }
 
   protected _onClickImage = (e) => {
@@ -71,8 +70,8 @@ export default class ContainerImageSelectionApplication extends FormApplication 
         e.currentTarget.src = path;
         this._onSubmit(e);
       },
-      top: this.position.top + 40,
-      left: this.position.left + 10
+      top: <number>this.position.top + 40,
+      left: <number>this.position.left + 10
     }).browse(current);
   }
 
@@ -80,7 +79,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
     log(` ContainerImageSelectionApplication ${this.appId} | _updateObject`);
     log([e, formData]);
 
-    await updateItem(this.object.id, {
+    await updateItem((<Item>this.object).id, {
       'flags': {
         'pick-up-stix': {
           'pick-up-stix': {

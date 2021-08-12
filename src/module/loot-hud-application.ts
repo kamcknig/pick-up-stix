@@ -1,14 +1,14 @@
 import { getLootToken } from "./mainEntry";
 import { LootEmitLightConfigApplication } from "./loot-emit-light-config-application";
 import { error, log } from '../main';
-import { PICK_UP_STIX_MODULE_NAME, SettingKeys } from "./settings";
+import { getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_ITEM_ID_FLAG, PICK_UP_STIX_MODULE_NAME, SettingKeys } from "./settings";
 import { LootToken } from "./loot-token";
 
 export class LootHud extends BasePlaceableHUD<Token> {
 
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
-      height: 'auto',
+      height: <string | null | undefined>'auto',
       minimizable: false,
       id: 'loot-hud',
       resizable: false,
@@ -18,7 +18,7 @@ export class LootHud extends BasePlaceableHUD<Token> {
   }
 
   private get itemId(): string {
-    return <string>this.object?.document.getFlag('pick-up-stix', 'pick-up-stix.itemId');
+    return <string>this.object?.document.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_ITEM_ID_FLAG);
   }
 
   constructor() {
@@ -84,28 +84,29 @@ export class LootHud extends BasePlaceableHUD<Token> {
   private onTokenConfig = async (event) => {
     log(` LootHud ${this.appId} | _onTokenConfig`);
 
-    const item = game.items.get(this.itemId);
-    item.sheet.render(true, { renderData: { sourceToken: this.object?.document.data._id }});
+    const item = <Item>getGame().items?.get(this.itemId);
+    item.sheet?.render(true, { renderData: { sourceToken: this.object?.document.data._id }});
   }
 
-  getData(options) {
+  getData(options?: Application.RenderOptions) {
     log(` LootHud ${this.appId} | getData`);
     const lootData = getLootToken({ itemId: this.itemId, tokenId: <string>this.object?.document.id })?.[0];;
     if (!lootData) {
-      error(`No valid LootToken instance found for token '${this.object?.document.id}' on scene '${this.object?.document.scene.id}'`);
+      //@ts-ignore
+      error(`No valid LootToken instance found for token '${this.object?.document.id}' on scene '${this.object?.document.scene?.id}'`);
     }
 
-    const data = {
-      canConfigure: game.user.can("TOKEN_CONFIGURE"),
+    const data:any = {
+      canConfigure: getGame().user?.can("TOKEN_CONFIGURE"),
       visibilityClass: this.object?.document.data.hidden ? 'active' : '',
       //@ts-ignore
       lockedClass: <string>this.object?.document.data.locked ? 'active' : '',
-      showPerceiveInput: game.settings.get('pick-up-stix', SettingKeys.enableLootTokenPerceiveReveal),
-      minPerceiveValue: <number>this.object?.document.getFlag('pick-up-stix', 'pick-up-stix.minPerceiveValue') ?? game.settings.get('pick-up-stix', SettingKeys.defaultMinimumPerceiveValue),
+      showPerceiveInput: getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.enableLootTokenPerceiveReveal),
+      minPerceiveValue: <number>(<any>this.object?.document.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG)).minPerceiveValue ?? getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultMinimumPerceiveValue),
       id: this.id,
       classes: this.options.classes.join(" "),
       appId: this.appId,
-      isGM: game.user.isGM,
+      isGM: getGame().user?.isGM,
       icons: CONFIG.controlIcons
     };
 

@@ -1,14 +1,15 @@
 import { log } from '../main';
 import { ItemFlags } from "./loot-token";
 import { updateItem } from "./mainEntry";
-import { PICK_UP_STIX_MODULE_NAME } from './settings';
+import { PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from './settings';
 
 export class ContainerSoundConfig extends FormApplication {
+
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
       classes: ['pick-up-stix', 'container-sound-config-sheet'],
       closeOnSubmit: false,
-      height: 'auto',
+      height: <string | undefined | null>'auto',
       id: 'pick-up-stix-container-config-sheet',
       minimizable: false,
       resizable: false,
@@ -27,7 +28,7 @@ export class ContainerSoundConfig extends FormApplication {
   protected _openFilePicker(e): void {
     new FilePicker({
       type: "audio",
-      current: this.object.getFlag('pick-up-sitx', `pick-up-stix.${e.currentTarget.dataset.edit}`),
+      current: <string>(<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, `pick-up-stix.${e.currentTarget.dataset.edit}`),
       callback: path => {
         e.currentTarget.src = path;
         this._onSubmit(e);
@@ -39,9 +40,9 @@ export class ContainerSoundConfig extends FormApplication {
     log(` ContainerSoundConfigApplication ${this.appId} | _updateObject`);
     log([formData]);
 
-    const flags: ItemFlags = duplicate(this.object.getFlag('pick-up-stix', 'pick-up-stix'));
+    const flags: ItemFlags = <ItemFlags>duplicate((<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG));
 
-    await updateItem(this.object.id, {
+    await updateItem((<Item>this.object).id, {
       flags: {
         'pick-up-stix': {
           'pick-up-stix': {
@@ -57,10 +58,10 @@ export class ContainerSoundConfig extends FormApplication {
   getData(options) {
     log(` ContainerSoundConfigApplication ${this.appId} | getData`);
     const data = {
-      openSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundOpenPath') ?? '',
-      closeSoundPath: this.object.getFlag('pick-up-stix', 'pick-up-stix.container.soundClosePath') ?? ''
+      openSoundPath: (<ItemFlags>(<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG)).container?.soundOpenPath ?? '',
+      closeSoundPath: (<ItemFlags>(<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG)).container?.soundClosePath ?? ''
     }
     log(data);
-    return data;
+    return <any>data;
   }
 }

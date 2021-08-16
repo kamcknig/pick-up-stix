@@ -5,7 +5,20 @@ import DirectoryPicker from "./DirectoryPicker.js";
  */
 class ImagePicker extends FilePicker {
     constructor(options = {}) {
-        super(options);
+        super({});
+        const path = options;
+        const activeSource = this.activeSource;
+        const bucket = null;
+        //@ts-ignore
+        this.field = {};
+        //@ts-ignore
+        this.field.value = {};
+        //@ts-ignore
+        this.field.value = ImagePicker.format({
+            activeSource,
+            bucket,
+            path,
+        });
     }
     _onSubmit(event) {
         event.preventDefault();

@@ -17,7 +17,7 @@ import { addItemToContainer, createItem, createLootToken, createOwnedItem, creat
 import { ItemType, PickUpStixHooks, SocketMessageType } from "./models.js";
 import { preloadTemplates } from "./preloadTemplates.js";
 import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_SOCKET, registerSettings, SettingKeys } from "./settings.js";
-import { amIFirstGm, canSeeLootToken, versionDiff } from "./utils.js";
+import { amIFirstGm, canSeeLootToken } from "./utils.js";
 export let readyHooks = async () => {
     log(' ready once hook');
     if (getGame().system.id === 'dnd5e') {
@@ -116,11 +116,14 @@ export let readyHooks = async () => {
             item.data.type = ItemType.CONTAINER;
         }
     }
-    const activeVersion = getGame().modules?.get(PICK_UP_STIX_MODULE_NAME)?.data.version;
-    const previousVersion = getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.version);
+    /*
+    const activeVersion = <string>getGame().modules?.get(PICK_UP_STIX_MODULE_NAME)?.data.version;
+    const previousVersion = <string>getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.version);
+
     if (amIFirstGm() && activeVersion !== previousVersion) {
         await getGame().settings.set('pick-up-stix', SettingKeys.version, activeVersion);
     }
+
     const diff = versionDiff(activeVersion, previousVersion);
     if (diff < 0) {
         log(` readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
@@ -131,42 +134,45 @@ export let readyHooks = async () => {
     else {
         log(` readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
     }
+    
     const el = document.createElement('div');
     el.innerHTML = `<p>I have made some improvements that should hopefully speed up the module but want to point out a few changes</p>
-	<p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
-	and two folders within there named <strong>Items</strong>, and <strong>Tokens</strong>. Once these folders have been created, you
-	are free to move them around however, if you delete them as of now there is no way to recover any previous contents,
-	though the folder should be recreated on the next startup. These folders can not be seen by players that are not GMs.</p>
-	<p>The <strong>Tokens</strong> folder contains Items that represent any loot token instances that are in a scene. If you edit one of them
-	from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance,
-	simply drag one of the Items from the <strong>Tokens</strong> Item folder and you'll have a copy of that Item that will
-	update when it updates. If you delete an Item from the <strong>Tokens</strong> folder, then all loot token instances will
-	be removed from all scenes. If you delete all loot token instances from all scenes, the Item associated with it in the
-	<strong>Tokens</strong> folder will also be deleted</p>
-	<p>The <strong>Items</strong> folder is a template folder. When you create an Item and choose the 'container' type, you'll get
-	an Item created in the <strong>Items</strong> folder. If you drag one of these onto the canvas, you'll create a new loot token
-	based on the properties of that Item, but you'll notice that a new Item is created in the <strong>Tokens</strong> folder. You can
-	updated this new loot token by either updating it's new corresponding Item or through the token's config menu. You can
-	also update that token and then drag a copy of it from the <strong>Tokens</strong> folder NOT the <strong>Items</strong> folder to
-	create a new loot token with the udpated properties. Items in the <strong>Items</strong> folder are not deleted when any
-	loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the <strong>Items</strong> directory
-	are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.</p>`;
+    <p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
+    and two folders within there named <strong>Items</strong>, and <strong>Tokens</strong>. Once these folders have been created, you
+    are free to move them around however, if you delete them as of now there is no way to recover any previous contents,
+    though the folder should be recreated on the next startup. These folders can not be seen by players that are not GMs.</p>
+    <p>The <strong>Tokens</strong> folder contains Items that represent any loot token instances that are in a scene. If you edit one of them
+    from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance,
+    simply drag one of the Items from the <strong>Tokens</strong> Item folder and you'll have a copy of that Item that will
+    update when it updates. If you delete an Item from the <strong>Tokens</strong> folder, then all loot token instances will
+    be removed from all scenes. If you delete all loot token instances from all scenes, the Item associated with it in the
+    <strong>Tokens</strong> folder will also be deleted</p>
+    <p>The <strong>Items</strong> folder is a template folder. When you create an Item and choose the 'container' type, you'll get
+    an Item created in the <strong>Items</strong> folder. If you drag one of these onto the canvas, you'll create a new loot token
+    based on the properties of that Item, but you'll notice that a new Item is created in the <strong>Tokens</strong> folder. You can
+    updated this new loot token by either updating it's new corresponding Item or through the token's config menu. You can
+    also update that token and then drag a copy of it from the <strong>Tokens</strong> folder NOT the <strong>Items</strong> folder to
+    create a new loot token with the udpated properties. Items in the <strong>Items</strong> folder are not deleted when any
+    loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the <strong>Items</strong> directory
+    are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.</p>`;
+
     if (amIFirstGm() && !getGame().settings.get('pick-up-stix', SettingKeys.version13updatemessage)) {
-        new Dialog({
-            title: 'Pick-Up-Stix - Update notification',
-            buttons: {
-                'OK': {
-                    label: 'OK'
-                }
-            },
-            default: 'OK',
-            content: el.innerHTML
-        }, {
-            width: 750,
-            height: 'auto'
-        }).render(true);
-        await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.version13updatemessage, true);
+    new Dialog({
+    title: 'Pick-Up-Stix - Update notification',
+    buttons: {
+        'OK': {
+        label: 'OK'
+        }
+    },
+    default: 'OK',
+    content: el.innerHTML
+    }, {
+        width: 750,
+    height: 'auto'
+    }).render(true);
+    await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.version13updatemessage, true);
     }
+    */
     getGame().socket?.on(PICK_UP_STIX_SOCKET, handleSocketMessage);
     Hooks.once('canvasReady', () => {
         //@ts-ignore
@@ -305,7 +311,7 @@ const createDefaultFolders = async () => {
             parent: parentFolderId,
             type: 'Item'
         });
-        await getGame().settings.set('pick-up-stix', SettingKeys.itemFolderId, folder.id);
+        await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId, folder.id);
     }
     else {
         log(` createDefaultFolders | items folder '${folder.name}' found`);

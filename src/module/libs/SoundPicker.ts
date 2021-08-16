@@ -6,7 +6,20 @@ import DirectoryPicker from './DirectoryPicker';
  */
  class SoundPicker extends FilePicker {
   constructor(options = {}) {
-    super(options);
+    super({});
+    const path = options;
+    const activeSource = this.activeSource;
+    const bucket = null;
+    //@ts-ignore
+    this.field = {};
+    //@ts-ignore
+    this.field.value = {};
+    //@ts-ignore
+    this.field.value = SoundPicker.format({
+      activeSource,
+      bucket,
+      path,
+    });
   }
 
   _onSubmit(event) {

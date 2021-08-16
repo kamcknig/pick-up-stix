@@ -137,7 +137,7 @@ export let readyHooks = async () => {
 			item.data.type = ItemType.CONTAINER;
 		}
 	}
-
+	/*
 	const activeVersion = <string>getGame().modules?.get(PICK_UP_STIX_MODULE_NAME)?.data.version;
 	const previousVersion = <string>getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.version);
 
@@ -155,7 +155,7 @@ export let readyHooks = async () => {
 	else {
 		log(` readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
 	}
-
+	
 	const el = document.createElement('div');
 	el.innerHTML = `<p>I have made some improvements that should hopefully speed up the module but want to point out a few changes</p>
 	<p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
@@ -193,7 +193,7 @@ export let readyHooks = async () => {
 	}).render(true);
 	await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.version13updatemessage, true);
 	}
-
+	*/
 	getGame().socket?.on(PICK_UP_STIX_SOCKET, handleSocketMessage);
 
 	Hooks.once('canvasReady', () => {
@@ -365,7 +365,7 @@ const createDefaultFolders = async () => {
 			parent: <string>parentFolderId,
 			type: 'Item'
 		});
-		await getGame().settings.set('pick-up-stix', SettingKeys.itemFolderId, folder.id);
+		await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId, folder.id);
 	}
 	else {
 		log(` createDefaultFolders | items folder '${folder.name}' found`);

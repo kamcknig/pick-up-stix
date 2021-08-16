@@ -8,7 +8,6 @@ import { getCurrencyTypes, getPriceDataPath, getQuantityDataPath, onChangeInputD
  * Application class to display to select an item that the token is
  * associated with
  */
-//@ts-ignore
 export default class ContainerConfigApplication extends FormApplication {
     constructor(object, ...args) {
         super(object, args);

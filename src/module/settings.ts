@@ -167,7 +167,7 @@ const registerWorldSettings = () => {
 		scope: 'world',
 		config: true,
 		//@ts-ignore
-		type: ImagePicker, //imageTypeFunc,
+		type: ImagePicker.Img, //imageTypeFunc,
 		default: 'modules/pick-up-stix/assets/chest-opened.png'
 	});
 
@@ -177,7 +177,7 @@ const registerWorldSettings = () => {
 		scope: 'world',
 		config: true,
 		//@ts-ignore
-		type: ImagePicker, //imageTypeFunc,
+		type: ImagePicker.Img, //imageTypeFunc,
 		default: 'modules/pick-up-stix/assets/chest-closed.png'
 	});
 
@@ -195,8 +195,9 @@ const registerWorldSettings = () => {
 		hint: 'The default sound to play when opening a container.',
 		scope: 'world',
 		//@ts-ignore
-		type: SoundPicker, //audioTypeFunc,
-		config: true
+		type: SoundPicker.Sound, //audioTypeFunc,
+		config: true,
+		default: ''
 	});
 
 	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerCloseSound, {
@@ -204,8 +205,9 @@ const registerWorldSettings = () => {
 		hint: 'The default sound to play when closing a container.',
 		scope: 'world',
 		//@ts-ignore
-		type: SoundPicker, //audioTypeFunc,
-		config: true
+		type: SoundPicker.Sound, //audioTypeFunc,
+		config: true,
+		default: ''
 	});
 
 	getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.addItemOnContainerCreation, {

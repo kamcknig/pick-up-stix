@@ -2,24 +2,12 @@ import DirectoryPicker from './DirectoryPicker';
 
 /**
  * Game Settings: SoundPicker
- * @href https://github.com/MrPrimate/vtta-tokenizer/blob/master/src/libs/ImagePicker.js
+ * @href https://github.com/MrPrimate/vtta-tokenizer/blob/master/src/libs/SoundPicker.js
  */
  class SoundPicker extends FilePicker {
+
   constructor(options = {}) {
-    super({});
-    const path = options;
-    const activeSource = this.activeSource;
-    const bucket = null;
-    //@ts-ignore
-    this.field = {};
-    //@ts-ignore
-    this.field.value = {};
-    //@ts-ignore
-    this.field.value = SoundPicker.format({
-      activeSource,
-      bucket,
-      path,
-    });
+    super(options);
   }
 
   _onSubmit(event) {
@@ -41,9 +29,9 @@ import DirectoryPicker from './DirectoryPicker';
     return FilePicker.upload(options.activeSource, options.current, file, { bucket: options.bucket });
   }
 
-  // returns the type "Sound" for rendering the SettingsConfig
+  // returns the type "Img" for rendering the SettingsConfig
   static Sound(val) {
-    return val == null ?  '' : String(val);
+    return val === null ? '' : String(val);
   }
 
   // formats the data into a string for saving it as a GameSetting
@@ -55,10 +43,10 @@ import DirectoryPicker from './DirectoryPicker';
 
   // parses the string back to something the FilePicker can understand as an option
   static parse(inStr) {
-    const str = inStr ?? ''
+    const str = inStr ?? '';
     let matches = str.match(/\[(.+)\]\s*(.+)?/u);
     if (matches) {
-      let [,source, current = ''] = matches;
+      let [, source, current = ''] = matches;
       current = current.trim();
       const [s3, bucket] = source.split(":");
       if (bucket !== undefined) {
@@ -86,11 +74,13 @@ import DirectoryPicker from './DirectoryPicker';
   // Adds a FilePicker-Simulator-Button next to the input fields
   static processHtml(html) {
     $(html)
-      .find(`input[data-dtype="Sound"]`)
-      .each(function () {
-        if (!$(this).next().length) {
+      .find(`input[data-dtype="Img"]`)
+      .each((index, element) => {
+        $(element).prop("readonly", true);
+        
+        if (!$(element).next().length) {
           let picker = new SoundPicker({
-            field: $(this)[0],
+            field: $(element)[0],
             //@ts-ignore
             ...SoundPicker.parse(this.value),
           });
@@ -98,23 +88,25 @@ import DirectoryPicker from './DirectoryPicker';
           let pickerButton = $(
             '<button type="button" class="file-picker" title="Pick sound"><i class="fas fa-file-import fa-fw"></i></button>'
           );
-          pickerButton.on("click", function () {
+          pickerButton.on("click", () => {
             picker.render(true);
           });
-          $(this).parent().append(pickerButton);
+          $(element).parent().append(pickerButton);
         }
       });
   }
+
 
   /** @override */
   activateListeners(html) {
     super.activateListeners(html);
 
     // remove unnecessary elements
-    $(html).find("footer button").text("Select Sound");
+    $(html).find("footer button").text("Select sound");
   }
 }
 
+// eslint-disable-next-line no-unused-vars
 Hooks.on("renderSettingsConfig", (app, html, user) => {
   SoundPicker.processHtml(html);
 });

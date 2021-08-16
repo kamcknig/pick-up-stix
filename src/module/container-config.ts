@@ -22,7 +22,6 @@ import { getCurrencyTypes, getPriceDataPath, getQuantityDataPath, onChangeInputD
  * Application class to display to select an item that the token is
  * associated with
  */
-//@ts-ignore
 export default class ContainerConfigApplication extends FormApplication {
 	private _html: any;
 	private _sourceTokenId: string;
@@ -31,7 +30,7 @@ export default class ContainerConfigApplication extends FormApplication {
 		<div class="loader"></div>
 	</div>`);
 
-	static get defaultOptions(): ApplicationOptions {
+	static get defaultOptions(): any {
 		return mergeObject(super.defaultOptions, {
 			closeOnSubmit: false,
 			submitOnClose: false,

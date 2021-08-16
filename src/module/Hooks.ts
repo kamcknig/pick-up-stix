@@ -5,7 +5,7 @@
 import ItemSheet5e from "../../../systems/dnd5e/module/item/sheet.js";
 import { error, log, warn } from "../main.js";
 import ContainerConfigApplication from "./container-config.js";
-import { canvasReadyHook } from "./hooks/canvas-ready-hook.js";
+import { CanvasPrototypeOnDropHandler, canvasReadyHook } from "./hooks/canvas-ready-hook.js";
 import { createActorHook } from "./hooks/create-actor-hook.js";
 import { createItemHook } from "./hooks/create-item-hook.js";
 import { deleteItemHook } from "./hooks/delete-item-hook.js";
@@ -90,6 +90,8 @@ export let readyHooks = async () => {
 			id: 'pick-up-stix.ContainerConfigApplication'
 		}
 	};
+
+	// CONFIG.Item.typeLabels[ItemType.CONTAINER] = "ITEM.TypeContainer";
 
 	if (amIFirstGm()) {
 		await createDefaultFolders();
@@ -271,6 +273,10 @@ export const initHooks = async () => {
 	// 		configurable: true
 	// 	});
 	// }
+
+	// ADDED
+	//@ts-ignore
+	libWrapper.register(PICK_UP_STIX_MODULE_NAME,'Canvas.prototype._onDrop', CanvasPrototypeOnDropHandler, "MIXED");
 	
 }
 

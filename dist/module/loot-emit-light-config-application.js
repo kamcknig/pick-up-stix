@@ -13,7 +13,7 @@ export class LootEmitLightConfigApplication extends FormApplication {
             submitOnClose: true,
             minimizable: false,
             template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/loot-emit-light-config.html`,
-            title: 'Loot Light Emission'
+            title: 'Loot Light Emission',
         });
     }
     constructor(object, options) {
@@ -22,7 +22,7 @@ export class LootEmitLightConfigApplication extends FormApplication {
     getData(options) {
         return {
             //@ts-ignore
-            object: duplicate(this.object.data)
+            object: duplicate(this.object.data),
         };
     }
     async _updateObject(e, formData) {
@@ -30,7 +30,7 @@ export class LootEmitLightConfigApplication extends FormApplication {
         await updateToken(this.object.scene.id, {
             //@ts-ignore
             _id: this.object.id,
-            ...formData
+            ...formData,
         });
     }
 }

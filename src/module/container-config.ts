@@ -1,20 +1,18 @@
 import { log } from '../main';
-import ContainerImageSelectionApplication from "./container-image-selection-application.js";
+import ContainerImageSelectionApplication from './container-image-selection-application.js';
 import { ContainerSoundConfig } from './container-sound-config-application';
 import { ContainerLoot, ItemData, ItemFlags, TokenFlags } from './loot-token';
 import {
-	addItemToContainer,
-	deleteOwnedItem,
-	getLootToken,
-	getValidControlledTokens,
-	lootCurrency,
-	lootItem,
-	normalizeDropData,
-	updateItem
+  addItemToContainer,
+  deleteOwnedItem,
+  getLootToken,
+  getValidControlledTokens,
+  lootCurrency,
+  lootItem,
+  normalizeDropData,
+  updateItem,
 } from './mainEntry';
-import {
-	DropData
-} from "./models";
+import { DropData } from './models';
 import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, SettingKeys } from './settings';
 import { getCurrencyTypes, getPriceDataPath, getQuantityDataPath, onChangeInputDelta } from './utils';
 
@@ -23,461 +21,471 @@ import { getCurrencyTypes, getPriceDataPath, getQuantityDataPath, onChangeInputD
  * associated with
  */
 export default class ContainerConfigApplication extends FormApplication {
-	private _html: any;
-	private _sourceTokenId: string;
-	private _selectedTokenId: string;
-	private _stopperElement = $(`<div class="stopper">
+  private _html: any;
+  private _sourceTokenId: string;
+  private _selectedTokenId: string;
+  private _stopperElement = $(`<div class="stopper">
 		<div class="loader"></div>
 	</div>`);
 
-	static get defaultOptions(): any {
-		return mergeObject(super.defaultOptions, {
-			closeOnSubmit: false,
-			submitOnClose: false,
-			submitOnChange: true,
-			id: "pick-up-stix-item-config",
-			template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/container-config.html`,
-			width: 900,
-			title: `${getGame().user?.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
-			resizable: true,
-			classes: ['pick-up-stix', 'container-config-sheet'],
-			dragDrop: [{ dropSelector: null }]
-		});
-	}
+  static get defaultOptions(): any {
+    return mergeObject(super.defaultOptions, {
+      closeOnSubmit: false,
+      submitOnClose: false,
+      submitOnChange: true,
+      id: 'pick-up-stix-item-config',
+      template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/container-config.html`,
+      width: 900,
+      title: `${getGame().user?.isGM ? 'Configure Loot Container' : 'Loot Container'}`,
+      resizable: true,
+      classes: ['pick-up-stix', 'container-config-sheet'],
+      dragDrop: [{ dropSelector: null }],
+    });
+  }
 
-	/**
-	 * @override
-	 */
-	get isEditable(): boolean {
-		return true;
-	}
+  /**
+   * @override
+   */
+  get isEditable(): boolean {
+    return true;
+  }
 
-	private get currencyEnabled(): boolean {
-		return !getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.disableCurrencyLoot);
-	}
+  private get currencyEnabled(): boolean {
+    return !getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.disableCurrencyLoot);
+  }
 
-	get itemFlags(): ItemFlags {
-		return <ItemFlags>(<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
-	}
+  get itemFlags(): ItemFlags {
+    return <ItemFlags>(<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
+  }
 
-	get tokenDatas(): any[] {
-		const tokens = getLootToken({ itemId: <string>(<Item>this.object).id }).map(lt => lt.tokenData);
-		return tokens;
-	}
+  get tokenDatas(): any[] {
+    const tokens = getLootToken({ itemId: <string>(<Item>this.object).id }).map((lt) => lt.tokenData);
+    return tokens;
+  }
 
-	get isToken(): boolean {
-		return !!this.tokenDatas.length;
-	}
+  get isToken(): boolean {
+    return !!this.tokenDatas.length;
+  }
 
-	constructor(object: Item, ...args:any) {
-		super(object, args);
+  constructor(object: Item, ...args: any) {
+    super(object, args);
 
-		log(` ContainerConfigApplication ${this.appId} | constructor called with:`);
-		log([object]);
-	}
+    log(` ContainerConfigApplication ${this.appId} | constructor called with:`);
+    log([object]);
+  }
 
-	activateListeners(html) {
-		log(` ContainerConfigApplication ${this.appId}  | activateListeners`);
-		log([html]);
-		this._html = html;
-		super.activateListeners(this._html);
+  activateListeners(html) {
+    log(` ContainerConfigApplication ${this.appId}  | activateListeners`);
+    log([html]);
+    this._html = html;
+    super.activateListeners(this._html);
 
-		Hooks.off('updateToken', this.updateTokenHook);
-		Hooks.off('controlToken', this.controlTokenHook);
+    Hooks.off('updateToken', this.updateTokenHook);
+    Hooks.off('controlToken', this.controlTokenHook);
 
-		Hooks.on('updateToken', this.updateTokenHook);
-		Hooks.on('controlToken', this.controlTokenHook);
+    Hooks.on('updateToken', this.updateTokenHook);
+    Hooks.on('controlToken', this.controlTokenHook);
 
-		$(html)
-			.find('input')
-			.on('focus', e => e.currentTarget.select())
-			.on('change', onChangeInputDelta.bind(this.itemFlags));
+    $(html)
+      .find('input')
+      .on('focus', (e) => e.currentTarget.select())
+      .on('change', onChangeInputDelta.bind(this.itemFlags));
 
-		if (getGame().user?.isGM) {
-			$(html)
-				.find('.configure-sound')
-				.on('click', this._onConfigureSound)
-				.css('cursor', 'pointer');
+    if (getGame().user?.isGM) {
+      $(html).find('.configure-sound').on('click', this._onConfigureSound).css('cursor', 'pointer');
 
-			$(html)
-				.find(`[data-edit="img"]`)
-				.on('click', this._onEditImage)
-				.css('cursor', 'pointer');
+      $(html).find(`[data-edit="img"]`).on('click', this._onEditImage).css('cursor', 'pointer');
 
-				// set click listeners on the buttons to delete items
-			$(html)
-				.find(`a.item-delete`)
-				.on('click', this._onDeleteItem);
-		}
+      // set click listeners on the buttons to delete items
+      $(html).find(`a.item-delete`).on('click', this._onDeleteItem);
+    }
 
-		$(html)
-			.find('[data-actor_select]')
-			.on('click', this._onSelectActor);
+    $(html).find('[data-actor_select]').on('click', this._onSelectActor);
 
-		if (this.currencyEnabled) {
-			// set click listener for taking currency
-			$(html)
-				.find(`a.currency-take`)
-				.on('click', this._onTakeCurrency);
-		}
+    if (this.currencyEnabled) {
+      // set click listener for taking currency
+      $(html).find(`a.currency-take`).on('click', this._onTakeCurrency);
+    }
 
-		// set click listeners on the buttons to pick up individual items
-		$(html)
-			.find('.loot-all-button')
-			.on('click', this._onLootAll);
+    // set click listeners on the buttons to pick up individual items
+    $(html).find('.loot-all-button').on('click', this._onLootAll);
 
-		$(html)
-			.find(`a.item-take`)
-			.on('click', this._onTakeItem);
+    $(html).find(`a.item-take`).on('click', this._onTakeItem);
 
-		$(html)
-			.find(`input[type="text"]`)
-			.prop('readonly', !getGame().user?.isGM);
+    $(html).find(`input[type="text"]`).prop('readonly', !getGame().user?.isGM);
 
-		$(html)
-			.find(`input[type="text"]`)
-			.prop('disabled', !getGame().user?.isGM);
+    $(html).find(`input[type="text"]`).prop('disabled', !getGame().user?.isGM);
 
-		$(html)
-			.find('input#canCloseCheckbox')
-			.prop('checked', this.itemFlags?.container?.canClose ?? true);
+    $(html)
+      .find('input#canCloseCheckbox')
+      .prop('checked', this.itemFlags?.container?.canClose ?? true);
 
-		if (!getGame().user?.isGM) {
-			$(html)
-				.find(`input[type="text"]`)
-				.addClass('isNotGM');
-		}
-	}
+    if (!getGame().user?.isGM) {
+      $(html).find(`input[type="text"]`).addClass('isNotGM');
+    }
+  }
 
-	/**
-	 *
-	 * @param options
-	 */
-	getData(options?: { renderData: { tokens?: Token[]; sourceToken: string; [key:string]: any }}): any {
-		log(` ContainerConfigApplication ${this.appId} | getData:`);
-		log([options]);
-		this._sourceTokenId = this._sourceTokenId !== options?.renderData?.sourceToken
-			? options?.renderData?.sourceToken ?? this._sourceTokenId
-			: this._sourceTokenId;
+  /**
+   *
+   * @param options
+   */
+  getData(options?: { renderData: { tokens?: Token[]; sourceToken: string; [key: string]: any } }): any {
+    log(` ContainerConfigApplication ${this.appId} | getData:`);
+    log([options]);
+    this._sourceTokenId =
+      this._sourceTokenId !== options?.renderData?.sourceToken
+        ? options?.renderData?.sourceToken ?? this._sourceTokenId
+        : this._sourceTokenId;
 
-		const actionTokens = options?.renderData?.tokens ?? [];
-		const quantityDataPath = getQuantityDataPath();
-		const priceDataPath = getPriceDataPath();
+    const actionTokens = options?.renderData?.tokens ?? [];
+    const quantityDataPath = getQuantityDataPath();
+    const priceDataPath = getPriceDataPath();
 
-		const loot = Object.entries(this.itemFlags?.container?.loot as ContainerLoot ?? {})
-			.reduce((prev, [lootKey, lootItems]) => {
-				const items = lootItems?.map(i => {
-					if (!i.data.hasOwnProperty('quantity')) {
-						setProperty(i.data, quantityDataPath, 0);
-					}
+    const loot = Object.entries((this.itemFlags?.container?.loot as ContainerLoot) ?? {}).reduce(
+      (prev, [lootKey, lootItems]) => {
+        const items = lootItems?.map((i: ItemData) => {
+          if (!i.data?.quantity) {
+            //if (!i.data.hasOwnProperty('quantity')) {
+            setProperty(i.data, quantityDataPath, 0);
+          }
 
-					return {
-						...i,
-						price: +getProperty(i.data, quantityDataPath) * +parseFloat(getProperty(i.data, priceDataPath) ?? 0),
-						qty: +getProperty(i.data, quantityDataPath)
-					}
-				});
+          return {
+            ...i,
+            price: +getProperty(i.data, quantityDataPath) * +parseFloat(getProperty(i.data, priceDataPath) ?? 0),
+            qty: +getProperty(i.data, quantityDataPath),
+          };
+        });
 
-				if (items?.length > 0) {
-					prev[lootKey] = items;
-				}
+        if (items?.length > 0) {
+          prev[lootKey] = items;
+        }
 
-				return prev;
-			}, {});
+        return prev;
+      },
+      {},
+    );
 
-		//@ts-ignore
-		let description = this.itemFlags?.container?.description ?? this.object.data?.data?.description?.value ?? '';
-		description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
+    //@ts-ignore
+    let description = this.itemFlags?.container?.description ?? this.object.data?.data?.description?.value ?? '';
+    description = description.replace(/font-size:\s*\d*.*;/, 'font-size: 16px;');
 
-		const currencyTypes = getCurrencyTypes();
-		const tokens = (<Token[]>getValidControlledTokens(this._sourceTokenId))
-			.concat(actionTokens)
-			.reduce((acc:Token[], next:Token) => {
-				if (!next || acc.map((t:Token) => <string>t.id).includes(next.id)) {
-					return acc;
-				}
-				acc.push(next);
-				return acc;
-			}, [])
-			.map(t => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' }))
-			.filter(t => !!t.token)
-			.sort((a, b) => {
-				if (a.token.name < b.token.name) return -1;
-				if (a.token.name > b.token.name) return 1;
-				return 0;
-			});
+    const currencyTypes = getCurrencyTypes();
+    const tokens = (<Token[]>getValidControlledTokens(this._sourceTokenId))
+      .concat(actionTokens)
+      .reduce((acc: Token[], next: Token) => {
+        if (!next || acc.map((t: Token) => <string>t.id).includes(next.id)) {
+          return acc;
+        }
+        acc.push(next);
+        return acc;
+      }, [])
+      .map((t) => ({ token: t, class: this._selectedTokenId === t.id ? 'active' : '' }))
+      .filter((t) => !!t.token)
+      .sort((a, b) => {
+        if (a.token.name < b.token.name) return -1;
+        if (a.token.name > b.token.name) return 1;
+        return 0;
+      });
 
-		if (!this._selectedTokenId && tokens.length) {
-			log(` ContainerConfigApplication ${this.appId} | getData | setting selected token '${tokens[0].token.id}'`);
-			this._selectedTokenId = tokens[0].token.id;
-			tokens[0].class = 'active';
-		}
+    if (!this._selectedTokenId && tokens.length) {
+      log(` ContainerConfigApplication ${this.appId} | getData | setting selected token '${tokens[0].token.id}'`);
+      this._selectedTokenId = tokens[0].token.id;
+      tokens[0].class = 'active';
+    }
 
-		const data = {
-			currencyEnabled: this.currencyEnabled,
-			currencyTypes: Object.entries(currencyTypes).map(([k, v]) => ({ short: k, long: v })),
-			currency: <number>this.itemFlags.container?.currency,
-			showTakeCurrency: Object.values(this.itemFlags.container?.currency).some((amount:number) => amount > 0),
-			lootTypes: Object.keys(loot),
-			loot,
-			showLootAll: Object.keys(loot).length > 0,
-			profileImage: this.itemFlags.container?.imageOpenPath,
-			description,
-			//@ts-ignore
-			object: this.object.data,
-			width: this.itemFlags.tokenData.width ?? 1,
-			height: this.itemFlags.tokenData.height ?? 1,
-			user: getGame().user,
-			quantityDataPath,
-			hasToken: this.isToken,
-			tokens
-		};
+    const data = {
+      currencyEnabled: this.currencyEnabled,
+      currencyTypes: Object.entries(currencyTypes).map(([k, v]) => ({ short: k, long: v })),
+      currency: <number>this.itemFlags.container?.currency,
+      showTakeCurrency: Object.values(this.itemFlags.container?.currency).some((amount: number) => amount > 0),
+      lootTypes: Object.keys(loot),
+      loot,
+      showLootAll: Object.keys(loot).length > 0,
+      profileImage: this.itemFlags.container?.imageOpenPath,
+      description,
+      //@ts-ignore
+      object: this.object.data,
+      width: this.itemFlags.tokenData.width ?? 1,
+      height: this.itemFlags.tokenData.height ?? 1,
+      user: getGame().user,
+      quantityDataPath,
+      hasToken: this.isToken,
+      tokens,
+    };
 
-		log(` ContainerConfigApplication ${this.appId} | getData | data to render:`);
-		log([data]);
-		return data;
-	}
+    log(` ContainerConfigApplication ${this.appId} | getData | data to render:`);
+    log([data]);
+    return data;
+  }
 
-	/**
-	 * @override
-	 * @param e
-	 */
-	protected async _onDrop(e) {
-		log(` ContainerConfigApplication ${this.appId}  | _onDrop`);
-		const dropData: DropData = await normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
+  /**
+   * @override
+   * @param e
+   */
+  protected async _onDrop(e) {
+    log(` ContainerConfigApplication ${this.appId}  | _onDrop`);
+    const dropData: DropData = await normalizeDropData(JSON.parse(e.dataTransfer.getData('text/plain')) ?? {});
 
-		log(` ContainerConfigApplication ${this.appId}  | _onDrop | dropped data`);
-		log([dropData]);
+    log(` ContainerConfigApplication ${this.appId}  | _onDrop | dropped data`);
+    log([dropData]);
 
-		this.addStopper();
+    this.addStopper();
 
-		addItemToContainer({
-			//@ts-ignore
-			containerItemId: this.object.id,
-			itemData: dropData.data
-		}).then(() => {
-			this._stopperElement.remove();
-		});
+    addItemToContainer({
+      //@ts-ignore
+      containerItemId: this.object.id,
+      itemData: dropData.data,
+    }).then(() => {
+      this._stopperElement.remove();
+    });
 
-		if (dropData.actor) {
-			deleteOwnedItem(<string>dropData.actor.id, dropData.data._id);
-		}
-	}
+    if (dropData.actor) {
+      deleteOwnedItem(<string>dropData.actor.id, dropData.data._id);
+    }
+  }
 
-	/**
-	 * @override
-	 * @param e
-	 * @param formData
-	 */
-	protected async _updateObject(e, formData) {
-		log(` ContainerConfigApplication ${this.appId} | _updateObject called with args:`);
-		log([e, duplicate(formData)]);
+  /**
+   * @override
+   * @param e
+   * @param formData
+   */
+  protected async _updateObject(e, formData) {
+    log(` ContainerConfigApplication ${this.appId} | _updateObject called with args:`);
+    log([e, duplicate(formData)]);
 
-		const containerData = duplicate(this.itemFlags.container);
+    const containerData = duplicate(this.itemFlags.container);
 
-		formData = duplicate(formData);
+    formData = duplicate(formData);
 
-		const token = getCanvas().tokens?.placeables.find(p => p.id === this._sourceTokenId);
+    const token = getCanvas().tokens?.placeables.find((p) => p.id === this._sourceTokenId);
 
-		formData.img = <boolean>(<TokenFlags>token?.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG))?.isOpen
-			? containerData?.imageOpenPath
-			: containerData?.imageClosePath;
+    formData.img = <boolean>(<TokenFlags>token?.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG))?.isOpen
+      ? containerData?.imageOpenPath
+      : containerData?.imageClosePath;
 
-		const tokenLoot: ContainerLoot = <ContainerLoot>containerData?.loot;
+    const tokenLoot: ContainerLoot = <ContainerLoot>containerData?.loot;
 
-		if (e.type === 'change') {
-			if ($(e.currentTarget).hasClass('currency-input')) {
-				if (!e.currentTarget.value) {
-					const name = e.currentTarget.name;
-					setProperty(formData, name, 0);
-				}
-			}
+    if (e.type === 'change') {
+      if ($(e.currentTarget).hasClass('currency-input')) {
+        if (!e.currentTarget.value) {
+          const nameTmp = e.currentTarget.name;
+          setProperty(formData, nameTmp, 0);
+        }
+      }
 
-			Object.entries(tokenLoot ?? {}).forEach(([lootType, v]) => {
-				if (v.length === 0) {
-					return;
-				}
+      Object.entries(tokenLoot ?? {}).forEach(([lootType, v]) => {
+        if (v.length === 0) {
+          return;
+        }
 
-				setProperty(formData, `container.loot.${lootType}`, v.map(itemData => {
-					const data = { ...itemData };
-					setProperty(data.data,
-						getQuantityDataPath(),
-						$(e.currentTarget).hasClass('quantity-input') && e.currentTarget.dataset.lootType === itemData.type && e.currentTarget.dataset.lootId === itemData._id ?
-							+<string>$(e.currentTarget).val() :
-							+getProperty(itemData.data, getQuantityDataPath())
-					);
-					return data;
-				}));
-			});
-		}
+        setProperty(
+          formData,
+          `container.loot.${lootType}`,
+          v.map((itemData) => {
+            const data = { ...itemData };
+            setProperty(
+              data.data,
+              getQuantityDataPath(),
+              $(e.currentTarget).hasClass('quantity-input') &&
+                e.currentTarget.dataset.lootType === itemData.type &&
+                e.currentTarget.dataset.lootId === itemData._id
+                ? +(<string>$(e.currentTarget).val())
+                : +getProperty(itemData.data, getQuantityDataPath()),
+            );
+            return data;
+          }),
+        );
+      });
+    }
 
-		if (this.currencyEnabled) {
-			// when the user is a GM the currency is taken from the inputs on the form, but when the user NOT a GM, there are no inputs
-			if (!getGame().user?.isGM) {
-				if (containerData.currency) {
-					setProperty(formData, `container.currency`, { ...containerData.currency });
-				}
-			}
-		}
+    if (this.currencyEnabled) {
+      // when the user is a GM the currency is taken from the inputs on the form, but when the user NOT a GM, there are no inputs
+      if (!getGame().user?.isGM) {
+        if (containerData.currency) {
+          setProperty(formData, `container.currency`, { ...containerData.currency });
+        }
+      }
+    }
 
-		const expandedObject = expandObject(flattenObject(formData));
-		log(` ContainerConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
-		log(expandedObject);
-		//@ts-ignore
-		await updateItem(this.object.id, {
-			name: formData.name,
-			flags: {
-				'pick-up-stix': {
-					'pick-up-stix': {
-						...expandedObject
-					}
-				}
-			}
-		});
-	}
+    const expandedObject = expandObject(flattenObject(formData));
+    log(` ContainerConfigApplication ${this.appId} | _updateObject | expanded 'formData' object:`);
+    log(expandedObject);
+    //@ts-ignore
+    await updateItem(this.object.id, {
+      name: formData.name,
+      flags: {
+        'pick-up-stix': {
+          'pick-up-stix': {
+            ...expandedObject,
+          },
+        },
+      },
+    });
+  }
 
-	/**
-	 * @override
-	 */
-	close = async () => {
-		log(` ContainerConfigApplication ${this.appId} | close`);
-		Hooks.off('updateToken', this.updateTokenHook);
-		Hooks.off('controlToken', this.controlTokenHook);
-		return super.close();
-	}
+  /**
+   * @override
+   */
+  close = async () => {
+    log(` ContainerConfigApplication ${this.appId} | close`);
+    Hooks.off('updateToken', this.updateTokenHook);
+    Hooks.off('controlToken', this.controlTokenHook);
+    return super.close();
+  };
 
-	/**
-	 * @override
-	 * @param token
-	 * @param controlled
-	 */
-	private controlTokenHook = (token, controlled): void => {
-		log(` ContainerConfigApplication ${this.appId} | controlTokenHook`);
-		log([token, controlled]);
+  /**
+   * @override
+   * @param token
+   * @param controlled
+   */
+  private controlTokenHook = (token, controlled): void => {
+    log(` ContainerConfigApplication ${this.appId} | controlTokenHook`);
+    log([token, controlled]);
 
-		const options = {};
-		if (this.isToken) {
-			options['renderData'] = { tokens: getValidControlledTokens(this._sourceTokenId), sourceTokenId: this._sourceTokenId };
-		}
-		setTimeout((options) => {
-			this.render(true, options);
-		}, 100, options);
-	}
+    const options: any = {};
+    if (this.isToken) {
+      options['renderData'] = {
+        tokens: getValidControlledTokens(this._sourceTokenId),
+        sourceTokenId: this._sourceTokenId,
+      };
+    }
+    setTimeout(
+      (optionsTmp) => {
+        this.render(true, optionsTmp);
+      },
+      100,
+      options,
+    );
+  };
 
-	private updateTokenHook = (scene, token, diff, options): void => {
-		log(` ContainerConfigApplication ${this.appId} | updateTokenHook`);
+  private updateTokenHook = (scene, token, diff, options): void => {
+    log(` ContainerConfigApplication ${this.appId} | updateTokenHook`);
 
-		// clear the selected token because the token might have moved too far away to be
-		// eligible
-		this._selectedTokenId = "";
-		setTimeout(this.render.bind(this), 100, { sourceTokenId: this._sourceTokenId });
-	}
+    // clear the selected token because the token might have moved too far away to be
+    // eligible
+    this._selectedTokenId = '';
+    setTimeout(this.render.bind(this), 100, { sourceTokenId: this._sourceTokenId });
+  };
 
-	private _onSelectActor = (e): void => {
-		log(` ContainerConfigApplication ${this.appId} | onActorSelect`);
-		this._selectedTokenId = e.currentTarget.dataset.token_id;
-		const options:any = { sourceTokenId: this._sourceTokenId };
-		this.render(false, options);
-	}
+  private _onSelectActor = (e): void => {
+    log(` ContainerConfigApplication ${this.appId} | onActorSelect`);
+    this._selectedTokenId = e.currentTarget.dataset.token_id;
+    const options: any = { sourceTokenId: this._sourceTokenId };
+    this.render(false, options);
+  };
 
-	private _onConfigureSound = (e): void => {
-		log(` ContainerConfigApplication ${this.appId} | onConfigureSound`);
-		new ContainerSoundConfig(this.object, {}).render(true);
-	}
+  private _onConfigureSound = (e): void => {
+    log(` ContainerConfigApplication ${this.appId} | onConfigureSound`);
+    new ContainerSoundConfig(this.object, {}).render(true);
+  };
 
-	protected _onDeleteItem = async (e) => {
-		log(` ContainerConfigApplication | _onDeleteItem`);
-		const itemId = e.currentTarget.dataset.id;
+  protected _onDeleteItem = async (e) => {
+    log(` ContainerConfigApplication | _onDeleteItem`);
+    const itemId = e.currentTarget.dataset.id;
 
-		const loot: ContainerLoot = <ContainerLoot>duplicate(this.itemFlags.container?.loot);
+    const loot: ContainerLoot = <ContainerLoot>duplicate(this.itemFlags.container?.loot);
 
-		Object.values(loot).forEach(lootItems => {
-			lootItems.findSplice(l => l._id === itemId);
+    Object.values(loot).forEach((lootItems) => {
+      lootItems.findSplice((l) => l._id === itemId);
     });
 
     await this.submit({
       updateData: {
         container: {
-          loot
-        }
-      }
+          loot,
+        },
+      },
     });
-	}
+  };
 
-	protected _onTakeCurrency = async (e) => {
-		log(` ContainerConfigApplication ${this.appId} | _onTakeCurrency`);
+  protected _onTakeCurrency = async (e) => {
+    log(` ContainerConfigApplication ${this.appId} | _onTakeCurrency`);
 
     if (!this._selectedTokenId) {
-			ui.notifications?.error(`You must be controlling at least one token that is within reach of the loot.`);
-			return;
-		}
+      ui.notifications?.error(`You must be controlling at least one token that is within reach of the loot.`);
+      return;
+    }
 
-		const token = <Token>getCanvas().tokens?.placeables.find(t => t.id === this._selectedTokenId);
+    const token = <Token>getCanvas().tokens?.placeables.find((t) => t.id === this._selectedTokenId);
 
-		$(this._html)
-			.find('.data-currency-input')
-			.val(0);
+    $(this._html).find('.data-currency-input').val(0);
 
-		this.addStopper();
-		//@ts-ignore
-		lootCurrency({ looterTokenId: token.id, containerItemId: this.object.id, currencies: this.itemFlags.container?.currency }).then(() => {
-			this._stopperElement.remove();
-		})
-	}
+    this.addStopper();
 
-	protected _onLootAll = async (e) => {
-		log(` ContainerConfigApplication ${this.appId} | _onLootAll`);
+    lootCurrency({
+      looterTokenId: token.id,
+      containerItemId: <string>(<Token>this.object).id,
+      currencies: this.itemFlags.container?.currency,
+    }).then(() => {
+      this._stopperElement.remove();
+    });
+  };
 
-		if (!this._selectedTokenId) {
-			ui.notifications?.error(`You must be controlling at least one token that is within reach of the loot.`);
-			return;
-		}
+  protected _onLootAll = async (e) => {
+    log(` ContainerConfigApplication ${this.appId} | _onLootAll`);
 
-		const flags: ItemFlags = <ItemFlags>duplicate(this.itemFlags);
-		const loot: ContainerLoot = <ContainerLoot>flags.container?.loot;
-		/* const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
+    if (!this._selectedTokenId) {
+      ui.notifications?.error(`You must be controlling at least one token that is within reach of the loot.`);
+      return;
+    }
+
+    const flags: ItemFlags = <ItemFlags>duplicate(this.itemFlags);
+    const loot: ContainerLoot = <ContainerLoot>flags.container?.loot;
+    /* const itemType = $(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
 		const itemId = e.currentTarget.dataset.id; */
-		const itemData = Object.values(loot)?.reduce((acc, itemDatas) => acc.concat(itemDatas), []);
-		const token = <Token>getCanvas().tokens?.placeables.find(t => t.id === this._selectedTokenId);
-		//@ts-ignore
-		lootItem({ looterTokenId: token.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId, takeAll: true }).then(() => {
-			this._stopperElement.remove();
-		});
-	}
+    const itemData = Object.values(loot)?.reduce((acc, itemDatas) => acc.concat(itemDatas), []);
+    const token = <Token>getCanvas().tokens?.placeables.find((t) => t.id === this._selectedTokenId);
 
-	protected _onTakeItem = async (e) => {
-		log(` ContainerConfigApplication ${this.appId} | _onTakeItem`);
+    lootItem({
+      looterTokenId: token.id,
+      itemData,
+      containerItemId: <string>(<Token>this.object).id,
+      lootTokenTokenId: this._sourceTokenId,
+      takeAll: true,
+    }).then(() => {
+      this._stopperElement.remove();
+    });
+  };
 
-		if (!this._selectedTokenId) {
-			ui.notifications?.error(`You must be controlling at least one token that is within reach of the loot.`);
-			return;
-		}
+  protected _onTakeItem = async (e) => {
+    log(` ContainerConfigApplication ${this.appId} | _onTakeItem`);
 
-    	const flags: ItemFlags = <ItemFlags>duplicate(this.itemFlags);
-		const loot: ContainerLoot = <ContainerLoot>flags.container?.loot;
-		const itemType = <string>$(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
-		const itemId = e.currentTarget.dataset.id;
-		const itemData = <ItemData>loot?.[itemType]?.find(i => i._id === itemId);
-		const token = <Token>getCanvas().tokens?.placeables.find(t => t.id === this._selectedTokenId);
+    if (!this._selectedTokenId) {
+      ui.notifications?.error(`You must be controlling at least one token that is within reach of the loot.`);
+      return;
+    }
 
-		this.addStopper();
-		//@ts-ignore
-		lootItem({ looterTokenId: token.id, itemData, containerItemId: this.object.id, lootTokenTokenId: this._sourceTokenId, takeAll: false }).then(() => {
-			this._stopperElement.remove();
-		});
-	}
+    const flags: ItemFlags = <ItemFlags>duplicate(this.itemFlags);
+    const loot: ContainerLoot = <ContainerLoot>flags.container?.loot;
+    const itemType = <string>$(e.currentTarget).parents(`ol[data-itemType]`).attr('data-itemType');
+    const itemId = e.currentTarget.dataset.id;
+    const itemData = <ItemData>loot?.[itemType]?.find((i) => i._id === itemId);
+    const token = <Token>getCanvas().tokens?.placeables.find((t) => t.id === this._selectedTokenId);
 
-	protected _onEditImage = async (e) => {
-		log(` ContainerConfigApplication ${this.appId}  | _onEditImage`);
+    this.addStopper();
 
-		new ContainerImageSelectionApplication(<Item>this.object).render(true);
-		Hooks.once('closeContainerImageSelectionApplication', (app, html) => {
-			log(` ContainerConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);
-			log([app, html]);
-		});
-	}
+    lootItem({
+      looterTokenId: token.id,
+      itemData,
+      containerItemId: <string>(<Token>this.object).id,
+      lootTokenTokenId: this._sourceTokenId,
+      takeAll: false,
+    }).then(() => {
+      this._stopperElement.remove();
+    });
+  };
 
-	private addStopper(): void {
-		$(this._html).parents('#pick-up-stix-item-config').children().first().before(this._stopperElement);
-	}
+  protected _onEditImage = async (e) => {
+    log(` ContainerConfigApplication ${this.appId}  | _onEditImage`);
+
+    new ContainerImageSelectionApplication(<Item>this.object).render(true);
+    Hooks.once('closeContainerImageSelectionApplication', (app, html) => {
+      log(` ContainerConfigApplication ${this.appId} | _onEditImage | closeContainerImageSelectionApplication hook`);
+      log([app, html]);
+    });
+  };
+
+  private addStopper(): void {
+    $(this._html).parents('#pick-up-stix-item-config').children().first().before(this._stopperElement);
+  }
 }

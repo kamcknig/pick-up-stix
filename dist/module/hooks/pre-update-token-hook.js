@@ -24,7 +24,7 @@ export const preUpdateTokenHook = async (scene, tokenData, updates, options, use
     // get any tokens that are under the new position
     let tokens = collidedTokens({ x: updates.x ?? tokenData.x, y: updates.y ?? tokenData.y });
     // filter out the token being updated
-    tokens = tokens.filter(t => t.id !== tokenData._id);
+    tokens = tokens.filter((t) => t.id !== tokenData._id);
     if (tokens.length > 1) {
         // if we are dropping it onto more than one token, then we can't know which to drop it onto, notify the user
         ui.notifications?.error('You can drop an item onto one and only one target');
@@ -35,7 +35,12 @@ export const preUpdateTokenHook = async (scene, tokenData, updates, options, use
         return true;
     }
     const item = getGame().items?.get(tokenFlags.itemId);
-    const itemDropSuccess = await handleItemDropped(await normalizeDropData({ x: updates.x ?? tokenData.x, y: updates.y ?? tokenData.y, type: item.data.type, id: item.id }));
+    const itemDropSuccess = await handleItemDropped(await normalizeDropData({
+        x: updates.x ?? tokenData.x,
+        y: updates.y ?? tokenData.y,
+        type: item.data.type,
+        id: item.id,
+    }));
     if (itemDropSuccess) {
         await deleteToken(tokenData._id, scene.id);
     }

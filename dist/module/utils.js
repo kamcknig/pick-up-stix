@@ -10,9 +10,9 @@ export const getCurrencyTypes = () => {
     if (getGame().system.id === 'dnd5e') {
         log(` utils | getCurrencies | using system 'dnd5e'`);
         //@ts-ignore
-        import('../../systems/dnd5e/module/config.js').then(r => {
+        import('../../systems/dnd5e/module/config.js').then((r) => {
             return {
-                ...r.DND5E.currencies
+                ...r.DND5E.currencies,
             };
         });
     }
@@ -21,7 +21,7 @@ export const getCurrencyTypes = () => {
             cp: 'Copper',
             gp: 'Gold',
             pp: 'Platinum',
-            sp: 'Silver'
+            sp: 'Silver',
         };
     }
     else if (getGame().system.id === 'pf2e') {
@@ -29,7 +29,7 @@ export const getCurrencyTypes = () => {
             cp: 'Copper',
             gp: 'Gold',
             pp: 'Platinum',
-            sp: 'Silver'
+            sp: 'Silver',
         };
     }
     else {
@@ -40,12 +40,12 @@ export const getCurrencyTypes = () => {
         ep: 'Electrum',
         gp: 'Gold',
         sp: 'Silver',
-        cp: 'Copper'
+        cp: 'Copper',
     };
 };
 export const versionDiff = (v1 = '0.0.0', v2 = '0.0.0') => {
-    const v1Parts = v1.split('.').map(v => Number(v));
-    const v2Parts = v2.split('.').map(v => Number(v));
+    const v1Parts = v1.split('.').map((v) => Number(v));
+    const v2Parts = v2.split('.').map((v) => Number(v));
     if (v1Parts[0] === v2Parts[0]) {
         if (v1Parts[1] === v2Parts[1]) {
             return v1Parts[2] - v2Parts[2];
@@ -55,7 +55,7 @@ export const versionDiff = (v1 = '0.0.0', v2 = '0.0.0') => {
     return v1Parts[0] - v2Parts[0];
 };
 export const collidedTokens = (options) => {
-    return getCanvas().tokens?.placeables.filter((p) => options.x <= p.x + p.width - 1 && options.x >= p.x && options.y <= p.y + p.height - 1 && options.y >= p.y);
+    return (getCanvas().tokens?.placeables.filter((p) => options.x <= p.x + p.width - 1 && options.x >= p.x && options.y <= p.y + p.height - 1 && options.y >= p.y));
 };
 export function onChangeInputDelta(event) {
     log(` onChangeInputDelta`);
@@ -144,32 +144,33 @@ export const getActorCurrencyPath = () => {
 };
 export const amIFirstGm = () => {
     const firstGm = firstGM();
-    return firstGm && (getGame().user === firstGm);
+    return firstGm && getGame().user === firstGm;
 };
 export const firstGM = () => {
-    const firstGm = getGame().users?.find(u => u.isGM && u.active);
+    const firstGm = getGame().users?.find((u) => u.isGM && u.active);
     return firstGm;
 };
 export class Util {
-    static joinStrings(arr, separator = ":") {
+    static joinStrings(arr, separator = ':') {
         if (arr.length === 0)
-            return "";
+            return '';
         return arr.reduce((v1, v2) => `${v1}${separator}${v2}`);
     }
 }
 export const canSeeLootToken = (token) => {
     const tokenFlags = token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
     // right now this is dnd5e only so this code is speicific to that
-    const minPerceive = tokenFlags?.minPerceiveValue ?? getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultMinimumPerceiveValue);
+    const minPerceive = tokenFlags?.minPerceiveValue ??
+        getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultMinimumPerceiveValue);
     const tolerance = Math.min(token.w, token.h) / 4;
-    return (getCanvas().sight?.testVisibility(token.center, { tolerance })
-        && getCanvas().tokens?.controlled.some(t => {
+    return (getCanvas().sight?.testVisibility(token.center, { tolerance }) &&
+        getCanvas().tokens?.controlled.some((t) => {
             //@ts-ignore
             t.actor?.data?.data?.skills?.prc?.passive >= minPerceive;
         }));
 };
 export const initiateRecord = function (enumX, defaultValue) {
-    return Object.assign({}, ...Object.keys(enumX).map(x => ({ [x]: defaultValue })));
+    return Object.assign({}, ...Object.keys(enumX).map((x) => ({ [x]: defaultValue })));
 };
 
 //# sourceMappingURL=../maps/module/utils.js.map

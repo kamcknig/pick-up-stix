@@ -1,6 +1,6 @@
 import { log } from '../../main';
-import { amIFirstGm } from "../utils";
-import { deleteToken, getLootToken } from "../mainEntry";
+import { amIFirstGm } from '../utils';
+import { deleteToken, getLootToken } from '../mainEntry';
 
 export const deleteItemHook = async (item, options, userId) => {
   log(` deleteItemHook:`);

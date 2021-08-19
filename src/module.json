@@ -1,16 +1,16 @@
 {
-	"name": "pick-up-stix",
-	"title": "Pick-Up-Stix",
-	"description": "Allows Items to be placed on the map as Tokens that players are able to pick up.",
-	"version": "2.0.0",
-	"author": "Kyle McKnight",
-	"authors": [
-		{
-			"name": "Kyle McKnight",
-			"email": "kamcknig@gmail.com",
-			"url": "https://turkeysunite.com"
-		}
-	],
+  "name": "pick-up-stix",
+  "title": "Pick-Up-Stix",
+  "description": "Allows Items to be placed on the map as Tokens that players are able to pick up.",
+  "version": "2.0.0",
+  "author": "Kyle McKnight",
+  "authors": [
+    {
+      "name": "Kyle McKnight",
+      "email": "kamcknig@gmail.com",
+      "url": "https://turkeysunite.com"
+    }
+  ],
   "type": "module",
   "socket": true,
   "includes": [
@@ -38,32 +38,30 @@
       "location": ""
     }
   ],
-	"scripts": [],
-	"esmodules": [
-		"main.js"
-	],
-	"styles": [
-		"styles/pick-up-stix.css",
-		"styles/loot-hud.css",
-		"styles/container-config.css",
-		"styles/container-sound-config.css"
-	],
-	"packs": [],
-	"languages": [],
-	"manifestPlusVersion": "1.2.0",
-	"minimumCoreVersion": "0.8.6",
-	"compatibleCoreVersion": "0.8.8",
-	"url": "https://github.com/p4535992/pick-up-stix/",
-	"manifest": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/src/module.json",
-	"download": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/package/pick-up-stix-v2.0.0.zip",
-	"license": "",
-	"readme": "",
-	"bugs": "https://github.com/p4535992/pick-up-stix/issues",
+  "scripts": [],
+  "esmodules": ["main.js"],
+  "styles": [
+    "styles/pick-up-stix.css",
+    "styles/loot-hud.css",
+    "styles/container-config.css",
+    "styles/container-sound-config.css"
+  ],
+  "packs": [],
+  "languages": [],
+  "manifestPlusVersion": "1.2.0",
+  "minimumCoreVersion": "0.8.6",
+  "compatibleCoreVersion": "0.8.8",
+  "url": "https://github.com/p4535992/pick-up-stix/",
+  "manifest": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/src/module.json",
+  "download": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/package/pick-up-stix-v2.0.0.zip",
+  "license": "",
+  "readme": "",
+  "bugs": "https://github.com/p4535992/pick-up-stix/issues",
   "changelog": "https://raw.githubusercontent.com/p4535992/pick-up-stix/master/changelog.md",
   "allowBugReporter": true,
   "dependencies": [
-	{
-	  "name": "lib-wrapper"
-	}
+    {
+      "name": "lib-wrapper"
+    }
   ]
 }

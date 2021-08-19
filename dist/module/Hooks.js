@@ -1,23 +1,23 @@
-import { error, log, warn } from "../main.js";
-import ContainerConfigApplication from "./container-config.js";
-import { CanvasPrototypeOnDropHandler, canvasReadyHook } from "./hooks/canvas-ready-hook.js";
-import { createActorHook } from "./hooks/create-actor-hook.js";
-import { createItemHook } from "./hooks/create-item-hook.js";
-import { deleteItemHook } from "./hooks/delete-item-hook.js";
-import { deleteTokenHook } from "./hooks/delete-token-hook.js";
-import { lootTokenCreatedHook } from "./hooks/loot-token-created-hook.js";
-import { preCreateItemHook } from "./hooks/pre-create-item-hook.js";
-import { preUpdateItemHook } from "./hooks/pre-update-item-hook.js";
-import { preUpdateTokenHook } from "./hooks/pre-update-token-hook.js";
-import { renderItemDirectoryHook } from "./hooks/render-item-directory-hook.js";
-import { onRenderLootHud } from "./hooks/render-loot-hud-hook.js";
-import { updateItemHook } from "./hooks/update-item-hook.js";
-import { LootHud } from "./loot-hud-application.js";
-import { addItemToContainer, createItem, createLootToken, createOwnedItem, createToken, deleteItem, deleteOwnedItem, deleteToken, dropItemOnToken, getLootToken, lootCurrency, lootItem, updateActor, updateItem, updateOwnedItem, updateToken } from "./mainEntry.js";
-import { ItemType, PickUpStixHooks, SocketMessageType } from "./models.js";
-import { preloadTemplates } from "./preloadTemplates.js";
-import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_SOCKET, registerSettings, SettingKeys } from "./settings.js";
-import { amIFirstGm, canSeeLootToken } from "./utils.js";
+import { error, log, warn } from '../main.js';
+import ContainerConfigApplication from './container-config.js';
+import { CanvasPrototypeOnDropHandler, canvasReadyHook } from './hooks/canvas-ready-hook.js';
+import { createActorHook } from './hooks/create-actor-hook.js';
+import { createItemHook } from './hooks/create-item-hook.js';
+import { deleteItemHook } from './hooks/delete-item-hook.js';
+import { deleteTokenHook } from './hooks/delete-token-hook.js';
+import { lootTokenCreatedHook } from './hooks/loot-token-created-hook.js';
+import { preCreateItemHook } from './hooks/pre-create-item-hook.js';
+import { preUpdateItemHook } from './hooks/pre-update-item-hook.js';
+import { preUpdateTokenHook } from './hooks/pre-update-token-hook.js';
+import { renderItemDirectoryHook } from './hooks/render-item-directory-hook.js';
+import { onRenderLootHud } from './hooks/render-loot-hud-hook.js';
+import { updateItemHook } from './hooks/update-item-hook.js';
+import { LootHud } from './loot-hud-application.js';
+import { addItemToContainer, createItem, createLootToken, createOwnedItem, createToken, deleteItem, deleteOwnedItem, deleteToken, dropItemOnToken, getLootToken, lootCurrency, lootItem, updateActor, updateItem, updateOwnedItem, updateToken, } from './mainEntry.js';
+import { ItemType, PickUpStixHooks, SocketMessageType } from './models.js';
+import { preloadTemplates } from './preloadTemplates.js';
+import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_SOCKET, registerSettings, SettingKeys, } from './settings.js';
+import { amIFirstGm, canSeeLootToken } from './utils.js';
 export let readyHooks = async () => {
     log(' ready once hook');
     if (getGame().system.id === 'dnd5e') {
@@ -29,7 +29,7 @@ export let readyHooks = async () => {
             if (item.actor)
                 return;
             let html = protoHtml;
-            if (html[0].localName !== "div") {
+            if (html[0].localName !== 'div') {
                 html = $(html[0].parentElement.parentElement);
             }
             const flagValue = item.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG)?.tokenData;
@@ -46,10 +46,7 @@ export let readyHooks = async () => {
 				<input type="text" name="flags.pick-up-stix.pick-up-stix.tokenData.height" value="${heightValue}" data-dtype="Number">
 			</div>
 			`;
-            $(html)
-                .find('div.item-properties div.form-group')
-                .last()
-                .after(content);
+            $(html).find('div.item-properties div.form-group').last().after(content);
         });
         //@ts-ignore
         // Items.registerSheet(getGame().system.id, ItemSheet5e, {makeDefault: false, types:[ItemType.CONTAINER]});
@@ -71,15 +68,16 @@ export let readyHooks = async () => {
             label: 'pick-up-stix.ContainerConfigApplication',
             cls: ContainerConfigApplication,
             default: true,
-            id: 'pick-up-stix.ContainerConfigApplication'
-        }
+            id: 'pick-up-stix.ContainerConfigApplication',
+        },
     };
-    CONFIG.Item.typeLabels[ItemType.CONTAINER] = "ITEM.TypeContainer";
+    // CONFIG.Item.typeLabels[ItemType.CONTAINER] = "ITEM.TypeContainer";
     if (amIFirstGm()) {
         await createDefaultFolders();
     }
     let scenes = getGame().scenes || [];
-    for (let el of scenes) { // Scene.collection
+    for (let el of scenes) {
+        // Scene.collection
         let scene = el;
         let tokens = scene.getEmbeddedCollection('Token');
         for (let token of tokens) {
@@ -118,62 +116,62 @@ export let readyHooks = async () => {
         }
     }
     /*
-    const activeVersion = <string>getGame().modules?.get(PICK_UP_STIX_MODULE_NAME)?.data.version;
-    const previousVersion = <string>getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.version);
-
-    if (amIFirstGm() && activeVersion !== previousVersion) {
-        await getGame().settings.set('pick-up-stix', SettingKeys.version, activeVersion);
-    }
-
-    const diff = versionDiff(activeVersion, previousVersion);
-    if (diff < 0) {
-        log(` readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
-    }
-    else if (diff > 0) {
-        log(` readyHook | current version ${activeVersion} is greater than previous version ${previousVersion}`);
-    }
-    else {
-        log(` readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
-    }
-    
-    const el = document.createElement('div');
-    el.innerHTML = `<p>I have made some improvements that should hopefully speed up the module but want to point out a few changes</p>
-    <p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
-    and two folders within there named <strong>Items</strong>, and <strong>Tokens</strong>. Once these folders have been created, you
-    are free to move them around however, if you delete them as of now there is no way to recover any previous contents,
-    though the folder should be recreated on the next startup. These folders can not be seen by players that are not GMs.</p>
-    <p>The <strong>Tokens</strong> folder contains Items that represent any loot token instances that are in a scene. If you edit one of them
-    from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance,
-    simply drag one of the Items from the <strong>Tokens</strong> Item folder and you'll have a copy of that Item that will
-    update when it updates. If you delete an Item from the <strong>Tokens</strong> folder, then all loot token instances will
-    be removed from all scenes. If you delete all loot token instances from all scenes, the Item associated with it in the
-    <strong>Tokens</strong> folder will also be deleted</p>
-    <p>The <strong>Items</strong> folder is a template folder. When you create an Item and choose the 'container' type, you'll get
-    an Item created in the <strong>Items</strong> folder. If you drag one of these onto the canvas, you'll create a new loot token
-    based on the properties of that Item, but you'll notice that a new Item is created in the <strong>Tokens</strong> folder. You can
-    updated this new loot token by either updating it's new corresponding Item or through the token's config menu. You can
-    also update that token and then drag a copy of it from the <strong>Tokens</strong> folder NOT the <strong>Items</strong> folder to
-    create a new loot token with the udpated properties. Items in the <strong>Items</strong> folder are not deleted when any
-    loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the <strong>Items</strong> directory
-    are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.</p>`;
-
-    if (amIFirstGm() && !getGame().settings.get('pick-up-stix', SettingKeys.version13updatemessage)) {
-    new Dialog({
-    title: 'Pick-Up-Stix - Update notification',
-    buttons: {
-        'OK': {
-        label: 'OK'
-        }
-    },
-    default: 'OK',
-    content: el.innerHTML
-    }, {
-        width: 750,
-    height: 'auto'
-    }).render(true);
-    await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.version13updatemessage, true);
-    }
-    */
+      const activeVersion = <string>getGame().modules?.get(PICK_UP_STIX_MODULE_NAME)?.data.version;
+      const previousVersion = <string>getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.version);
+  
+      if (amIFirstGm() && activeVersion !== previousVersion) {
+          await getGame().settings.set('pick-up-stix', SettingKeys.version, activeVersion);
+      }
+  
+      const diff = versionDiff(activeVersion, previousVersion);
+      if (diff < 0) {
+          log(` readyHook | current version ${activeVersion} is lower than previous version ${previousVersion}`);
+      }
+      else if (diff > 0) {
+          log(` readyHook | current version ${activeVersion} is greater than previous version ${previousVersion}`);
+      }
+      else {
+          log(` readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
+      }
+      
+      const el = document.createElement('div');
+      el.innerHTML = `<p>I have made some improvements that should hopefully speed up the module but want to point out a few changes</p>
+      <p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>
+      and two folders within there named <strong>Items</strong>, and <strong>Tokens</strong>. Once these folders have been created, you
+      are free to move them around however, if you delete them as of now there is no way to recover any previous contents,
+      though the folder should be recreated on the next startup. These folders can not be seen by players that are not GMs.</p>
+      <p>The <strong>Tokens</strong> folder contains Items that represent any loot token instances that are in a scene. If you edit one of them
+      from the Items directory, then you will edit all loot token instances attached to it. If you want to create another instance,
+      simply drag one of the Items from the <strong>Tokens</strong> Item folder and you'll have a copy of that Item that will
+      update when it updates. If you delete an Item from the <strong>Tokens</strong> folder, then all loot token instances will
+      be removed from all scenes. If you delete all loot token instances from all scenes, the Item associated with it in the
+      <strong>Tokens</strong> folder will also be deleted</p>
+      <p>The <strong>Items</strong> folder is a template folder. When you create an Item and choose the 'container' type, you'll get
+      an Item created in the <strong>Items</strong> folder. If you drag one of these onto the canvas, you'll create a new loot token
+      based on the properties of that Item, but you'll notice that a new Item is created in the <strong>Tokens</strong> folder. You can
+      updated this new loot token by either updating it's new corresponding Item or through the token's config menu. You can
+      also update that token and then drag a copy of it from the <strong>Tokens</strong> folder NOT the <strong>Items</strong> folder to
+      create a new loot token with the udpated properties. Items in the <strong>Items</strong> folder are not deleted when any
+      loot tokens created from them are deleted, nor are any loot tokens deleted when any Items in the <strong>Items</strong> directory
+      are removed. Currently, only container-type Items are treated as templates since item-type Items are already their own templates.</p>`;
+  
+      if (amIFirstGm() && !getGame().settings.get('pick-up-stix', SettingKeys.version13updatemessage)) {
+      new Dialog({
+      title: 'Pick-Up-Stix - Update notification',
+      buttons: {
+          'OK': {
+          label: 'OK'
+          }
+      },
+      default: 'OK',
+      content: el.innerHTML
+      }, {
+          width: 750,
+      height: 'auto'
+      }).render(true);
+      await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.version13updatemessage, true);
+      }
+      */
     getGame().socket?.on(PICK_UP_STIX_SOCKET, handleSocketMessage);
     Hooks.once('canvasReady', () => {
         //@ts-ignore
@@ -206,7 +204,7 @@ export const setupHooks = async () => {
     // game startup hooks
 };
 export const initHooks = async () => {
-    warn("Init Hooks processing");
+    warn('Init Hooks processing');
     log('initHook');
     //Hooks.once('init', initHook);
     // CONFIG.debug.hooks = true;
@@ -218,9 +216,9 @@ export const initHooks = async () => {
     await preloadTemplates();
     // Token.prototype.release = Token_tokenRelease(Token.prototype.release);
     //@ts-ignore
-    libWrapper.register(PICK_UP_STIX_MODULE_NAME, "Token.prototype.release", TokenPrototypeReleaseHandler, "MIXED");
+    libWrapper.register(PICK_UP_STIX_MODULE_NAME, 'Token.prototype.release', TokenPrototypeReleaseHandler, 'MIXED');
     //@ts-ignore
-    libWrapper.register(PICK_UP_STIX_MODULE_NAME, "Token.prototype.isVisible", TokenPrototypeIsVisibleHandler, "MIXED");
+    libWrapper.register(PICK_UP_STIX_MODULE_NAME, 'Token.prototype.isVisible', TokenPrototypeIsVisibleHandler, 'MIXED');
     // if (getGame().system.id === 'dnd5e') {
     // 	info(`pick-up-stix | initHook | System is '${getGame().system.id}' enabling Token.isVisible override.`);
     // 	Object.defineProperty(Token.prototype, 'isVisible', {
@@ -231,7 +229,7 @@ export const initHooks = async () => {
     // }
     // ADDED
     //@ts-ignore
-    libWrapper.register(PICK_UP_STIX_MODULE_NAME, 'Canvas.prototype._onDrop', CanvasPrototypeOnDropHandler, "MIXED");
+    libWrapper.register(PICK_UP_STIX_MODULE_NAME, 'Canvas.prototype._onDrop', CanvasPrototypeOnDropHandler, 'MIXED');
 };
 export const TokenPrototypeReleaseHandler = function (wrapped, ...args) {
     const [options] = args;
@@ -278,7 +276,7 @@ const createDefaultFolders = async () => {
             name: 'Pick-Up-Stix',
             sorting: 'a',
             parent: null,
-            type: 'Item'
+            type: 'Item',
         });
         parentFolderId = folder.id;
         await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.parentItemFolderId, parentFolderId);
@@ -287,7 +285,7 @@ const createDefaultFolders = async () => {
         log(` createDefaultFolders | parent folder '${folder.name}' found`);
     }
     // check if the tokens folder exist and create it if not
-    folder = getGame().folders?.get(getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.tokenFolderId));
+    folder = (getGame().folders?.get(getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.tokenFolderId)));
     //folder = Folder.collection.get(getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.tokenFolderId));
     if (!folder) {
         log(` createDefaultFolders | couldn't find tokens folder, creating it now`);
@@ -296,7 +294,7 @@ const createDefaultFolders = async () => {
             name: 'Tokens',
             sorting: 'a',
             parent: parentFolderId,
-            type: 'Item'
+            type: 'Item',
         });
         await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.tokenFolderId, folder.id);
     }
@@ -304,7 +302,7 @@ const createDefaultFolders = async () => {
         log(` createDefaultFolders | tokens folder '${folder.name}' found`);
     }
     // check if the items folder exists and create it if not
-    folder = getGame().folders?.get(getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId));
+    folder = (getGame().folders?.get(getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId)));
     //folder = Folder.collection.get(getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId));
     if (!folder) {
         log(` createDefaultFolders | couldn't find items folder`);
@@ -313,7 +311,7 @@ const createDefaultFolders = async () => {
             name: 'Items',
             sorting: 'a',
             parent: parentFolderId,
-            type: 'Item'
+            type: 'Item',
         });
         await getGame().settings.set(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId, folder.id);
     }
@@ -328,9 +326,9 @@ export const handleSocketMessage = async (msg) => {
         return;
     }
     /* if (msg.sender === getGame().user.id) {
-        log(` handleSocketMessage | i sent this, ignoring`);
-        return;
-    } */
+          log(` handleSocketMessage | i sent this, ignoring`);
+          return;
+      } */
     if (!amIFirstGm()) {
         return;
     }

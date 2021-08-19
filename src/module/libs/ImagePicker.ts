@@ -1,11 +1,10 @@
-import DirectoryPicker from "./DirectoryPicker";
+import DirectoryPicker from './DirectoryPicker';
 
 /**
  * Game Settings: ImagePicker
  * @href https://github.com/MrPrimate/vtta-tokenizer/blob/master/src/libs/ImagePicker.js
  */
- class ImagePicker extends FilePicker {
-
+class ImagePicker extends FilePicker {
   constructor(options = {}) {
     super(options);
   }
@@ -48,7 +47,7 @@ import DirectoryPicker from "./DirectoryPicker";
     if (matches) {
       let [, source, current = ''] = matches;
       current = current.trim();
-      const [s3, bucket] = source.split(":");
+      const [s3, bucket] = source.split(':');
       if (bucket !== undefined) {
         return {
           activeSource: s3,
@@ -65,7 +64,7 @@ import DirectoryPicker from "./DirectoryPicker";
     }
     // failsave, try it at least
     return {
-      activeSource: "data",
+      activeSource: 'data',
       bucket: null,
       current: str,
     };
@@ -76,8 +75,8 @@ import DirectoryPicker from "./DirectoryPicker";
     $(html)
       .find(`input[data-dtype="Img"]`)
       .each((index, element) => {
-        $(element).prop("readonly", true);
-        
+        $(element).prop('readonly', true);
+
         if (!$(element).next().length) {
           let picker = new ImagePicker({
             field: $(element)[0],
@@ -86,9 +85,9 @@ import DirectoryPicker from "./DirectoryPicker";
           });
           // data-type="image" data-target="img"
           let pickerButton = $(
-            '<button type="button" class="file-picker" title="Pick image"><i class="fas fa-file-import fa-fw"></i></button>'
+            '<button type="button" class="file-picker" title="Pick image"><i class="fas fa-file-import fa-fw"></i></button>',
           );
-          pickerButton.on("click", () => {
+          pickerButton.on('click', () => {
             picker.render(true);
           });
           $(element).parent().append(pickerButton);
@@ -96,18 +95,17 @@ import DirectoryPicker from "./DirectoryPicker";
       });
   }
 
-
   /** @override */
   activateListeners(html) {
     super.activateListeners(html);
 
     // remove unnecessary elements
-    $(html).find("footer button").text("Select Image");
+    $(html).find('footer button').text('Select Image');
   }
 }
 
 // eslint-disable-next-line no-unused-vars
-Hooks.on("renderSettingsConfig", (app, html, user) => {
+Hooks.on('renderSettingsConfig', (app, html, user) => {
   ImagePicker.processHtml(html);
 });
 

@@ -40,7 +40,7 @@ class DirectoryPicker extends FilePicker {
         if (matches) {
             let [, source, current = ''] = matches;
             current = current.trim();
-            const [s3, bucket] = source.split(":");
+            const [s3, bucket] = source.split(':');
             if (bucket !== undefined) {
                 return {
                     activeSource: s3,
@@ -58,14 +58,14 @@ class DirectoryPicker extends FilePicker {
         }
         // failsave, try it at least
         return {
-            activeSource: "data",
+            activeSource: 'data',
             bucket: null,
             current: str,
         };
     }
     static extractUrl(str) {
         let options = DirectoryPicker.parse(str);
-        if (options.activeSource === "data" || options.activeSource === "public") {
+        if (options.activeSource === 'data' || options.activeSource === 'public') {
             return undefined;
         }
         else {
@@ -77,15 +77,15 @@ class DirectoryPicker extends FilePicker {
         $(html)
             .find(`input[data-dtype="Directory"]`)
             .each((index, element) => {
-            $(element).prop("readonly", true);
+            $(element).prop('readonly', true);
             if (!$(element).next().length) {
-                logger.debug("Adding Picker Button");
+                logger.debug('Adding Picker Button');
                 let picker = new DirectoryPicker({
                     field: $(element)[0],
                     ...DirectoryPicker.parse($(element).val()),
                 });
                 let pickerButton = $('<button type="button" class="file-picker" data-type="imagevideo" data-target="img" title="Pick directory"><i class="fas fa-file-import fa-fw"></i></button>');
-                pickerButton.on("click", () => {
+                pickerButton.on('click', () => {
                     picker.render(true);
                 });
                 $(element).parent().append(pickerButton);
@@ -96,9 +96,9 @@ class DirectoryPicker extends FilePicker {
     activateListeners(html) {
         super.activateListeners(html);
         // remove unnecessary elements
-        $(html).find("ol.files-list").remove();
-        $(html).find("footer div").remove();
-        $(html).find("footer button").text("Select Directory");
+        $(html).find('ol.files-list').remove();
+        $(html).find('footer div').remove();
+        $(html).find('footer button').text('Select Directory');
     }
     static async forgeCreateDirectory(target) {
         if (!target)
@@ -106,7 +106,7 @@ class DirectoryPicker extends FilePicker {
         //@ts-ignore
         const response = await ForgeAPI.call('assets/new-folder', { path: target });
         if (!response || response.error) {
-            throw new Error(response ? response.error : "Unknown error while creating directory.");
+            throw new Error(response ? response.error : 'Unknown error while creating directory.');
         }
     }
     /**
@@ -116,10 +116,10 @@ class DirectoryPicker extends FilePicker {
      */
     static async createDirectory(source, target, options = {}) {
         if (!target) {
-            throw new Error("No directory name provided");
+            throw new Error('No directory name provided');
         }
         //@ts-ignore
-        if (typeof ForgeVTT !== "undefined" && ForgeVTT?.usingTheForge) {
+        if (typeof ForgeVTT !== 'undefined' && ForgeVTT?.usingTheForge) {
             return DirectoryPicker.forgeCreateDirectory(target);
         }
         return FilePicker.createDirectory(source, target, options);
@@ -133,7 +133,7 @@ class DirectoryPicker extends FilePicker {
      */
     static async verifyPath(parsedPath, targetPath = null) {
         try {
-            const paths = (targetPath) ? String(targetPath).split("/") : parsedPath.current.split("/");
+            const paths = targetPath ? String(targetPath).split('/') : parsedPath.current.split('/');
             let currentSource = paths[0];
             for (let i = 0; i < paths.length; i += 1) {
                 try {
@@ -141,10 +141,12 @@ class DirectoryPicker extends FilePicker {
                         currentSource = `${currentSource}/${paths[i]}`;
                     }
                     // eslint-disable-next-line no-await-in-loop
-                    await DirectoryPicker.createDirectory(parsedPath.activeSource, `${currentSource}`, { bucket: parsedPath.bucket });
+                    await DirectoryPicker.createDirectory(parsedPath.activeSource, `${currentSource}`, {
+                        bucket: parsedPath.bucket,
+                    });
                 }
                 catch (err) {
-                    if (!err.startsWith("EEXIST") && !err.startsWith("The S3 key"))
+                    if (!err.startsWith('EEXIST') && !err.startsWith('The S3 key'))
                         logger.error(`Error trying to verify path [${parsedPath.activeSource}], ${parsedPath.current}`, err);
                 }
             }
@@ -156,7 +158,7 @@ class DirectoryPicker extends FilePicker {
     }
 }
 // eslint-disable-next-line no-unused-vars
-Hooks.on("renderSettingsConfig", (app, html, user) => {
+Hooks.on('renderSettingsConfig', (app, html, user) => {
     DirectoryPicker.processHtml(html);
 });
 export default DirectoryPicker;

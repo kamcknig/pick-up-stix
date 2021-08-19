@@ -18,21 +18,25 @@ import { initHooks, readyHooks, setupHooks } from "./module/Hooks.js";
 // import { installedModules, setupModules } from './module/setupModules';
 export let debugEnabled = 0;
 // 0 = none, warnings = 1, debug = 2, all = 3
-export let debug = (...args) => { if (debugEnabled > 1)
-    console.log(`DEBUG:${PICK_UP_STIX_MODULE_NAME} | `, ...args); };
+export let debug = (...args) => {
+    if (debugEnabled > 1)
+        console.log(`DEBUG:${PICK_UP_STIX_MODULE_NAME} | `, ...args);
+};
 export let log = (...args) => console.log(`${PICK_UP_STIX_MODULE_NAME} | `, ...args);
-export let warn = (...args) => { if (debugEnabled > 0)
-    console.warn(`${PICK_UP_STIX_MODULE_NAME} | `, ...args); };
+export let warn = (...args) => {
+    if (debugEnabled > 0)
+        console.warn(`${PICK_UP_STIX_MODULE_NAME} | `, ...args);
+};
 export let error = (...args) => console.error(`${PICK_UP_STIX_MODULE_NAME} | `, ...args);
 export let timelog = (...args) => warn(`${PICK_UP_STIX_MODULE_NAME} | `, Date.now(), ...args);
-export let i18n = key => {
+export let i18n = (key) => {
     return getGame().i18n.localize(key);
 };
 export let i18nFormat = (key, data = {}) => {
     return getGame().i18n.format(key, data);
 };
 export let setDebugLevel = (debugText) => {
-    debugEnabled = { "none": 0, "warn": 1, "debug": 2, "all": 3 }[debugText] || 0;
+    debugEnabled = { none: 0, warn: 1, debug: 2, all: 3 }[debugText] || 0;
     // 0 = none, warnings = 1, debug = 2, all = 3
     if (debugEnabled >= 3)
         CONFIG.debug.hooks = true;

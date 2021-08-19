@@ -21,10 +21,10 @@ export const updateItemHook = async (item, data, options, userId) => {
             height: itemFlags?.tokenData?.height ?? 1,
             name: item.data.name,
             img: itemFlags.container !== undefined
-                ? (lt.isOpen
+                ? lt.isOpen
                     ? itemFlags.container.imageOpenPath
-                    : itemFlags.container.imageClosePath)
-                : item.data.img
+                    : itemFlags.container.imageClosePath
+                : item.data.img,
         };
         updates.push(update);
         let token = getCanvas().tokens?.get(lt.tokenId);

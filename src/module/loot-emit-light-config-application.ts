@@ -1,8 +1,7 @@
-import { updateItem, updateToken } from "./mainEntry";
-import { PICK_UP_STIX_MODULE_NAME } from "./settings";
+import { updateItem, updateToken } from './mainEntry';
+import { PICK_UP_STIX_MODULE_NAME } from './settings';
 
 export class LootEmitLightConfigApplication extends FormApplication {
-
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
       classes: ['pick-up-stix', 'loot-emit-light-config'],
@@ -15,7 +14,7 @@ export class LootEmitLightConfigApplication extends FormApplication {
       submitOnClose: true,
       minimizable: false,
       template: `/modules/${PICK_UP_STIX_MODULE_NAME}/templates/loot-emit-light-config.html`,
-      title: 'Loot Light Emission'
+      title: 'Loot Light Emission',
     });
   }
 
@@ -23,10 +22,10 @@ export class LootEmitLightConfigApplication extends FormApplication {
     super(object, options);
   }
 
-  getData(options?):any {
+  getData(options?): any {
     return {
       //@ts-ignore
-      object: duplicate(this.object.data)
+      object: duplicate(this.object.data),
     };
   }
 
@@ -35,7 +34,7 @@ export class LootEmitLightConfigApplication extends FormApplication {
     await updateToken(this.object.scene.id, {
       //@ts-ignore
       _id: <string>this.object.id,
-      ...formData
+      ...formData,
     });
   }
 }

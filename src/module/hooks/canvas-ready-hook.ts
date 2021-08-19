@@ -1,10 +1,6 @@
 import { log } from '../../main';
-import { LootToken, TokenFlags } from "../loot-token";
-import {
-	getLootToken,
-	handleItemDropped,
-	normalizeDropData
-} from "../mainEntry";
+import { LootToken, TokenFlags } from '../loot-token';
+import { getLootToken, handleItemDropped, normalizeDropData } from '../mainEntry';
 import { getCanvas, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';
 
 /**
@@ -15,18 +11,17 @@ import { getCanvas, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from '../setti
  * @param {fn} wrapper - The original onDrop function
  * @param  {...any} args - Any arguments provided with the original onDrop function
  */
-export const CanvasPrototypeOnDropHandler = function(wrapper, ...args) {
-	try {
-		const [event] = args;
-		// Get data from event
-		const data = JSON.parse(event.dataTransfer.getData('text/plain'));
-		dropCanvasHandler(getCanvas(), data);
-		return wrapper(...args);
-	} catch (error) {
-		return wrapper(...args);
-	}
-}
-
+export const CanvasPrototypeOnDropHandler = function (wrapper, ...args) {
+  try {
+    const [event] = args;
+    // Get data from event
+    const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+    dropCanvasHandler(getCanvas(), data);
+    return wrapper(...args);
+  } catch (error) {
+    return wrapper(...args);
+  }
+};
 
 /**
  * Handler for the dropCanvasData Foundry hook. This is used
@@ -35,34 +30,34 @@ export const CanvasPrototypeOnDropHandler = function(wrapper, ...args) {
  * @param dropData
  */
 const dropCanvasHandler = async (canvas, dropData) => {
-	log(` dropCanvasData | called with args:`);
-	log(canvas, dropData);
+  log(` dropCanvasData | called with args:`);
+  log(canvas, dropData);
 
-	if (dropData.type === "Item") {
-		handleItemDropped(await normalizeDropData(dropData));
-	}
-}
+  if (dropData.type === 'Item') {
+    handleItemDropped(await normalizeDropData(dropData));
+  }
+};
 
 export const canvasReadyHook = async (canvas) => {
   log(` canvasReadyHook`);
   log([canvas]);
-	for (let token of <Token[]>getCanvas().tokens?.placeables?.filter(p => p instanceof Token)) {
-		const tokenFlags: TokenFlags = <TokenFlags>token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
-		if (!tokenFlags?.itemId) {
-			continue;
-		}
+  for (let token of <Token[]>getCanvas().tokens?.placeables?.filter((p) => p instanceof Token)) {
+    const tokenFlags: TokenFlags = <TokenFlags>token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
+    if (!tokenFlags?.itemId) {
+      continue;
+    }
 
-		log(` canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemId}'`);
+    log(` canvasReadyHook | Found token '${token.id}' with for item '${tokenFlags.itemId}'`);
 
-		let lootToken: LootToken = getLootToken({ itemId: tokenFlags.itemId, tokenId: token.id })?.[0];
+    let lootToken: LootToken = getLootToken({ itemId: tokenFlags.itemId, tokenId: token.id })?.[0];
 
-		if (tokenFlags?.isLocked) {
-			lootToken?.drawLock();
-		}
+    if (tokenFlags?.isLocked) {
+      lootToken?.drawLock();
+    }
 
-		lootToken?.activateListeners();
-	}
+    lootToken?.activateListeners();
+  }
 
-	//Hooks.off('dropCanvasData', dropCanvasHandler);
-	//Hooks.on('dropCanvasData', dropCanvasHandler);
-}
+  //Hooks.off('dropCanvasData', dropCanvasHandler);
+  //Hooks.on('dropCanvasData', dropCanvasHandler);
+};

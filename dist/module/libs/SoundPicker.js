@@ -41,7 +41,7 @@ class SoundPicker extends FilePicker {
         if (matches) {
             let [, source, current = ''] = matches;
             current = current.trim();
-            const [s3, bucket] = source.split(":");
+            const [s3, bucket] = source.split(':');
             if (bucket !== undefined) {
                 return {
                     activeSource: s3,
@@ -59,7 +59,7 @@ class SoundPicker extends FilePicker {
         }
         // failsave, try it at least
         return {
-            activeSource: "data",
+            activeSource: 'data',
             bucket: null,
             current: str,
         };
@@ -69,7 +69,7 @@ class SoundPicker extends FilePicker {
         $(html)
             .find(`input[data-dtype="Img"]`)
             .each((index, element) => {
-            $(element).prop("readonly", true);
+            $(element).prop('readonly', true);
             if (!$(element).next().length) {
                 let picker = new SoundPicker({
                     field: $(element)[0],
@@ -78,7 +78,7 @@ class SoundPicker extends FilePicker {
                 });
                 // data-type="sound" data-target="sound"
                 let pickerButton = $('<button type="button" class="file-picker" title="Pick sound"><i class="fas fa-file-import fa-fw"></i></button>');
-                pickerButton.on("click", () => {
+                pickerButton.on('click', () => {
                     picker.render(true);
                 });
                 $(element).parent().append(pickerButton);
@@ -89,11 +89,11 @@ class SoundPicker extends FilePicker {
     activateListeners(html) {
         super.activateListeners(html);
         // remove unnecessary elements
-        $(html).find("footer button").text("Select sound");
+        $(html).find('footer button').text('Select sound');
     }
 }
 // eslint-disable-next-line no-unused-vars
-Hooks.on("renderSettingsConfig", (app, html, user) => {
+Hooks.on('renderSettingsConfig', (app, html, user) => {
     SoundPicker.processHtml(html);
 });
 export default SoundPicker;

@@ -2,13 +2,13 @@ import { error, log } from "../main.js";
 import { getPriceDataPath, getQuantityDataPath, getWeightDataPath } from "./utils.js";
 import { getValidControlledTokens, lootItem, updateItem, updateToken } from "./mainEntry.js";
 import { ItemType } from "./models.js";
-import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_TOKEN_ID_FLAG } from "./settings.js";
+import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_TOKEN_ID_FLAG, } from "./settings.js";
 export class LootToken {
     constructor(_tokenId, _itemId) {
         this._tokenId = _tokenId;
         this._itemId = _itemId;
         this.activateListeners = () => {
-            if (!getCanvas().tokens?.placeables.find(p => p.id === this.tokenData._id)) {
+            if (!getCanvas().tokens?.placeables.find((p) => p.id === this.tokenData._id)) {
                 return;
             }
             log(` LootToken | activateListeners`);
@@ -62,8 +62,8 @@ export class LootToken {
             if (icon) {
                 icon.name = 'pick-up-stix-lock';
                 icon.width = icon.height = 40;
-                icon.alpha = .5;
-                icon.position.set(token.width * .5 - icon.width * .5, token.height * .5 - icon.height * .5);
+                icon.alpha = 0.5;
+                icon.position.set(token.width * 0.5 - icon.width * 0.5, token.height * 0.5 - icon.height * 0.5);
             }
         };
         this.toggleLocked = async () => {
@@ -74,28 +74,28 @@ export class LootToken {
                 flags: {
                     'pick-up-stix': {
                         'pick-up-stix': {
-                            isLocked: !locked
-                        }
-                    }
-                }
+                            isLocked: !locked,
+                        },
+                    },
+                },
             });
         };
         this.toggleOpened = async (tokens = [], renderSheet = true) => {
-            log('pick-up-stix | LootToken | toggleOpened');
+            log(' LootToken | toggleOpened');
             const itemFlags = this.itemFlags;
-            const open = !this.isOpen;
+            const openTmp = !this.isOpen;
             updateToken(this.sceneId, {
                 _id: this.tokenId,
-                img: open ? itemFlags.container?.imageOpenPath : itemFlags.container?.imageClosePath,
+                img: openTmp ? itemFlags.container?.imageOpenPath : itemFlags.container?.imageClosePath,
                 flags: {
                     'pick-up-stix': {
                         'pick-up-stix': {
-                            isOpen: open
-                        }
-                    }
-                }
+                            isOpen: openTmp,
+                        },
+                    },
+                },
             });
-            const audioPath = (open && itemFlags.container?.soundOpenPath) ?? (!open && itemFlags.container?.soundClosePath);
+            const audioPath = (openTmp && itemFlags.container?.soundOpenPath) ?? (!open && itemFlags.container?.soundClosePath);
             if (audioPath) {
                 const a = new Audio(audioPath);
                 try {
@@ -106,7 +106,7 @@ export class LootToken {
                     error(e);
                 }
             }
-            if (renderSheet && open) {
+            if (renderSheet && openTmp) {
                 this.openConfigSheet(tokens);
             }
         };
@@ -116,12 +116,11 @@ export class LootToken {
             }
             log('pick-up-stix | LootToken | addItem');
             const itemFlags = duplicate(this.itemFlags);
-            const existingItem = Object.values(itemFlags?.container?.loot?.[itemData?.type] ?? [])
-                ?.find(i => i.name?.toLowerCase() === itemData.name?.toLowerCase()
-                && i.img === itemData.img
-                && i.data?.description?.value?.toLowerCase() === itemData.data?.description?.value?.toLowerCase()
-                && getProperty(i.data, getPriceDataPath()) === getProperty(itemData.data, getPriceDataPath())
-                && getProperty(i.data, getWeightDataPath()) === getProperty(itemData.data, getWeightDataPath()));
+            const existingItem = Object.values(itemFlags?.container?.loot?.[itemData?.type] ?? [])?.find((i) => i.name?.toLowerCase() === itemData.name?.toLowerCase() &&
+                i.img === itemData.img &&
+                i.data?.description?.value?.toLowerCase() === itemData.data?.description?.value?.toLowerCase() &&
+                getProperty(i.data, getPriceDataPath()) === getProperty(itemData.data, getPriceDataPath()) &&
+                getProperty(i.data, getWeightDataPath()) === getProperty(itemData.data, getWeightDataPath()));
             if (existingItem) {
                 log(` LootToken | addItem | found existing item for item '${itemData._id}`);
                 const quantityDataPath = getQuantityDataPath();
@@ -133,7 +132,7 @@ export class LootToken {
                 }
             }
             else {
-                let containerData = itemFlags.container;
+                const containerData = itemFlags.container;
                 if (!containerData?.loot) {
                     containerData.loot = {};
                 }
@@ -146,9 +145,9 @@ export class LootToken {
             updateItem(this.itemId, {
                 flags: {
                     'pick-up-stix': {
-                        'pick-up-stix': itemFlags
-                    }
-                }
+                        'pick-up-stix': itemFlags,
+                    },
+                },
             });
         };
         this.collect = async (token) => {
@@ -172,19 +171,20 @@ export class LootToken {
                     await this.toggleOpened();
                 }
             };
-            for (let item of getGame().items) {
-                const i = item;
+            for (const itemTmp of getGame().items) {
+                const i = itemTmp;
                 const flags = i.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
                 if (this.itemId === i.id || flags === undefined) {
                     continue;
                 }
-                for (let app of Object.values(i.apps)) {
+                for (const app of Object.values(i.apps)) {
                     app.close();
                 }
             }
             Hooks.once('closeContainerConfigApplication', closeContainerConfigApplicationHook);
             const item = this.item;
-            const appId = item.sheet?.render(!item.sheet?.rendered, { renderData: { tokens, sourceToken: this.tokenId } }).appId;
+            const appId = (item.sheet?.render(!item.sheet?.rendered, { renderData: { tokens, sourceToken: this.tokenId } })
+                .appId);
         };
         /**************************
          * MOUSE HANDLER METHODS
@@ -193,7 +193,7 @@ export class LootToken {
             log(` setupMouseManager`);
             const token = this.token;
             if (!token) {
-                throw new Error('Can\'t create MouseInteractionManager without a Token');
+                throw new Error("Can't create MouseInteractionManager without a Token");
             }
             const permissions = {
                 clickLeft: () => true,
@@ -202,7 +202,7 @@ export class LootToken {
                 clickRight2: () => getGame().user?.isGM,
                 dragLeftStart: () => getGame().user?.isGM,
                 hoverIn: () => true,
-                hoverOut: () => true
+                hoverOut: () => true,
             };
             // Define callback functions for each workflow step
             const callbacks = {
@@ -211,7 +211,11 @@ export class LootToken {
                 clickRight: this.handleClickRight,
                 clickRight2: this.handleClickRight2,
                 //@ts-ignore
-                dragLeftStart: (e) => { clearTimeout(this._clickTimeout); token._onDragLeftStart(e); },
+                dragLeftStart: (e) => {
+                    clearTimeout(this._clickTimeout);
+                    //@ts-ignore
+                    token._onDragLeftStart(e);
+                },
                 //@ts-ignore
                 dragLeftMove: token._onDragLeftMove,
                 //@ts-ignore
@@ -221,11 +225,11 @@ export class LootToken {
                 //@ts-ignore
                 hoverIn: () => token._onHoverIn,
                 //@ts-ignore
-                hoverOut: () => token._onHoverOut
+                hoverOut: () => token._onHoverOut,
             };
             // Define options
             const options = {
-                target: token.controlIcon ? "controlIcon" : null
+                target: token.controlIcon ? 'controlIcon' : null,
             };
             // Create the interaction manager
             if (token) {
@@ -258,7 +262,7 @@ export class LootToken {
             // if it's locked then it can't be opened
             if (this.isLocked) {
                 log(` LootToken | finalizeClickLeft | item is locked`);
-                var audio = new Audio(CONFIG.sounds.lock);
+                const audio = new Audio(CONFIG.sounds.lock);
                 audio.play();
                 return;
             }
@@ -274,7 +278,7 @@ export class LootToken {
             }
             //@ts-ignore
             token._onClickLeft(event);
-            for (let t of allControlled) {
+            for (const t of allControlled) {
                 t.control({ releaseOthers: false });
             }
             if (this.itemFlags.itemType === ItemType.ITEM) {
@@ -295,7 +299,6 @@ export class LootToken {
         };
         this.handleClickRight = () => {
             log(` LootToken | handleClickRight`);
-            ;
             clearTimeout(this._clickTimeout);
             getCanvas().tokens?.hud.clear();
             const token = this.token;
@@ -318,7 +321,7 @@ export class LootToken {
         this.handleClickRight2 = async (event) => {
             log(' LootToken | handleClickRight2');
             clearTimeout(this._clickTimeout);
-            let i = getGame().items?.contents.find(item => {
+            const i = getGame().items?.contents.find((item) => {
                 return item.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_TOKEN_ID_FLAG) === this.tokenId;
             });
             if (i) {
@@ -329,7 +332,7 @@ export class LootToken {
         };
         log('pick-up-stix | LootToken | constructor:');
         log([this._tokenId, this._itemId]);
-        for (let el of getGame().scenes) {
+        for (const el of getGame().scenes) {
             const scene = el;
             const token = scene.getEmbeddedEntity('Token', this._tokenId);
             if (token) {
@@ -369,7 +372,7 @@ export class LootToken {
         return this._sceneId;
     }
     get token() {
-        return getCanvas().tokens?.placeables.find(p => p.id === this.tokenId) ?? null;
+        return getCanvas().tokens?.placeables.find((p) => p.id === this.tokenId) ?? null;
     }
     get tokenData() {
         return getGame().scenes?.get(this._sceneId)?.getEmbeddedEntity('Token', this._tokenId);

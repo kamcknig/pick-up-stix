@@ -14,7 +14,7 @@ export async function preCreateItemHook(itemData, options = {}, userId) {
                 name: itemData.name,
                 img: itemData.img ?? getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.closeImagePath),
                 disposition: 0,
-                ...itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData ?? {}
+                ...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData ?? {}),
             },
             container: {
                 currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
@@ -22,9 +22,9 @@ export async function preCreateItemHook(itemData, options = {}, userId) {
                 imageClosePath: getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.closeImagePath),
                 soundClosePath: getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerCloseSound),
                 soundOpenPath: getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerOpenSound),
-                ...itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.container ?? {}
+                ...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.container ?? {}),
             },
-            itemType: ItemType.CONTAINER
+            itemType: ItemType.CONTAINER,
         };
         mergeObject(itemData, {
             // we checked for item type being container, but that isn't a "valid" type. The type of item has to be included in the
@@ -37,9 +37,9 @@ export async function preCreateItemHook(itemData, options = {}, userId) {
             img: itemFlags.tokenData.img,
             flags: {
                 'pick-up-stix': {
-                    'pick-up-stix': itemFlags
-                }
-            }
+                    'pick-up-stix': itemFlags,
+                },
+            },
         });
         options.renderSheet = false;
     }

@@ -6,7 +6,9 @@ export const preUpdateItemHook = async (item, data, options, userId) => {
     log([item, data, options, userId]);
     const itemFlags = item.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
     if (itemFlags?.itemType === ItemType.CONTAINER) {
-        data.img = data?.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.container.imageClosePath ?? itemFlags.container?.imageClosePath;
+        data.img =
+            data?.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.container.imageClosePath ??
+                itemFlags.container?.imageClosePath;
         setProperty(data, 'flags.pick-up-stix.pick-up-stix.tokenData.img', data.img);
     }
 };

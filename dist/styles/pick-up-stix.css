@@ -68,20 +68,20 @@ span.pick-up-stix-chat-currency.cp {
 .system-D35E .pick-up-stix {
   font-family: "Signika", sans-serif;
   /**
-   * Sheet header styles
-   */
+       * Sheet header styles
+       */
   /**
-   * Header profile styles
-   */
+       * Header profile styles
+       */
   /**
-   * Input styles
-   */
+       * Input styles
+       */
   /**
-   * Currency details section styles
-   */
+       * Currency details section styles
+       */
   /**
-   * Inventory list styles
-   */
+       * Inventory list styles
+       */
 }
 .system-D35E .pick-up-stix * {
   font-family: inherit;
@@ -136,8 +136,8 @@ span.pick-up-stix-chat-currency.cp {
 }
 .system-D35E .pick-up-stix .sheet-header {
   /**
-   * Header details section styles
-   */
+       * Header details section styles
+       */
 }
 .system-D35E .pick-up-stix .sheet-header .profile {
   border: unset;
@@ -326,7 +326,7 @@ span.pick-up-stix-chat-currency.cp {
 }
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet {
   font-family: "Signika", sans-serif;
-  border: 6px solid #55493B;
+  border: 6px solid #55493b;
   border-image: url(/systems/D35E/icons/ui/dialog-frame.png) 20 round;
 }
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .window-header {
@@ -338,7 +338,8 @@ span.pick-up-stix-chat-currency.cp {
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .window-content {
   background: url(/systems/D35E/icons/ui/background-window.png) repeat;
 }
-.system-D35E.d35ecustom .pick-up-stix.container-config-sheet .sheet-section, .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .inventory-details {
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet .sheet-section,
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet .inventory-details {
   background: url(/systems/D35E/icons/ui/parchment-2.png) repeat;
   margin: 4px 0;
   border-radius: 2px;
@@ -368,11 +369,11 @@ span.pick-up-stix-chat-currency.cp {
   border-top: 2px solid #75514b !important;
 }
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .item-controls a {
-  color: #2C606D;
+  color: #2c606d;
 }
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .item-controls a:hover {
-  text-shadow: 0 0 10px #2C606D !important;
-  color: #2C606D !important;
+  text-shadow: 0 0 10px #2c606d !important;
+  color: #2c606d !important;
 }
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .loot-all-button {
   background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0) 100%), linear-gradient(rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 10%, rgba(255, 255, 255, 0) 90%, rgba(255, 255, 255, 0.3) 100%), url(/systems/D35E/icons/ui/button-texture.png) repeat !important;
@@ -390,17 +391,20 @@ span.pick-up-stix-chat-currency.cp {
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .loot-all-button i {
   font-size: 12px;
 }
-.system-D35E.d35ecustom .pick-up-stix.container-config-sheet input[type=text], .system-D35E.d35ecustom .pick-up-stix.container-config-sheet textarea {
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet input[type=text],
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet textarea {
   border: 1px solid rgba(0, 0, 0, 0.2) !important;
   height: 24px;
 }
-.system-D35E.d35ecustom .pick-up-stix.container-config-sheet input[type=text]:hover, .system-D35E.d35ecustom .pick-up-stix.container-config-sheet textarea:hover {
-  border: 1px solid #2C606D !important;
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet input[type=text]:hover,
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet textarea:hover {
+  border: 1px solid #2c606d !important;
   box-shadow: 0 0 8px #4d8d9d;
 }
-.system-D35E.d35ecustom .pick-up-stix.container-config-sheet input[type=text]:focus, .system-D35E.d35ecustom .pick-up-stix.container-config-sheet textarea:focus {
-  border: 1px solid #2C606D !important;
-  box-shadow: 0 0 8px #2C606D;
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet input[type=text]:focus,
+.system-D35E.d35ecustom .pick-up-stix.container-config-sheet textarea:focus {
+  border: 1px solid #2c606d !important;
+  box-shadow: 0 0 8px #2c606d;
 }
 .system-D35E.d35ecustom .pick-up-stix.container-config-sheet .header-details {
   border-left: none;
@@ -432,7 +436,7 @@ span.pick-up-stix-chat-currency.cp {
   border-radius: 2px;
 }
 .system-D35E.d35ecustom .container-sound-config-sheet {
-  border: 8px solid #55493B;
+  border: 8px solid #55493b;
   border-image: url(/systems/D35E/icons/ui/dialog-frame.png) 30 round;
   background: url(/systems/D35E/icons/ui/sidebar-bg.png);
   border-radius: 0;

@@ -5,7 +5,7 @@ import { PICK_UP_STIX_ITEM_ID_FLAG, PICK_UP_STIX_MODULE_NAME } from "../settings
 export const deleteTokenHook = async (scene, tokenData, options, userId) => {
     log(` deleteTokenHook:`);
     log([scene, tokenData, options, userId]);
-    const removed = lootTokens.findSplice((lt) => lt.sceneId === scene.id && lt.tokenId === tokenData._id);
+    const removed = (lootTokens.findSplice((lt) => lt.sceneId === scene.id && lt.tokenId === tokenData._id));
     if (!removed) {
         return;
     }

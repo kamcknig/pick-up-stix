@@ -1,7 +1,7 @@
 import { log } from '../../main';
-import { amIFirstGm } from "../utils";
-import { ItemFlags, LootToken } from "../loot-token";
-import { getLootToken, updateToken } from "../mainEntry";
+import { amIFirstGm } from '../utils';
+import { ItemFlags, LootToken } from '../loot-token';
+import { getLootToken, updateToken } from '../mainEntry';
 import { getCanvas, getGame } from '../settings';
 
 export const updateItemHook = async (item, data, options, userId) => {
@@ -18,25 +18,24 @@ export const updateItemHook = async (item, data, options, userId) => {
   }
 
   const lootTokens = <LootToken[]>getLootToken({ itemId: item.id });
- 
-  for (let lt of lootTokens) { 
-    let updates:Record<string, unknown>[] = [];
-    const update:Record<string, unknown> = 
-    {
+
+  for (let lt of lootTokens) {
+    let updates: Record<string, unknown>[] = [];
+    const update: Record<string, unknown> = {
       id: <string>lt.tokenId,
       width: <number>itemFlags?.tokenData?.width ?? 1,
       height: <number>itemFlags?.tokenData?.height ?? 1,
       name: <string>item.data.name,
-      img: itemFlags.container !== undefined
-        ? (lt.isOpen
-          ? <string>itemFlags.container.imageOpenPath
-          : <string>itemFlags.container.imageClosePath
-        )
-        : <string>item.data.img
+      img:
+        itemFlags.container !== undefined
+          ? lt.isOpen
+            ? <string>itemFlags.container.imageOpenPath
+            : <string>itemFlags.container.imageClosePath
+          : <string>item.data.img,
     };
     updates.push(update);
-    let token = <Token>getCanvas().tokens?.get( lt.tokenId);
-    token.document.updateEmbeddedDocuments(token.document.documentName, updates)
+    let token = <Token>getCanvas().tokens?.get(lt.tokenId);
+    token.document.updateEmbeddedDocuments(token.document.documentName, updates);
   }
   // getCanvas().tokens?.updateAll(updates);
-}
+};

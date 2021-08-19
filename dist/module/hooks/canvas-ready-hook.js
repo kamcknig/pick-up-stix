@@ -30,14 +30,14 @@ export const CanvasPrototypeOnDropHandler = function (wrapper, ...args) {
 const dropCanvasHandler = async (canvas, dropData) => {
     log(` dropCanvasData | called with args:`);
     log(canvas, dropData);
-    if (dropData.type === "Item") {
+    if (dropData.type === 'Item') {
         handleItemDropped(await normalizeDropData(dropData));
     }
 };
 export const canvasReadyHook = async (canvas) => {
     log(` canvasReadyHook`);
     log([canvas]);
-    for (let token of getCanvas().tokens?.placeables?.filter(p => p instanceof Token)) {
+    for (let token of getCanvas().tokens?.placeables?.filter((p) => p instanceof Token)) {
         const tokenFlags = token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
         if (!tokenFlags?.itemId) {
             continue;
@@ -49,8 +49,8 @@ export const canvasReadyHook = async (canvas) => {
         }
         lootToken?.activateListeners();
     }
-    Hooks.off('dropCanvasData', dropCanvasHandler);
-    Hooks.on('dropCanvasData', dropCanvasHandler);
+    //Hooks.off('dropCanvasData', dropCanvasHandler);
+    //Hooks.on('dropCanvasData', dropCanvasHandler);
 };
 
 //# sourceMappingURL=../../maps/module/hooks/canvas-ready-hook.js.map

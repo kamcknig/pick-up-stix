@@ -32,10 +32,11 @@ export function getCanvas() {
  */
 export function getGame() {
     if (!(game instanceof Game)) {
-        throw new Error("Game Is Not Initialized");
+        throw new Error('Game Is Not Initialized');
     }
     return game;
 }
+// eslint-disable-next-line no-shadow
 export var SettingKeys;
 (function (SettingKeys) {
     SettingKeys["openImagePath"] = "default-container-opened-image-path";
@@ -54,9 +55,7 @@ export var SettingKeys;
     SettingKeys["enableLootTokenPerceiveReveal"] = "enableLootTokenPerceiveReveal";
     SettingKeys["defaultMinimumPerceiveValue"] = "defaultMinimumPerceiveValue";
 })(SettingKeys || (SettingKeys = {}));
-const systemCurrenciesImplemented = [
-    'dnd5e', 'D35E'
-];
+const systemCurrenciesImplemented = ['dnd5e', 'D35E'];
 export const gmActionTimeout = (multiplier = 1000) => {
     return (getGame().settings?.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.GMActionTimeout) ?? 2) * multiplier;
 };
@@ -81,7 +80,7 @@ const registerHiddenSettings = () => {
         scope: 'world',
         type: Number,
         default: 2,
-        config: false
+        config: false,
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.version13updatemessage, {
         name: 'Version 13 Update Message',
@@ -89,7 +88,7 @@ const registerHiddenSettings = () => {
         scope: 'world',
         config: false,
         type: Boolean,
-        default: false
+        default: false,
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.version, {
         name: 'Version',
@@ -97,28 +96,28 @@ const registerHiddenSettings = () => {
         scope: 'world',
         config: false,
         type: String,
-        default: '0.0.0'
+        default: '0.0.0',
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.parentItemFolderId, {
         name: 'Parent Item Folder ID',
         hint: 'The folder ID of the main Pick-Up-Stix folder in the Items Directory',
         scope: 'world',
         config: false,
-        type: String
+        type: String,
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId, {
         name: 'Items Folder ID',
         hint: 'The Folder ID of the sub folder to hold templates for loot',
         scope: 'world',
         config: false,
-        type: String
+        type: String,
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.tokenFolderId, {
         name: 'Tokens folder ID',
         hint: 'The Folder ID of the sub folder to hold Items representing tokens',
         scope: 'world',
         config: false,
-        type: String
+        type: String,
     });
 };
 const registerWorldSettings = () => {
@@ -128,7 +127,7 @@ const registerWorldSettings = () => {
         scope: 'world',
         config: getGame().system.id === 'dnd5e',
         type: Boolean,
-        default: false
+        default: false,
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultMinimumPerceiveValue, {
         name: 'Minimum Perceive Value',
@@ -136,7 +135,7 @@ const registerWorldSettings = () => {
         scope: 'world',
         config: getGame().system.id === 'dnd5e',
         type: Number,
-        default: 10
+        default: 10,
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.openImagePath, {
         name: 'Default Container Opened Image',
@@ -145,7 +144,7 @@ const registerWorldSettings = () => {
         config: true,
         //@ts-ignore
         type: ImagePicker.Img,
-        default: 'modules/pick-up-stix/assets/chest-opened.png'
+        default: 'modules/pick-up-stix/assets/chest-opened.png',
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.closeImagePath, {
         name: 'Default Container Closed Image',
@@ -154,7 +153,7 @@ const registerWorldSettings = () => {
         config: true,
         //@ts-ignore
         type: ImagePicker.Img,
-        default: 'modules/pick-up-stix/assets/chest-closed.png'
+        default: 'modules/pick-up-stix/assets/chest-closed.png',
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.disableCurrencyLoot, {
         name: 'Disable Currency Loot',
@@ -162,7 +161,7 @@ const registerWorldSettings = () => {
         scope: 'world',
         config: true,
         type: Boolean,
-        default: !systemCurrenciesImplemented.includes(getGame().system.id)
+        default: !systemCurrenciesImplemented.includes(getGame().system.id),
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerOpenSound, {
         name: 'Default Container Open Sound',
@@ -171,7 +170,7 @@ const registerWorldSettings = () => {
         //@ts-ignore
         type: SoundPicker.Sound,
         config: true,
-        default: ''
+        default: '',
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerCloseSound, {
         name: 'Default Container Close Sound',
@@ -180,7 +179,7 @@ const registerWorldSettings = () => {
         //@ts-ignore
         type: SoundPicker.Sound,
         config: true,
-        default: ''
+        default: '',
     });
     getGame().settings.register(PICK_UP_STIX_MODULE_NAME, SettingKeys.addItemOnContainerCreation, {
         name: 'Auto-add Item',
@@ -188,10 +187,11 @@ const registerWorldSettings = () => {
         scope: 'world',
         config: true,
         type: Boolean,
-        default: true
+        default: true,
     });
 };
 const registerClientSettings = () => {
+    registerSettings();
 };
 // export function processHtml(html) {
 // 	$(html)

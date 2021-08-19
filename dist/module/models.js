@@ -3,7 +3,7 @@ export const PickUpStixHooks = {
     currencyLooted: 'pick-up-stix.currencyLooted',
     itemCollected: 'pick-up-stix.itemCollected',
     lootTokenCreated: 'pick-up-stix.lootTokenCreated',
-    itemDroppedOnToken: 'pick-up-stix.itemDroppedOnToken'
+    itemDroppedOnToken: 'pick-up-stix.itemDroppedOnToken',
 };
 export var SocketMessageType;
 (function (SocketMessageType) {

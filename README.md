@@ -136,6 +136,14 @@ npm run-script lintfix
 npm run-script prettier-format
 ```
 
+### package
+
+`package` generates a zip file containing the contents of the dist folder generated previously with the `build` command. Useful for those who want to manually load the module or want to create their own release
+
+```bash
+npm run-script package
+```
+
 ## [Changelog](./changelog.md)
 
 ## Issues

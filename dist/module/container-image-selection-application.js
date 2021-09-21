@@ -70,5 +70,3 @@ export default class ContainerImageSelectionApplication extends FormApplication 
         });
     }
 }
-
-//# sourceMappingURL=../maps/module/container-image-selection-application.js.map

@@ -25,5 +25,3 @@ export const renderItemDirectoryHook = async (directory, html, options) => {
         }
     });
 };
-
-//# sourceMappingURL=../../maps/module/hooks/render-item-directory-hook.js.map

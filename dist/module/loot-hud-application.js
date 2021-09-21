@@ -96,5 +96,3 @@ export class LootHud extends BasePlaceableHUD {
         return data;
     }
 }
-
-//# sourceMappingURL=../maps/module/loot-hud-application.js.map

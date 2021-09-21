@@ -387,5 +387,3 @@ export class LootToken {
         return this._itemId;
     }
 }
-
-//# sourceMappingURL=../maps/module/loot-token.js.map

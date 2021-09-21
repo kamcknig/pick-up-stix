@@ -63,7 +63,7 @@ export function onChangeInputDelta(event) {
     const input = event.target;
     const value = input.value;
     if (['+', '-'].includes(value[0])) {
-        let delta = parseFloat(value);
+        const delta = parseFloat(value);
         input.value = Math.max(+getProperty(this, input.name) + +delta, 0);
     }
     else if (value[0] === '=') {
@@ -172,5 +172,3 @@ export const canSeeLootToken = (token) => {
 export const initiateRecord = function (enumX, defaultValue) {
     return Object.assign({}, ...Object.keys(enumX).map((x) => ({ [x]: defaultValue })));
 };
-
-//# sourceMappingURL=../maps/module/utils.js.map

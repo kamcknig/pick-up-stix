@@ -227,5 +227,3 @@ const registerClientSettings = () => {
 // 			$(this).parent().append(pickerButton);
 // 		})
 // }
-
-//# sourceMappingURL=../maps/module/settings.js.map

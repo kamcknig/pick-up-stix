@@ -43,23 +43,23 @@ class DirectoryPicker extends FilePicker {
   // parses the string back to something the FilePicker can understand as an option
   static parse(inStr) {
     const str = inStr ?? '';
-    let matches = str.match(/\[(.+)\]\s*(.+)?/u);
+    const matches = str.match(/\[(.+)\]\s*(.+)?/u);
 
     if (matches) {
-      let [, source, current = ''] = matches;
-      current = current.trim();
+      const [, source, current = ''] = matches;
+      // current = current.trim();
       const [s3, bucket] = source.split(':');
       if (bucket !== undefined) {
         return {
           activeSource: s3,
           bucket: bucket,
-          current: current,
+          current: current.trim(),
         };
       } else {
         return {
           activeSource: s3,
           bucket: null,
-          current: current,
+          current: current.trim(),
         };
       }
     }
@@ -72,7 +72,7 @@ class DirectoryPicker extends FilePicker {
   }
 
   static extractUrl(str) {
-    let options = DirectoryPicker.parse(str);
+    const options = DirectoryPicker.parse(str);
     if (options.activeSource === 'data' || options.activeSource === 'public') {
       return undefined;
     } else {
@@ -89,11 +89,11 @@ class DirectoryPicker extends FilePicker {
 
         if (!$(element).next().length) {
           logger.debug('Adding Picker Button');
-          let picker = new DirectoryPicker({
+          const picker = new DirectoryPicker({
             field: $(element)[0],
             ...DirectoryPicker.parse($(element).val()),
           });
-          let pickerButton = $(
+          const pickerButton = $(
             '<button type="button" class="file-picker" data-type="imagevideo" data-target="img" title="Pick directory"><i class="fas fa-file-import fa-fw"></i></button>',
           );
           pickerButton.on('click', () => {

@@ -13,5 +13,3 @@ export const deleteItemHook = async (item, options, userId) => {
         await deleteToken(lootToken.tokenId, lootToken.sceneId);
     }
 };
-
-//# sourceMappingURL=../../maps/module/hooks/delete-item-hook.js.map

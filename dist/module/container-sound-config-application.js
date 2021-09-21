@@ -58,5 +58,3 @@ export class ContainerSoundConfig extends FormApplication {
         return data;
     }
 }
-
-//# sourceMappingURL=../maps/module/container-sound-config-application.js.map

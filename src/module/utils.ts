@@ -46,7 +46,7 @@ export const getCurrencyTypes = (): { [short: string]: string } => {
   };
 };
 
-export const versionDiff = (v1: string = '0.0.0', v2: string = '0.0.0'): number => {
+export const versionDiff = (v1 = '0.0.0', v2 = '0.0.0'): number => {
   const v1Parts: number[] = v1.split('.').map((v) => Number(v));
   const v2Parts: number[] = v2.split('.').map((v) => Number(v));
 
@@ -74,7 +74,7 @@ export function onChangeInputDelta(event) {
   const input = event.target;
   const value = input.value;
   if (['+', '-'].includes(value[0])) {
-    let delta = parseFloat(value);
+    const delta = parseFloat(value);
     input.value = Math.max(+getProperty(this, input.name) + +delta, 0);
   } else if (value[0] === '=') {
     input.value = Math.max(+value.slice(1), 0);
@@ -184,7 +184,7 @@ export const firstGM = () => {
 };
 
 export class Util {
-  static joinStrings(arr: string[], separator: string = ':') {
+  static joinStrings(arr: string[], separator = ':') {
     if (arr.length === 0) return '';
     return arr.reduce((v1, v2) => `${v1}${separator}${v2}`);
   }

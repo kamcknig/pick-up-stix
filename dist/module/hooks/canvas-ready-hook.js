@@ -52,5 +52,3 @@ export const canvasReadyHook = async (canvas) => {
     //Hooks.off('dropCanvasData', dropCanvasHandler);
     //Hooks.on('dropCanvasData', dropCanvasHandler);
 };
-
-//# sourceMappingURL=../../maps/module/hooks/canvas-ready-hook.js.map

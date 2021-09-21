@@ -46,5 +46,3 @@ export const preUpdateTokenHook = async (scene, tokenData, updates, options, use
     }
     return false;
 };
-
-//# sourceMappingURL=../../maps/module/hooks/pre-update-token-hook.js.map

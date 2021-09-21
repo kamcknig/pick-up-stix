@@ -49,7 +49,7 @@ import {
 } from './settings.js';
 import { amIFirstGm, canSeeLootToken, versionDiff } from './utils.js';
 
-export let readyHooks = async () => {
+export const readyHooks = async () => {
   log(' ready once hook');
 
   if (getGame().system.id === 'dnd5e') {
@@ -116,12 +116,12 @@ export let readyHooks = async () => {
   if (amIFirstGm()) {
     await createDefaultFolders();
   }
-  let scenes = getGame().scenes || [];
-  for (let el of scenes) {
+  const scenes = getGame().scenes || [];
+  for (const el of scenes) {
     // Scene.collection
     let scene = el as unknown as Scene;
     let tokens = scene.getEmbeddedCollection('Token');
-    for (let token of tokens) {
+    for (const token of tokens) {
       //const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
       const tokenFlags: TokenFlags = token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
       if (!tokenFlags) {
@@ -138,14 +138,15 @@ export let readyHooks = async () => {
 
     scene = <Scene>getGame().scenes?.active;
     tokens = scene.getEmbeddedCollection('Token');
-    for (let token of tokens) {
-      const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
+    for (const token of tokens) {
+      //const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
+      const tokenFlags: TokenFlags = token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
       if (!tokenFlags) {
         continue;
       }
 
-      let lootTokens = getLootToken({ itemId: tokenFlags?.itemId, tokenId: <string>token.id });
-      for (let lt of lootTokens) {
+      const lootTokens = getLootToken({ itemId: tokenFlags?.itemId, tokenId: <string>token.id });
+      for (const lt of lootTokens) {
         if (tokenFlags.isLocked) {
           lt.drawLock();
         }
@@ -154,7 +155,7 @@ export let readyHooks = async () => {
     }
   }
   const items = <IterableIterator<Item>>getGame().items?.values();
-  for (let item of items) {
+  for (const item of items) {
     //if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
     if ((<ItemFlags>item.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG))?.itemType === ItemType.CONTAINER) {
       item.data.type = ItemType.CONTAINER;
@@ -178,7 +179,7 @@ export let readyHooks = async () => {
 	else {
 		log(` readyHook | current version ${activeVersion} the same as the previous version ${previousVersion}`);
 	}
-	
+
 	const el = document.createElement('div');
 	el.innerHTML = `<p>I have made some improvements that should hopefully speed up the module but want to point out a few changes</p>
 	<p>First off you'll notice new Item folders have been created. A parent folder named <strong>Pick-Up-Stix</strong>

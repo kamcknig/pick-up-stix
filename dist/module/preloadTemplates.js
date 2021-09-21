@@ -11,5 +11,3 @@ export const preloadTemplates = async function () {
     ];
     return loadTemplates(templatePaths);
 };
-
-//# sourceMappingURL=../maps/module/preloadTemplates.js.map

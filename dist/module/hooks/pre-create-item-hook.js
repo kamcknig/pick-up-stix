@@ -46,5 +46,3 @@ export async function preCreateItemHook(itemData, options = {}, userId) {
     log(` preCreateItemHook | final data:`);
     log(itemData);
 }
-
-//# sourceMappingURL=../../maps/module/hooks/pre-create-item-hook.js.map

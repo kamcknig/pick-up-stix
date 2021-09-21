@@ -15,5 +15,3 @@ export const lootTokenCreatedHook = async (tokenId) => {
         lootToken?.activateListeners();
     }
 };
-
-//# sourceMappingURL=../../maps/module/hooks/loot-token-created-hook.js.map

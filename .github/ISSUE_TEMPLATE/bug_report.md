@@ -1,11 +1,13 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: ''
-labels: ''
+title: "[BUG]"
+labels: bug
 assignees: ''
 
 ---
+
+**Module Version:** v0.0.0
 
 **Describe the bug**
 A clear and concise description of what the bug is.
@@ -23,8 +25,12 @@ A clear and concise description of what you expected to happen.
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
 
-**Foundry Version**
-Version of Foundry being used
+**Browser:**
+ - 
 
-**Pick-Up-Stix Version**
-Version of Pick-Up-Stix module installed
+**Foundry Version:** 
+
+**Game System:** 
+
+**Additional context**
+Add any other context (like other modules installed) about the problem here.

@@ -34,5 +34,3 @@ export class LootEmitLightConfigApplication extends FormApplication {
         });
     }
 }
-
-//# sourceMappingURL=../maps/module/loot-emit-light-config-application.js.map

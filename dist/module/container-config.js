@@ -382,5 +382,3 @@ export default class ContainerConfigApplication extends FormApplication {
         $(this._html).parents('#pick-up-stix-item-config').children().first().before(this._stopperElement);
     }
 }
-
-//# sourceMappingURL=../maps/module/container-config.js.map

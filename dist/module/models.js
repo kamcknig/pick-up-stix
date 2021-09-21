@@ -33,5 +33,3 @@ export var ItemType;
     ItemType["ITEM"] = "item";
     ItemType["CONTAINER"] = "container";
 })(ItemType || (ItemType = {}));
-
-//# sourceMappingURL=../maps/module/models.js.map

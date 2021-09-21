@@ -22,5 +22,3 @@ export const createActorHook = async (actor, userId) => {
     }
     await updateOwnedItem(actor.id, updates);
 };
-
-//# sourceMappingURL=../../maps/module/hooks/create-actor-hook.js.map

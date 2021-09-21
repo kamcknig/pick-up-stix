@@ -12,5 +12,3 @@ export const preUpdateItemHook = async (item, data, options, userId) => {
         setProperty(data, 'flags.pick-up-stix.pick-up-stix.tokenData.img', data.img);
     }
 };
-
-//# sourceMappingURL=../../maps/module/hooks/pre-update-item-hook.js.map

@@ -78,5 +78,3 @@ Hooks.once('ready', () => {
     readyHooks();
 });
 // Add any additional hooks if necessary
-
-//# sourceMappingURL=maps/main.js.map

@@ -152,10 +152,10 @@ const dropItemOnCanvas = async ({ dropData }) => {
   log(` dropItemOnCanvas:`);
   log([dropData]);
 
-  let itemData: any = duplicate(dropData.data);
-  let lootTokens: LootToken[] = getLootToken({ itemId: itemData._id });
+  const itemData: any = duplicate(dropData.data);
+  const lootTokens: LootToken[] = getLootToken({ itemId: itemData._id });
 
-  let tokenData: TokenData = mergeObject(
+  const tokenData: TokenData = mergeObject(
     {
       name: itemData.name,
       disposition: 0,
@@ -337,7 +337,7 @@ export const makeContainerApi = async (
   log(` makeContainerApi:`);
   log([items, currency, position]);
 
-  let lootData = {};
+  const lootData = {};
 
   items.forEach((item) => {
     mergeObject(item, {
@@ -360,7 +360,7 @@ export const makeContainerApi = async (
     }
   });
 
-  let tokenData: TokenData = {
+  const tokenData: TokenData = {
     name: 'Container',
     disposition: 0,
     img: '',
@@ -451,7 +451,7 @@ const chooseLootTokenType = (): Promise<ItemType> => {
   });
 };
 
-export const createLootToken: CreateLootToken = async (tokenData: any, itemData: any, notify: boolean = true) => {
+export const createLootToken: CreateLootToken = async (tokenData: any, itemData: any, notify = true) => {
   log(` createLootToken:`);
   log([tokenData, itemData, notify]);
 
@@ -505,7 +505,7 @@ export const deleteToken = async (tokenId: string, sceneId: string): Promise<str
   if (getGame().user?.isGM) {
     log(` deleteToken | user is GM, deleting token '${tokenId}' from scene '${sceneId}'`);
     const scene = getGame().scenes?.get(sceneId); //Scene.collection.get(sceneId);
-    let array = [tokenId];
+    const array = [tokenId];
     //@ts-ignore
     const _id = <string>(<Document<any, any>[]>await scene?.deleteEmbeddedDocuments('Token', array))[0].id;
     return _id;
@@ -547,8 +547,8 @@ export async function updateToken(
   if (getGame().user?.isGM) {
     log(` updateToken | user is GM, making update`);
     const scene = getGame().scenes?.get(sceneId); //Scene.collection.get(sceneId);
-    let record: Record<string, unknown> = initiateRecord<unknown>(updates, null);
-    let array = [record];
+    const record: Record<string, unknown> = initiateRecord<unknown>(updates, null);
+    const array = [record];
     //@ts-ignore
     const _id = <string>(<Document<any, any>[]>await scene?.updateEmbeddedDocuments('Token', array))[0].id;
     return { tokenId: _id, sceneId: sceneId };
@@ -1291,8 +1291,8 @@ export const lootItem: LootItemFunction = async (data: any): Promise<boolean> =>
       );
       const sourceLoot: ContainerLoot = <ContainerLoot>containerItemFlags?.container?.loot;
 
-      for (let [itemType, itemsOfType] of Object.entries(sourceLoot)) {
-        for (let itemData of itemsOfType) {
+      for (const [itemType, itemsOfType] of Object.entries(sourceLoot)) {
+        for (const itemData of itemsOfType) {
           if (qtyLootedById[itemData._id] === undefined) {
             continue;
           }
@@ -1390,7 +1390,7 @@ export const currencyCollected = async (token, currency) => {
   Object.entries(currency).forEach(([k, v]) => {
     chatContent += `<span class="pick-up-stix-chat-currency ${k}"></span><span>(${k}) ${v}</span><br />`;
   });
-  let content = `<p>Picked up:</p>${chatContent}`;
+  const content = `<p>Picked up:</p>${chatContent}`;
   await ChatMessage.create({
     content,
     speaker: {

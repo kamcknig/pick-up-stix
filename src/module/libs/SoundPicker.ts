@@ -43,22 +43,22 @@ class SoundPicker extends FilePicker {
   // parses the string back to something the FilePicker can understand as an option
   static parse(inStr) {
     const str = inStr ?? '';
-    let matches = str.match(/\[(.+)\]\s*(.+)?/u);
+    const matches = str.match(/\[(.+)\]\s*(.+)?/u);
     if (matches) {
-      let [, source, current = ''] = matches;
-      current = current.trim();
+      const  [, source, current = ''] = matches;
+      //current = current.trim();
       const [s3, bucket] = source.split(':');
       if (bucket !== undefined) {
         return {
           activeSource: s3,
           bucket: bucket,
-          current: current,
+          current: current.trim(),
         };
       } else {
         return {
           activeSource: s3,
           bucket: null,
-          current: current,
+          current: current.trim(),
         };
       }
     }
@@ -78,13 +78,13 @@ class SoundPicker extends FilePicker {
         $(element).prop('readonly', true);
 
         if (!$(element).next().length) {
-          let picker = new SoundPicker({
+          const picker = new SoundPicker({
             field: $(element)[0],
             //@ts-ignore
             ...SoundPicker.parse(this.value),
           });
           // data-type="sound" data-target="sound"
-          let pickerButton = $(
+          const pickerButton = $(
             '<button type="button" class="file-picker" title="Pick sound"><i class="fas fa-file-import fa-fw"></i></button>',
           );
           pickerButton.on('click', () => {

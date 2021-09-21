@@ -99,9 +99,9 @@ export async function handleItemDropped(dropData) {
 const dropItemOnCanvas = async ({ dropData }) => {
     log(` dropItemOnCanvas:`);
     log([dropData]);
-    let itemData = duplicate(dropData.data);
-    let lootTokens = getLootToken({ itemId: itemData._id });
-    let tokenData = mergeObject({
+    const itemData = duplicate(dropData.data);
+    const lootTokens = getLootToken({ itemId: itemData._id });
+    const tokenData = mergeObject({
         name: itemData.name,
         disposition: 0,
         img: itemData.img,
@@ -243,7 +243,7 @@ const dropItemOnCanvas = async ({ dropData }) => {
 export const makeContainerApi = async (items, currency, position, tokenDataOverride = { width: 1, height: 1, closeImg: '', openImg: '' }) => {
     log(` makeContainerApi:`);
     log([items, currency, position]);
-    let lootData = {};
+    const lootData = {};
     items.forEach((item) => {
         mergeObject(item, {
             flags: {
@@ -264,7 +264,7 @@ export const makeContainerApi = async (items, currency, position, tokenDataOverr
             lootData[item.data.type] = [item.data];
         }
     });
-    let tokenData = {
+    const tokenData = {
         name: 'Container',
         disposition: 0,
         img: '',
@@ -390,7 +390,7 @@ export const deleteToken = async (tokenId, sceneId) => {
     if (getGame().user?.isGM) {
         log(` deleteToken | user is GM, deleting token '${tokenId}' from scene '${sceneId}'`);
         const scene = getGame().scenes?.get(sceneId); //Scene.collection.get(sceneId);
-        let array = [tokenId];
+        const array = [tokenId];
         //@ts-ignore
         const _id = (await scene?.deleteEmbeddedDocuments('Token', array))[0].id;
         return _id;
@@ -423,8 +423,8 @@ export async function updateToken(sceneId, updates) {
     if (getGame().user?.isGM) {
         log(` updateToken | user is GM, making update`);
         const scene = getGame().scenes?.get(sceneId); //Scene.collection.get(sceneId);
-        let record = initiateRecord(updates, null);
-        let array = [record];
+        const record = initiateRecord(updates, null);
+        const array = [record];
         //@ts-ignore
         const _id = (await scene?.updateEmbeddedDocuments('Token', array))[0].id;
         return { tokenId: _id, sceneId: sceneId };
@@ -985,8 +985,8 @@ export const lootItem = async (data) => {
             const containerItem = getGame().items?.get(data.containerItemId);
             const containerItemFlags = (duplicate(containerItem?.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG) ?? {}));
             const sourceLoot = containerItemFlags?.container?.loot;
-            for (let [itemType, itemsOfType] of Object.entries(sourceLoot)) {
-                for (let itemData of itemsOfType) {
+            for (const [itemType, itemsOfType] of Object.entries(sourceLoot)) {
+                for (const itemData of itemsOfType) {
                     if (qtyLootedById[itemData._id] === undefined) {
                         continue;
                     }
@@ -1065,7 +1065,7 @@ export const currencyCollected = async (token, currency) => {
     Object.entries(currency).forEach(([k, v]) => {
         chatContent += `<span class="pick-up-stix-chat-currency ${k}"></span><span>(${k}) ${v}</span><br />`;
     });
-    let content = `<p>Picked up:</p>${chatContent}`;
+    const content = `<p>Picked up:</p>${chatContent}`;
     await ChatMessage.create({
         content,
         speaker: {
@@ -1090,5 +1090,3 @@ export const createItemCollectedChatMessage = async (token, item) => {
         },
     });
 };
-
-//# sourceMappingURL=../maps/module/mainEntry.js.map

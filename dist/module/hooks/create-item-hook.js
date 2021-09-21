@@ -10,5 +10,3 @@ export async function createItemHook(item, options, userId) {
         item.data.type = 'container';
     }
 }
-
-//# sourceMappingURL=../../maps/module/hooks/create-item-hook.js.map

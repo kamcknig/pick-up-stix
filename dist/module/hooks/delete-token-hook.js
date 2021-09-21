@@ -26,5 +26,3 @@ export const deleteTokenHook = async (scene, tokenData, options, userId) => {
         }
     }
 };
-
-//# sourceMappingURL=../../maps/module/hooks/delete-token-hook.js.map

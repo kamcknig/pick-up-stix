@@ -32,5 +32,3 @@ export const updateItemHook = async (item, data, options, userId) => {
     }
     // getCanvas().tokens?.updateAll(updates);
 };
-
-//# sourceMappingURL=../../maps/module/hooks/update-item-hook.js.map

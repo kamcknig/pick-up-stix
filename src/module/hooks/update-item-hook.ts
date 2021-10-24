@@ -2,13 +2,13 @@ import { log } from '../../main';
 import { amIFirstGm } from '../utils';
 import { ItemFlags, LootToken } from '../loot-token';
 import { getLootToken, updateToken } from '../mainEntry';
-import { getCanvas, getGame } from '../settings';
+import { getCanvas, getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';
 
 export const updateItemHook = async (item, data, options, userId) => {
   log(` updateItemHook`);
   log([item, data, options, userId]);
 
-  const itemFlags: ItemFlags = item.getFlag('pick-up-stix', 'pick-up-stix');
+  const itemFlags: ItemFlags = item.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
   log(` updateItemHook | itemFlags:`);
   log([itemFlags]);
 
@@ -19,8 +19,8 @@ export const updateItemHook = async (item, data, options, userId) => {
 
   const lootTokens = <LootToken[]>getLootToken({ itemId: item.id });
 
-  for (let lt of lootTokens) {
-    let updates: Record<string, unknown>[] = [];
+  for (const lt of lootTokens) {
+    const updates: Record<string, unknown>[] = [];
     const update: Record<string, unknown> = {
       id: <string>lt.tokenId,
       width: <number>itemFlags?.tokenData?.width ?? 1,
@@ -34,7 +34,7 @@ export const updateItemHook = async (item, data, options, userId) => {
           : <string>item.data.img,
     };
     updates.push(update);
-    let token = <Token>getCanvas().tokens?.get(lt.tokenId);
+    const token = <Token>getCanvas().tokens?.get(lt.tokenId);
     token.document.updateEmbeddedDocuments(token.document.documentName, updates);
   }
   // getCanvas().tokens?.updateAll(updates);

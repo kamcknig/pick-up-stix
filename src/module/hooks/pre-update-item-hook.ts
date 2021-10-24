@@ -3,7 +3,7 @@ import { ItemFlags } from '../loot-token';
 import { ItemType } from '../models';
 import { PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';
 
-export const preUpdateItemHook = async (item, data, options, userId) => {
+export const preUpdateItemHook = async (item:Item, data, options, userId) => {
   log(` preUpdateItemHook:`);
   log([item, data, options, userId]);
 

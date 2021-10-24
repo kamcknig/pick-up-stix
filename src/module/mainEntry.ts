@@ -935,7 +935,7 @@ export const dropItemOnToken = async ({
   }
 
   const targetToken: Token = <Token>getCanvas().tokens?.placeables.find((p) => p.id === targetTokenId);
-  const targetTokenFlags: TokenFlags = <TokenFlags>targetToken.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
+  const targetTokenFlags: TokenFlags = <TokenFlags>targetToken.document.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
   const targetTokenItem = getGame().items?.get(<string>targetTokenFlags?.itemId);
   const targetTokenItemFlags: ItemFlags = <ItemFlags>(
     targetTokenItem?.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG)

@@ -1,10 +1,13 @@
 // import * as Module from "module";
 // import { DND5E } from "../../../systems/dnd5e/module/config.js";
 //@ts-ignore
+import { AnyDocumentData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/data.mjs';
+import EmbeddedCollection from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/embedded-collection.mjs';
+import { DocumentConstructor } from '@league-of-foundry-developers/foundry-vtt-types/src/types/helperTypes';
 import ItemSheet5e from '../../../systems/dnd5e/module/item/sheet.js';
 import { error, log, warn } from '../main.js';
 import ContainerConfigApplication from './container-config.js';
-import { CanvasPrototypeOnDropHandler, canvasReadyHook } from './hooks/canvas-ready-hook.js';
+import { CanvasPrototypeOnDropHandler, canvasReadyHook, dropCanvasHandler } from './hooks/canvas-ready-hook.js';
 import { createActorHook } from './hooks/create-actor-hook.js';
 import { createItemHook } from './hooks/create-item-hook.js';
 import { deleteItemHook } from './hooks/delete-item-hook.js';
@@ -103,7 +106,7 @@ export const readyHooks = async () => {
   for (const el of scenes) {
     // Scene.collection
     let scene = el as unknown as Scene;
-    let tokens = scene.getEmbeddedCollection('Token');
+    let tokens = <EmbeddedCollection<DocumentConstructor, AnyDocumentData>>scene.getEmbeddedCollection('Token');
     for (const token of tokens) {
       //const tokenFlags: TokenFlags = getProperty(token, 'flags.pick-up-stix.pick-up-stix');
       const tokenFlags: TokenFlags = token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
@@ -234,6 +237,9 @@ export const readyHooks = async () => {
   Hooks.on('renderLootHud', onRenderLootHud);
 
   Hooks.on(PickUpStixHooks.lootTokenCreated, lootTokenCreatedHook);
+
+  Hooks.off('dropCanvasData', dropCanvasHandler);
+  Hooks.on('dropCanvasData', dropCanvasHandler);
 };
 
 export const setupHooks = async () => {
@@ -249,7 +255,7 @@ export const initHooks = async () => {
 
   CONFIG.debug.hooks = true;
   // CONFIG.debug['pickUpStix'] = true;
-  
+
   if(getGame().system.id == "dnd5e"){
     //@ts-ignore
     Items.registerSheet(getGame().system.id, Container5eItemSheet, {makeDefault: false, types:[ItemType.CONTAINER]});

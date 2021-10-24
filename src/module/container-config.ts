@@ -257,9 +257,9 @@ export default class ContainerConfigApplication extends FormApplication {
 
     formData = duplicate(formData);
 
-    const token = getCanvas().tokens?.placeables.find((p) => p.id === this._sourceTokenId);
+    const token:Token = <Token>getCanvas().tokens?.placeables.find((p) => p.id === this._sourceTokenId);
 
-    formData.img = <boolean>(<TokenFlags>token?.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG))?.isOpen
+    formData.img = <boolean>(<TokenFlags>token?.document.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG))?.isOpen
       ? containerData?.imageOpenPath
       : containerData?.imageClosePath;
 

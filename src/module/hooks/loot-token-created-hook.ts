@@ -9,7 +9,7 @@ export const lootTokenCreatedHook = async (tokenId) => {
   const token: Token = <Token>getCanvas().tokens?.placeables.find((p) => p.id === tokenId);
 
   if (token) {
-    const itemId = <string>token.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_ITEM_ID_FLAG);
+    const itemId = <string>token.document.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_ITEM_ID_FLAG);
     let lootToken = getLootToken({ itemId: itemId, tokenId })?.[0];
 
     if (!lootToken) {

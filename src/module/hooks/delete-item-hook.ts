@@ -13,7 +13,7 @@ export const deleteItemHook = async (item, options, userId) => {
 
   const lts = getLootToken({ itemId: item.id });
 
-  for (let lootToken of lts) {
+  for (const lootToken of lts) {
     await deleteToken(lootToken.tokenId, lootToken.sceneId);
   }
 };

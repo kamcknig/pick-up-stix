@@ -218,7 +218,7 @@ const registerWorldSettings = () => {
 };
 
 const registerClientSettings = () => {
-  registerSettings();
+  // registerSettings();
 };
 
 // export function processHtml(html) {

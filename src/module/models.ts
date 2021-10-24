@@ -74,4 +74,5 @@ export enum ItemType {
   NONE = 'none',
   ITEM = 'item',
   CONTAINER = 'container',
+  BACKPACK = 'backpack',
 }

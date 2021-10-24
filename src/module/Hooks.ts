@@ -47,6 +47,7 @@ import {
   registerSettings,
   SettingKeys,
 } from './settings.js';
+import { Container5eItemSheet } from './sheet/Container5eItemSheet.js';
 import { amIFirstGm, canSeeLootToken, versionDiff } from './utils.js';
 
 export const readyHooks = async () => {
@@ -83,9 +84,6 @@ export const readyHooks = async () => {
 			`;
       $(html).find('div.item-properties div.form-group').last().after(content);
     });
-
-    //@ts-ignore
-    // Items.registerSheet(getGame().system.id, ItemSheet5e, {makeDefault: false, types:[ItemType.CONTAINER]});
   }
 
   // RMEOVED ON VERSION 2.0.0 (FoundryVTT 0.8.8)
@@ -97,21 +95,6 @@ export const readyHooks = async () => {
   // 	//@ts-ignore
   // 	getGame().modules?.get(PICK_UP_STIX_MODULE_NAME).apis.makeContainer = makeContainerApi;
   // }
-
-  // this adds the 'container' type to the game system's entity types.
-  getGame().system.entityTypes.Item.push(ItemType.CONTAINER);
-
-  // add the default sheet to the container Item type
-  CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
-    'pick-up-stix.ContainerConfigApplication': {
-      label: 'pick-up-stix.ContainerConfigApplication',
-      cls: ContainerConfigApplication,
-      default: true,
-      id: 'pick-up-stix.ContainerConfigApplication',
-    },
-  };
-
-  // CONFIG.Item.typeLabels[ItemType.CONTAINER] = "ITEM.TypeContainer";
 
   if (amIFirstGm()) {
     await createDefaultFolders();
@@ -264,16 +247,28 @@ export const initHooks = async () => {
 
   //Hooks.once('init', initHook);
 
-  // CONFIG.debug.hooks = true;
+  CONFIG.debug.hooks = true;
   // CONFIG.debug['pickUpStix'] = true;
+  
+  if(getGame().system.id == "dnd5e"){
+    //@ts-ignore
+    Items.registerSheet(getGame().system.id, Container5eItemSheet, {makeDefault: false, types:[ItemType.CONTAINER]});
+  }
+  
+  // this adds the 'container' type to the game system's entity types.
+  getGame().system.entityTypes.Item.push(ItemType.CONTAINER);
 
-  // Assign custom classes and constants here
+  // add the default sheet to the container Item type
+  CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
+    'pick-up-stix.ContainerConfigApplication': {
+      label: 'pick-up-stix.ContainerConfigApplication',
+      cls: ContainerConfigApplication,
+      default: true,
+      id: 'pick-up-stix.ContainerConfigApplication',
+    },
+  };
 
-  // Register custom module settings
-  registerSettings();
-
-  // Preload Handlebars templates
-  await preloadTemplates();
+  CONFIG.Item.typeLabels[ItemType.CONTAINER] = 'ITEM.TypeContainer';
 
   // Token.prototype.release = Token_tokenRelease(Token.prototype.release);
 

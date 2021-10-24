@@ -45,7 +45,7 @@ class SoundPicker extends FilePicker {
     const str = inStr ?? '';
     const matches = str.match(/\[(.+)\]\s*(.+)?/u);
     if (matches) {
-      const  [, source, current = ''] = matches;
+      const [, source, current = ''] = matches;
       //current = current.trim();
       const [s3, bucket] = source.split(':');
       if (bucket !== undefined) {

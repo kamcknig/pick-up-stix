@@ -173,7 +173,8 @@ const dropItemOnCanvas = async ({ dropData }) => {
       },
     },
     {
-      ...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData ?? {}),
+      //...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData ?? {}),
+      ...(getProperty(itemData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.tokenData`) ?? {}),
     },
   );
 
@@ -182,8 +183,12 @@ const dropItemOnCanvas = async ({ dropData }) => {
       'pick-up-stix': {
         'pick-up-stix': {
           tokenData: {
-            width: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.width ?? 1,
-            height: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.height ?? 1,
+            // width: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.width ?? 1,
+            // height: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.height ?? 1,
+            width:
+              getProperty(itemData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.tokenData`)?.width ?? 1,
+            height:
+              getProperty(itemData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.tokenData`)?.height ?? 1,
           },
         },
       },
@@ -255,8 +260,14 @@ const dropItemOnCanvas = async ({ dropData }) => {
                 tokenData: mergeObject(
                   {
                     disposition: 0,
-                    width: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.width ?? 1,
-                    height: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.height ?? 1,
+                    // width: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.width ?? 1,
+                    // height: itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData?.height ?? 1,
+                    width:
+                      getProperty(itemData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.tokenData`)
+                        ?.width ?? 1,
+                    height:
+                      getProperty(itemData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.tokenData`)
+                        ?.height ?? 1,
                     name: 'Empty Container',
                     img,
                   },
@@ -935,7 +946,9 @@ export const dropItemOnToken = async ({
   }
 
   const targetToken: Token = <Token>getCanvas().tokens?.placeables.find((p) => p.id === targetTokenId);
-  const targetTokenFlags: TokenFlags = <TokenFlags>targetToken.document.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG);
+  const targetTokenFlags: TokenFlags = <TokenFlags>(
+    targetToken.document.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG)
+  );
   const targetTokenItem = getGame().items?.get(<string>targetTokenFlags?.itemId);
   const targetTokenItemFlags: ItemFlags = <ItemFlags>(
     targetTokenItem?.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG)

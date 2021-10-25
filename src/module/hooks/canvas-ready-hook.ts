@@ -58,6 +58,7 @@ export const canvasReadyHook = async (canvas) => {
     lootToken?.activateListeners();
   }
 
+  // MOVED TO HOOKS
   //Hooks.off('dropCanvasData', dropCanvasHandler);
   //Hooks.on('dropCanvasData', dropCanvasHandler);
 };

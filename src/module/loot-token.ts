@@ -102,7 +102,8 @@ export class LootToken {
   }
 
   get isOpen(): boolean {
-    return this.tokenData?.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.isOpen ?? false;
+    //return this.tokenData?.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.isOpen ?? false;
+    return getProperty(this.tokenData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.isOpen`) ?? false;
   }
 
   get soundClosePath(): string {
@@ -114,7 +115,8 @@ export class LootToken {
   }
 
   get isLocked(): boolean {
-    return this.tokenData?.flags?.['pick-up-stix']?.['pick-up-stix']?.isLocked ?? false;
+    //return this.tokenData?.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.isLocked ?? false;
+    return getProperty(this.tokenData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.isLocked`) ?? false;
   }
 
   get itemType(): ItemType {

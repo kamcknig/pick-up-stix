@@ -18,7 +18,8 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
         name: itemData.name,
         img: itemData.img ?? getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.closeImagePath),
         disposition: 0,
-        ...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData ?? {}),
+        //...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.tokenData ?? {}),
+        ...(getProperty(itemData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.tokenData`) ?? {}),
       },
       container: {
         currency: Object.keys(getCurrencyTypes()).reduce((acc, shortName) => ({ ...acc, [shortName]: 0 }), {}),
@@ -26,7 +27,8 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
         imageClosePath: getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.closeImagePath),
         soundClosePath: getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerCloseSound),
         soundOpenPath: getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.defaultContainerOpenSound),
-        ...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.container ?? {}),
+        //...(itemData.flags?.[PICK_UP_STIX_MODULE_NAME]?.[PICK_UP_STIX_FLAG]?.container ?? {}),
+        ...(getProperty(itemData, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.container`) ?? {}),
       },
       itemType: ItemType.CONTAINER,
     };
@@ -38,7 +40,7 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
       // as the type of this item isn't important, we use the flags itemType property to determine if it's an item or a container
       // anywhere else anyway
       type: getGame().system.entityTypes.Item.includes('backpack') ? 'backpack' : getGame().system.entityTypes.Item[0],
-      folder: itemData.folder || getGame().settings.get('pick-up-stix', SettingKeys.itemFolderId),
+      folder: itemData.folder || getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId),
       img: itemFlags.tokenData.img,
       flags: {
         'pick-up-stix': {

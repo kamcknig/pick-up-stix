@@ -4,9 +4,10 @@
 import { AnyDocumentData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/data.mjs';
 import EmbeddedCollection from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/embedded-collection.mjs';
 import { DocumentConstructor } from '@league-of-foundry-developers/foundry-vtt-types/src/types/helperTypes';
-import ItemSheet5e from '../../../systems/dnd5e/module/item/sheet.js';
+// import ItemSheet5e from '../../../systems/dnd5e/module/item/sheet.js';
 import { error, log, warn } from '../main.js';
 import ContainerConfigApplication from './container-config.js';
+import documentSheetRegistrarInit from './documentSheetRegistrarInit.js';
 import { CanvasPrototypeOnDropHandler, canvasReadyHook, dropCanvasHandler } from './hooks/canvas-ready-hook.js';
 import { createActorHook } from './hooks/create-actor-hook.js';
 import { createItemHook } from './hooks/create-item-hook.js';
@@ -40,6 +41,7 @@ import {
   updateToken,
 } from './mainEntry.js';
 import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from './models.js';
+import preDocumentSheetRegistrarInit from './preDocumentSheetRegistrarInit.js';
 import { preloadTemplates } from './preloadTemplates.js';
 import {
   getCanvas,
@@ -50,12 +52,14 @@ import {
   registerSettings,
   SettingKeys,
 } from './settings.js';
-import { Container5eItemSheet } from './sheet/Container5eItemSheet.js';
+
 import { amIFirstGm, canSeeLootToken, versionDiff } from './utils.js';
 
 export const readyHooks = async () => {
   log(' ready once hook');
 
+  // MOVED TO ContainerItemApplicationSheet
+  /*
   if (getGame().system.id === 'dnd5e') {
     Hooks.on('renderItemSheet5e', (app, protoHtml, data) => {
       log(` renderItemSheet5e`);
@@ -88,6 +92,7 @@ export const readyHooks = async () => {
       $(html).find('div.item-properties div.form-group').last().after(content);
     });
   }
+  */
 
   // RMEOVED ON VERSION 2.0.0 (FoundryVTT 0.8.8)
   // if (getGame().user?.isGM) {
@@ -256,11 +261,22 @@ export const initHooks = async () => {
   CONFIG.debug.hooks = true;
   // CONFIG.debug['pickUpStix'] = true;
 
-  if(getGame().system.id == "dnd5e"){
-    //@ts-ignore
-    Items.registerSheet(getGame().system.id, Container5eItemSheet, {makeDefault: false, types:[ItemType.CONTAINER]});
-  }
-  
+  Hooks.on('preDocumentSheetRegistrarInit', (settings) => {
+    // This will enable Item.registerSheet.
+    preDocumentSheetRegistrarInit(settings);
+  });
+
+  Hooks.on('documentSheetRegistrarInit', (documentTypes) => {
+    documentSheetRegistrarInit();
+  });
+
+  // if(getGame().system.id == "dnd5e"){
+  //@ts-ignore
+  //Items.registerSheet(getGame().system.id, Container5eItemSheet, {makeDefault: false, types:[ItemType.CONTAINER]});
+  // }
+
+  // SI USA DOCUMENT SHEET REGISTAR
+  /*
   // this adds the 'container' type to the game system's entity types.
   getGame().system.entityTypes.Item.push(ItemType.CONTAINER);
 
@@ -275,6 +291,18 @@ export const initHooks = async () => {
   };
 
   CONFIG.Item.typeLabels[ItemType.CONTAINER] = 'ITEM.TypeContainer';
+
+  */
+
+  const entries =
+    getGame().items?.filter((e) => !!e.getFlag(PICK_UP_STIX_MODULE_NAME, 'id') && !e.getFlag('core', 'sheetClass')) ??
+    [];
+
+  await Promise.all(
+    entries.map((entry) =>
+      entry.setFlag('core', 'sheetClass', `${PICK_UP_STIX_MODULE_NAME}.ContainerItemApplicationSheet`),
+    ),
+  );
 
   // Token.prototype.release = Token_tokenRelease(Token.prototype.release);
 

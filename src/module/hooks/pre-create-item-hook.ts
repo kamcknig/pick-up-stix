@@ -33,7 +33,7 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
       itemType: ItemType.CONTAINER,
     };
 
-    mergeObject(itemData, {
+    mergeObject(itemData.data, {
       // we checked for item type being container, but that isn't a "valid" type. The type of item has to be included in the
       // getGame().system.entityTypes.Item array. So we look for one that is "container-like"; backbpack because that's one that dnd
       // 5e uses, and if we don't find that we just take whatever thed first item type is. Really it doesn't even matter right now

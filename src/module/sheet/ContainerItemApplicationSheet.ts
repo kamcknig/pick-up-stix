@@ -16,14 +16,6 @@ export default function registerSheet(): void {
       super(object, options);
     }
   }
-
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  Items.registerSheet?.(PICK_UP_STIX_MODULE_NAME, ContainerConfigApplication, {
-    types: [ItemType.CONTAINER],
-    makeDefault: false,
-    label: 'ITEM.TypeContainer',
-  });
 }
 
 // async function addEditorHeadline(app, html, data) {

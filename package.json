@@ -43,7 +43,7 @@
     "gulp-typescript": "^6.0.0-alpha.1",
     "json-stringify-pretty-compact": "^2.0.0",
     "prettier": "^2.4.1",
-    "sass": "^1.43.3",
+    "sass": "^1.43.4",
     "yargs": "^15.4.1"
   },
   "lint-staged": {

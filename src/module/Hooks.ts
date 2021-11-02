@@ -1,13 +1,9 @@
-// import * as Module from "module";
-// import { DND5E } from "../../../systems/dnd5e/module/config.js";
-//@ts-ignore
 import { AnyDocumentData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/data.mjs';
 import EmbeddedCollection from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/embedded-collection.mjs';
 import { DocumentConstructor } from '@league-of-foundry-developers/foundry-vtt-types/src/types/helperTypes';
-// import ItemSheet5e from '../../../systems/dnd5e/module/item/sheet.js';
 import { error, i18n, log, warn } from '../main.js';
 import ContainerConfigApplication from './container-config.js';
-import documentSheetRegistrarInit, { getEntityTypes, getTypeLabels } from './documentSheetRegistrarInit.js';
+// import documentSheetRegistrarInit, { getEntityTypes, getTypeLabels } from './documentSheetRegistrarInit.js';
 import { CanvasPrototypeOnDropHandler, canvasReadyHook, dropCanvasHandler } from './hooks/canvas-ready-hook.js';
 import { createActorHook } from './hooks/create-actor-hook.js';
 import { createItemHook } from './hooks/create-item-hook.js';
@@ -41,7 +37,7 @@ import {
   updateToken,
 } from './mainEntry.js';
 import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from './models.js';
-import preDocumentSheetRegistrarInit from './preDocumentSheetRegistrarInit.js';
+// import preDocumentSheetRegistrarInit from './preDocumentSheetRegistrarInit.js';
 import { preloadTemplates } from './preloadTemplates.js';
 import {
   getCanvas,
@@ -142,7 +138,7 @@ export const readyHooks = async () => {
       item.data.type = ItemType.CONTAINER;
     }
   }
-  
+
   getGame().socket?.on(PICK_UP_STIX_SOCKET, handleSocketMessage);
 
   Hooks.once('canvasReady', () => {
@@ -191,11 +187,11 @@ export const initHooks = async () => {
   warn('Init Hooks processing');
   log('initHook');
 
-  //Hooks.once('init', initHook);
-
   CONFIG.debug.hooks = true;
   // CONFIG.debug['pickUpStix'] = true;
 
+  // IT DOESN'T WORK, IT SHOULD CREATE  A NEW ITEM CONTAINER TYPE, BUT THE CREATION ALWAYS FAIL
+  /*
   Hooks.on('preDocumentSheetRegistrarInit', (settings) => {
     // This will enable Item.registerSheet.
     preDocumentSheetRegistrarInit(settings);
@@ -239,6 +235,7 @@ export const initHooks = async () => {
   //     entry.setFlag('core', 'sheetClass', `${PICK_UP_STIX_MODULE_NAME}.ContainerItemApplicationSheet`),
   //   ),
   // );
+  */
 
   // Token.prototype.release = Token_tokenRelease(Token.prototype.release);
 

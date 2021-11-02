@@ -73,6 +73,6 @@ export interface SocketMessage {
 export enum ItemType {
   NONE = 'none',
   ITEM = 'item',
-  CONTAINER = 'container',
+  CONTAINER = 'backpack', //'container',
   BACKPACK = 'backpack',
 }

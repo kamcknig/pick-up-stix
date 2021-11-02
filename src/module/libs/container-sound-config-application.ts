@@ -1,7 +1,7 @@
-import { log } from '../main';
-import { ItemFlags } from './loot-token';
-import { updateItem } from './mainEntry';
-import { PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from './settings';
+import { log } from '../../main';
+import { ItemFlags } from '../loot-token';
+import { updateItem } from '../mainEntry';
+import { PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';
 
 export class ContainerSoundConfig extends FormApplication {
   static get defaultOptions() {
@@ -28,7 +28,7 @@ export class ContainerSoundConfig extends FormApplication {
     new FilePicker({
       type: 'audio',
       current: <string>(
-        (<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, `pick-up-stix.${e.currentTarget.dataset.edit}`)
+        (<Item>this.object).getFlag(PICK_UP_STIX_MODULE_NAME, `${PICK_UP_STIX_FLAG}.${e.currentTarget.dataset.edit}`)
       ),
       callback: (path) => {
         e.currentTarget.src = path;

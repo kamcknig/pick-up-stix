@@ -1,6 +1,6 @@
 import { log } from '../main';
-import ContainerImageSelectionApplication from './container-image-selection-application.js';
-import { ContainerSoundConfig } from './container-sound-config-application';
+import ContainerImageSelectionApplication from './libs/container-image-selection-application.js';
+import { ContainerSoundConfig } from './libs/container-sound-config-application';
 import { ContainerLoot, ItemData, ItemFlags, TokenFlags } from './loot-token';
 import {
   addItemToContainer,

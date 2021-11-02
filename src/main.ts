@@ -87,28 +87,12 @@ Hooks.once('ready', () => {
     );
     return;
   }
-  if (!getGame().modules.get('_document-sheet-registrar')?.active) {
-    ui.notifications?.error(
-      `The '${PICK_UP_STIX_MODULE_NAME}' module requires to install and activate the 'libWrapper' module.`,
-    );
-    return;
-  }
-
-  // Keep in mind that this dialog needs to be shown on "ready"
-  // const dialog = new Dialog({
-  //     title: i18n('general.missingDocumentSheetRegistrar.title'),
-  //     content: i18n('general.missingDocumentSheetRegistrar.text'),
-  //     buttons: {
-  //         ok: {
-  //             label: i18n('general.missingDocumentSheetRegistrar.button'),
-  //             async callback() {
-  //                 await dialog.close();
-  //             },
-  //         },
-  //     },
-  //     default: 'ok',
-  // });
-  // dialog.render(true);
+  // if (!getGame().modules.get('_document-sheet-registrar')?.active) {
+  //   ui.notifications?.error(
+  //     `The '${PICK_UP_STIX_MODULE_NAME}' module requires to install and activate the 'libWrapper' module.`,
+  //   );
+  //   return;
+  // }
 
   readyHooks();
 });

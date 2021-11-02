@@ -69,8 +69,7 @@
       "name": "lib-wrapper"
     },
     {
-      "name": "_document-sheet-registrar",
-      "manifest": "https://github.com/League-of-Foundry-Developers/document-sheet-registrar/releases/latest/download/module.json"
+      "name": "socketlib"
     }
   ]
 }

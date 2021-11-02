@@ -1,6 +1,6 @@
-import { log } from '../main';
-import { updateItem } from './mainEntry';
-import { PICK_UP_STIX_MODULE_NAME } from './settings';
+import { log } from '../../main';
+import { updateItem } from '../mainEntry';
+import { PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME } from '../settings';
 
 /**
  * Application class to display to select an item that the token is
@@ -52,7 +52,7 @@ export default class ContainerImageSelectionApplication extends FormApplication 
 
   protected _onClickImage = (e) => {
     const attr = e.currentTarget.dataset.edit;
-    const current = getProperty(this._item.data, `flags.pick-up-stix.pick-up-stix.${attr}`);
+    const current = getProperty(this._item.data, `flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}.${attr}`);
     new FilePicker({
       type: 'image',
       current,

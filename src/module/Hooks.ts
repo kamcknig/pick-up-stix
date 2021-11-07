@@ -35,10 +35,12 @@ import {
   updateItem,
   updateOwnedItem,
   updateToken,
-} from './mainEntry.js';
-import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from './models.js';
-// import preDocumentSheetRegistrarInit from './preDocumentSheetRegistrarInit.js';
-import { preloadTemplates } from './preloadTemplates.js';
+} from './mainEntry';
+import { ItemType, PickUpStixHooks, SocketMessage, SocketMessageType } from './models';
+// import preDocumentSheetRegistrarInit from './preDocumentSheetRegistrarInit';
+import { preloadTemplates } from './preloadTemplates';
+import { ContainerItemApplicationSheet } from './sheet/ContainerItemApplicationSheet';
+
 import {
   getCanvas,
   getGame,
@@ -50,6 +52,18 @@ import {
 } from './settings.js';
 
 import { amIFirstGm, canSeeLootToken, versionDiff } from './utils.js';
+
+export const getEntityTypes = function() {
+  return {
+      container: ContainerItemApplicationSheet
+  };
+}
+
+export const  getTypeLabels = function() {
+  return {
+      container: "ITEM.TypeContainer",
+  };
+}
 
 export const readyHooks = async () => {
   log(' ready once hook');
@@ -135,7 +149,9 @@ export const readyHooks = async () => {
   for (const item of items) {
     //if (getProperty(item, 'data.flags.pick-up-stix.pick-up-stix.itemType') === ItemType.CONTAINER) {
     if ((<ItemFlags>item.getFlag(PICK_UP_STIX_MODULE_NAME, PICK_UP_STIX_FLAG))?.itemType === ItemType.CONTAINER) {
-      item.data.type = ItemType.CONTAINER;
+      if(item.data.type != ItemType.CONTAINER){
+        item.data.type = ItemType.CONTAINER;
+      }
     }
   }
 
@@ -149,7 +165,8 @@ export const readyHooks = async () => {
   //Hooks.on('ready', readyHook);
 
   // item hooks
-  Hooks.on('preCreateItem', preCreateItemHook);
+  // Impossibile to set a custom type itme
+  // Hooks.on('preCreateItem', preCreateItemHook);
   Hooks.on('createItem', createItemHook);
   Hooks.on('preUpdateItem', preUpdateItemHook);
   Hooks.on('updateItem', updateItemHook);
@@ -181,14 +198,6 @@ export const readyHooks = async () => {
 export const setupHooks = async () => {
   // setup all the hooks
   // game startup hooks
-};
-
-export const initHooks = async () => {
-  warn('Init Hooks processing');
-  log('initHook');
-
-  CONFIG.debug.hooks = true;
-  // CONFIG.debug['pickUpStix'] = true;
 
   // IT DOESN'T WORK, IT SHOULD CREATE  A NEW ITEM CONTAINER TYPE, BUT THE CREATION ALWAYS FAIL
   /*
@@ -200,22 +209,33 @@ export const initHooks = async () => {
   Hooks.on('documentSheetRegistrarInit', (documentTypes) => {
     documentSheetRegistrarInit();
   });
-
+  */
+  // WHY THIS IS NOT WORK WITH custom type ???
+  // GIVE UP
+  /*
   const types = getEntityTypes();
   const labels = getTypeLabels();
-
   for (const [k, v] of Object.entries(labels)) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    Items.registerSheet?.(PICK_UP_STIX_MODULE_NAME, types[k] || ItemSheet, {
-        types: [k],
-        makeDefault: false,
-        label: i18n(v)
-    });
+    if(!getGame().system.entityTypes.Item.includes(k)){
+      if (getGame().system.id === 'dnd5e') {
+        Items.registerSheet(game.system.id, ContainerItemApplicationSheet, {
+          // WHY THIS IS NOT WORK WITH custom type ???
+          types: [k],
+          makeDefault: false,
+          label: i18n(v), // "DND5E.SheetClassItem"
+        });
+      }else {
+        Items.registerSheet("core", ContainerItemApplicationSheet, {
+          types: [k],
+          makeDefault: false,
+          label: i18n(v), //"Default Item Sheet"
+        });
+      }
+    }
   }
-  // CONFIG.Item.sheetClasses.base.Item.default = false;
   getGame().system.entityTypes.Item = getGame().system.entityTypes.Item.concat(Object.keys(types)).sort();
   CONFIG.Item.typeLabels = mergeObject((CONFIG.Item.typeLabels || {}), labels);
-
+  
   // add the default sheet to the container Item type
   CONFIG.Item.sheetClasses[ItemType.CONTAINER] = {
     'pick-up-stix.ContainerConfigApplication': {
@@ -225,7 +245,20 @@ export const initHooks = async () => {
       id: 'pick-up-stix.ContainerConfigApplication',
     },
   };
+  */  
 
+  //@ts-ignore
+	Items.registerSheet(game.system.id, ContainerItemApplicationSheet, { makeDefault: false, types:["backpack"]});
+};
+
+export const initHooks = async () => {
+  warn('Init Hooks processing');
+  log('initHook');
+
+  CONFIG.debug.hooks = true;
+  // CONFIG.debug['pickUpStix'] = true;
+
+  /*
   // const entries =
   //   getGame().items?.filter((e) => !!e.getFlag(PICK_UP_STIX_MODULE_NAME, 'id') && !e.getFlag('core', 'sheetClass')) ??
   //   [];
@@ -256,7 +289,7 @@ export const initHooks = async () => {
 
   // ADDED
   //@ts-ignore
-  libWrapper.register(PICK_UP_STIX_MODULE_NAME, 'Canvas.prototype._onDrop', CanvasPrototypeOnDropHandler, 'MIXED');
+  //libWrapper.register(PICK_UP_STIX_MODULE_NAME, 'Canvas.prototype._onDrop', CanvasPrototypeOnDropHandler, 'MIXED');
 };
 
 export const TokenPrototypeReleaseHandler = function (wrapped, ...args) {

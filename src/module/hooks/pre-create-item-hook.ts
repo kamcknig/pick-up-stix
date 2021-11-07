@@ -3,12 +3,15 @@ import { getGame, PICK_UP_STIX_FLAG, PICK_UP_STIX_MODULE_NAME, SettingKeys } fro
 import { ItemFlags } from '../loot-token';
 import { error, log } from '../../main';
 import { getCurrencyTypes } from '../utils';
+import { ItemData } from '@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/data/module.mjs';
 
-export async function preCreateItemHook(itemData: any, options: any = {}, userId: string) {
+export async function preCreateItemHook(itemData: ItemData, options: any = {}, userId: string) {
   log(` preCreateItemHook | called with args:`);
   log([itemData, options, userId]);
 
-  if (itemData.type.toLowerCase() === ItemType.CONTAINER) {
+  if (itemData.type.toLowerCase() === ItemType.CONTAINER
+    || itemData.name?.toLowerCase().startsWith("Pick Up".toLowerCase())
+    ) {
     log(' preCreateItemHook');
 
     const itemFlags: ItemFlags = {
@@ -32,24 +35,28 @@ export async function preCreateItemHook(itemData: any, options: any = {}, userId
       },
       itemType: ItemType.CONTAINER,
     };
+    
+    options.renderSheet = false;
+    //setProperty(itemData,"type", getGame().system.entityTypes.Item.includes(ItemType.BACKPACK) ? ItemType.BACKPACK : getGame().system.entityTypes.Item[0]);
+    // setProperty(itemData,"folder",itemData.folder || getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId));
+    // setProperty(itemData,"img", itemFlags.tokenData.img || itemData.img);
+    // setProperty(itemData,`flags.${PICK_UP_STIX_MODULE_NAME}.${PICK_UP_STIX_FLAG}`,itemFlags);
 
-    mergeObject(itemData.data, {
+    mergeObject(itemData, {
       // we checked for item type being container, but that isn't a "valid" type. The type of item has to be included in the
       // getGame().system.entityTypes.Item array. So we look for one that is "container-like"; backbpack because that's one that dnd
       // 5e uses, and if we don't find that we just take whatever thed first item type is. Really it doesn't even matter right now
       // as the type of this item isn't important, we use the flags itemType property to determine if it's an item or a container
       // anywhere else anyway
-      type: getGame().system.entityTypes.Item.includes('backpack') ? 'backpack' : getGame().system.entityTypes.Item[0],
+      type: getGame().system.entityTypes.Item.includes(ItemType.BACKPACK) ? ItemType.BACKPACK : getGame().system.entityTypes.Item[0],
       folder: itemData.folder || getGame().settings.get(PICK_UP_STIX_MODULE_NAME, SettingKeys.itemFolderId),
       img: itemFlags.tokenData.img,
       flags: {
         'pick-up-stix': {
           'pick-up-stix': itemFlags,
         },
-      },
+      }
     });
-
-    options.renderSheet = false;
   }
 
   log(` preCreateItemHook | final data:`);

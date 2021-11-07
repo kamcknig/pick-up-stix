@@ -14,24 +14,31 @@ export const getCurrencyTypes = (): { [short: string]: string } => {
   if (getGame().system.id === 'dnd5e') {
     log(` utils | getCurrencies | using system 'dnd5e'`);
     //@ts-ignore
-    import('../../systems/dnd5e/module/config.js').then((r) => {
-      return {
-        ...r.DND5E.currencies,
-      };
-    });
-  } else if (getGame().system.id === 'D35E') {
+    // import('../../systems/dnd5e/module/config.js').then((r) => {
+    //   return {
+    //     ...r.DND5E.currencies,
+    //   };
+    // });
     return {
-      cp: 'Copper',
-      gp: 'Gold',
-      pp: 'Platinum',
-      sp: 'Silver',
-    };
+      pp: "Platinum",
+      gp: "Gold",
+      ep: "Electrum",
+      sp: "Silver",
+      cp: "Copper"
+    }
+  } else if (getGame().system.id === 'D35E') {
+      return {
+        pp: 'Platinum',
+        gp: 'Gold',
+        sp: 'Silver',
+        cp: 'Copper',
+      };
   } else if (getGame().system.id === 'pf2e') {
     return {
-      cp: 'Copper',
-      gp: 'Gold',
       pp: 'Platinum',
+      gp: 'Gold',
       sp: 'Silver',
+      cp: 'Copper',
     };
   } else {
     warn(`System ${getGame().system.id} currencies have not been implemented and therefore might not work properly.`);

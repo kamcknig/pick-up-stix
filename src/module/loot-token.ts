@@ -298,7 +298,7 @@ export class LootToken {
       return;
     }
 
-    log('pick-up-stix | LootToken | addItem');
+    log('LootToken | addItem');
 
     const itemFlags = <ItemFlags>duplicate(this.itemFlags);
 

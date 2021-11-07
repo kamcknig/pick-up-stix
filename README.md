@@ -4,9 +4,8 @@ Pick-Up-Stix allows you to create tokens out of items. These tokens can then be 
 
 I mainly play Dungeons and Dragons 5th and therefore I develop and test with that in mind and with the modules that I use in mind. So I apologize if it might take time to get to things sometimes. Please message me on discord @kamcknig anytime though with any quetions and I will get back when I can.
 
-### This is just a personal fork for this module , hoping to see back Kyle McKnight because i don't have so much time for this
 
-## NOTE: If you are a javascript developer and not a typescript developer, you can just use the javascript files under the dist folder or rename the file from .ts to .js
+## NOTE: If you are a javascript developer and not a typescript developer, you can just use the javascript files under the dist folder builded with npm.
 
 ## Installation
 
@@ -24,6 +23,10 @@ To install this module manually:
 
 This module uses the [libWrapper](https://github.com/ruipin/fvtt-lib-wrapper) library for wrapping core methods. It is a hard dependency and it is recommended for the best experience and compatibility with other modules.
 
+## Known Issue
+
+- I try many times to create a new type for this , but i cannot find a way to integrate the olde code of 0.7.9 on 0.8.9, so for now all the items 'container', must be created with the preficwe 'Pick Up', case insensitive.
+- Not really a issue, but Tim Posney already prepared a base for the container bag so i just reuse the sheer there is no specific container sheet for now
 
 ## Features
 

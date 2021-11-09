@@ -1,7 +1,7 @@
 $groove-color: #eeede0;
 
 .pick-up-stix {
-  font-family: "Signika", sans-serif;
+  font-family: 'Signika', sans-serif;
 
   & * {
     font-family: inherit;
@@ -10,7 +10,7 @@ $groove-color: #eeede0;
   & .fa,
   & .fas,
   & .far {
-    font-family: "Font Awesome 5 Free";
+    font-family: 'Font Awesome 5 Free';
   }
 
   & textarea {
@@ -78,4 +78,4 @@ span.pick-up-stix-chat-currency.cp {
   background: url(../assets/currency-sprite.png) -130px 0px;
 }
 
-@import "systems/d35e.scss"
+@import 'systems/d35e.scss';

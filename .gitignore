@@ -1,5 +1,4 @@
-node_modules/
-dist/
-demo/**
-!demo/**/*.gif
-package/
+node_modules
+.idea
+/package
+/dist

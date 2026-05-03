@@ -1,0 +1,195 @@
+/* Pick-Up-Stix module styles */
+
+/* Needs-item prompt (empty state for uninitialized item-type actors) */
+.needs-item-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.needs-item-prompt i {
+  font-size: 2em;
+  opacity: 0.4;
+}
+
+.needs-item-prompt .needs-item-icon {
+  width: 128px;
+  height: 128px;
+  opacity: 0.85;
+  border: none;
+}
+
+/* ===== Config Sheet Header ===== */
+
+.pick-up-stix.sheet .sheet-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  margin-top: 8px;
+  --dnd5e-document-image-size: 96px;
+}
+
+.pick-up-stix.sheet .sheet-header .ii-clickable-image {
+  cursor: pointer;
+}
+
+.pick-up-stix.sheet .sheet-header .document-name {
+  flex: 1;
+  font-size: var(--font-size-32);
+  font-family: var(--dnd5e-font-modesto);
+  font-weight: bold;
+}
+
+.pick-up-stix.sheet .sheet-header + button {
+  margin: 12px 0;
+}
+
+/* ===== Container Item Row Controls ===== */
+
+.ii-row-control {
+  align-self: center;
+  cursor: pointer;
+  opacity: 0.75;
+  margin-left: 4px;
+}
+
+.ii-row-control:last-child {
+  margin-right: 6px;
+}
+
+.ii-row-control:hover {
+  opacity: 1;
+}
+
+/* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
+
+.pick-up-stix-identify-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  font-size: 0.9em;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.pick-up-stix-identify-toggle:hover {
+  opacity: 1;
+  color: var(--color-text-hyperlink);
+}
+
+/* ===== Folder Trash Button ===== */
+
+.pick-up-stix-trash,
+.pick-up-stix-toggle-ephemeral {
+  padding: 0 2px 0 8px;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: inherit;
+}
+
+.pick-up-stix-trash:hover {
+  color: var(--color-level-error);
+}
+
+/* ===== Hidden Container Contents Placeholder ===== */
+
+.pick-up-stix-contents-hidden {
+  padding: 1rem;
+  text-align: center;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ===== GM Actor Picker Dialog ===== */
+
+.ii-actor-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-light-2);
+  border-radius: 3px;
+  margin-top: 4px;
+}
+
+.ii-actor-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-top: 1px solid var(--color-border-light-2);
+  transition: background 0.1s;
+}
+
+.ii-actor-list-row:first-child {
+  border-top: none;
+}
+
+.ii-actor-list-row img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border-radius: 2px;
+  border: none;
+}
+
+.ii-actor-list-row span {
+  flex: 1;
+  font-size: var(--font-size-14);
+  line-height: 1.2;
+}
+
+.ii-actor-list-row:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.ii-actor-list-row.selected {
+  background: color-mix(in srgb, var(--color-warm-1, #c9a238) 12%, transparent);
+  box-shadow: inset 3px 0 0 0 var(--color-warm-1, #c9a238);
+}
+
+.ii-pickup-target-dialog button:disabled {
+  cursor: not-allowed;
+}
+
+/* ===== Token HUD Active-State Border ===== */
+
+/* Show the active-state border colour on interactive-item HUD buttons when
+   in the "active" state (open for containers, locked for items/containers)
+   without altering background or icon colour. */
+.placeable-hud .control-icon.ii-hud-active {
+  --control-border-color: var(--control-active-border-color);
+  --control-hover-border-color: var(--control-active-border-color);
+}
+
+/* ===== Settings Dialog ===== */
+
+.ii-settings-folder-picker {
+  display: flex;
+  gap: 0.5rem;
+  min-width: 20rem;
+}
+
+.ii-settings-folder-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.ii-settings-color-picker {
+  width: 3rem;
+  height: 2rem;
+  cursor: pointer;
+}

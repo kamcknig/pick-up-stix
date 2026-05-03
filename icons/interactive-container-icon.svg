@@ -1,0 +1,184 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Interactive Container</title>
+<desc>An ornate treasure chest ajar with a warm glowing interior, used as a Foundry VTT actor icon for interactive containers</desc>
+<defs>
+  <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#141426"/>
+    <stop offset="100%" stop-color="#04040a"/>
+  </radialGradient>
+  <radialGradient id="aura" cx="50%" cy="52%" r="50%">
+    <stop offset="0%" stop-color="#ffa020" stop-opacity="0.38"/>
+    <stop offset="65%" stop-color="#c05008" stop-opacity="0.12"/>
+    <stop offset="100%" stop-color="#c05008" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="innerLight" cx="50%" cy="0%" r="80%">
+    <stop offset="0%" stop-color="#ffe060" stop-opacity="0.95"/>
+    <stop offset="50%" stop-color="#ff9010" stop-opacity="0.6"/>
+    <stop offset="100%" stop-color="#a03000" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="woodBody" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#2a1005"/>
+    <stop offset="18%" stop-color="#5a2a0a"/>
+    <stop offset="50%" stop-color="#6e3510"/>
+    <stop offset="82%" stop-color="#5a2a0a"/>
+    <stop offset="100%" stop-color="#2a1005"/>
+  </linearGradient>
+  <linearGradient id="woodLid" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stop-color="#7a3e15"/>
+    <stop offset="55%" stop-color="#5a2a0a"/>
+    <stop offset="100%" stop-color="#3a1a05"/>
+  </linearGradient>
+  <linearGradient id="goldV" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stop-color="#f2d468"/>
+    <stop offset="45%" stop-color="#c08010"/>
+    <stop offset="100%" stop-color="#6e3a00"/>
+  </linearGradient>
+  <linearGradient id="goldH" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#6e3a00"/>
+    <stop offset="30%" stop-color="#dca030"/>
+    <stop offset="55%" stop-color="#f2d468"/>
+    <stop offset="80%" stop-color="#dca030"/>
+    <stop offset="100%" stop-color="#6e3a00"/>
+  </linearGradient>
+  <linearGradient id="coinFace" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#f8e060"/>
+    <stop offset="55%" stop-color="#e09010"/>
+    <stop offset="100%" stop-color="#8a5000"/>
+  </linearGradient>
+  <radialGradient id="lockGlow" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#30d8e0" stop-opacity="0.7"/>
+    <stop offset="100%" stop-color="#30d8e0" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+
+<!-- Background -->
+<circle cx="128" cy="128" r="128" fill="url(#bg)"/>
+
+<!-- Outer rings -->
+<circle cx="128" cy="128" r="118" fill="none" stroke="#c8a028" stroke-width="1.5" opacity="0.65"/>
+<circle cx="128" cy="128" r="114" fill="none" stroke="#805800" stroke-width="0.5" opacity="0.4"/>
+
+<!-- 8 diamond ticks on outer ring -->
+<g fill="#c8a028" opacity="0.72">
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(0,128,128)"/>
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(45,128,128)"/>
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(90,128,128)"/>
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(135,128,128)"/>
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(180,128,128)"/>
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(225,128,128)"/>
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(270,128,128)"/>
+  <polygon points="128,7 131,11 128,15 125,11" transform="rotate(315,128,128)"/>
+</g>
+
+<!-- Inner arcane circle -->
+<circle cx="128" cy="128" r="88" fill="none" stroke="#c8a028" stroke-width="0.75" opacity="0.22"/>
+
+<!-- 12 radial ticks on arcane circle -->
+<g stroke="#c8a028" stroke-width="1" opacity="0.28">
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(0,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(30,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(60,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(90,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(120,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(150,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(180,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(210,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(240,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(270,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(300,128,128)"/>
+  <line x1="128" y1="37" x2="128" y2="44" transform="rotate(330,128,128)"/>
+</g>
+
+<!-- Chest warm aura -->
+<ellipse cx="128" cy="156" rx="70" ry="55" fill="url(#aura)"/>
+
+<!-- Interior light source (spills upward from open gap) -->
+<ellipse cx="128" cy="132" rx="52" ry="10" fill="url(#innerLight)" opacity="0.9"/>
+
+<!-- Gold coins visible through the gap (drawn before lid/body so they're covered) -->
+<ellipse cx="108" cy="131" rx="8" ry="5" fill="url(#coinFace)"/>
+<ellipse cx="108" cy="131" rx="8" ry="5" fill="none" stroke="#a07000" stroke-width="0.75"/>
+<ellipse cx="128" cy="130" rx="8" ry="5" fill="url(#coinFace)"/>
+<ellipse cx="128" cy="130" rx="8" ry="5" fill="none" stroke="#a07000" stroke-width="0.75"/>
+<ellipse cx="148" cy="131" rx="8" ry="5" fill="url(#coinFace)"/>
+<ellipse cx="148" cy="131" rx="8" ry="5" fill="none" stroke="#a07000" stroke-width="0.75"/>
+<!-- Faint coin glints on each coin face -->
+<line x1="105" y1="130" x2="111" y2="130" stroke="#ffe880" stroke-width="1" opacity="0.5"/>
+<line x1="125" y1="129" x2="131" y2="129" stroke="#ffe880" stroke-width="1" opacity="0.5"/>
+<line x1="145" y1="130" x2="151" y2="130" stroke="#ffe880" stroke-width="1" opacity="0.5"/>
+
+<!-- CHEST BODY: rect(74,134) to (182,178) -->
+<rect x="74" y="134" width="108" height="44" rx="3" fill="url(#woodBody)"/>
+
+<!-- Metal corner brackets — left and right columns -->
+<rect x="74" y="134" width="8" height="44" rx="1" fill="url(#goldV)" opacity="0.88"/>
+<rect x="174" y="134" width="8" height="44" rx="1" fill="url(#goldV)" opacity="0.88"/>
+
+<!-- Top and bottom gold borders on body -->
+<rect x="74" y="134" width="108" height="3.5" rx="1" fill="url(#goldH)"/>
+<rect x="74" y="174" width="108" height="4" rx="1" fill="url(#goldH)"/>
+
+<!-- Two horizontal metal bands across body -->
+<rect x="74" y="148" width="108" height="4" rx="0.5" fill="url(#goldH)"/>
+<rect x="74" y="162" width="108" height="4" rx="0.5" fill="url(#goldH)"/>
+
+<!-- Subtle wood grain lines on body -->
+<line x1="100" y1="138" x2="100" y2="173" stroke="#3a1808" stroke-width="0.5" opacity="0.3"/>
+<line x1="120" y1="138" x2="120" y2="173" stroke="#3a1808" stroke-width="0.5" opacity="0.2"/>
+<line x1="136" y1="138" x2="136" y2="173" stroke="#3a1808" stroke-width="0.5" opacity="0.2"/>
+<line x1="156" y1="138" x2="156" y2="173" stroke="#3a1808" stroke-width="0.5" opacity="0.3"/>
+
+<!-- CHEST LID: arched top, open (bottom edge raised above body top) -->
+<!-- Lid bottom at y=130, body top at y=134 → 4px gap shows coins/glow -->
+<path d="M73,130 L73,116 Q128,90 183,116 L183,130 Z" fill="url(#woodLid)"/>
+
+<!-- Lid arch top metal band -->
+<path d="M73,117 Q128,91 183,117" fill="none" stroke="#c8a028" stroke-width="2.5" opacity="0.68"/>
+<path d="M73,117 Q128,91 183,117" fill="none" stroke="#f2d468" stroke-width="1" opacity="0.45"/>
+
+<!-- Lid bottom metal band -->
+<rect x="73" y="123" width="110" height="4" rx="0.5" fill="url(#goldH)"/>
+
+<!-- Lid corner brackets -->
+<rect x="73" y="116" width="7" height="14" rx="1" fill="url(#goldV)" opacity="0.85"/>
+<rect x="176" y="116" width="7" height="14" rx="1" fill="url(#goldV)" opacity="0.85"/>
+
+<!-- Lid wood grain -->
+<path d="M82,129 L82,118 Q128,97 174,118 L174,129" fill="none" stroke="#8a4018" stroke-width="0.75" opacity="0.3"/>
+
+<!-- HINGES (at back of lid, sitting on top of body gap area) -->
+<rect x="95" y="129" width="12" height="6" rx="2" fill="url(#goldH)"/>
+<rect x="149" y="129" width="12" height="6" rx="2" fill="url(#goldH)"/>
+<!-- Hinge screw dots -->
+<circle cx="100" cy="132" r="1.5" fill="#6e3a00"/>
+<circle cx="156" cy="132" r="1.5" fill="#6e3a00"/>
+
+<!-- LOCK / CLASP (centered on body, between the two horizontal bands) -->
+<!-- Lock glow aura -->
+<circle cx="128" cy="155" r="13" fill="url(#lockGlow)"/>
+<!-- Lock mount plate (hexagon) -->
+<path d="M128,147 L134,150 L134,159 L128,162 L122,159 L122,150 Z" fill="url(#goldH)"/>
+<path d="M128,147 L134,150 L134,159 L128,162 L122,159 L122,150 Z" fill="none" stroke="#f0d060" stroke-width="0.75"/>
+<!-- Lock face (dark) -->
+<circle cx="128" cy="153" r="3.5" fill="#100800"/>
+<rect x="126.5" y="153" width="3" height="5" rx="1" fill="#100800"/>
+<!-- Teal magic glow in keyhole -->
+<circle cx="128" cy="153" r="2.2" fill="#28d8e0" opacity="0.8"/>
+<rect x="127" y="153" width="2" height="3.5" rx="0.5" fill="#28d8e0" opacity="0.6"/>
+
+<!-- Sparkle decorations (warm gold + amber, same positions as item icon) -->
+<polygon points="76,75 79.5,81 85,84 79.5,87 76,93 72.5,87 67,84 72.5,81" fill="#f0c840" opacity="0.85"/>
+<polygon points="180,67 182.5,72 187,74 182.5,76 180,81 177.5,76 173,74 177.5,72" fill="#f0c840" opacity="0.72"/>
+<polygon points="62,128 64,133 69,135 64,137 62,142 60,137 55,135 60,133" fill="#ffb040" opacity="0.55"/>
+<polygon points="193,106 194.5,110 199,112 194.5,114 193,118 191.5,114 187,112 191.5,110" fill="#ffb040" opacity="0.5"/>
+
+<!-- Floating particles (warm amber) -->
+<circle cx="94" cy="102" r="2" fill="#ffb030" opacity="0.45"/>
+<circle cx="163" cy="97" r="1.5" fill="#ffb030" opacity="0.38"/>
+<circle cx="80" cy="152" r="1.5" fill="#c8a028" opacity="0.4"/>
+<circle cx="178" cy="148" r="1.2" fill="#c8a028" opacity="0.38"/>
+<circle cx="108" cy="64" r="1.5" fill="#ffe080" opacity="0.3"/>
+<circle cx="155" cy="60" r="1" fill="#ffe080" opacity="0.28"/>
+<circle cx="170" cy="188" r="1.5" fill="#c8a028" opacity="0.3"/>
+<circle cx="88" cy="190" r="1" fill="#c8a028" opacity="0.25"/>
+</svg>

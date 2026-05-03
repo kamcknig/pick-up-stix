@@ -1,0 +1,94 @@
+{{!-- Shared form fields for item and container config dialogs --}}
+
+<div class="form-group">
+  <label>{{localize "INTERACTIVE_ITEMS.Sheet.Name"}}</label>
+  <div class="form-fields">
+    <input type="text" name="name" value="{{actor.name}}"
+      placeholder="{{localize 'INTERACTIVE_ITEMS.Sheet.NamePlaceholder'}}" />
+  </div>
+</div>
+
+<div class="form-group">
+  <label>{{localize "INTERACTIVE_ITEMS.Sheet.UnidentifiedName"}}</label>
+  <div class="form-fields">
+    <input type="text" name="system.unidentifiedName" value="{{system.unidentifiedName}}"
+      placeholder="{{localize 'INTERACTIVE_ITEMS.Sheet.UnidentifiedNamePlaceholder'}}" />
+  </div>
+</div>
+
+<div class="form-group">
+  <label>{{localize "INTERACTIVE_ITEMS.Sheet.LimitedName"}}</label>
+  <div class="form-fields">
+    <input type="text" name="system.limitedName" value="{{system.limitedName}}"
+      placeholder="{{localize 'INTERACTIVE_ITEMS.Sheet.LimitedNamePlaceholder'}}" />
+  </div>
+</div>
+
+<div class="item-descriptions">
+  {{#if editingDescriptionTarget}}
+  <prose-mirror name="{{editingDescriptionTarget}}" value="{{editingDescriptionValue}}"
+                class="sized" compact></prose-mirror>
+  {{else}}
+  <div class="card description collapsible{{#unless descriptionEnriched}} empty{{/unless}}{{#unless (lookup expanded 'system.description')}} collapsed{{/unless}}"
+       data-action="toggleCollapsed" data-expand-id="system.description" data-target="system.description">
+    <div class="header">
+      <span>{{localize "INTERACTIVE_ITEMS.Sheet.Description"}}</span>
+      {{#if isEditable}}
+      <button type="button" class="unbutton control-button always-interactive" data-action="editDescription"
+              aria-label="{{localize 'INTERACTIVE_ITEMS.Sheet.Description'}}" data-target="system.description">
+        <i class="fas fa-feather" inert></i>
+      </button>
+      {{/if}}
+    </div>
+    <div class="details collapsible-content">
+      <div class="editor editor-content wrapper">{{{system.description}}}</div>
+    </div>
+  </div>
+
+  <div class="card description collapsible{{#unless unidentifiedDescriptionEnriched}} empty{{/unless}}{{#unless (lookup expanded 'system.unidentifiedDescription')}} collapsed{{/unless}}"
+       data-action="toggleCollapsed" data-expand-id="system.unidentifiedDescription" data-target="system.unidentifiedDescription">
+    <div class="header">
+      <span>{{localize "INTERACTIVE_ITEMS.Sheet.UnidentifiedDescription"}}</span>
+      {{#if isEditable}}
+      <button type="button" class="unbutton control-button always-interactive" data-action="editDescription"
+              aria-label="{{localize 'INTERACTIVE_ITEMS.Sheet.UnidentifiedDescription'}}" data-target="system.unidentifiedDescription">
+        <i class="fas fa-feather" inert></i>
+      </button>
+      {{/if}}
+    </div>
+    <div class="details collapsible-content">
+      <div class="editor editor-content wrapper">{{{system.unidentifiedDescription}}}</div>
+    </div>
+  </div>
+
+  <div class="card description collapsible{{#unless limitedDescriptionEnriched}} empty{{/unless}}{{#unless (lookup expanded 'system.limitedDescription')}} collapsed{{/unless}}"
+       data-action="toggleCollapsed" data-expand-id="system.limitedDescription" data-target="system.limitedDescription">
+    <div class="header">
+      <span>{{localize "INTERACTIVE_ITEMS.Sheet.LimitedDescription"}}</span>
+      {{#if isEditable}}
+      <button type="button" class="unbutton control-button always-interactive" data-action="editDescription"
+              aria-label="{{localize 'INTERACTIVE_ITEMS.Sheet.LimitedDescription'}}" data-target="system.limitedDescription">
+        <i class="fas fa-feather" inert></i>
+      </button>
+      {{/if}}
+    </div>
+    <div class="details collapsible-content">
+      <div class="editor editor-content wrapper">{{{system.limitedDescription}}}</div>
+    </div>
+  </div>
+  {{/if}}
+</div>
+
+<div class="form-group">
+  <label>{{localize "INTERACTIVE_ITEMS.Sheet.InteractionRange"}}</label>
+  <div class="form-fields">
+    <input type="number" name="system.interactionRange" value="{{system.interactionRange}}" min="0" step="0.5" />
+  </div>
+</div>
+
+<div class="form-group">
+  <label>{{localize "INTERACTIVE_ITEMS.Sheet.InspectionRange"}}</label>
+  <div class="form-fields">
+    <input type="number" name="system.inspectionRange" value="{{system.inspectionRange}}" min="0" step="0.5" />
+  </div>
+</div>

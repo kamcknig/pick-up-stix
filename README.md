@@ -60,6 +60,10 @@ Interactive objects display their contents through dnd5e's own sheets:
 
 Install via the Foundry module browser by searching for "Interactive Items", or paste the manifest URL into the Install Module dialog.
 
+## AI Usage
+
+AI has been used to CSS styling and for researching the Foundry VTT APIs to ensure proper usage most especially for determine the differences between the various versions of Foundry supported by the module.
+
 ---
 
 Some icons included are from [vecteezy.com](https://www.vecteezy.com).

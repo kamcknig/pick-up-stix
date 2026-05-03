@@ -1,4 +1,4 @@
-# Interactive Items
+# Pick-Up-Stix
 
 A Foundry VTT v13+ module for the dnd5e system that lets GMs place interactive objects on the canvas for players to discover, inspect, and interact with. Objects use native dnd5e item and container sheets for a seamless experience.
 

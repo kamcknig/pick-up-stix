@@ -30,7 +30,7 @@ jobs:
       - name: Update module.json
         run: |
           jq --arg version "$VERSION" \
-             --arg download "https://github.com/kamcknig/foundry-interactive-items/releases/download/$TAG/module.zip" \
+             --arg download "https://github.com/kamcknig/pick-up-stix/releases/download/$TAG/module.zip" \
              '.version = $version | .download = $download' \
              module.json > module.tmp.json && mv module.tmp.json module.json
 

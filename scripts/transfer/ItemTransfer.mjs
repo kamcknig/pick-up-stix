@@ -4,6 +4,7 @@ import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
+import { hasLevels, getTokenLevelId } from "../utils/levels.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -232,6 +233,24 @@ export function checkProximity(interactiveActor, { silent = false, range = "inte
   // the updateToken / controlToken hooks) over the live document coords, which
   // Foundry's animation system overwrites mid-flight.
   const override = getPlayerPositionOverride(playerToken.document.id);
+
+  // v14: a candidate on a different level than the interactive object can never
+  // be in interaction or inspection range. Use override.level (animation-safe)
+  // when available, else fall back to the live document's _source.level.
+  if (hasLevels()) {
+    const objectToken = interactiveActor.token
+      ? canvas.tokens.get(interactiveActor.token.id)
+      : canvas.tokens.placeables.find(t => t.actor?.id === interactiveActor.id);
+    const objectLevel = objectToken ? getTokenLevelId(objectToken.document) : null;
+    const playerLevel = override?.level ?? getTokenLevelId(playerToken.document);
+    if (objectLevel && playerLevel && objectLevel !== playerLevel) {
+      dbg("xfer:checkProximity", "level mismatch, fail",
+        { actorName: interactiveActor.name, objectLevel, playerLevel });
+      if (!silent) ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TooFar"));
+      return false;
+    }
+  }
+
   const source = override ?? {
     x: playerToken.document.x,
     y: playerToken.document.y,

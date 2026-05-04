@@ -127,7 +127,9 @@
     "DefaultItemName": "New Interactive Item",
     "DefaultContainerName": "New Interactive Container",
     "Controls": {
-      "ToolsTool": "Interactive Items Tools"
+      "ToolsTool": "Interactive Items Tools",
+      "EnableGMOverride": "Enable GM Override",
+      "DisableGMOverride": "Disable GM Override"
     },
     "Dialog": {
       "PlaceTitle": "Place Interactive Object",

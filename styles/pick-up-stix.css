@@ -84,6 +84,11 @@
   opacity: 0.75;
 }
 
+.pick-up-stix-identify-toggle.active {
+  color: var(--color-text-hyperlink);
+  opacity: 1;
+}
+
 .pick-up-stix-identify-toggle:hover {
   opacity: 1;
   color: var(--color-text-hyperlink);

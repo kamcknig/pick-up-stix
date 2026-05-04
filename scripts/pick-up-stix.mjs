@@ -1,4 +1,4 @@
-import { loadAdapter } from "./adapter/index.mjs";
+import { loadAdapter, getAdapter } from "./adapter/index.mjs";
 import InteractiveItemModel from "./models/InteractiveItemModel.mjs";
 import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
 import { registerTokenHUD } from "./hud/InteractiveTokenHUD.mjs";
@@ -212,7 +212,7 @@ Hooks.once("init", async () => {
 
       const isIdentified = isItemIdentified(item);
       const toggle = document.createElement("a");
-      toggle.className = "pick-up-stix-identify-toggle ii-row-control";
+      toggle.className = `pick-up-stix-identify-toggle ii-row-control${isIdentified ? " active" : ""}`;
       toggle.title = game.i18n.localize(isIdentified
         ? "INTERACTIVE_ITEMS.Context.HideItem"
         : "INTERACTIVE_ITEMS.Context.RevealItem");
@@ -826,12 +826,11 @@ Hooks.on("createActor", async (actor, options, userId) => {
 
   if (actor.getFlag(MODULE_ID, "containerDefault")) {
     if (!actor.items.some(i => i.type === "container")) {
-      await actor.createEmbeddedDocuments("Item", [{
-        name: actor.name,
-        type: "container",
-        img: actor.img,
-        system: { identified: true }
-      }]);
+      // Use the adapter to stamp the identification field so the field path is
+      // not hard-coded to dnd5e's `system.identified` boolean.
+      const containerData = { name: actor.name, type: "container", img: actor.img };
+      getAdapter().stampNewItemIdentified(containerData, true);
+      await actor.createEmbeddedDocuments("Item", [containerData]);
     }
     return;
   }
@@ -862,12 +861,11 @@ Hooks.on("createActor", async (actor, options, userId) => {
       "system.openImage": openImg,
       [`flags.${MODULE_ID}.containerDefault`]: true
     });
-    await actor.createEmbeddedDocuments("Item", [{
-      name: actor.name,
-      type: "container",
-      img: closedImg,
-      system: { identified: true }
-    }]);
+    // Use the adapter to stamp the identification field so the field path is
+    // not hard-coded to dnd5e's `system.identified` boolean.
+    const containerData = { name: actor.name, type: "container", img: closedImg };
+    getAdapter().stampNewItemIdentified(containerData, true);
+    await actor.createEmbeddedDocuments("Item", [containerData]);
     actor.sheet?.render({ force: true });
   } else if (result === "item") {
     await actor.setFlag(MODULE_ID, "createKindConfirmed", true);
@@ -953,36 +951,19 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
     });
 
     if (embeddedItem && (identifiedChanged || unidentifiedNameChanged || descChanged || unidentifiedDescChanged || nameChanged)) {
-      if ("identified" in (embeddedItem.system ?? {})) {
-        const itemUpdates = {};
+      // Build the system-specific update payload via the adapter so the field
+      // paths are not hard-coded to dnd5e's `system.identified` / `system.unidentified.*`.
+      const itemUpdates = getAdapter().buildItemIdentificationUpdate(actor, systemChanges);
+      if (nameChanged) {
+        itemUpdates.name = actor.name;
+      }
 
-        if (identifiedChanged) {
-          itemUpdates["system.identified"] = actor.system.isIdentified;
-        }
-        if (nameChanged) {
-          itemUpdates.name = actor.name;
-        }
-        if (unidentifiedNameChanged) {
-          itemUpdates["system.unidentified.name"] = actor.system.unidentifiedName || "";
-        }
-        // system.description is the identified description — syncs to item's description.value
-        if (descChanged) {
-          itemUpdates["system.description.value"] = actor.system.description || "";
-        }
-        // system.unidentifiedDescription → item's unidentified.description
-        if (unidentifiedDescChanged) {
-          itemUpdates["system.unidentified.description"] = actor.system.unidentifiedDescription || "";
-        }
-
-        if (Object.keys(itemUpdates).length > 0) {
-          dbg("hook:updateActor", "updating embeddedItem fields", { embeddedItemId: embeddedItem.id, itemUpdates });
-          await embeddedItem.update(itemUpdates);
-          if (embeddedItem.sheet?.rendered) embeddedItem.sheet.render();
-        } else {
-          dbg("hook:updateActor", "no item field changes needed");
-        }
+      if (Object.keys(itemUpdates).length > 0) {
+        dbg("hook:updateActor", "updating embeddedItem fields", { embeddedItemId: embeddedItem.id, itemUpdates });
+        await embeddedItem.update(itemUpdates);
+        if (embeddedItem.sheet?.rendered) embeddedItem.sheet.render();
       } else {
-        dbg("hook:updateActor", "embeddedItem has no identified field, skipping field sync");
+        dbg("hook:updateActor", "no item field changes needed");
       }
     } else if (!embeddedItem) {
       dbg("hook:updateActor", "no embeddedItem found, skipping field sync");
@@ -1099,7 +1080,9 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
     return;
   }
 
-  const newIdentified = item.system.identified !== false;
+  // Read identification state through the adapter so the field path is not
+  // hard-coded to dnd5e's `system.identified` boolean.
+  const newIdentified = getAdapter().isItemIdentified(item);
   const isContainer = actor.system.isContainer;
 
   dbg("hook:updateItem", "processing identification change", {

@@ -1,4 +1,5 @@
 import { getTokenActor, isInteractiveActor } from "../utils/actorHelpers.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
@@ -24,14 +25,22 @@ function stampInteractiveIdentity(itemData, actor, { embeddedItemData } = {}) {
     description: actor.system.description || descriptionValue
   };
 
+  // Wrap the raw system-data slice as a duck-typed item so the adapter's
+  // getItemUnidentified* methods can read the correct system-specific fields.
+  const adapter = getAdapter();
+  const embeddedItemLike = embeddedItemData ? { system: embeddedItemData } : null;
   const unidentifiedData = {
-    name: embeddedItemData?.unidentified?.name || actor.system.unidentifiedName || actor.name,
+    name: (embeddedItemLike && adapter.getItemUnidentifiedName(embeddedItemLike))
+      || actor.system.unidentifiedName || actor.name,
     img: actor.system.unidentifiedImage || actor.img,
-    description: embeddedItemData?.unidentified?.description || actor.system.unidentifiedDescription || identifiedData.description
+    description: (embeddedItemLike && adapter.getItemUnidentifiedDescription(embeddedItemLike))
+      || actor.system.unidentifiedDescription || identifiedData.description
   };
 
-  const isIdentified = embeddedItemData
-    ? (embeddedItemData.identified !== false)
+  // Read identification state through the adapter so the field path is not
+  // hard-coded to dnd5e's `system.identified` boolean.
+  const isIdentified = embeddedItemLike
+    ? adapter.isItemIdentified(embeddedItemLike)
     : actor.system.isIdentified;
 
   const display = isIdentified ? identifiedData : unidentifiedData;
@@ -402,13 +411,17 @@ export async function toggleItemIdentification(item) {
     return null;
   }
 
-  dbg("xfer:toggleItemIdentification", "applying identification toggle", { name: data.name, img: data.img });
+  dbg("xfer:toggleItemIdentification", "applying identification toggle", { name: data.name, img: data.img, newState });
   await item.update({
     name: data.name,
     img: data.img,
     "system.description.value": data.description,
     "flags.pick-up-stix.tokenState.system.isIdentified": newState
   });
+  // Sync the system's native identification field so the game system's own
+  // identified/unidentified UI reflects the new state (e.g. dnd5e hides item
+  // details from players when system.identified is false).
+  await getAdapter().setItemIdentified(item, newState);
   dbg("xfer:toggleItemIdentification", "toggle complete", { newState });
   return newState;
 }

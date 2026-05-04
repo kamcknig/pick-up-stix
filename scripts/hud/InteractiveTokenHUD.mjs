@@ -1,4 +1,5 @@
 import { pickupItem, checkProximity, setContainerOpen, toggleContainerLocked } from "../transfer/ItemTransfer.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 import { isInteractiveActor } from "../utils/actorHelpers.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { notifyItemAction } from "../utils/notify.mjs";
@@ -217,12 +218,13 @@ function onRenderTokenHUD(app, html, context, options) {
       async () => {
         dbg("hud:identify", { actorName: actor.name, currentIdentified: identified });
         const item = system.embeddedItem;
-        if (!item || item.system?.identified === undefined) {
-          dbg("hud:identify", "no embeddedItem or identified field, bail");
+        if (!item) {
+          dbg("hud:identify", "no embeddedItem, bail");
           return;
         }
-        dbg("hud:identify", "toggling item.system.identified", { from: identified, to: !identified, itemId: item.id });
-        await item.update({ "system.identified": !identified });
+        dbg("hud:identify", "toggling identification via adapter", { from: identified, to: !identified, itemId: item.id });
+        // Route through the adapter so the correct system field is updated.
+        await getAdapter().setItemIdentified(item, !identified);
       }
     );
     if (identified) identifyBtn.classList.add("ii-hud-active");

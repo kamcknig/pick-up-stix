@@ -1,4 +1,5 @@
 import { checkProximity, setContainerOpen, toggleContainerLocked } from "../transfer/ItemTransfer.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 import { createStateToggleButton } from "../utils/domButtons.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
@@ -397,9 +398,12 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
 
   static async #onToggleIdentified(event, target) {
     const item = this.actor.system.embeddedItem;
-    dbg("sheet:#onToggleIdentified", { actorName: this.actor?.name, embeddedItemId: item?.id, currentIdentified: item?.system?.identified, newIdentified: !item?.system?.identified });
-    if (!item || item.system?.identified === undefined) return;
-    await item.update({ "system.identified": !item.system.identified });
+    const adapter = getAdapter();
+    const currentIdentified = item ? adapter.isItemIdentified(item) : undefined;
+    dbg("sheet:#onToggleIdentified", { actorName: this.actor?.name, embeddedItemId: item?.id, currentIdentified, newIdentified: !currentIdentified });
+    if (!item || currentIdentified === undefined) return;
+    // Route through the adapter so the update targets the correct system field.
+    await adapter.setItemIdentified(item, !currentIdentified);
   }
 
   static async #onToggleLock(event, target) {
@@ -489,14 +493,14 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       return;
     }
 
+    const adapter = getAdapter();
     const itemData = item.toObject();
     delete itemData._id;
 
-    // Set before creation so the updateItem hook doesn't fire for this change
-    // while actor.img is still the old value.
-    if (itemData.system && "identified" in itemData.system) {
-      itemData.system.identified = true;
-    }
+    // Stamp the item as identified before creation so the updateItem hook does
+    // not fire for this change while actor.img is still the old value.
+    // Route through the adapter so the correct system field is set.
+    adapter.stampNewItemIdentified(itemData, true);
 
     // Interactive actors hold exactly one embedded item.
     if (this.actor.items.size > 0) {
@@ -515,11 +519,15 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
     if (item.system.description?.value) {
       updates["system.description"] = item.system.description.value;
     }
-    if (item.system.unidentified?.name) {
-      updates["system.unidentifiedName"] = item.system.unidentified.name;
+    // Read unidentified name/description through the adapter so the field path
+    // is not hard-coded to dnd5e's `system.unidentified.*` shape.
+    const droppedUnidentifiedName = adapter.getItemUnidentifiedName(item);
+    const droppedUnidentifiedDescription = adapter.getItemUnidentifiedDescription(item);
+    if (droppedUnidentifiedName) {
+      updates["system.unidentifiedName"] = droppedUnidentifiedName;
     }
-    if (item.system.unidentified?.description) {
-      updates["system.unidentifiedDescription"] = item.system.unidentified.description;
+    if (droppedUnidentifiedDescription) {
+      updates["system.unidentifiedDescription"] = droppedUnidentifiedDescription;
     }
     dbg("sheet:_onDrop", "firing actor.update with metadata", { updates });
     await this.actor.update(updates);
@@ -529,19 +537,19 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
     const [createdItem] = await this.actor.createEmbeddedDocuments("Item", [itemData]);
     dbg("sheet:_onDrop", "createEmbeddedDocuments complete", { createdItemId: createdItem?.id, createdItemImg: createdItem?.img });
 
-    if (createdItem && "identified" in (createdItem.system ?? {})) {
-      const itemUpdates = {};
-      if (this.actor.system.unidentifiedName) {
-        itemUpdates["system.unidentified.name"] = this.actor.system.unidentifiedName;
-      }
-      if (this.actor.system.unidentifiedDescription) {
-        itemUpdates["system.unidentified.description"] = this.actor.system.unidentifiedDescription;
-      }
-      if (this.actor.system.description) {
-        itemUpdates["system.description.value"] = this.actor.system.description;
-      }
+    if (createdItem) {
+      // Build the system-specific update payload for all identification fields via
+      // the adapter, using a synthetic "all fields present" changeset so every
+      // actor identification field is mirrored onto the newly embedded item.
+      const allIdentificationChanges = {
+        isIdentified: true,
+        unidentifiedName: this.actor.system.unidentifiedName,
+        description: this.actor.system.description,
+        unidentifiedDescription: this.actor.system.unidentifiedDescription
+      };
+      const itemUpdates = adapter.buildItemIdentificationUpdate(this.actor, allIdentificationChanges);
       if (Object.keys(itemUpdates).length > 0) {
-        dbg("sheet:_onDrop", "syncing unidentified fields on createdItem", { itemUpdates });
+        dbg("sheet:_onDrop", "syncing identification fields on createdItem", { itemUpdates });
         await createdItem.update(itemUpdates);
       }
     }

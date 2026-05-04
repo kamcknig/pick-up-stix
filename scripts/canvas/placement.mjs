@@ -510,18 +510,15 @@ async function createInteractiveToken(item, x, y, { ephemeral = false, level = n
     }
   );
 
-  // v14: inject level/depth. Priority order:
-  //   1. explicit `level` arg (player-drop forwarded via socket)
-  //   2. saved snapshot's level (round-trip from pickup; Phase 2 populates the snapshot)
-  //   3. currently-viewed level (GM drop default)
+  // v14: tokens always land on the currently-active level.
+  //   - Explicit `level` arg: player-drop level forwarded via socket (the player's own level).
+  //   - Fallback: the GM's currently-viewed level for all other paths.
+  //   Snapshot-saved level is intentionally not used — items should appear wherever
+  //   they are dropped now, not where they were originally picked up from.
   if (hasLevels()) {
-    const savedLevel = savedState?.level;
-    const savedDepth = savedState?.depth;
-    tokenData.level = level ?? savedLevel ?? getViewedLevelId();
-    if (savedDepth !== undefined) tokenData.depth = savedDepth;
-    dbg("place:createInteractiveToken", "v14 level/depth assigned", {
-      level: tokenData.level, depth: tokenData.depth,
-      fromArg: level !== null, fromSaved: !level && !!savedLevel
+    tokenData.level = level ?? getViewedLevelId();
+    dbg("place:createInteractiveToken", "v14 level assigned", {
+      level: tokenData.level, fromArg: level !== null
     });
   }
 

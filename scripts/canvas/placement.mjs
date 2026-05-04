@@ -567,7 +567,9 @@ function onGetSceneControlButtons(controls) {
 
   controls.tokens.tools.interactiveItemsTools = {
     name: "interactiveItemsTools",
-    title: "INTERACTIVE_ITEMS.Controls.ToolsTool",
+    title: game.settings.get(MODULE_ID, "gmOverrideEnabled")
+      ? "INTERACTIVE_ITEMS.Controls.DisableGMOverride"
+      : "INTERACTIVE_ITEMS.Controls.EnableGMOverride",
     icon: "fa-solid fa-hand-holding-box",
     order: 100,
     toggle: true,

@@ -447,7 +447,9 @@ Hooks.once("init", async () => {
   // this separate listener on the ContainerSheet.
   Hooks.on("renderContainerSheet", (app, html) => {
     const destContainerItem = app.item;
-    if (!destContainerItem || destContainerItem.type !== "container") return;
+    // Delegate item-type check to the adapter so the literal "container" is not
+    // hard-coded to the dnd5e vocabulary.
+    if (!destContainerItem || !getAdapter().isContainerItem(destContainerItem)) return;
 
     if (html.dataset.iiActorDropAttached) return;
     html.dataset.iiActorDropAttached = "1";
@@ -480,8 +482,9 @@ Hooks.once("init", async () => {
         return;
       }
 
-      itemData.system = itemData.system ?? {};
-      itemData.system.container = destContainerItem.id;
+      // Delegate container-parent field write to the adapter so the field path
+      // is not hard-coded to dnd5e's `system.container`.
+      getAdapter().setItemContainerId(itemData, destContainerItem.id);
 
       if (destActor) {
         await CONFIG.Item.documentClass.createDocuments([itemData], { parent: destActor, keepId: false });
@@ -825,10 +828,10 @@ Hooks.on("createActor", async (actor, options, userId) => {
   });
 
   if (actor.getFlag(MODULE_ID, "containerDefault")) {
-    if (!actor.items.some(i => i.type === "container")) {
-      // Use the adapter to stamp the identification field so the field path is
-      // not hard-coded to dnd5e's `system.identified` boolean.
-      const containerData = { name: actor.name, type: "container", img: actor.img };
+    if (!actor.items.some(i => getAdapter().isContainerItem(i))) {
+      // Use the adapter for both item type and identification field so neither
+      // is hard-coded to the dnd5e vocabulary or `system.identified` boolean.
+      const containerData = { name: actor.name, type: getAdapter().containerItemType, img: actor.img };
       getAdapter().stampNewItemIdentified(containerData, true);
       await actor.createEmbeddedDocuments("Item", [containerData]);
     }
@@ -861,9 +864,9 @@ Hooks.on("createActor", async (actor, options, userId) => {
       "system.openImage": openImg,
       [`flags.${MODULE_ID}.containerDefault`]: true
     });
-    // Use the adapter to stamp the identification field so the field path is
-    // not hard-coded to dnd5e's `system.identified` boolean.
-    const containerData = { name: actor.name, type: "container", img: closedImg };
+    // Use the adapter for both item type and identification field so neither
+    // is hard-coded to the dnd5e vocabulary or `system.identified` boolean.
+    const containerData = { name: actor.name, type: getAdapter().containerItemType, img: closedImg };
     getAdapter().stampNewItemIdentified(containerData, true);
     await actor.createEmbeddedDocuments("Item", [containerData]);
     actor.sheet?.render({ force: true });

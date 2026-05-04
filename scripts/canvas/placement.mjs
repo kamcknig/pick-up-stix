@@ -7,6 +7,7 @@ import { dbg } from "../utils/debugLog.mjs";
 import { dragModifiersHeld } from "../utils/dragModifier.mjs";
 import { findCanvasDropTargets, promptDropChoice, PLACE_ON_CANVAS } from "../utils/canvasDropTargets.mjs";
 import { hasLevels, getViewedLevelId, getTokenLevelId } from "../utils/levels.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -69,7 +70,9 @@ async function _handleItemDrop(data) {
   }
 
   const hasSource = !!item.flags?.["pick-up-stix"]?.sourceActorId;
-  const isContainer = item.type === "container";
+  // Delegate item-type check to the adapter so the literal "container" is not
+  // hard-coded to the dnd5e vocabulary.
+  const isContainer = getAdapter().isContainerItem(item);
   const isWorldItem = !item.actor; // From Items directory, no parent actor
 
   let ephemeral = false;
@@ -278,8 +281,9 @@ async function depositActorToTarget(droppedActor, targetToken) {
   }
 
   if (targetActor.system?.isContainer && targetActor.system.containerItem) {
-    itemData.system = itemData.system ?? {};
-    itemData.system.container = targetActor.system.containerItem.id;
+    // Delegate container-parent field write to the adapter so the field path
+    // is not hard-coded to dnd5e's `system.container`.
+    getAdapter().setItemContainerId(itemData, targetActor.system.containerItem.id);
   }
 
   if (game.user.isGM) {
@@ -315,8 +319,9 @@ async function depositCanvasTokenToTarget(tokenDoc, targetToken) {
   }
 
   if (targetActor.system?.isContainer && targetActor.system.containerItem) {
-    itemData.system = itemData.system ?? {};
-    itemData.system.container = targetActor.system.containerItem.id;
+    // Delegate container-parent field write to the adapter so the field path
+    // is not hard-coded to dnd5e's `system.container`.
+    getAdapter().setItemContainerId(itemData, targetActor.system.containerItem.id);
   }
 
   dbg("place:depositCanvasTokenToTarget", "creating item on target, deleting source token");
@@ -400,7 +405,9 @@ async function createInteractiveToken(item, x, y, { ephemeral = false, level = n
   x = snapped.x;
   y = snapped.y;
 
-  const isContainer = item.type === "container";
+  // Delegate item-type check to the adapter so the literal "container" is not
+  // hard-coded to the dnd5e vocabulary.
+  const isContainer = getAdapter().isContainerItem(item);
   const img = item.img || "icons/svg/item-bag.svg";
 
   if (isContainer) ephemeral = false; // containers always use templates
@@ -463,14 +470,15 @@ async function createInteractiveToken(item, x, y, { ephemeral = false, level = n
       dbg("place:createInteractiveToken", "new template actor created", { actorId: actor?.id, actorImg: actor?.img });
 
       if (isContainer) {
-        const newContainerItem = actor.items.find(i => i.type === "container");
+        // Delegate item-type check and container-parent field write to the adapter
+        // so neither is hard-coded to the dnd5e vocabulary.
+        const newContainerItem = actor.items.find(i => getAdapter().isContainerItem(i));
         if (newContainerItem && item.system.contents?.size > 0) {
           const toCreate = await CONFIG.Item.documentClass.createWithContents(
             Array.from(item.system.contents)
           );
           toCreate.forEach(i => {
-            i.system = i.system ?? {};
-            i.system.container = newContainerItem.id;
+            getAdapter().setItemContainerId(i, newContainerItem.id);
           });
           dbg("place:createInteractiveToken", "copying container contents", { contentCount: toCreate.length });
           if (toCreate.length > 0) {
@@ -620,13 +628,20 @@ class PlacementDialog extends foundry.applications.api.DialogV2 {
             const centerX = x;
             const centerY = y;
 
+            // Use the adapter for item type literals so the placement dialog creates
+            // items using the active system's vocabulary rather than dnd5e hard-codes.
+            // `objectType` is a picker-dialog token ("container" | "item") — not an
+            // item type — so the `objectType === "container"` comparisons stay as-is.
+            const fakeItemType = objectType === "container"
+              ? getAdapter().containerItemType
+              : getAdapter().defaultLootItemType;
             const fakeItem = {
               name,
-              type: objectType === "container" ? "container" : "loot",
+              type: fakeItemType,
               img: objectType === "container" ? "icons/svg/chest.svg" : "icons/svg/item-bag.svg",
               toObject: () => ({
                 name,
-                type: objectType === "container" ? "container" : "loot",
+                type: fakeItemType,
                 img: objectType === "container" ? "icons/svg/chest.svg" : "icons/svg/item-bag.svg"
               }),
               system: { description: { value: "" }, contents: { size: 0 } }

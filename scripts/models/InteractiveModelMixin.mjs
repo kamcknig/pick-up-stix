@@ -34,10 +34,12 @@ export default function InteractiveModelMixin(Base) {
         const baseItemIds = baseActor ? new Set(baseActor.items.keys()) : new Set();
         const allowed = snapshotIds ? new Set(snapshotIds) : new Set();
         return this.parent.items.filter(i =>
-          (allowed.has(i.id) || !baseItemIds.has(i.id)) && !i.system.container
+          (allowed.has(i.id) || !baseItemIds.has(i.id)) && !getAdapter().getItemContainerId(i)
         );
       }
-      return this.parent.items.filter(i => !i.system.container);
+      // Delegate container-parent field access to the adapter so the field path
+      // is not hard-coded to dnd5e's `system.container`.
+      return this.parent.items.filter(i => !getAdapter().getItemContainerId(i));
     }
   };
 }

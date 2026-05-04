@@ -426,14 +426,19 @@ export async function toggleItemIdentification(item) {
   return newState;
 }
 
+/**
+ * Assigns the container parent reference on each item data object so that the
+ * deposited items appear as children of the destination container in the system's
+ * native sheet. Delegates the field write to the adapter so the field path is not
+ * hard-coded to dnd5e's `system.container`.
+ */
 export function assignContainerParent(containerActor, itemDataArray) {
   if (!containerActor.system?.isContainer) return;
   const containerItem = containerActor.system.containerItem;
   if (!containerItem) return;
   const items = Array.isArray(itemDataArray) ? itemDataArray : [itemDataArray];
   for (const itemData of items) {
-    itemData.system = itemData.system ?? {};
-    itemData.system.container = containerItem.id;
+    getAdapter().setItemContainerId(itemData, containerItem.id);
   }
 }
 

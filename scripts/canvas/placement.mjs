@@ -6,7 +6,6 @@ import { getPlayerCandidateTokens, depositItem, buildInteractiveItemData, assign
 import { dbg } from "../utils/debugLog.mjs";
 import { dragModifiersHeld } from "../utils/dragModifier.mjs";
 import { findCanvasDropTargets, promptDropChoice, PLACE_ON_CANVAS } from "../utils/canvasDropTargets.mjs";
-import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
 import { hasLevels, getViewedLevelId, getTokenLevelId } from "../utils/levels.mjs";
 
 const MODULE_ID = "pick-up-stix";
@@ -99,7 +98,7 @@ async function _handleItemDrop(data) {
   // GMs use the viewed level (null → findCanvasDropTargets internal default).
   // Players use their character's level so a stacked-visible container on a different
   // floor doesn't falsely prompt for deposit.
-  const dropLevel = isModuleGM()
+  const dropLevel = game.user.isGM
     ? (data.level ?? null)
     : (() => {
         const ownerToken = item.actor
@@ -132,7 +131,7 @@ async function _handleItemDrop(data) {
     dbg("place:_handleItemDrop", "user chose PLACE_ON_CANVAS, fall through to placement");
   }
 
-  if (isModuleGM()) {
+  if (game.user.isGM) {
     dbg("place:_handleItemDrop", "GM path — createInteractiveToken", {
       x: data.x, y: data.y, ephemeral, level: data.level ?? null
     });
@@ -221,13 +220,13 @@ async function depositItemToTarget(item, targetToken) {
   });
 
   // Players can't remove world items; depositItem requires a source actor.
-  if (isPlayerView() && !item.actor) {
+  if (!game.user.isGM && !item.actor) {
     dbg("place:depositItemToTarget", "player dropping world item onto target, bail");
     ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
     return;
   }
 
-  if (isModuleGM()) {
+  if (game.user.isGM) {
     // Use item reference directly — synthetic parent actors aren't in game.actors.
     if (!item.actor) {
       const itemData = item.toObject();
@@ -283,7 +282,7 @@ async function depositActorToTarget(droppedActor, targetToken) {
     itemData.system.container = targetActor.system.containerItem.id;
   }
 
-  if (isModuleGM()) {
+  if (game.user.isGM) {
     dbg("place:depositActorToTarget", "GM path: createDocuments on target");
     await CONFIG.Item.documentClass.createDocuments([itemData], { parent: targetActor, keepId: false });
     notifyItemAction("Deposited", droppedActor.name);
@@ -568,7 +567,9 @@ function onGetSceneControlButtons(controls) {
 
   controls.tokens.tools.interactiveItemsTools = {
     name: "interactiveItemsTools",
-    title: "INTERACTIVE_ITEMS.Controls.ToolsTool",
+    title: game.settings.get(MODULE_ID, "gmOverrideEnabled")
+      ? "INTERACTIVE_ITEMS.Controls.DisableGMOverride"
+      : "INTERACTIVE_ITEMS.Controls.EnableGMOverride",
     icon: "fa-solid fa-hand-holding-box",
     order: 100,
     toggle: true,

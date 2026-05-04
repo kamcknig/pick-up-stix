@@ -58,7 +58,7 @@ Hooks.once("init", () => {
     scope: "client",
     config: true,
     type: Boolean,
-    default: true
+    default: false
   });
 
   game.settings.register(MODULE_ID, "gmOverrideEnabled", {
@@ -164,7 +164,7 @@ Hooks.once("init", () => {
       });
     }
 
-    if (isPlayerView()) return;
+    if (!game.user.isGM) return;
     const iiFlags = getItemIIFlags(item);
     if (!iiFlags?.sourceActorId) return;
     const sourceActorId = getItemSourceActorId(item);
@@ -192,7 +192,7 @@ Hooks.once("init", () => {
   // dnd5e uses both `<img class="item-image">` (raster) and `<dnd5e-icon class="item-image">` (SVG);
   // both share the class so the querySelector catches either.
   const _injectIdentifyToggles = (app, html) => {
-    if (isPlayerView()) return;
+    if (!game.user.isGM) return;
     if (isInteractiveActor(app.actor)) return;
     const root = html instanceof HTMLElement ? html : html?.[0];
     if (!root) return;
@@ -229,7 +229,7 @@ Hooks.once("init", () => {
   Hooks.on("renderNPCActorSheet", _injectIdentifyToggles);
 
   Hooks.on("renderItemSheet5e", (app, html) => {
-    if (isPlayerView()) return;
+    if (!game.user.isGM) return;
     const item = app.item;
     const actor = item?.actor;
 
@@ -512,7 +512,7 @@ Hooks.once("init", () => {
   });
 
   Hooks.on("dropActorSheetData", (actor, sheet, data) => {
-    if (isPlayerView()) return;
+    if (!game.user.isGM) return;
     if (isInteractiveActor(actor)) return;
     if (data?.type !== "Actor") return;
 
@@ -1186,7 +1186,7 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
 Hooks.on("renderActorDirectory", (app, html, context, options) => {
   const ephemeralFolderId = game.settings.get(MODULE_ID, "ephemeralFolder");
   const ephemeralVisible = game.settings.get(MODULE_ID, "ephemeralFolderVisible");
-  const hideEphemeralFolder = isPlayerView() || !ephemeralVisible;
+  const hideEphemeralFolder = !game.user.isGM || !ephemeralVisible;
 
   if (ephemeralFolderId && hideEphemeralFolder) {
     const folderEl = html.querySelector(`.folder[data-folder-id="${ephemeralFolderId}"]`);
@@ -1198,12 +1198,12 @@ Hooks.on("renderActorDirectory", (app, html, context, options) => {
     const actor = game.actors.get(actorId);
     if (!isInteractiveActor(actor)) return;
     const isEphemeral = !!actor.getFlag(MODULE_ID, "ephemeral");
-    if (isPlayerView() || (isEphemeral && hideEphemeralFolder)) {
+    if (!game.user.isGM || (isEphemeral && hideEphemeralFolder)) {
       el.remove();
     }
   });
 
-  if (isPlayerView()) return;
+  if (!game.user.isGM) return;
 
   // Ephemeral actors are created programmatically — block manual creation.
   if (ephemeralFolderId && !hideEphemeralFolder) {
@@ -1244,7 +1244,7 @@ Hooks.on("renderUserConfig", (app, html) => {
 });
 
 Hooks.on("renderActorDirectory", (app, element) => {
-  if (isPlayerView()) return;
+  if (!game.user.isGM) return;
   if (element.dataset.iiCreatePickerAttached) return;
   element.dataset.iiCreatePickerAttached = "1";
 

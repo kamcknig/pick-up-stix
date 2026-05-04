@@ -69,6 +69,11 @@
   opacity: 1;
 }
 
+.ii-row-control.active {
+  color: var(--color-text-hyperlink);
+  opacity: 1;
+}
+
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
 
 .pick-up-stix-identify-toggle {

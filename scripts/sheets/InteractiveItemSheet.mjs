@@ -86,15 +86,14 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
 
       dialog.close();
 
-      // Render the embedded item's sheet directly — our actor sheet gates would
-      // re-block it. The renderContainerSheet hook hides contents when inaccessible.
-      const embedded = actor.system.embeddedItem;
-      if (!embedded) continue;
-      const realSheet = embedded.sheet;
-      await realSheet.render({ force: true });
+      // Open the embedded item's sheet via the adapter — bypasses our actor sheet
+      // gates which would re-block the render. The renderContainerSheet hook
+      // hides contents when the container is inaccessible.
+      if (!actor.system.embeddedItem) continue;
+      const renderedSheet = await getAdapter().renderEmbeddedSheet(actor, { force: true });
 
       if (!hasPosition) continue;
-      const el = realSheet.element;
+      const el = renderedSheet?.element;
       if (!el) continue;
 
       const appRect = el.getBoundingClientRect();
@@ -103,7 +102,7 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       const left = Math.max(0, Math.min(rect.left, maxLeft));
       const top = Math.max(0, Math.min(rect.top, maxTop));
 
-      realSheet.setPosition({ left, top });
+      renderedSheet.setPosition({ left, top });
     }
   }
 
@@ -189,8 +188,8 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       }
       const item = this.containerItem;
       if (item) {
-        dbg("sheet:render", "container: delegating to ContainerSheet", { itemId: item.id, itemName: item.name });
-        await item.sheet.render({ force: true });
+        dbg("sheet:render", "container: delegating to adapter.renderContainerView", { itemId: item.id, itemName: item.name });
+        await getAdapter().renderContainerView(this.actor, options);
         return this;
       }
     } else {
@@ -201,9 +200,9 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       }
       const item = this.actor.items.contents[0];
       if (item) {
-        dbg("sheet:render", "item: delegating to ItemSheet5e", { itemId: item.id, itemName: item.name, itemImg: item.img });
+        dbg("sheet:render", "item: delegating to adapter.renderItemView", { itemId: item.id, itemName: item.name, itemImg: item.img });
         await this.#syncItemImage(item);
-        await item.sheet.render({ force: true });
+        await getAdapter().renderItemView(this.actor, options);
         return this;
       }
     }
@@ -353,14 +352,13 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
     if (!item) return;
     await this.#syncItemImage(item);
     await this.close();
-    item.sheet.render({ force: true });
+    await getAdapter().renderItemView(this.actor);
   }
 
   static async #onOpenContainerSheet(event, target) {
-    const item = this.containerItem;
-    if (!item) return;
+    if (!this.containerItem) return;
     await this.close();
-    item.sheet.render({ force: true });
+    await getAdapter().renderContainerView(this.actor);
   }
 
   async #syncItemImage(item) {

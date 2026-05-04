@@ -429,6 +429,7 @@ Hooks.once("init", async () => {
           target.appendChild(createRowControl({
             iconClass: "fa-solid fa-wand-sparkles",
             titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+            active: getAdapter().isItemIdentified(item),
             onClick: async () => { await toggleItemIdentification(item); }
           }));
         }

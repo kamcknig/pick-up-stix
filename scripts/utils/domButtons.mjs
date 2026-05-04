@@ -22,9 +22,10 @@ export function insertHeaderButton(header, btn, closeBtn) {
   else header.appendChild(btn);
 }
 
-export function createRowControl({ iconClass, titleKey, onClick, extraClass = "" }) {
+export function createRowControl({ iconClass, titleKey, onClick, extraClass = "", active = false }) {
   const btn = document.createElement("a");
   btn.className = `ii-row-control ${extraClass}`.trim();
+  btn.classList.toggle("active", active);
   btn.title = game.i18n.localize(titleKey);
   btn.innerHTML = `<i class="${iconClass}"></i>`;
   btn.addEventListener("click", async (ev) => {

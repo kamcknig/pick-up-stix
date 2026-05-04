@@ -1,3 +1,4 @@
+import { loadAdapter } from "./adapter/index.mjs";
 import InteractiveItemModel from "./models/InteractiveItemModel.mjs";
 import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
 import { registerTokenHUD } from "./hud/InteractiveTokenHUD.mjs";
@@ -23,7 +24,10 @@ const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
 const CHEST_CLOSED = `modules/${MODULE_ID}/icons/treasure-chest-closed.png`;
 const CHEST_OPEN = `modules/${MODULE_ID}/icons/treasure-chest-open.png`;
 
-Hooks.once("init", () => {
+Hooks.once("init", async () => {
+  // game.system is available from this point on; dynamically import only the
+  // active system's adapter so pf2e users never fetch dnd5e code and vice versa.
+  await loadAdapter();
   console.log(`${MODULE_ID} | Initializing Pick-Up-Stix module`);
 
   Object.assign(CONFIG.Actor.dataModels, {

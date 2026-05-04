@@ -219,7 +219,7 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
 
     // Item-kind actors abandoned in the picker (no item ever dropped) — delete.
     const MODULE_ID = "pick-up-stix";
-    if (actor && game.actors.has(actor.id) && !actor.token && isModuleGM()
+    if (actor && game.actors.has(actor.id) && !actor.token && game.user.isGM
       && actor.getFlag(MODULE_ID, "createKindConfirmed")
       && actor.items.size === 0) {
       await actor.delete();
@@ -367,9 +367,9 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       actorName: this.actor?.name,
       itemName: item?.name,
       itemImg: item?.img,
-      isGM: isModuleGM()
+      isGM: game.user.isGM
     });
-    if (isPlayerView()) {
+    if (!game.user.isGM) {
       dbg("sheet:#syncItemImage", "not GM, bail");
       return;
     }
@@ -484,7 +484,7 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       return;
     }
 
-    if (isPlayerView()) {
+    if (!game.user.isGM) {
       dbg("sheet:_onDrop", "not GM, bail");
       return;
     }

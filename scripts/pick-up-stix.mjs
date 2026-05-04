@@ -16,6 +16,7 @@ import { createStateToggleButton, insertHeaderButton, createRowControl } from ".
 import { dbg } from "./utils/debugLog.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
+import { getTokenLevelId } from "./utils/levels.mjs";
 
 const MODULE_ID = "pick-up-stix";
 const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
@@ -1675,16 +1676,34 @@ async function _onActorFolderChanged(value) {
   }
 }
 
+/**
+ * Drops an item from the dnd5e context menu "Drop Item" entry onto the canvas
+ * at the dropping actor's current token position. On v14, also forwards the
+ * actor's current level so the placed token lands on the correct floor.
+ *
+ * @param {Item} item - The item to drop from the actor's inventory.
+ */
 async function _dropItemOnCanvas(item) {
   const actor = item.actor;
   if (!actor) return;
 
   const token = canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
   if (!token) {
+    dbg("place:_dropItemOnCanvas", "no canvas token for actor, bail", { actorName: actor?.name });
     ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoToken"));
     return;
   }
 
+  const tokenDoc = token.document;
+  dbg("place:_dropItemOnCanvas", {
+    itemName: item.name, x: tokenDoc.x, y: tokenDoc.y, level: getTokenLevelId(tokenDoc)
+  });
+
   const { handleItemDrop } = await import("./canvas/placement.mjs");
-  await handleItemDrop({ uuid: item.uuid, x: token.document.x, y: token.document.y });
+  await handleItemDrop({
+    uuid: item.uuid,
+    x: tokenDoc.x,
+    y: tokenDoc.y,
+    level: getTokenLevelId(tokenDoc)    // v14: forward the dropping actor's level
+  });
 }

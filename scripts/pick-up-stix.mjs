@@ -16,6 +16,7 @@ import { createStateToggleButton, insertHeaderButton, createRowControl } from ".
 import { dbg } from "./utils/debugLog.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
+import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
 
 const MODULE_ID = "pick-up-stix";
 const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
@@ -686,7 +687,10 @@ Hooks.on("preUpdateToken", (tokenDoc, changes, options, userId) => {
 
   const newX = changes.x ?? tokenDoc.x;
   const newY = changes.y ?? tokenDoc.y;
-  const overlapTargets = findCanvasDropTargets(newX, newY, { sourceActorId: actor.id });
+  // v14: a token can only overlap deposit targets on the same level it's moving to.
+  // Use the destination level from `changes.level` if present, else the token's current level.
+  const newLevel = hasLevels() ? (changes.level ?? getTokenLevelId(tokenDoc)) : null;
+  const overlapTargets = findCanvasDropTargets(newX, newY, { sourceActorId: actor.id, level: newLevel });
 
   if (!overlapTargets.length) {
     dbg("hook:preUpdateToken", "no overlap targets, allow move");
@@ -1444,8 +1448,10 @@ function _reevaluateInteractiveProximity() {
 // so we identify stale apps by parent actor rather than instanceof.
 Hooks.on("updateToken", (tokenDoc, changes, options, userId) => {
   if (isModuleGM()) return;
-  if (!("x" in changes || "y" in changes)) {
-    dbg("hook:updateToken", "no x/y in changes, bail", { tokenId: tokenDoc.id });
+  // Trigger on x, y, OR level changes — level is a movement field in v14
+  // and a pure level transition can change proximity outcomes without a coord change.
+  if (!("x" in changes || "y" in changes || "level" in changes)) {
+    dbg("hook:updateToken", "no x/y/level in changes, bail", { tokenId: tokenDoc.id });
     return;
   }
 
@@ -1457,8 +1463,12 @@ Hooks.on("updateToken", (tokenDoc, changes, options, userId) => {
 
   // Record the definitive final position for this specific token. Foundry's
   // animation interpolates document.x/y mid-flight so the `changes` payload
-  // is the only reliable source of the final coordinates.
+  // is the only reliable source of the final coordinates. Also capture level
+  // on v14 so cross-level proximity checks use animation-safe data.
   const newPos = { x: changes.x ?? tokenDoc.x, y: changes.y ?? tokenDoc.y, width: tokenDoc.width, height: tokenDoc.height };
+  if (hasLevels()) {
+    newPos.level = changes.level ?? getTokenLevelId(tokenDoc);
+  }
   dbg("hook:updateToken", "candidate token moved, recording position override", { tokenId: tokenDoc.id, newPos });
   setPlayerPositionOverride(tokenDoc.id, newPos);
 
@@ -1479,8 +1489,13 @@ Hooks.on("controlToken", (token, controlled) => {
 
   // When newly controlled, seed its position override so checkProximity uses
   // fresh coords immediately (rather than waiting for its next updateToken).
+  // Also capture level on v14 so cross-level proximity checks are correct
+  // from the moment of selection.
   if (controlled) {
     const pos = { x: tokenDoc.x, y: tokenDoc.y, width: tokenDoc.width, height: tokenDoc.height };
+    if (hasLevels()) {
+      pos.level = getTokenLevelId(tokenDoc);
+    }
     dbg("hook:controlToken", "seeding position override for newly controlled token", { tokenId: tokenDoc.id, pos });
     setPlayerPositionOverride(tokenDoc.id, pos);
   }
@@ -1675,16 +1690,34 @@ async function _onActorFolderChanged(value) {
   }
 }
 
+/**
+ * Drops an item from the dnd5e context menu "Drop Item" entry onto the canvas
+ * at the dropping actor's current token position. On v14, also forwards the
+ * actor's current level so the placed token lands on the correct floor.
+ *
+ * @param {Item} item - The item to drop from the actor's inventory.
+ */
 async function _dropItemOnCanvas(item) {
   const actor = item.actor;
   if (!actor) return;
 
   const token = canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
   if (!token) {
+    dbg("place:_dropItemOnCanvas", "no canvas token for actor, bail", { actorName: actor?.name });
     ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoToken"));
     return;
   }
 
+  const tokenDoc = token.document;
+  dbg("place:_dropItemOnCanvas", {
+    itemName: item.name, x: tokenDoc.x, y: tokenDoc.y, level: getTokenLevelId(tokenDoc)
+  });
+
   const { handleItemDrop } = await import("./canvas/placement.mjs");
-  await handleItemDrop({ uuid: item.uuid, x: token.document.x, y: token.document.y });
+  await handleItemDrop({
+    uuid: item.uuid,
+    x: tokenDoc.x,
+    y: tokenDoc.y,
+    level: getTokenLevelId(tokenDoc)    // v14: forward the dropping actor's level
+  });
 }

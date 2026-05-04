@@ -42,7 +42,8 @@ export function registerSocket() {
         const item = await fromUuid(payload.data.itemUuid);
         if (!item) break;
         await createInteractiveToken(item, payload.data.x, payload.data.y, {
-          ephemeral: !!payload.data.ephemeral
+          ephemeral: !!payload.data.ephemeral,
+          level: payload.data.level ?? null      // forward player-supplied level (v14)
         });
         if (payload.data.sourceActorId && payload.data.itemId) {
           const sourceActor = game.actors.get(payload.data.sourceActorId);

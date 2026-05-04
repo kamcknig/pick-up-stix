@@ -7,6 +7,7 @@ import { dbg } from "../utils/debugLog.mjs";
 import { dragModifiersHeld } from "../utils/dragModifier.mjs";
 import { findCanvasDropTargets, promptDropChoice, PLACE_ON_CANVAS } from "../utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
+import { hasLevels, getViewedLevelId, getTokenLevelId } from "../utils/levels.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -94,7 +95,21 @@ async function _handleItemDrop(data) {
   }
 
   const sourceActorId = item.actor?.id ?? null;
-  const overlapTargets = findCanvasDropTargets(data.x, data.y, { sourceActorId });
+  // On v14, restrict overlap targets to the level the item is being dropped onto.
+  // GMs use the viewed level (null → findCanvasDropTargets internal default).
+  // Players use their character's level so a stacked-visible container on a different
+  // floor doesn't falsely prompt for deposit.
+  const dropLevel = isModuleGM()
+    ? (data.level ?? null)
+    : (() => {
+        const ownerToken = item.actor
+          ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
+          : null;
+        const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
+        return playerToken ? getTokenLevelId(playerToken.document) : null;
+      })();
+  dbg("place:_handleItemDrop", "resolving overlap targets", { sourceActorId, dropLevel });
+  const overlapTargets = findCanvasDropTargets(data.x, data.y, { sourceActorId, level: dropLevel });
   if (overlapTargets.length) {
     dbg("place:_handleItemDrop", "overlap targets found, prompting user",
       { count: overlapTargets.length, names: overlapTargets.map(t => t.actor.name) });
@@ -118,8 +133,10 @@ async function _handleItemDrop(data) {
   }
 
   if (isModuleGM()) {
-    dbg("place:_handleItemDrop", "GM path — createInteractiveToken", { x: data.x, y: data.y, ephemeral });
-    await createInteractiveToken(item, data.x, data.y, { ephemeral });
+    dbg("place:_handleItemDrop", "GM path — createInteractiveToken", {
+      x: data.x, y: data.y, ephemeral, level: data.level ?? null
+    });
+    await createInteractiveToken(item, data.x, data.y, { ephemeral, level: data.level ?? null });
     if (item.actor) await item.delete({ deleteContents: true });
   } else {
     // Prefer the owner's canvas token so the item lands at the dragger's position,
@@ -128,7 +145,9 @@ async function _handleItemDrop(data) {
       ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
       : null;
     const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
-    dbg("place:_handleItemDrop", "player path", { ownerTokenId: ownerToken?.document?.id, playerTokenId: playerToken?.document?.id, ephemeral });
+    dbg("place:_handleItemDrop", "player path", {
+      ownerTokenId: ownerToken?.document?.id, playerTokenId: playerToken?.document?.id, ephemeral
+    });
     if (!playerToken) {
       dbg("place:_handleItemDrop", "no player token found, bail");
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoCharacter"));
@@ -136,11 +155,22 @@ async function _handleItemDrop(data) {
     }
     const x = playerToken.document.x;
     const y = playerToken.document.y;
+    // Player drops always target the player's character's level, even if the GM
+    // is currently viewing a different level.
+    const playerLevel = getTokenLevelId(playerToken.document);
 
-    dbg("place:_handleItemDrop", "routing placeItem via socket", { x, y, ephemeral, itemUuid: data.uuid });
+    dbg("place:_handleItemDrop", "routing placeItem via socket",
+      { x, y, level: playerLevel, ephemeral, itemUuid: data.uuid });
     dispatchGM(
       "placeItem",
-      { itemUuid: data.uuid, sourceActorId: item.actor?.id ?? null, itemId: item.id, x, y, ephemeral },
+      {
+        itemUuid: data.uuid,
+        sourceActorId: item.actor?.id ?? null,
+        itemId: item.id,
+        x, y,
+        level: playerLevel,
+        ephemeral
+      },
       () => {} // unreachable — game.user.isGM is false in this branch
     );
     notifyItemAction("Placed", item.name);
@@ -349,7 +379,24 @@ async function _handleInteractiveActorDropWithOverlap(dropped, data, targets) {
   await depositActorToTarget(dropped, result);
 }
 
-async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
+/**
+ * Creates an interactive token on the canvas for the given item at the given coordinates.
+ *
+ * On Foundry v14, the token will be assigned to the correct scene level using the
+ * following priority order:
+ *   1. Explicit `level` argument (forwarded via socket from the player's character level).
+ *   2. Saved `tokenState.level` from a previous pickup snapshot (round-trip restore).
+ *   3. Currently-viewed level (GM drop default via `canvas.level.id`).
+ * On Foundry v13 (no levels system), `level`/`depth` are never written.
+ *
+ * @param {Item} item - The item to place as an interactive token.
+ * @param {number} x - Canvas x coordinate.
+ * @param {number} y - Canvas y coordinate.
+ * @param {object} [options]
+ * @param {boolean} [options.ephemeral=false] - When true, creates an ephemeral (non-template) actor.
+ * @param {string|null} [options.level=null] - v14 level id to assign. Null = fall through to snapshot/viewed-level logic.
+ */
+async function createInteractiveToken(item, x, y, { ephemeral = false, level = null } = {}) {
   const snapped = canvas.grid.getTopLeftPoint({ x, y });
   x = snapped.x;
   y = snapped.y;
@@ -465,7 +512,10 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
   if (savedState) tokenFlags["pick-up-stix"].savedState = savedState;
   if (ephemeral) tokenFlags["pick-up-stix"].ephemeral = true;
 
-  dbg("place:createInteractiveToken", "placing token", { actorId: actor.id, actorImg: actor.img, x, y, hasSavedState: !!savedState });
+  dbg("place:createInteractiveToken", "placing token", {
+    actorId: actor.id, actorImg: actor.img, x, y,
+    hasSavedState: !!savedState, levelArg: level
+  });
   const tokenData = foundry.utils.mergeObject(
     actor.prototypeToken.toObject(),
     {
@@ -473,16 +523,43 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
       flags: tokenFlags
     }
   );
+
+  // v14: tokens always land on the currently-active level.
+  //   - Explicit `level` arg: player-drop level forwarded via socket (the player's own level).
+  //   - Fallback: the GM's currently-viewed level for all other paths.
+  //   Snapshot-saved level is intentionally not used — items should appear wherever
+  //   they are dropped now, not where they were originally picked up from.
+  if (hasLevels()) {
+    tokenData.level = level ?? getViewedLevelId();
+    dbg("place:createInteractiveToken", "v14 level assigned", {
+      level: tokenData.level, fromArg: level !== null
+    });
+  }
+
   await canvas.scene.createEmbeddedDocuments("Token", [tokenData]);
   dbg("place:createInteractiveToken", "token placed", { actorId: actor.id, ephemeral });
 
   notifyItemAction("Placed", item.name);
 }
 
+/**
+ * Creates a token on the canvas from a base actor at the given coordinates.
+ * On v14, stamps the currently-viewed level onto the token document so the
+ * token lands on the correct floor without relying on core's _onDropActorData.
+ *
+ * @param {Actor} actor
+ * @param {number} x
+ * @param {number} y
+ */
 async function createTokenFromActor(actor, x, y) {
   dbg("place:createTokenFromActor", { actorName: actor.name, actorId: actor.id, x, y });
   const snapped = canvas.grid.getTopLeftPoint({ x, y });
-  const tokenDocument = await actor.getTokenDocument({ x: snapped.x, y: snapped.y });
+  const data = { x: snapped.x, y: snapped.y };
+  if (hasLevels()) {
+    data.level = getViewedLevelId();
+    dbg("place:createTokenFromActor", "v14 level assigned", { level: data.level });
+  }
+  const tokenDocument = await actor.getTokenDocument(data);
   return canvas.scene.createEmbeddedDocuments("Token", [tokenDocument.toObject()]);
 }
 

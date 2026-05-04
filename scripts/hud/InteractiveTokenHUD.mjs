@@ -6,6 +6,7 @@ import { validateContainerAccess } from "../utils/containerAccess.mjs";
 import { resolvePickupTarget } from "../utils/pickupFlow.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
+import { hasLevels, getTokenLevelId, getViewedLevelId } from "../utils/levels.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -21,6 +22,9 @@ function _patchCanHUD() {
     if (isInteractiveActor(this.actor)) {
       dbg("hud:_canHUD", { actorName: this.actor?.name, isDragged: !!this.layer._draggedToken, layerActive: this.layer.active, isPreview: this.isPreview });
       if (this.layer._draggedToken || !this.layer.active || this.isPreview) return false;
+      // Cross-level interactive tokens still return true here so that the PIXI
+      // clickRight event fires and _patchClickRight can handle the level switch.
+      // The HUD itself is suppressed inside _patchClickRight by not calling hud.bind().
       return this.actor.testUserPermission(user, "OBSERVER");
     }
     return wrapped(user, event);
@@ -46,6 +50,22 @@ function _patchClickRight() {
   libWrapper.register(MODULE_ID, "foundry.canvas.placeables.Token.prototype._onClickRight", function(wrapped, event) {
     if (!isInteractiveActor(this.actor)) return wrapped(event);
 
+    // v14: when this interactive token is on a different level than the viewed
+    // level, defer to core. _canHUD intentionally returns true for cross-level
+    // tokens so the PIXI clickRight event is not blocked and this wrapper fires;
+    // returning wrapped(event) lets core's _onClickRight → control() → _onControl()
+    // → scene.view() handle the level switch naturally.
+    if (hasLevels()) {
+      const tokenLevel = getTokenLevelId(this.document);
+      const viewedLevel = getViewedLevelId();
+      if (tokenLevel && viewedLevel && tokenLevel !== viewedLevel) {
+        dbg("hud:_onClickRight", "cross-level click, deferring to core",
+          { actorName: this.actor?.name, tokenLevel, viewedLevel });
+        return wrapped(event);
+      }
+    }
+
+    // Same-level (or v13) interactive token: keep custom HUD-bind behavior.
     dbg("hud:_onClickRight", { actorName: this.actor?.name, hasActiveHUD: this.hasActiveHUD, playerView: isPlayerView() });
     if (this.layer.hud) {
       // In player-view mode skip control() so the interactive token is never

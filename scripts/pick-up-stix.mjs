@@ -687,7 +687,10 @@ Hooks.on("preUpdateToken", (tokenDoc, changes, options, userId) => {
 
   const newX = changes.x ?? tokenDoc.x;
   const newY = changes.y ?? tokenDoc.y;
-  const overlapTargets = findCanvasDropTargets(newX, newY, { sourceActorId: actor.id });
+  // v14: a token can only overlap deposit targets on the same level it's moving to.
+  // Use the destination level from `changes.level` if present, else the token's current level.
+  const newLevel = hasLevels() ? (changes.level ?? getTokenLevelId(tokenDoc)) : null;
+  const overlapTargets = findCanvasDropTargets(newX, newY, { sourceActorId: actor.id, level: newLevel });
 
   if (!overlapTargets.length) {
     dbg("hook:preUpdateToken", "no overlap targets, allow move");

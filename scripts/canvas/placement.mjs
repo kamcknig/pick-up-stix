@@ -95,7 +95,21 @@ async function _handleItemDrop(data) {
   }
 
   const sourceActorId = item.actor?.id ?? null;
-  const overlapTargets = findCanvasDropTargets(data.x, data.y, { sourceActorId });
+  // On v14, restrict overlap targets to the level the item is being dropped onto.
+  // GMs use the viewed level (null → findCanvasDropTargets internal default).
+  // Players use their character's level so a stacked-visible container on a different
+  // floor doesn't falsely prompt for deposit.
+  const dropLevel = isModuleGM()
+    ? (data.level ?? null)
+    : (() => {
+        const ownerToken = item.actor
+          ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
+          : null;
+        const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
+        return playerToken ? getTokenLevelId(playerToken.document) : null;
+      })();
+  dbg("place:_handleItemDrop", "resolving overlap targets", { sourceActorId, dropLevel });
+  const overlapTargets = findCanvasDropTargets(data.x, data.y, { sourceActorId, level: dropLevel });
   if (overlapTargets.length) {
     dbg("place:_handleItemDrop", "overlap targets found, prompting user",
       { count: overlapTargets.length, names: overlapTargets.map(t => t.actor.name) });

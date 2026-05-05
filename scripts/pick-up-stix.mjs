@@ -722,12 +722,22 @@ function _hideContainerSheetContents({ actor, app, html }) {
 
   if (actor.system.isOpen && checkProximity(actor, { silent: true, range: "interaction" })) return;
 
-  const list = html.querySelector('section.inventory.tab[data-tab="contents"] .items-list');
-  if (!list) return;
+  const tab = html.querySelector('section.inventory.tab[data-tab="contents"]');
+  if (!tab) return;
 
   const message = actor.system.isOpen
     ? game.i18n.localize("INTERACTIVE_ITEMS.Container.ContentsHidden")
     : game.i18n.localize("INTERACTIVE_ITEMS.Notify.ContainerClosed");
+
+  // dnd5e contents tab also exposes a treasure/currency row and a
+  // search/filter/sort bar above the items list — both leak inventory
+  // information when the player is out of interaction range, so hide them
+  // alongside the items grid.
+  tab.querySelector('section.currency')?.remove();
+  tab.querySelector('.middle')?.remove();
+
+  const list = tab.querySelector('.items-list');
+  if (!list) return;
 
   list.replaceChildren();
   const placeholder = document.createElement("div");

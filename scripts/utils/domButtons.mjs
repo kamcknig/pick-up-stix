@@ -21,7 +21,12 @@ export function createStateToggleButton({
 export function insertHeaderButton(header, btn, closeBtn) {
   const identifiedToggle = header.querySelector(".toggle-identified");
   if (identifiedToggle) identifiedToggle.before(btn);
-  else if (closeBtn) closeBtn.before(btn);
+  // Fall back to scanning the header in case the caller failed to resolve the
+  // close button under the system's specific markup. pf2e V1 sheets render
+  // close as `<a class="header-button close">` while dnd5e V2 uses
+  // `<button data-action="close">`.
+  const close = closeBtn ?? header.querySelector("button.close, a.close, [data-action='close']");
+  if (close) close.before(btn);
   else header.appendChild(btn);
 }
 

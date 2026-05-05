@@ -323,7 +323,7 @@ function _injectItemSheetHeaderControls({ app, html }) {
   const header = html.querySelector(".window-header");
   if (!header) return;
   html.querySelector(".mode-slider")?.remove();
-  const closeBtn = header.querySelector("button.close, [data-action='close']");
+  const closeBtn = header.querySelector("button.close, a.close, [data-action='close']");
 
   header.querySelector(".ii-identify-toggle-btn")?.remove();
   const _adapter = getAdapter();
@@ -396,7 +396,7 @@ function _injectContainerSheetHeaderControls({ actor, app, html }) {
   const header = html.querySelector(".window-header");
   if (!header) return;
   html.querySelector(".mode-slider")?.remove();
-  const closeBtn = header.querySelector("button.close, [data-action='close']");
+  const closeBtn = header.querySelector("button.close, a.close, [data-action='close']");
 
   // Remove existing to refresh state on re-render.
   header.querySelector(".ii-open-toggle-btn")?.remove();

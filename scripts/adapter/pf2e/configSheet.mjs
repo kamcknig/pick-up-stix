@@ -169,9 +169,10 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
   }
 
   /**
-   * V1 header buttons — Foundry calls this on every render. Return descriptors
-   * for Open/Close (containers only), Lock, and Identify so the toggles always
-   * reflect the actor's current state.
+   * V1 header buttons — Foundry calls this on every render. Module-specific
+   * toggles are emitted with an empty `label` so they render icon-only,
+   * keeping the header tidy alongside pf2e's own labelled buttons (`Sheet`,
+   * `Prototype Token`).
    */
   _getHeaderButtons() {
     const buttons = super._getHeaderButtons();
@@ -181,20 +182,16 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
 
     if (system.isContainer) {
       buttons.unshift({
-        label: system.isOpen
-          ? game.i18n.localize("INTERACTIVE_ITEMS.Sheet.StateOpened")
-          : game.i18n.localize("INTERACTIVE_ITEMS.Sheet.StateClosed"),
-        class: `ii-config-toggle ${system.isOpen ? "active" : ""}`,
+        label: "",
+        class: `ii-config-toggle ii-toggle-open ${system.isOpen ? "active" : ""}`,
         icon: `fas ${system.isOpen ? "fa-box-open" : "fa-box"}`,
         onclick: () => setContainerOpen(this.actor, !this.actor.system.isOpen)
       });
     }
 
     buttons.unshift({
-      label: system.isLocked
-        ? game.i18n.localize("INTERACTIVE_ITEMS.Sheet.StateLocked")
-        : game.i18n.localize("INTERACTIVE_ITEMS.Sheet.StateUnlocked"),
-      class: `ii-config-toggle ${system.isLocked ? "active" : ""}`,
+      label: "",
+      class: `ii-config-toggle ii-toggle-lock ${system.isLocked ? "active" : ""}`,
       icon: `fas ${system.isLocked ? "fa-lock" : "fa-lock-open"}`,
       onclick: () => toggleContainerLocked(this.actor)
     });
@@ -204,10 +201,9 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
       ? (identCfg.iconFamilyOn ?? "fas")
       : (identCfg.iconFamilyOff ?? "fas");
     const identIcon = system.isIdentified ? identCfg.iconOn : identCfg.iconOff;
-    const identLabelKey = system.isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey;
     buttons.unshift({
-      label: game.i18n.localize(identLabelKey),
-      class: `ii-config-toggle ${system.isIdentified ? "active" : ""}`,
+      label: "",
+      class: `ii-config-toggle ii-toggle-identify ${system.isIdentified ? "active" : ""}`,
       icon: `${identIconFamily} ${identIcon}`,
       onclick: () => {
         const item = this.actor.system.embeddedItem;

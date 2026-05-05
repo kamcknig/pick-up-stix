@@ -980,7 +980,19 @@ function _buildContainerContentRow(item, adapter) {
   ));
 
   controls.append(_buildContentRowControl("fa-gear", "INTERACTIVE_ITEMS.Sheet.ConfigureHUD"));
-  controls.append(_buildContentRowControl("fa-trash", "INTERACTIVE_ITEMS.Sheet.DeleteItem"));
+  // Delete is the only currently-active control on contents rows. GM-only —
+  // players see the icon but the click no-ops for them. The deleteItem hook
+  // re-renders the container sheet automatically, so the row disappears.
+  controls.append(_buildContentRowControl(
+    "fa-trash",
+    "INTERACTIVE_ITEMS.Sheet.DeleteItem",
+    "fa-solid",
+    async () => {
+      if (!game.user.isGM) return;
+      dbg("contents:deleteRow", { itemName: item.name, itemId: item.id, actorName: item.actor?.name });
+      await item.delete();
+    }
+  ));
 
   row.append(controls);
   return row;
@@ -992,15 +1004,25 @@ function _buildContainerContentRow(item, adapter) {
  * @param {string} icon - FontAwesome icon class (e.g. `fa-lock`).
  * @param {string} tooltipKey - i18n key for the hover tooltip.
  * @param {string} [family="fa-solid"] - FontAwesome family class.
+ * @param {((event: MouseEvent) => void)|null} [onClick=null] - Optional click handler.
+ *   When provided, the click event has `preventDefault` + `stopPropagation` called
+ *   on it before invocation so it doesn't bubble to pf2e's row-level handlers.
  * @returns {HTMLAnchorElement}
  */
-function _buildContentRowControl(icon, tooltipKey, family = "fa-solid") {
+function _buildContentRowControl(icon, tooltipKey, family = "fa-solid", onClick = null) {
   const a = document.createElement("a");
   a.className = "ii-contents-control";
   const tooltip = game.i18n.localize(tooltipKey);
   a.dataset.tooltip = tooltip;
   a.setAttribute("aria-label", tooltip);
   a.innerHTML = `<i class="${family} ${icon}"></i>`;
+  if (onClick) {
+    a.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      return onClick(event);
+    });
+  }
   return a;
 }
 

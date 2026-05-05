@@ -111,61 +111,127 @@ export const Pf2eIdentification = {
   },
 
   /**
-   * pf2e item sheets bind the name input to `item._source.name` regardless
-   * of identification state. When the GM edits that input we route the
-   * change to the wrapping actor:
-   *   identified   → actor.name (canonical real name)
-   *   unidentified → actor.system.unidentifiedName (mystified label)
+   * Translate a pf2e item changeset into the corresponding actor update so
+   * the wrapping interactive actor stays the source of truth for both the
+   * identified and mystified presentations.
    *
-   * The downstream `updateActor` flow propagates further: identified writes
-   * fan out to the prototype/synthetic token name, unidentified writes flow
-   * through `buildItemIdentificationUpdate` to update
-   * `system.identification.unidentified.name` on the embedded item.
+   * Three field categories are routed:
+   *   1. Main sheet "Name" input (`_source.name`):
+   *        identified   → actor.name
+   *        unidentified → actor.system.unidentifiedName
+   *   2. Mystification tab "Display Details" name input
+   *      (`system.identification.unidentified.name`)
+   *        → actor.system.unidentifiedName
+   *   3. Mystification tab description editor
+   *      (`system.identification.unidentified.data.description.value`)
+   *        → actor.system.unidentifiedDescription
+   *
+   * Mystification-block changes are skipped when the changeset also
+   * contains `system.identification.status` — that means the update
+   * originates from `setIdentificationStatus` writing the auto-generated
+   * `getMystifiedData("unidentified")` block, and we don't want to
+   * persist pf2e's "Unusual {Type}" fallback as the actor's explicit
+   * unidentified name.
    *
    * Returns `{}` when nothing needs to change so the caller can skip the
-   * update (also avoids needless hook fan-out).
+   * actor update (also avoids needless hook fan-out).
    */
-  parseEmbeddedItemNameChange(item, changes, actor) {
-    if (!("name" in changes)) return {};
-    const newName = changes.name;
-    if (typeof newName !== "string") return {};
-    const isIdentified = actor.system.isIdentified;
-    if (isIdentified) {
-      if (actor.name === newName) return {};
-      return { name: newName };
+  parseEmbeddedItemChanges(item, changes, actor) {
+    const update = {};
+
+    // 1. Main "Name" input.
+    if ("name" in changes && typeof changes.name === "string") {
+      const newName = changes.name;
+      if (actor.system.isIdentified) {
+        if (actor.name !== newName) update.name = newName;
+      } else if (actor.system.unidentifiedName !== newName) {
+        update["system.unidentifiedName"] = newName;
+      }
     }
-    if (actor.system.unidentifiedName === newName) return {};
-    return { "system.unidentifiedName": newName };
+
+    // 2 & 3. Mystification tab name and description inputs — skip when
+    //        status is also changing (setIdentificationStatus side effect).
+    if (!foundry.utils.hasProperty(changes, "system.identification.status")) {
+      const unidName = foundry.utils.getProperty(
+        changes, "system.identification.unidentified.name"
+      );
+      if (typeof unidName === "string"
+          && actor.system.unidentifiedName !== unidName) {
+        update["system.unidentifiedName"] = unidName;
+      }
+      const unidDesc = foundry.utils.getProperty(
+        changes, "system.identification.unidentified.data.description.value"
+      );
+      if (typeof unidDesc === "string"
+          && actor.system.unidentifiedDescription !== unidDesc) {
+        update["system.unidentifiedDescription"] = unidDesc;
+      }
+    }
+
+    // 4. Main Description tab editor (system.description.value) — pf2e's
+    //    prepareDerivedData overwrites this field with the active state's
+    //    description, so an edit while mystified must route to the actor's
+    //    unidentifiedDescription, not the canonical description.
+    const descChange = foundry.utils.getProperty(changes, "system.description.value");
+    if (typeof descChange === "string") {
+      if (actor.system.isIdentified) {
+        if (actor.system.description !== descChange) {
+          update["system.description"] = descChange;
+        }
+      } else if (actor.system.unidentifiedDescription !== descChange) {
+        update["system.unidentifiedDescription"] = descChange;
+      }
+    }
+
+    return update;
   },
 
   buildEmbeddedItemSourceUpdate(actor, isIdentified) {
     const item = actor.system.embeddedItem;
     if (!item) return {};
-    let desired;
+
+    // Resolve the desired display name and description for the active state.
+    // Names fall back through unidentifiedName → generateUnidentifiedName →
+    // actor.name; descriptions fall back to empty.
+    let desiredName, desiredDesc;
     if (isIdentified) {
-      desired = actor.name;
+      desiredName = actor.name;
+      desiredDesc = actor.system.description ?? "";
     } else {
-      desired = actor.system.unidentifiedName
+      desiredName = actor.system.unidentifiedName
         || (typeof item.generateUnidentifiedName === "function"
             ? item.generateUnidentifiedName()
             : "")
         || actor.name;
+      desiredDesc = actor.system.unidentifiedDescription ?? "";
     }
-    if (!desired) return {};
+    if (!desiredName) return {};
 
-    // Mirror the desired value into both `_source.name` (the in-sheet input)
-    // and pf2e's per-state cache. pf2e populates
+    // Mirror desired values into both _source (so the in-sheet inputs read
+    // the right text) and the per-state caches. pf2e populates
     // `system.identification.identified` once via `??=` from the initial
-    // source name, then relies on `getMystifiedData(status)` to drive
-    // `this.name` in `prepareDerivedData`. Without updating the cache, a
-    // later identify cycle resurrects the stale original name.
+    // source values, then reads `getMystifiedData(status)` in
+    // `prepareDerivedData` to drive `this.name` and `this.system.description.value`.
+    // Without updating the caches, a later identify cycle resurrects the
+    // stale original name/description.
     const update = {};
-    if (item._source?.name !== desired) update.name = desired;
-    const cachePath = isIdentified
-      ? "system.identification.identified.name"
-      : "system.identification.unidentified.name";
-    const currentCache = foundry.utils.getProperty(item._source ?? {}, cachePath);
-    if (currentCache !== desired) update[cachePath] = desired;
+    const src = item._source ?? {};
+
+    if (src.name !== desiredName) update.name = desiredName;
+    if ((src.system?.description?.value ?? "") !== desiredDesc) {
+      update["system.description.value"] = desiredDesc;
+    }
+
+    const stateKey = isIdentified ? "identified" : "unidentified";
+    const cacheNamePath = `system.identification.${stateKey}.name`;
+    const cacheDescPath = `system.identification.${stateKey}.data.description.value`;
+    if (foundry.utils.getProperty(src, cacheNamePath) !== desiredName) {
+      update[cacheNamePath] = desiredName;
+    }
+    if ((foundry.utils.getProperty(src, cacheDescPath) ?? "") !== desiredDesc) {
+      update[cacheDescPath] = desiredDesc;
+    }
+
     return update;
   },
 

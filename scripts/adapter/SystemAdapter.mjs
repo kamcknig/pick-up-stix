@@ -166,25 +166,27 @@ export default class SystemAdapter {
   buildEmbeddedItemSourceUpdate(actor, isIdentified) { return {}; }
 
   /**
-   * Inverse of `buildEmbeddedItemSourceUpdate`: when the GM edits the
-   * embedded item's source-level name input on the system's native item
-   * sheet, return the matching actor update so the wrapping interactive
-   * actor's authoritative name fields stay in sync.
+   * Inverse of `buildEmbeddedItemSourceUpdate` and
+   * `buildItemIdentificationUpdate`: when the GM edits the embedded item
+   * via its native sheet, return the matching actor update so the wrapping
+   * interactive actor stays the source of truth.
    *
-   * For pf2e the in-sheet name input writes `_source.name` regardless of
-   * identification state; we route that change to either `actor.name`
-   * (identified) or `actor.system.unidentifiedName` (unidentified).
+   * For pf2e this routes:
+   *   - the main sheet "Name" input (`_source.name`)
+   *   - the Mystification tab "Display Details" name input
+   *     (`system.identification.unidentified.name`)
+   *   - the Mystification tab description editor
+   *     (`system.identification.unidentified.data.description.value`)
    *
-   * Systems that route name edits through their own identification field
-   * paths internally (dnd5e) should return `{}` — there is nothing for the
-   * module to do.
+   * Systems that route their sheet edits through their own field paths
+   * internally (dnd5e) should return `{}`.
    *
    * @param {Item} item - The embedded item that was just updated.
    * @param {object} changes - The raw changeset from the updateItem hook.
    * @param {Actor} actor - The wrapping interactive actor (item.actor).
    * @returns {object} A flat update object for `actor.update(...)`.
    */
-  parseEmbeddedItemNameChange(item, changes, actor) { return {}; }
+  parseEmbeddedItemChanges(item, changes, actor) { return {}; }
 
   /**
    * Returns true if the `updateItem` hook changeset contains an identification

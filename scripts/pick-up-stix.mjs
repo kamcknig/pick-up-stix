@@ -1644,33 +1644,37 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
 
   const unidentifiedNameChanged = "unidentifiedName" in systemChanges;
   const nameChanged = "name" in changes;
-  if (!unidentifiedNameChanged && !nameChanged) return;
+  const descriptionChanged = "description" in systemChanges;
+  const unidentifiedDescriptionChanged = "unidentifiedDescription" in systemChanges;
+  if (!unidentifiedNameChanged && !nameChanged
+      && !descriptionChanged && !unidentifiedDescriptionChanged) return;
 
   const system = actor.system;
-  const protoName = system.resolveTokenName();
-  const protoUpdates = { "prototypeToken.name": protoName };
 
-  await actor.update(protoUpdates, { noHook: true });
-
-  // Each token may have its own identification state via delta.
-  const tokens = canvas.scene?.tokens.filter(t => t.actorId === actor.id) ?? [];
-  for (const token of tokens) {
-    const tokenSystem = token.actor?.system;
-    if (!tokenSystem) continue;
-    const tokenName = tokenSystem.resolveTokenName();
-    await token.update({ name: tokenName });
+  // Token nameplate sync is needed only when the *display name* changes.
+  if (nameChanged || unidentifiedNameChanged) {
+    const protoName = system.resolveTokenName();
+    await actor.update({ "prototypeToken.name": protoName }, { noHook: true });
+    const tokens = canvas.scene?.tokens.filter(t => t.actorId === actor.id) ?? [];
+    for (const token of tokens) {
+      const tokenSystem = token.actor?.system;
+      if (!tokenSystem) continue;
+      const tokenName = tokenSystem.resolveTokenName();
+      await token.update({ name: tokenName });
+    }
   }
 
-  // Propagate the name change to the embedded item's source-level fields
-  // so the system's native sheet input stays in sync (and on pf2e, the
-  // per-state cache `system.identification.{identified|unidentified}.name`
-  // is updated — otherwise prepareDerivedData resurrects the stale original
-  // name on the next identify cycle). Adapter returns {} when no sync needed.
+  // Propagate name and description changes to the embedded item's
+  // source-level fields so the system's native sheet inputs stay in sync.
+  // On pf2e this also writes the per-state caches
+  // (`system.identification.{identified|unidentified}.{name,data.description.value}`),
+  // otherwise prepareDerivedData resurrects the stale original values on
+  // the next identify cycle. Adapter returns {} when no sync needed.
   const item = system.embeddedItem;
   if (item) {
     const sourceUpdate = getAdapter().buildEmbeddedItemSourceUpdate(actor, system.isIdentified);
     if (Object.keys(sourceUpdate).length > 0) {
-      dbg("hook:updateActor", "propagating actor name change to embedded item", { sourceUpdate });
+      dbg("hook:updateActor", "propagating actor name/description change to embedded item", { sourceUpdate });
       await item.update(sourceUpdate, { pickUpStix: { internalSourceSync: true } });
     }
   }
@@ -1770,31 +1774,31 @@ Hooks.on("updateItem", (item, changes) => {
   _rerenderContainerViews(actor);
 });
 
-// Route name edits made on the embedded item's native sheet back to the
-// wrapping actor's identified/unidentified fields. The adapter decides which
-// field receives the new value (pf2e: actor.name when identified,
-// actor.system.unidentifiedName when unidentified; dnd5e: no-op since its
-// sheet routes name edits internally by identification state).
+// Route edits made on the embedded item's native sheet back to the wrapping
+// actor's identified/unidentified fields. Covers both the main sheet name
+// input and (on pf2e) the Mystification tab's name and description inputs.
+// The adapter decides which actor fields to set; dnd5e returns {} since its
+// sheet routes edits through the system's own identification field paths.
 //
 // Skipped when the update originated from our own source-sync write
 // (`buildEmbeddedItemSourceUpdate`) — that flag prevents the round-trip
-// loop where mystifying writes a generated name to _source.name and then
-// this hook would persist that auto-generated label as unidentifiedName.
+// where mystifying writes a generated name to _source.name and this hook
+// would otherwise persist that auto-generated label as unidentifiedName.
 Hooks.on("updateItem", async (item, changes, options, userId) => {
   if (!game.user.isGM) return;
   if (options?.pickUpStix?.internalSourceSync) return;
-  if (!("name" in changes)) return;
 
   const actor = item.actor;
   if (!isInteractiveActor(actor)) return;
   if (item.id !== actor.system.embeddedItem?.id) return;
 
-  const actorUpdate = getAdapter().parseEmbeddedItemNameChange(item, changes, actor);
+  const actorUpdate = getAdapter().parseEmbeddedItemChanges(item, changes, actor);
   if (Object.keys(actorUpdate).length === 0) return;
 
-  dbg("hook:updateItem:nameToActor", {
-    itemName: item.name, newName: changes.name,
-    isIdentified: actor.system.isIdentified, actorUpdate
+  dbg("hook:updateItem:itemToActor", {
+    itemName: item.name,
+    isIdentified: actor.system.isIdentified,
+    actorUpdate
   });
   await actor.update(actorUpdate);
 });

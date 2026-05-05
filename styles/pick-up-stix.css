@@ -185,6 +185,78 @@
   --control-hover-border-color: var(--control-active-border-color);
 }
 
+/* ===== pf2e ContainerSheetPF2e Contents Tab ===== */
+
+.ii-contents-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ii-contents-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.1));
+}
+
+.ii-contents-row:last-child {
+  border-bottom: none;
+}
+
+.ii-contents-img {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border: 1px solid var(--color-border-dark-2, rgba(0, 0, 0, 0.3));
+  border-radius: 2px;
+}
+
+.ii-contents-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.ii-contents-quantity,
+.ii-contents-bulk {
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.ii-contents-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ii-contents-control {
+  cursor: pointer;
+  opacity: 0.7;
+  width: 16px;
+  text-align: center;
+}
+
+.ii-contents-control:hover {
+  opacity: 1;
+}
+
+.ii-contents-empty {
+  padding: 1rem;
+  text-align: center;
+  font-style: italic;
+  opacity: 0.6;
+}
+
 /* ===== Settings Dialog ===== */
 
 .ii-settings-folder-picker {

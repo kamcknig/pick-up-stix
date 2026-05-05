@@ -302,6 +302,7 @@ export const Pf2eHooks = {
       handlers.injectHeaderControls?.(ctx);
       handlers.maybeHideContents?.(ctx);
       handlers.installActorDropListener?.(ctx);
+      handlers.installItemDropListener?.(ctx);
       handlers.injectItemRowControls?.(ctx);
       handlers.injectContentsTab?.(ctx);
     });

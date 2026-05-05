@@ -59,10 +59,11 @@ export const Dnd5eHooks = {
    * @param {(ctx: {actor: Actor, app: Application, html: HTMLElement}) => void} [handlers.installActorDropListener]
    * @param {(ctx: {actor: Actor, app: Application, html: HTMLElement}) => void} [handlers.injectItemRowControls]
    */
-  registerContainerViewHooks({ injectHeaderControls, maybeHideContents, installActorDropListener, injectItemRowControls, injectContentsTab }) {
+  registerContainerViewHooks({ injectHeaderControls, maybeHideContents, installActorDropListener, installItemDropListener, injectItemRowControls, injectContentsTab }) {
     Hooks.on("renderContainerSheet", (app, html) => injectHeaderControls?.({ actor: app.item?.actor, app, html }));
     Hooks.on("renderContainerSheet", (app, html) => maybeHideContents?.({ actor: app.item?.actor, app, html }));
     Hooks.on("renderContainerSheet", (app, html) => installActorDropListener?.({ actor: app.item?.actor, app, html }));
+    Hooks.on("renderContainerSheet", (app, html) => installItemDropListener?.({ actor: app.item?.actor, app, html }));
     Hooks.on("renderContainerSheet", (app, html) => injectItemRowControls?.({ actor: app.item?.actor, app, html }));
     Hooks.on("renderContainerSheet", (app, html) => injectContentsTab?.({ actor: app.item?.actor, app, html }));
   },

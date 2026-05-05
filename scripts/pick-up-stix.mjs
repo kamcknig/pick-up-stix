@@ -176,6 +176,7 @@ Hooks.once("init", async () => {
     injectHeaderControls: _injectInteractiveSheetHeaderControls,
     maybeHideContents: _hideContainerSheetContents,
     installActorDropListener: _installContainerSheetActorDrop,
+    installItemDropListener: _installContainerSheetItemDrop,
     injectItemRowControls: _injectContainerSheetRowControls,
     injectContentsTab: _injectContainerContentsTab,
   });
@@ -568,6 +569,88 @@ function _injectContainerSheetRowControls({ actor, app, html }) {
  * @param {Application} ctx.app - The rendered ContainerSheet application.
  * @param {HTMLElement} ctx.html - The sheet's root element.
  */
+/**
+ * Wire an Item drop listener onto the container item sheet so dragging a
+ * physical item from anywhere (sidebar, character sheet, compendium) deposits
+ * it into the interactive container.
+ *
+ * Skipped on systems that already fire a native item-drop hook on container
+ * sheets (dnd5e fires `dnd5e.dropItemSheetData`, gated by `_gateContainerDrop`);
+ * pf2e's `ContainerSheetPF2e` has no equivalent so we attach the listener
+ * directly. Idempotent across re-renders via the `iiItemDropAttached` marker.
+ *
+ * Only non-container physical items are accepted — other types are rejected
+ * with a notification. Player drops also need open / unlocked / proximity.
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The interactive container actor.
+ * @param {Application} ctx.app - The rendered container item sheet.
+ * @param {HTMLElement} ctx.html - The sheet's root element.
+ */
+function _installContainerSheetItemDrop({ actor, app, html }) {
+  const adapter = getAdapter();
+  // dnd5e's own sheet drop hook handles this case; bail to avoid double-handling.
+  if (adapter.capabilities.hasItemDropSheetHook) return;
+  if (!isInteractiveContainer(actor)) return;
+
+  const destContainerItem = app.item;
+  if (!destContainerItem || !adapter.isContainerItem(destContainerItem)) return;
+
+  if (html.dataset.iiItemDropAttached) return;
+  html.dataset.iiItemDropAttached = "1";
+
+  html.addEventListener("drop", async (event) => {
+    const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
+    if (data?.type !== "Item") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const droppedItem = await fromUuid(data.uuid);
+    if (!droppedItem) {
+      dbg("place:_installContainerSheetItemDrop", "could not resolve dropped item", { uuid: data.uuid });
+      return;
+    }
+
+    if (!adapter.isPhysicalItem(droppedItem)) {
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
+      return;
+    }
+    if (adapter.isContainerItem(droppedItem)) {
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
+      return;
+    }
+
+    if (isPlayerView() && !validateContainerAccess(actor, { checkOpen: true })) return;
+
+    // Only the GM can write to actors players don't own; route through the
+    // socket on the player path so the active GM creates the embedded item.
+    if (!game.user.isGM) {
+      // Fallback: ask GM via socket. For now players can't deposit on the
+      // sheet directly — this can be wired through gmDispatch later if needed.
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
+      return;
+    }
+
+    const itemData = droppedItem.toObject();
+    delete itemData._id;
+    adapter.setItemContainerId(itemData, destContainerItem.id);
+
+    try {
+      await CONFIG.Item.documentClass.createDocuments([itemData], { parent: actor, keepId: false });
+      // Move semantics — if the drag had a source actor, remove the original
+      // so quantities don't double up. World items (no parent actor) and items
+      // already on this container actor are left alone.
+      if (droppedItem.actor && droppedItem.actor.id !== actor.id) {
+        await droppedItem.delete();
+      }
+      ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
+    } catch (err) {
+      console.error("pick-up-stix | failed to deposit item on container sheet:", err);
+    }
+  });
+}
+
 function _installContainerSheetActorDrop({ actor, app, html }) {
   const destContainerItem = app.item;
   // Delegate item-type check to the adapter so the literal "container" is not
@@ -654,18 +737,16 @@ function _hideContainerSheetContents({ actor, app, html }) {
 
 /**
  * Inject a "Contents" tab into the system's container item-sheet between the
- * native Description and Details tabs. The tab body is intentionally blank
- * for now — a follow-up will populate it with the deposited inventory.
+ * native Description and Details tabs, then render deposited inventory rows
+ * inside it. Targets pf2e's tab markup (`<nav class="sheet-tabs">
+ * <div class="tabs" data-tab-container="primary">`); the function no-ops on
+ * dnd5e (which has no matching selector) so the native dnd5e contents grid is
+ * untouched.
  *
- * Targets pf2e's tab markup (`<nav class="sheet-tabs"><div class="tabs"
- * data-tab-container="primary"><a class="list-row" data-tab="...">`). On
- * dnd5e ContainerSheet that selector chain doesn't match, so the function
- * no-ops and the dnd5e contents grid is left untouched.
- *
- * Idempotent — checks for an existing `[data-tab="ii-contents"]` before
- * injecting so re-renders don't stack duplicates. The system's own Foundry
- * `Tabs` instance picks up the new nav item automatically because
- * `Tabs.activate` queries the live DOM (`querySelectorAll("[data-tab]")`).
+ * The nav link and section element are created once and reused on re-render
+ * so Foundry's Tabs controller doesn't lose its `.active` state. The row
+ * list inside the section is rebuilt every render so items added/removed via
+ * createItem/deleteItem hooks reflect immediately.
  *
  * @param {object} ctx
  * @param {Actor} ctx.actor - The interactive container actor owning the container item.
@@ -699,15 +780,161 @@ function _injectContainerContentsTab({ actor, app, html }) {
   const sheetBody = root.querySelector('.sheet-body');
   if (!sheetBody) return;
 
-  // Inject the matching content section if absent. The body remains empty —
-  // populated later when contents UX is implemented.
-  if (!sheetBody.querySelector('section.tab[data-tab="ii-contents"]')) {
+  // Reuse the section element across re-renders so Foundry's Tabs controller
+  // keeps tracking `.active` on it; only the inner row list is rebuilt.
+  let section = sheetBody.querySelector('section.tab[data-tab="ii-contents"]');
+  if (!section) {
     const descriptionSection = sheetBody.querySelector('section.tab[data-tab="description"]');
-    const section = document.createElement("section");
+    section = document.createElement("section");
     section.className = "tab ii-contents";
     section.dataset.tab = "ii-contents";
     descriptionSection?.after(section);
   }
+
+  _renderContainerContents(section, actor, app.item);
+}
+
+/**
+ * Build (or rebuild) the deposited-items list inside the Contents tab. Reads
+ * the live actor inventory and emits one row per child item whose
+ * `containerId` matches the wrapped container item.
+ *
+ * Row layout mirrors the pf2e inventory line: image, name, quantity, bulk,
+ * lock / identify / configure / delete controls. Controls have no behaviour
+ * yet — they're rendered for visual parity only.
+ *
+ * @param {HTMLElement} section - The `<section data-tab="ii-contents">` to fill.
+ * @param {Actor} actor - The interactive container actor.
+ * @param {Item} containerItem - The embedded backpack item whose id is the parent pointer.
+ */
+function _renderContainerContents(section, actor, containerItem) {
+  const adapter = getAdapter();
+  section.replaceChildren();
+
+  const containedItems = actor.items.filter(i => {
+    if (i.id === containerItem.id) return false;
+    return adapter.getItemContainerId(i) === containerItem.id;
+  });
+
+  const list = document.createElement("ol");
+  list.className = "ii-contents-list";
+
+  if (containedItems.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "ii-contents-empty";
+    empty.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Container.Empty");
+    list.append(empty);
+    section.append(list);
+    return;
+  }
+
+  for (const item of containedItems) {
+    list.append(_buildContainerContentRow(item, adapter));
+  }
+  section.append(list);
+}
+
+/**
+ * Build one inventory-style row representing an item inside the container.
+ * Icons (lock / identify / configure / delete) are decorative for now — the
+ * caller wires no click handlers per the current spec.
+ *
+ * @param {Item} item
+ * @param {SystemAdapter} adapter
+ * @returns {HTMLLIElement}
+ */
+function _buildContainerContentRow(item, adapter) {
+  const row = document.createElement("li");
+  row.className = "ii-contents-row";
+  row.dataset.itemId = item.id;
+  row.dataset.itemUuid = item.uuid;
+
+  const img = document.createElement("img");
+  img.className = "ii-contents-img";
+  img.src = item.img;
+  img.alt = item.name;
+  row.append(img);
+
+  const name = document.createElement("span");
+  name.className = "ii-contents-name";
+  name.textContent = item.name;
+  row.append(name);
+
+  const quantity = document.createElement("span");
+  quantity.className = "ii-contents-quantity";
+  // pf2e physical items expose `system.quantity` (number); some types may
+  // expose `{ value }` (legacy). Read both shapes defensively.
+  const q = item.system?.quantity;
+  quantity.textContent = (typeof q === "object" ? q?.value : q) ?? 1;
+  row.append(quantity);
+
+  const bulk = document.createElement("span");
+  bulk.className = "ii-contents-bulk";
+  bulk.textContent = _formatItemBulk(item);
+  row.append(bulk);
+
+  const controls = document.createElement("span");
+  controls.className = "ii-contents-controls";
+
+  // Lock / identify / config / delete — visual only for now. Lock and identify
+  // reflect the live state on the item; config/delete are static glyphs.
+  const isLocked = !!item.flags?.["pick-up-stix"]?.tokenState?.system?.isLocked;
+  controls.append(_buildContentRowControl(
+    isLocked ? "fa-lock" : "fa-lock-open",
+    "INTERACTIVE_ITEMS.Sheet." + (isLocked ? "StateLocked" : "StateUnlocked")
+  ));
+
+  const isIdentified = adapter.isItemIdentified(item);
+  const identCfg = adapter.getIdentifyButtonConfig(isIdentified);
+  const identIcon = isIdentified ? identCfg.iconOn : identCfg.iconOff;
+  const identFamily = isIdentified
+    ? (identCfg.iconFamilyOn ?? "fa-solid")
+    : (identCfg.iconFamilyOff ?? "fa-solid");
+  controls.append(_buildContentRowControl(
+    identIcon,
+    isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey,
+    identFamily
+  ));
+
+  controls.append(_buildContentRowControl("fa-gear", "INTERACTIVE_ITEMS.Sheet.ConfigureHUD"));
+  controls.append(_buildContentRowControl("fa-trash", "INTERACTIVE_ITEMS.Sheet.DeleteItem"));
+
+  row.append(controls);
+  return row;
+}
+
+/**
+ * Build a single inventory-row control glyph (anchor with FontAwesome icon).
+ *
+ * @param {string} icon - FontAwesome icon class (e.g. `fa-lock`).
+ * @param {string} tooltipKey - i18n key for the hover tooltip.
+ * @param {string} [family="fa-solid"] - FontAwesome family class.
+ * @returns {HTMLAnchorElement}
+ */
+function _buildContentRowControl(icon, tooltipKey, family = "fa-solid") {
+  const a = document.createElement("a");
+  a.className = "ii-contents-control";
+  const tooltip = game.i18n.localize(tooltipKey);
+  a.dataset.tooltip = tooltip;
+  a.setAttribute("aria-label", tooltip);
+  a.innerHTML = `<i class="${family} ${icon}"></i>`;
+  return a;
+}
+
+/**
+ * Format an item's bulk for display. pf2e uses `system.bulk.value` where 0
+ * means negligible and 0.1 means light ("L" in the rules). Numbers >= 1 are
+ * displayed as integers.
+ *
+ * @param {Item} item
+ * @returns {string}
+ */
+function _formatItemBulk(item) {
+  const v = item.system?.bulk?.value;
+  if (v == null) return "—";
+  if (v === 0) return "—";
+  if (v < 1) return "L";
+  return String(v);
 }
 
 /**

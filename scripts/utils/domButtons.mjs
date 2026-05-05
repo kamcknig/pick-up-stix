@@ -68,7 +68,18 @@ export function createAdapterHeaderButton({
       btn.setAttribute("aria-label", label);
     }
     btn.innerHTML = `<i class="${family} ${icon}"></i>`;
-    if (onClick) btn.addEventListener("click", onClick);
+    if (onClick) {
+      // Foundry's V1 sheet binds a delegated `.header-button` click handler at
+      // render time. When we inject our own `<a class="header-button">` after
+      // render, that handler still fires on it but tries to look the descriptor
+      // up in `windowData.headerButtons` (where ours don't exist) — crashing
+      // with "Cannot read properties of undefined (reading 'onclick')". Use
+      // `stopImmediatePropagation` to short-circuit the delegated handler.
+      btn.addEventListener("click", (ev) => {
+        ev.stopImmediatePropagation();
+        return onClick(ev);
+      });
+    }
     return btn;
   }
 

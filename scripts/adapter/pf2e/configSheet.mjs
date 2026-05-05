@@ -170,9 +170,14 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
 
   /**
    * V1 header buttons — Foundry calls this on every render. Module-specific
-   * toggles are emitted with an empty `label` so they render icon-only,
-   * keeping the header tidy alongside pf2e's own labelled buttons (`Sheet`,
-   * `Prototype Token`).
+   * toggles are emitted icon-only (empty label) and use a single-token `class`
+   * because Foundry's V1 click delegation looks the descriptor up via
+   * `event.currentTarget.classList.contains(b.class)` — a multi-token string
+   * fails that lookup and crashes the click handler with
+   * `Cannot read properties of undefined (reading 'onclick')`.
+   *
+   * Active/inactive state is conveyed by the icon itself (lock vs lock-open,
+   * box vs box-open), so no separate "active" class is needed.
    */
   _getHeaderButtons() {
     const buttons = super._getHeaderButtons();
@@ -183,7 +188,10 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
     if (system.isContainer) {
       buttons.unshift({
         label: "",
-        class: `ii-config-toggle ii-toggle-open ${system.isOpen ? "active" : ""}`,
+        tooltip: game.i18n.localize(system.isOpen
+          ? "INTERACTIVE_ITEMS.Sheet.StateOpened"
+          : "INTERACTIVE_ITEMS.Sheet.StateClosed"),
+        class: "ii-toggle-open",
         icon: `fas ${system.isOpen ? "fa-box-open" : "fa-box"}`,
         onclick: () => setContainerOpen(this.actor, !this.actor.system.isOpen)
       });
@@ -191,7 +199,10 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
 
     buttons.unshift({
       label: "",
-      class: `ii-config-toggle ii-toggle-lock ${system.isLocked ? "active" : ""}`,
+      tooltip: game.i18n.localize(system.isLocked
+        ? "INTERACTIVE_ITEMS.Sheet.StateLocked"
+        : "INTERACTIVE_ITEMS.Sheet.StateUnlocked"),
+      class: "ii-toggle-lock",
       icon: `fas ${system.isLocked ? "fa-lock" : "fa-lock-open"}`,
       onclick: () => toggleContainerLocked(this.actor)
     });
@@ -201,9 +212,11 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
       ? (identCfg.iconFamilyOn ?? "fas")
       : (identCfg.iconFamilyOff ?? "fas");
     const identIcon = system.isIdentified ? identCfg.iconOn : identCfg.iconOff;
+    const identLabelKey = system.isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey;
     buttons.unshift({
       label: "",
-      class: `ii-config-toggle ii-toggle-identify ${system.isIdentified ? "active" : ""}`,
+      tooltip: game.i18n.localize(identLabelKey),
+      class: "ii-toggle-identify",
       icon: `${identIconFamily} ${identIcon}`,
       onclick: () => {
         const item = this.actor.system.embeddedItem;

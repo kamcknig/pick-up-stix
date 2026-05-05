@@ -177,6 +177,7 @@ Hooks.once("init", async () => {
     maybeHideContents: _hideContainerSheetContents,
     installActorDropListener: _installContainerSheetActorDrop,
     injectItemRowControls: _injectContainerSheetRowControls,
+    injectContentsTab: _injectContainerContentsTab,
   });
 
   Hooks.on("dropActorSheetData", (actor, sheet, data) => {
@@ -649,6 +650,64 @@ function _hideContainerSheetContents({ actor, app, html }) {
   placeholder.className = "pick-up-stix-contents-hidden";
   placeholder.textContent = message;
   list.append(placeholder);
+}
+
+/**
+ * Inject a "Contents" tab into the system's container item-sheet between the
+ * native Description and Details tabs. The tab body is intentionally blank
+ * for now — a follow-up will populate it with the deposited inventory.
+ *
+ * Targets pf2e's tab markup (`<nav class="sheet-tabs"><div class="tabs"
+ * data-tab-container="primary"><a class="list-row" data-tab="...">`). On
+ * dnd5e ContainerSheet that selector chain doesn't match, so the function
+ * no-ops and the dnd5e contents grid is left untouched.
+ *
+ * Idempotent — checks for an existing `[data-tab="ii-contents"]` before
+ * injecting so re-renders don't stack duplicates. The system's own Foundry
+ * `Tabs` instance picks up the new nav item automatically because
+ * `Tabs.activate` queries the live DOM (`querySelectorAll("[data-tab]")`).
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The interactive container actor owning the container item.
+ * @param {Application} ctx.app - The rendered container item sheet application.
+ * @param {HTMLElement} ctx.html - The sheet's root element (or inner content on V1 re-render).
+ */
+function _injectContainerContentsTab({ actor, app, html }) {
+  if (!isInteractiveContainer(actor)) return;
+
+  const root = _resolveSheetRoot(app, html);
+  if (!root) return;
+
+  // Locate pf2e's primary tabs container. dnd5e's ContainerSheet uses a
+  // different markup, so this selector failing means we're on a non-pf2e
+  // container view and we silently no-op.
+  const tabsNav = root.querySelector('.sheet-tabs .tabs[data-tab-container="primary"]');
+  if (!tabsNav) return;
+
+  const descriptionLink = tabsNav.querySelector('a[data-tab="description"]');
+  if (!descriptionLink) return;
+
+  // Inject the nav link if it isn't already present (idempotent across re-renders).
+  if (!tabsNav.querySelector('a[data-tab="ii-contents"]')) {
+    const link = document.createElement("a");
+    link.className = "list-row";
+    link.dataset.tab = "ii-contents";
+    link.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Tab.Contents");
+    descriptionLink.after(link);
+  }
+
+  const sheetBody = root.querySelector('.sheet-body');
+  if (!sheetBody) return;
+
+  // Inject the matching content section if absent. The body remains empty —
+  // populated later when contents UX is implemented.
+  if (!sheetBody.querySelector('section.tab[data-tab="ii-contents"]')) {
+    const descriptionSection = sheetBody.querySelector('section.tab[data-tab="description"]');
+    const section = document.createElement("section");
+    section.className = "tab ii-contents";
+    section.dataset.tab = "ii-contents";
+    descriptionSection?.after(section);
+  }
 }
 
 /**

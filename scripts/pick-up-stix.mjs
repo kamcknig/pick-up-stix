@@ -380,7 +380,7 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   // Remove any existing module toggles so the rebuild produces a stable order.
   // The native identify button (if any) is intentionally NOT in this list —
   // we relocate it into the canonical slot below rather than recreating it.
-  header.querySelectorAll(".ii-open-toggle-btn, .ii-pickup-btn, .ii-lock-toggle-btn, .ii-identify-toggle-btn, .ii-configure-btn")
+  header.querySelectorAll(".ii-open-toggle-btn, .ii-lock-toggle-btn, .ii-identify-toggle-btn, .ii-configure-btn")
     .forEach(el => el.remove());
 
   const adapter = getAdapter();
@@ -412,42 +412,6 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
       }
     }));
 
-    // Pickup glyph — token-only (synthetic actor). The base actor sheet in the
-    // sidebar wraps the *template* and isn't a thing you can "pick up", so the
-    // icon is suppressed there. No behaviour wired yet — visual placeholder.
-    //
-    // Detect the token case via several fallbacks: pf2e's synthetic actor
-    // resolution can yield references whose getter side-effects (`isToken`)
-    // haven't fired yet by the time the render hook runs, so we also check
-    // `actor.token`, `actor.parent` document type, and `app.token` directly.
-    const isTokenActor = !!(
-      configActor.isToken
-      ?? configActor.token
-      ?? (configActor.parent && configActor.parent.documentName === "Token")
-      ?? app?.token
-    );
-    dbg("inject:headerControls", {
-      actorName: configActor.name,
-      actorType: configActor.type,
-      isContainer: sys.isContainer,
-      isTokenViaIsToken: configActor.isToken,
-      isTokenViaToken: !!configActor.token,
-      parentDoc: configActor.parent?.documentName,
-      appHasToken: !!app?.token,
-      resolvedIsTokenActor: isTokenActor
-    });
-    if (isTokenActor) {
-      orderedNodes.push(createAdapterHeaderButton({
-        adapter,
-        extraClass: "ii-pickup-btn",
-        iconOn: "fa-hand",
-        labelOnKey: "INTERACTIVE_ITEMS.HUD.PickUp",
-        // Empty onClick still attaches our listener so the V1 anchor calls
-        // stopImmediatePropagation — without it, clicks would fall through to
-        // Foundry's `.header-button` delegated handler and crash.
-        onClick: () => {}
-      }));
-    }
   }
 
   orderedNodes.push(createAdapterHeaderButton({
@@ -511,16 +475,6 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   const title = header.querySelector(".window-title");
   if (title) title.after(...orderedNodes);
   else header.prepend(...orderedNodes);
-
-  // Post-insert diagnostic — confirms what actually landed in the DOM rather
-  // than just whether the code path ran.
-  const pickup = header.querySelector(".ii-pickup-btn");
-  dbg("inject:headerControls:after", {
-    pickupInDom: !!pickup,
-    pickupOuter: pickup?.outerHTML?.slice(0, 200),
-    pickupRect: pickup ? pickup.getBoundingClientRect() : null,
-    headerChildren: Array.from(header.children).map(c => `${c.tagName}.${(c.className || "").trim().split(/\s+/).join(".")}`).join(" | ")
-  });
 }
 
 /**
@@ -905,9 +859,16 @@ function _renderContainerContents(section, actor, containerItem) {
     return adapter.getItemContainerId(i) === containerItem.id;
   });
 
+  // Pickup is only meaningful on placed-token sheets — the hand glyph is
+  // rendered on rows when the wrapping actor is synthetic. The base-actor
+  // sheet in the sidebar holds the *template* of a container, so picking up
+  // a row from there has no game-world meaning. The header's controls-spacer
+  // width also depends on this so the columns line up with the data rows.
+  const isTokenActor = !!(actor.isToken ?? actor.token ?? (actor.parent?.documentName === "Token"));
+
   // Column headers above the list. Image and controls columns get blank
   // spacers so the header text aligns with the data rows below.
-  section.append(_buildContainerContentsHeader());
+  section.append(_buildContainerContentsHeader({ isTokenActor }));
 
   const list = document.createElement("ol");
   list.className = "ii-contents-list";
@@ -922,7 +883,7 @@ function _renderContainerContents(section, actor, containerItem) {
   }
 
   for (const item of containedItems) {
-    list.append(_buildContainerContentRow(item, adapter));
+    list.append(_buildContainerContentRow(item, adapter, { isTokenActor }));
   }
   section.append(list);
 }
@@ -930,11 +891,15 @@ function _renderContainerContents(section, actor, containerItem) {
 /**
  * Build the column-header row that sits above the contents list. Reuses the
  * row's flex layout so columns line up — empty spacers fill the image and
- * controls columns.
+ * controls columns. The controls spacer's width is selected via the modifier
+ * class `.is-token` (4 icons) vs default (3 icons) so the data columns
+ * remain aligned across token-sheet vs actor-sheet renders.
  *
+ * @param {object} [options]
+ * @param {boolean} [options.isTokenActor=false]
  * @returns {HTMLDivElement}
  */
-function _buildContainerContentsHeader() {
+function _buildContainerContentsHeader({ isTokenActor = false } = {}) {
   const header = document.createElement("div");
   header.className = "ii-contents-row ii-contents-header";
 
@@ -958,7 +923,7 @@ function _buildContainerContentsHeader() {
   header.append(bulk);
 
   const controlsSpacer = document.createElement("span");
-  controlsSpacer.className = "ii-contents-controls-spacer";
+  controlsSpacer.className = `ii-contents-controls-spacer${isTokenActor ? " is-token" : ""}`;
   header.append(controlsSpacer);
 
   return header;
@@ -973,7 +938,7 @@ function _buildContainerContentsHeader() {
  * @param {SystemAdapter} adapter
  * @returns {HTMLLIElement}
  */
-function _buildContainerContentRow(item, adapter) {
+function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {}) {
   const row = document.createElement("li");
   row.className = "ii-contents-row";
   row.dataset.itemId = item.id;
@@ -1006,8 +971,18 @@ function _buildContainerContentRow(item, adapter) {
   const controls = document.createElement("span");
   controls.className = "ii-contents-controls";
 
-  // Lock / identify / config / delete — visual only for now. Lock and identify
-  // reflect the live state on the item; config/delete are static glyphs.
+  // Pickup glyph — token-only. Sits left of the lock icon. Visual placeholder
+  // for now (no behaviour wired) — clicks should eventually offer to take the
+  // row's item out of the container into a player's inventory.
+  if (isTokenActor) {
+    controls.append(_buildContentRowControl(
+      "fa-hand",
+      "INTERACTIVE_ITEMS.HUD.PickUp"
+    ));
+  }
+
+  // Lock / identify / delete — Lock and identify reflect the live state on
+  // the item; delete is wired below.
   const isLocked = !!item.flags?.["pick-up-stix"]?.tokenState?.system?.isLocked;
   controls.append(_buildContentRowControl(
     isLocked ? "fa-lock" : "fa-lock-open",

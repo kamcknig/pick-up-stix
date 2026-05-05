@@ -278,10 +278,15 @@
 }
 
 .ii-contents-controls-spacer {
-  /* Width approximates the controls block: 3 icons (16px each) + 2 gaps (6px each). */
+  /* Default: 3 icons (lock + identify + delete) — actor-sheet renders. */
   display: inline-block;
   width: calc(3 * 16px + 2 * 6px);
   flex-shrink: 0;
+}
+
+.ii-contents-controls-spacer.is-token {
+  /* Token-sheet renders gain a fourth icon (hand) before the lock. */
+  width: calc(4 * 16px + 3 * 6px);
 }
 
 /* ===== Settings Dialog ===== */

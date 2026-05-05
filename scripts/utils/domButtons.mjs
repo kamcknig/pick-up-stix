@@ -1,10 +1,13 @@
 export function createStateToggleButton({
   extraClass, active, iconOn, iconOff,
+  iconFamilyOn = "fa-solid", iconFamilyOff = "fa-solid",
   labelOnKey, labelOffKey, action, onClick
 }) {
+  const icon = active ? iconOn : iconOff;
+  const family = active ? iconFamilyOn : iconFamilyOff;
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = `header-control pseudo-header-control state-toggle fa-solid icon ${extraClass} ${active ? iconOn : iconOff}`;
+  btn.className = `header-control pseudo-header-control state-toggle ${family} icon ${extraClass} ${icon}`;
   btn.classList.toggle("active", active);
   const key = active ? labelOnKey : labelOffKey;
   btn.setAttribute("aria-label", game.i18n.localize(key));

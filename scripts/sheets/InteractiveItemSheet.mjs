@@ -398,10 +398,11 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
     const item = this.actor.system.embeddedItem;
     const adapter = getAdapter();
     const currentIdentified = item ? adapter.isItemIdentified(item) : undefined;
-    dbg("sheet:#onToggleIdentified", { actorName: this.actor?.name, embeddedItemId: item?.id, currentIdentified, newIdentified: !currentIdentified });
+    dbg("sheet:#onToggleIdentified", { actorName: this.actor?.name, embeddedItemId: item?.id, currentIdentified });
     if (!item || currentIdentified === undefined) return;
-    // Route through the adapter so the update targets the correct system field.
-    await adapter.setItemIdentified(item, !currentIdentified);
+    // Route through the adapter — pf2e opens an IdentifyPopup for unidentified
+    // items rather than flipping the flag directly.
+    await adapter.performIdentifyToggle(item);
   }
 
   static async #onToggleLock(event, target) {
@@ -450,13 +451,16 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       action: "toggleLock"
     }));
 
+    const identCfg = getAdapter().getIdentifyButtonConfig(system.isIdentified);
     buttons.push(createStateToggleButton({
       extraClass: "ii-config-toggle",
       active: system.isIdentified,
-      iconOn: "fa-wand-sparkles",
-      iconOff: "fa-wand-sparkles",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.Identified",
-      labelOffKey: "INTERACTIVE_ITEMS.Sheet.Unidentified",
+      iconOn: identCfg.iconOn,
+      iconFamilyOn: identCfg.iconFamilyOn,
+      iconOff: identCfg.iconOff,
+      iconFamilyOff: identCfg.iconFamilyOff,
+      labelOnKey: identCfg.labelOnKey,
+      labelOffKey: identCfg.labelOffKey,
       action: "toggleIdentified"
     }));
 

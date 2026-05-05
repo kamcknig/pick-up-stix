@@ -91,5 +91,28 @@ export const Dnd5eIdentification = {
     itemData.system = itemData.system ?? {};
     itemData.system.identified = !!isIdentified;
     return itemData;
+  },
+
+  /**
+   * True if the updateItem changeset contains dnd5e's identification field.
+   * dnd5e stores identification as a boolean at system.identified.
+   *
+   * @param {Item} item
+   * @param {object} changes
+   * @returns {boolean}
+   */
+  isIdentificationChange(item, changes) {
+    return "identified" in (changes.system ?? {});
+  },
+
+  /**
+   * Toggle identification on a dnd5e item. dnd5e has no native identify dialog;
+   * the state is flipped directly.
+   *
+   * @param {Item} item
+   * @returns {Promise<void>}
+   */
+  async performIdentifyToggle(item) {
+    await this.setItemIdentified(item, !this.isItemIdentified(item));
   }
 };

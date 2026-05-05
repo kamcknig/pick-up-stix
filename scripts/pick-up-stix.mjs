@@ -25,14 +25,18 @@ const CHEST_CLOSED = `modules/${MODULE_ID}/icons/treasure-chest-closed.png`;
 const CHEST_OPEN = `modules/${MODULE_ID}/icons/treasure-chest-open.png`;
 
 Hooks.once("init", async () => {
+  // Register the base data model first so it is in place before loadAdapter()
+  // runs. The active system's adapter may overwrite this entry with a more
+  // specific subclass (e.g. Pf2eInteractiveItemModel for pf2e) during its
+  // constructor, which runs synchronously inside loadAdapter().
+  Object.assign(CONFIG.Actor.dataModels, {
+    "pick-up-stix.interactiveItem": InteractiveItemModel
+  });
+
   // game.system is available from this point on; dynamically import only the
   // active system's adapter so pf2e users never fetch dnd5e code and vice versa.
   await loadAdapter();
   console.log(`${MODULE_ID} | Initializing Pick-Up-Stix module`);
-
-  Object.assign(CONFIG.Actor.dataModels, {
-    "pick-up-stix.interactiveItem": InteractiveItemModel
-  });
 
   const originalGetDefaultArtwork = CONFIG.Actor.documentClass.getDefaultArtwork;
   CONFIG.Actor.documentClass.getDefaultArtwork = function(actorData) {
@@ -258,6 +262,10 @@ function _injectItemContextMenuEntries(item, menuItems) {
  */
 function _injectActorInventoryIdentifyToggles(app, html) {
   if (!game.user.isGM) return;
+  // pf2e (and other systems with hasNativeInventoryIdentify) already render
+  // toggle-identified controls on every inventory row — skip ours to avoid
+  // duplicating the control.
+  if (getAdapter().capabilities.hasNativeInventoryIdentify) return;
   if (isInteractiveActor(app.actor)) return;
   const root = html instanceof HTMLElement ? html : html?.[0];
   if (!root) return;
@@ -315,6 +323,29 @@ function _injectItemSheetHeaderControls({ app, html }) {
   if (!header) return;
   html.querySelector(".mode-slider")?.remove();
   const closeBtn = header.querySelector("button.close, [data-action='close']");
+
+  header.querySelector(".ii-identify-toggle-btn")?.remove();
+  const _adapter = getAdapter();
+  const identCfg = _adapter.getIdentifyButtonConfig(configActor.system.isIdentified);
+  const identifyToggle = createStateToggleButton({
+    extraClass: "ii-identify-toggle-btn",
+    active: configActor.system.isIdentified,
+    iconOn: identCfg.iconOn,
+    iconFamilyOn: identCfg.iconFamilyOn,
+    iconOff: identCfg.iconOff,
+    iconFamilyOff: identCfg.iconFamilyOff,
+    labelOnKey: identCfg.labelOnKey,
+    labelOffKey: identCfg.labelOffKey,
+    onClick: async (ev) => {
+      ev.preventDefault();
+      const embeddedItem = configActor.system.embeddedItem;
+      if (!embeddedItem) return;
+      // Route through the adapter — pf2e opens a DC dialog for unidentified
+      // items rather than flipping the flag directly.
+      await _adapter.performIdentifyToggle(embeddedItem);
+    }
+  });
+  insertHeaderButton(header, identifyToggle, closeBtn);
 
   header.querySelector(".ii-lock-toggle-btn")?.remove();
   const lockToggle = createStateToggleButton({
@@ -459,7 +490,7 @@ function _injectContainerSheetRowControls({ actor, app, html }) {
             { sceneId, tokenId, itemId, targetActorId: targetActor.id },
             async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
           );
-          if (isPlayerView() && item) notifyItemAction("PickedUp", item.name);
+          if (!game.user.isGM && item) notifyItemAction("PickedUp", item.name);
         }
       });
       target.appendChild(pickupBtn);
@@ -1148,8 +1179,7 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
     itemId: item.id,
     itemImg: item.img,
     actorName: item.actor?.name,
-    identifiedInChanges: "identified" in (changes.system ?? {}),
-    changedIdentifiedValue: changes.system?.identified,
+    isIdentificationChange: getAdapter().isIdentificationChange(item, changes),
     systemChangeKeys: Object.keys(changes.system ?? {})
   });
   if (!game.user.isGM) {
@@ -1161,8 +1191,8 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
     dbg("hook:updateItem", "actor is not interactive, bail", { actorName: actor?.name });
     return;
   }
-  if (!("identified" in (changes.system ?? {}))) {
-    dbg("hook:updateItem", "identified not in changes, bail");
+  if (!getAdapter().isIdentificationChange(item, changes)) {
+    dbg("hook:updateItem", "not an identification change, bail");
     return;
   }
 

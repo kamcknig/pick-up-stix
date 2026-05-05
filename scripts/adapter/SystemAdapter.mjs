@@ -34,7 +34,9 @@ export default class SystemAdapter {
      *  where containers render inline on the actor sheet. */
     hasNativeContainerWindow: false,
     /** System exposes Item5e.createWithContents-style deep-create static. */
-    hasNativeDeepCreate: false
+    hasNativeDeepCreate: false,
+    /** System already renders identify/mystify controls on inventory rows (pf2e). */
+    hasNativeInventoryIdentify: false
   };
 
   // === Item type vocabulary ==================================================
@@ -134,6 +136,17 @@ export default class SystemAdapter {
   buildItemIdentificationUpdate(actor, changes) { _abstract("buildItemIdentificationUpdate"); }
 
   /**
+   * Returns true if the `updateItem` hook changeset contains an identification
+   * state change for this system. Used to decide whether the `updateItem` hook
+   * should trigger actor/token sync.
+   *
+   * @param {Item} item
+   * @param {object} changes - The raw changes object passed by the `updateItem` hook.
+   * @returns {boolean}
+   */
+  isIdentificationChange(item, changes) { return false; }
+
+  /**
    * Stamp identification status onto raw item data prior to `createDocuments`.
    * Used when initialising a freshly-dropped item.
    *
@@ -143,6 +156,54 @@ export default class SystemAdapter {
    * @returns {object} The mutated itemData.
    */
   stampNewItemIdentified(itemData, isIdentified) { _abstract("stampNewItemIdentified"); }
+
+  /**
+   * Return the icon/label configuration for the identify toggle button, driven
+   * by the current identification state. Subclasses override to provide system-
+   * appropriate icons and localization keys (e.g. pf2e uses a question-mark
+   * icon and its own "Mystify" / "Identify" labels).
+   *
+   * @param {boolean} isIdentified - Current identification state of the item.
+   * @returns {{ iconOn: string, iconFamilyOn: string, labelOnKey: string,
+   *             iconOff: string, iconFamilyOff: string, labelOffKey: string }}
+   */
+  getIdentifyButtonConfig(isIdentified) {
+    return {
+      iconOn: "fa-wand-sparkles",
+      iconFamilyOn: "fa-solid",
+      labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateIdentified",
+      iconOff: "fa-wand-sparkles",
+      iconFamilyOff: "fa-solid",
+      labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnidentified"
+    };
+  }
+
+  /**
+   * Perform the system-appropriate "toggle identification" action for an item.
+   * dnd5e simply flips `system.identified`. pf2e opens the native
+   * `IdentifyItemPopup` (when unidentified) or calls
+   * `item.setIdentificationStatus("unidentified")` (when identified).
+   *
+   * @abstract
+   * @param {Item} item - The live embedded Item document to act on.
+   * @returns {Promise<void>}
+   */
+  async performIdentifyToggle(item) { _abstract("performIdentifyToggle"); }
+
+  /**
+   * Flatten a list of items (and any nested contents) into plain data objects
+   * ready for `Item.createDocuments`. Applies `transformAll` to each data
+   * object when provided; returning `null` from the callback drops that item.
+   *
+   * dnd5e delegates to `Item5e.createWithContents`; pf2e walks `system.contents`
+   * manually (the same logic as `createItemsWithContents` but without creating).
+   *
+   * @param {Item[]|object[]} items
+   * @param {object} [options]
+   * @param {(itemData: object) => object|null} [options.transformAll]
+   * @returns {Promise<object[]>}
+   */
+  async flattenItemsForCreate(items, options = {}) { _abstract("flattenItemsForCreate"); }
 
   // === Sheet delegation ======================================================
 

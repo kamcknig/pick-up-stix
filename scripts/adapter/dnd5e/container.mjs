@@ -62,5 +62,18 @@ export const Dnd5eContainer = {
       return CONFIG.Item.documentClass.createDocuments(docs, { parent: options.parent, keepId: options.keepId ?? false });
     }
     return CONFIG.Item.documentClass.createDocuments(docs, { keepId: options?.keepId ?? false });
+  },
+
+  /**
+   * Flatten items into plain data objects using dnd5e's native
+   * `Item5e.createWithContents` which handles nested container hierarchies.
+   *
+   * @param {Item[]|object[]} items
+   * @param {object} [options]
+   * @param {(itemData: object) => object|null} [options.transformAll]
+   * @returns {Promise<object[]>}
+   */
+  async flattenItemsForCreate(items, options = {}) {
+    return CONFIG.Item.documentClass.createWithContents(items, options);
   }
 };

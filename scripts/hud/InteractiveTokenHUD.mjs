@@ -145,7 +145,7 @@ function onRenderTokenHUD(app, html, context, options) {
         { sceneId, tokenId, itemId, targetActorId: targetActor.id },
         async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
       );
-      if (!isGM) notifyItemAction("PickedUp", itemName);
+      if (!game.user.isGM) notifyItemAction("PickedUp", itemName);
       canvas.tokens.hud.close();
     }
   );
@@ -210,23 +210,29 @@ function onRenderTokenHUD(app, html, context, options) {
 
   if (isGM) {
     const identified = system.isIdentified;
-    const identifyBtn = createHUDButton(
-      "fa-wand-sparkles",
-      game.i18n.localize(identified
-        ? "INTERACTIVE_ITEMS.HUD.Unidentify"
-        : "INTERACTIVE_ITEMS.HUD.Identify"),
-      async () => {
-        dbg("hud:identify", { actorName: actor.name, currentIdentified: identified });
-        const item = system.embeddedItem;
-        if (!item) {
-          dbg("hud:identify", "no embeddedItem, bail");
-          return;
-        }
-        dbg("hud:identify", "toggling identification via adapter", { from: identified, to: !identified, itemId: item.id });
-        // Route through the adapter so the correct system field is updated.
-        await getAdapter().setItemIdentified(item, !identified);
+    const adapter = getAdapter();
+    const identCfg = adapter.getIdentifyButtonConfig(identified);
+    const icon = identified ? identCfg.iconOn : identCfg.iconOff;
+    const iconFamily = identified ? identCfg.iconFamilyOn : identCfg.iconFamilyOff;
+    const labelKey = identified ? identCfg.labelOnKey : identCfg.labelOffKey;
+    const identifyBtn = document.createElement("div");
+    identifyBtn.classList.add("control-icon");
+    // Override to flex so the icon centers correctly regardless of FA weight
+    // (fa-regular icons have different line metrics than fa-solid).
+    identifyBtn.style.cssText = "display:flex;align-items:center;justify-content:center;";
+    identifyBtn.title = game.i18n.localize(labelKey);
+    identifyBtn.innerHTML = `<i class="${iconFamily} ${icon}"></i>`;
+    identifyBtn.addEventListener("click", async () => {
+      dbg("hud:identify", { actorName: actor.name, currentIdentified: identified });
+      const item = system.embeddedItem;
+      if (!item) {
+        dbg("hud:identify", "no embeddedItem, bail");
+        return;
       }
-    );
+      dbg("hud:identify", "toggling identification via adapter", { from: identified, to: !identified, itemId: item.id });
+      // Route through the adapter — pf2e opens a DC dialog for unidentified items.
+      await adapter.performIdentifyToggle(item);
+    });
     if (identified) identifyBtn.classList.add("ii-hud-active");
     col.appendChild(identifyBtn);
   }

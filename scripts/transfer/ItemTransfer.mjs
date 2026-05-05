@@ -123,7 +123,7 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
   const isEphemeralToken = !!tokenDoc.flags?.["pick-up-stix"]?.ephemeral;
   dbg("xfer:pickupItem", "preparing item transfer", { baseActorId, isEphemeralToken, isContainer: sourceActor.system.isContainer });
 
-  const toCreate = await CONFIG.Item.documentClass.createWithContents([item], {
+  const toCreate = await getAdapter().flattenItemsForCreate([item], {
     transformAll: (itemData) => {
       if (itemData instanceof foundry.abstract.Document) itemData = itemData.toObject();
       stripEquipmentState(itemData);
@@ -196,7 +196,7 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
     return false;
   }
 
-  const toCreate = await CONFIG.Item.documentClass.createWithContents([item]);
+  const toCreate = await getAdapter().flattenItemsForCreate([item]);
 
   assignContainerParent(targetActor, toCreate);
 

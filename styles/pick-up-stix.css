@@ -278,9 +278,9 @@
 }
 
 .ii-contents-controls-spacer {
-  /* Width approximates the controls block: 4 icons (16px each) + 3 gaps (6px each). */
+  /* Width approximates the controls block: 3 icons (16px each) + 2 gaps (6px each). */
   display: inline-block;
-  width: calc(4 * 16px + 3 * 6px);
+  width: calc(3 * 16px + 2 * 6px);
   flex-shrink: 0;
 }
 

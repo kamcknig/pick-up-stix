@@ -995,7 +995,6 @@ function _buildContainerContentRow(item, adapter) {
     identFamily
   ));
 
-  controls.append(_buildContentRowControl("fa-gear", "INTERACTIVE_ITEMS.Sheet.ConfigureHUD"));
   // Delete is the only currently-active control on contents rows. GM-only —
   // players see the icon but the click no-ops for them. The deleteItem hook
   // re-renders the container sheet automatically, so the row disappears.

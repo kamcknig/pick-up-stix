@@ -13,7 +13,7 @@ import { dispatchGM } from "./utils/gmDispatch.mjs";
 import { notifyItemAction } from "./utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "./utils/containerAccess.mjs";
 import { resolvePickupTarget } from "./utils/pickupFlow.mjs";
-import { createStateToggleButton, createAdapterHeaderButton, insertHeaderButton, createRowControl } from "./utils/domButtons.mjs";
+import { createAdapterHeaderButton, createRowControl } from "./utils/domButtons.mjs";
 import { dbg } from "./utils/debugLog.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
@@ -164,12 +164,16 @@ Hooks.once("init", async () => {
 
   getAdapter().registerActorInventoryHooks(_injectActorInventoryIdentifyToggles);
 
-  getAdapter().registerItemSheetHooks({ injectHeaderControls: _injectItemSheetHeaderControls });
+  // One unified header-controls decorator covers both item and container
+  // sheets. Both callbacks point at the same function — it's idempotent on
+  // re-render and on the container item sheet (where both hooks fire), it
+  // produces identical DOM either time.
+  getAdapter().registerItemSheetHooks({ injectHeaderControls: _injectInteractiveSheetHeaderControls });
 
   getAdapter().registerContainerDropGate(_gateContainerDrop);
 
   getAdapter().registerContainerViewHooks({
-    injectHeaderControls: _injectContainerSheetHeaderControls,
+    injectHeaderControls: _injectInteractiveSheetHeaderControls,
     maybeHideContents: _hideContainerSheetContents,
     installActorDropListener: _installContainerSheetActorDrop,
     injectItemRowControls: _injectContainerSheetRowControls,
@@ -299,52 +303,121 @@ function _injectActorInventoryIdentifyToggles(app, html) {
 }
 
 /**
- * Injects GM-only lock and configure header buttons into the dnd5e item sheet
- * rendered for an embedded item belonging to an interactive actor.
+ * Resolve the interactive actor associated with a sheet's `app.item`. When
+ * the item belongs directly to an interactive actor, that actor is the answer.
+ * When the item lives in a player's inventory but was picked up from one,
+ * resolve via the `sourceActorId` flag so configure/lock/identify still work
+ * on inventory items.
+ *
+ * @param {Application} app
+ * @returns {Actor|null}
+ */
+function _resolveInteractiveActor(app) {
+  const item = app?.item;
+  if (!item) return null;
+  if (isInteractiveActor(item.actor)) return item.actor;
+  const sourceActorId = getItemSourceActorId(item);
+  return sourceActorId ? game.actors.get(sourceActorId) : null;
+}
+
+/**
+ * Resolve the full window root element for a render-hook callback. Foundry V1
+ * fires render hooks with the inner `.window-content` jQuery on re-render
+ * (only the initial render passes the full window), so we fall back to
+ * `app.element[0]` (V1) or `app.element` (V2) when `.window-header` isn't
+ * reachable from the hook's html argument.
+ *
+ * @param {Application} app
+ * @param {HTMLElement|null} html
+ * @returns {HTMLElement|null}
+ */
+function _resolveSheetRoot(app, html) {
+  if (html?.querySelector?.(".window-header")) return html;
+  if (app?.element instanceof HTMLElement) return app.element;
+  return app?.element?.[0] ?? null;
+}
+
+/**
+ * Inject the module's header toggles — open/close (containers only), lock,
+ * identify, configure — into a system's native item or container sheet header.
+ *
+ * Always emits the four buttons in canonical left-to-right order
+ * (`open, lock, identify, configure`) regardless of which decorator callback
+ * triggered the render. Existing module buttons are removed and re-created on
+ * every call so the order stays stable across re-renders.
+ *
+ * Inserts the group immediately after `.window-title` so the buttons sit on
+ * the *left* of any system-injected header buttons (Sheet, Prototype Token,
+ * Close on pf2e; ellipsis menu, Close on dnd5e V2). The flex layout pushes
+ * system buttons to the far right, leaving our buttons grouped just to the
+ * right of the title.
+ *
+ * Idempotent — both `registerItemSheetHooks` and `registerContainerViewHooks`
+ * route here, so on container item sheets where both fire the second call
+ * produces the same DOM as the first.
  *
  * @param {object} ctx
- * @param {Application} ctx.app - The rendered ItemSheet5e application.
- * @param {HTMLElement} ctx.html - The sheet's root element.
+ * @param {Actor} [ctx.actor] - Pre-resolved interactive actor (container hook supplies this).
+ * @param {Application} ctx.app
+ * @param {HTMLElement} ctx.html
  */
-function _injectItemSheetHeaderControls({ app, html }) {
+function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   if (!game.user.isGM) return;
-  const item = app.item;
-  const actor = item?.actor;
 
-  let configActor = null;
-  if (isInteractiveActor(actor)) {
-    configActor = actor;
-  } else {
-    const sourceActorId = getItemSourceActorId(item);
-    if (sourceActorId) configActor = game.actors.get(sourceActorId);
-  }
+  const configActor = isInteractiveActor(actor) ? actor : _resolveInteractiveActor(app);
   if (!configActor) return;
 
-  // Foundry V1 fires the render hook with the *inner* (.window-content) HTML
-  // on re-render, so `.window-header` lives outside of it. Fall back to the
-  // app's own root element (V1: `app.element[0]`, V2: `app.element`) so the
-  // header is reachable on every render — not just the initial one.
-  let header = html?.querySelector?.(".window-header") ?? null;
-  if (!header) {
-    const root = app.element instanceof HTMLElement
-      ? app.element
-      : app.element?.[0] ?? null;
-    header = root?.querySelector?.(".window-header") ?? null;
-  }
+  const root = _resolveSheetRoot(app, html);
+  const header = root?.querySelector?.(".window-header");
   if (!header) return;
-  // mode-slider is a dnd5e-only header control inside the inner content; safe
-  // best-effort removal regardless of whether `html` is the inner or full root.
-  html?.querySelector?.(".mode-slider")?.remove();
-  const closeBtn = header.querySelector("button.close, a.close, [data-action='close']");
 
-  const _adapter = getAdapter();
+  // dnd5e injects a `.mode-slider` edit-mode toggle into the header on AppV2
+  // sheets — interactive object sheets shouldn't expose that to anyone.
+  root.querySelector?.(".mode-slider")?.remove();
 
-  header.querySelector(".ii-identify-toggle-btn")?.remove();
-  const identCfg = _adapter.getIdentifyButtonConfig(configActor.system.isIdentified);
-  const identifyToggle = createAdapterHeaderButton({
-    adapter: _adapter,
+  // Remove any existing module toggles so the rebuild produces a stable order.
+  header.querySelectorAll(".ii-open-toggle-btn, .ii-lock-toggle-btn, .ii-identify-toggle-btn, .ii-configure-btn")
+    .forEach(el => el.remove());
+
+  const adapter = getAdapter();
+  const sys = configActor.system;
+  const buttons = [];
+
+  if (sys.isContainer) {
+    buttons.push(createAdapterHeaderButton({
+      adapter,
+      extraClass: "ii-open-toggle-btn",
+      active: sys.isOpen,
+      iconOn: "fa-box-open",
+      iconOff: "fa-box",
+      labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateOpened",
+      labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateClosed",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        await setContainerOpen(configActor, !configActor.system.isOpen);
+      }
+    }));
+  }
+
+  buttons.push(createAdapterHeaderButton({
+    adapter,
+    extraClass: "ii-lock-toggle-btn",
+    active: sys.isLocked,
+    iconOn: "fa-lock",
+    iconOff: "fa-lock-open",
+    labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
+    labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
+    onClick: (ev) => {
+      ev.preventDefault();
+      toggleContainerLocked(configActor);
+    }
+  }));
+
+  const identCfg = adapter.getIdentifyButtonConfig(sys.isIdentified);
+  buttons.push(createAdapterHeaderButton({
+    adapter,
     extraClass: "ii-identify-toggle-btn",
-    active: configActor.system.isIdentified,
+    active: sys.isIdentified,
     iconOn: identCfg.iconOn,
     iconFamilyOn: identCfg.iconFamilyOn,
     iconOff: identCfg.iconOff,
@@ -357,113 +430,29 @@ function _injectItemSheetHeaderControls({ app, html }) {
       if (!embeddedItem) return;
       // Route through the adapter — pf2e opens a DC dialog for unidentified
       // items rather than flipping the flag directly.
-      await _adapter.performIdentifyToggle(embeddedItem);
+      await adapter.performIdentifyToggle(embeddedItem);
     }
-  });
-  insertHeaderButton(header, identifyToggle, closeBtn);
+  }));
 
-  header.querySelector(".ii-lock-toggle-btn")?.remove();
-  const lockToggle = createAdapterHeaderButton({
-    adapter: _adapter,
-    extraClass: "ii-lock-toggle-btn",
-    active: configActor.system.isLocked,
-    iconOn: "fa-lock",
-    iconOff: "fa-lock-open",
-    labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
-    labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
-    onClick: (ev) => {
-      ev.preventDefault();
-      toggleContainerLocked(configActor);
-    }
-  });
-  insertHeaderButton(header, lockToggle, closeBtn);
-
-  if (!header.querySelector(".ii-configure-btn")) {
-    const cfgBtn = createAdapterHeaderButton({
-      adapter: _adapter,
-      kind: "config",
-      extraClass: "ii-configure-btn",
-      iconOn: "fa-gear",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.ConfigureHUD",
-      onClick: async (ev) => {
-        ev.preventDefault();
-        await app.close();
-        configActor.sheet.renderConfig();
-      }
-    });
-    insertHeaderButton(header, cfgBtn, closeBtn);
-  }
-}
-
-/**
- * Injects GM-only open/close, lock, and configure header buttons into the
- * dnd5e ContainerSheet rendered for an interactive container actor.
- *
- * @param {object} ctx
- * @param {Actor} ctx.actor - The interactive container actor owning the container item.
- * @param {Application} ctx.app - The rendered ContainerSheet application.
- * @param {HTMLElement} ctx.html - The sheet's root element.
- */
-function _injectContainerSheetHeaderControls({ actor, app, html }) {
-  if (isPlayerView()) return;
-  if (!isInteractiveContainer(actor)) return;
-
-  const header = html.querySelector(".window-header");
-  if (!header) return;
-  html.querySelector(".mode-slider")?.remove();
-  const closeBtn = header.querySelector("button.close, a.close, [data-action='close']");
-
-  const _adapter = getAdapter();
-
-  // Remove existing to refresh state on re-render.
-  header.querySelector(".ii-open-toggle-btn")?.remove();
-
-  const openBtn = createAdapterHeaderButton({
-    adapter: _adapter,
-    extraClass: "ii-open-toggle-btn",
-    active: actor.system.isOpen,
-    iconOn: "fa-box-open",
-    iconOff: "fa-box",
-    labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateOpened",
-    labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateClosed",
+  buttons.push(createAdapterHeaderButton({
+    adapter,
+    kind: "config",
+    extraClass: "ii-configure-btn",
+    iconOn: "fa-gear",
+    labelOnKey: "INTERACTIVE_ITEMS.Sheet.ConfigureHUD",
     onClick: async (ev) => {
       ev.preventDefault();
-      await setContainerOpen(actor, !actor.system.isOpen);
+      await app.close();
+      configActor.sheet.renderConfig();
     }
-  });
-  insertHeaderButton(header, openBtn, closeBtn);
+  }));
 
-  header.querySelector(".ii-lock-toggle-btn")?.remove();
-  const lockBtn = createAdapterHeaderButton({
-    adapter: _adapter,
-    extraClass: "ii-lock-toggle-btn",
-    active: actor.system.isLocked,
-    iconOn: "fa-lock",
-    iconOff: "fa-lock-open",
-    labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
-    labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
-    onClick: (ev) => {
-      ev.preventDefault();
-      toggleContainerLocked(actor);
-    }
-  });
-  insertHeaderButton(header, lockBtn, closeBtn);
-
-  if (!header.querySelector(".ii-configure-btn")) {
-    const cfgBtn = createAdapterHeaderButton({
-      adapter: _adapter,
-      kind: "config",
-      extraClass: "ii-configure-btn",
-      iconOn: "fa-gear",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.ConfigureHUD",
-      onClick: async (ev) => {
-        ev.preventDefault();
-        await app.close();
-        actor.sheet.renderConfig();
-      }
-    });
-    insertHeaderButton(header, cfgBtn, closeBtn);
-  }
+  // Insert immediately after the title so buttons sit left of system-injected
+  // header controls (Sheet/Prototype Token/Close on pf2e; ellipsis/Close on
+  // dnd5e V2). The header's flex layout pushes system buttons to the far right.
+  const title = header.querySelector(".window-title");
+  if (title) title.after(...buttons);
+  else header.prepend(...buttons);
 }
 
 /**

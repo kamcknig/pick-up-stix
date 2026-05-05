@@ -151,10 +151,7 @@ export default class Dnd5eInteractiveItemConfigSheet extends HandlebarsApplicati
 
     if (this.isEditable) {
       const header = this.element.querySelector(".window-header");
-      if (header) {
-        const closeBtn = header.querySelector("button.close, [data-action='close']");
-        this.#injectHeaderToggles(header, closeBtn);
-      }
+      if (header) this.#injectHeaderToggles(header);
     }
   }
 
@@ -269,9 +266,10 @@ export default class Dnd5eInteractiveItemConfigSheet extends HandlebarsApplicati
    * Inject Open/Close (containers only), Lock, and Identify toggles into the
    * config window's own header. Buttons are removed and re-added on every
    * render so their on/off state stays in sync with `system.isOpen`/`isLocked`/
-   * `isIdentified`.
+   * `isIdentified`. Inserted immediately after `.window-title` so they sit
+   * left of dnd5e/V2's right-aligned system controls (ellipsis, close).
    */
-  #injectHeaderToggles(header, closeBtn) {
+  #injectHeaderToggles(header) {
     header.querySelectorAll(".ii-config-toggle").forEach(el => el.remove());
 
     const system = this.actor.system;
@@ -312,8 +310,9 @@ export default class Dnd5eInteractiveItemConfigSheet extends HandlebarsApplicati
       action: "toggleIdentified"
     }));
 
-    if (closeBtn) closeBtn.before(...buttons);
-    else header.append(...buttons);
+    const title = header.querySelector(".window-title");
+    if (title) title.after(...buttons);
+    else header.prepend(...buttons);
   }
 
   /**

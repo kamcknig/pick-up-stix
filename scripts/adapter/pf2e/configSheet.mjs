@@ -239,6 +239,11 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
    * fails that lookup and crashes the click handler with
    * `Cannot read properties of undefined (reading 'onclick')`.
    *
+   * Buttons are unshifted in REVERSE canonical order (identify → lock → open)
+   * so the final layout reads `open, lock, identify, [system buttons], close`
+   * left-to-right — module toggles to the left of pf2e's own `Sheet` and
+   * `Prototype Token` buttons.
+   *
    * Active/inactive state is conveyed by the icon itself (lock vs lock-open,
    * box vs box-open), so no separate "active" class is needed.
    */
@@ -248,28 +253,7 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
 
     const system = this.actor.system;
 
-    if (system.isContainer) {
-      buttons.unshift({
-        label: "",
-        tooltip: game.i18n.localize(system.isOpen
-          ? "INTERACTIVE_ITEMS.Sheet.StateOpened"
-          : "INTERACTIVE_ITEMS.Sheet.StateClosed"),
-        class: "ii-toggle-open",
-        icon: `fas ${system.isOpen ? "fa-box-open" : "fa-box"}`,
-        onclick: () => setContainerOpen(this.actor, !this.actor.system.isOpen)
-      });
-    }
-
-    buttons.unshift({
-      label: "",
-      tooltip: game.i18n.localize(system.isLocked
-        ? "INTERACTIVE_ITEMS.Sheet.StateLocked"
-        : "INTERACTIVE_ITEMS.Sheet.StateUnlocked"),
-      class: "ii-toggle-lock",
-      icon: `fas ${system.isLocked ? "fa-lock" : "fa-lock-open"}`,
-      onclick: () => toggleContainerLocked(this.actor)
-    });
-
+    // Identify (will end up at position 2 — third from left)
     const identCfg = getAdapter().getIdentifyButtonConfig(system.isIdentified);
     const identIconFamily = system.isIdentified
       ? (identCfg.iconFamilyOn ?? "fas")
@@ -288,6 +272,30 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
         adapter.performIdentifyToggle(item);
       }
     });
+
+    // Lock (position 1)
+    buttons.unshift({
+      label: "",
+      tooltip: game.i18n.localize(system.isLocked
+        ? "INTERACTIVE_ITEMS.Sheet.StateLocked"
+        : "INTERACTIVE_ITEMS.Sheet.StateUnlocked"),
+      class: "ii-toggle-lock",
+      icon: `fas ${system.isLocked ? "fa-lock" : "fa-lock-open"}`,
+      onclick: () => toggleContainerLocked(this.actor)
+    });
+
+    // Open/Close (position 0 — leftmost) — containers only
+    if (system.isContainer) {
+      buttons.unshift({
+        label: "",
+        tooltip: game.i18n.localize(system.isOpen
+          ? "INTERACTIVE_ITEMS.Sheet.StateOpened"
+          : "INTERACTIVE_ITEMS.Sheet.StateClosed"),
+        class: "ii-toggle-open",
+        icon: `fas ${system.isOpen ? "fa-box-open" : "fa-box"}`,
+        onclick: () => setContainerOpen(this.actor, !this.actor.system.isOpen)
+      });
+    }
 
     return buttons;
   }

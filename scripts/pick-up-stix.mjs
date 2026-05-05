@@ -320,9 +320,21 @@ function _injectItemSheetHeaderControls({ app, html }) {
   }
   if (!configActor) return;
 
-  const header = html.querySelector(".window-header");
+  // Foundry V1 fires the render hook with the *inner* (.window-content) HTML
+  // on re-render, so `.window-header` lives outside of it. Fall back to the
+  // app's own root element (V1: `app.element[0]`, V2: `app.element`) so the
+  // header is reachable on every render — not just the initial one.
+  let header = html?.querySelector?.(".window-header") ?? null;
+  if (!header) {
+    const root = app.element instanceof HTMLElement
+      ? app.element
+      : app.element?.[0] ?? null;
+    header = root?.querySelector?.(".window-header") ?? null;
+  }
   if (!header) return;
-  html.querySelector(".mode-slider")?.remove();
+  // mode-slider is a dnd5e-only header control inside the inner content; safe
+  // best-effort removal regardless of whether `html` is the inner or full root.
+  html?.querySelector?.(".mode-slider")?.remove();
   const closeBtn = header.querySelector("button.close, a.close, [data-action='close']");
 
   const _adapter = getAdapter();
@@ -1172,11 +1184,15 @@ Hooks.on("updateActor", (actor, changes) => {
 Hooks.on("updateActor", (actor, changes) => {
   if (!isInteractiveActor(actor)) return;
   const sys = changes.system ?? {};
-  if (!("isLocked" in sys) && !("isOpen" in sys)) {
-    dbg("hook:updateActor:rerender", { name: actor.name }, "no isLocked/isOpen change, bail");
+  // isIdentified must be in this set too — pf2e item/container sheets and our
+  // own config sheet inject identify toggles whose icon and tooltip have to
+  // refresh after a Mystify/Identify action; otherwise the visual stays stale
+  // even though the underlying data updated correctly.
+  if (!("isLocked" in sys) && !("isOpen" in sys) && !("isIdentified" in sys)) {
+    dbg("hook:updateActor:rerender", { name: actor.name }, "no isLocked/isOpen/isIdentified change, bail");
     return;
   }
-  dbg("hook:updateActor:rerender", { name: actor.name, id: actor.id, isLocked: sys.isLocked, isOpen: sys.isOpen, sheetRendered: !!actor.system.embeddedItem?.sheet?.rendered });
+  dbg("hook:updateActor:rerender", { name: actor.name, id: actor.id, isLocked: sys.isLocked, isOpen: sys.isOpen, isIdentified: sys.isIdentified, sheetRendered: !!actor.system.embeddedItem?.sheet?.rendered });
 
   // Re-render the embedded item's native sheet (dnd5e ContainerSheet / pf2e item sheets).
   const item = actor.system.embeddedItem;

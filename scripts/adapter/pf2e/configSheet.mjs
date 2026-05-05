@@ -169,6 +169,69 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
   }
 
   /**
+   * Foundry V1 `_replaceHTML` only swaps `.window-content` on re-render —
+   * the `.window-header` (and our injected toggles in it) is never refreshed,
+   * so `_getHeaderButtons` is effectively a one-shot at initial render.
+   * Override `_render` to re-sync the existing header buttons' icon, tooltip,
+   * and `active` state after each render so they always reflect the actor's
+   * current isOpen / isLocked / isIdentified.
+   *
+   * @param {boolean} force
+   * @param {object} options
+   */
+  async _render(force, options) {
+    const result = await super._render(force, options);
+    this.#refreshHeaderToggleVisuals();
+    return result;
+  }
+
+  /**
+   * Walk the live header buttons and update each toggle's icon class and
+   * tooltip in place. Click handlers were bound at initial render with
+   * closures that read live actor state, so they don't need to be re-bound.
+   */
+  #refreshHeaderToggleVisuals() {
+    const header = this.element?.[0]?.querySelector(".window-header");
+    if (!header) return;
+    const system = this.actor.system;
+
+    const updateToggle = (selector, iconClassName, tooltip) => {
+      const btn = header.querySelector(selector);
+      if (!btn) return;
+      const i = btn.querySelector("i");
+      if (i) i.className = iconClassName;
+      if (tooltip) {
+        btn.dataset.tooltip = tooltip;
+        btn.setAttribute("aria-label", tooltip);
+      }
+    };
+
+    if (system.isContainer) {
+      updateToggle(
+        ".ii-toggle-open",
+        `fas ${system.isOpen ? "fa-box-open" : "fa-box"}`,
+        game.i18n.localize(system.isOpen
+          ? "INTERACTIVE_ITEMS.Sheet.StateOpened"
+          : "INTERACTIVE_ITEMS.Sheet.StateClosed")
+      );
+    }
+
+    updateToggle(
+      ".ii-toggle-lock",
+      `fas ${system.isLocked ? "fa-lock" : "fa-lock-open"}`,
+      game.i18n.localize(system.isLocked
+        ? "INTERACTIVE_ITEMS.Sheet.StateLocked"
+        : "INTERACTIVE_ITEMS.Sheet.StateUnlocked")
+    );
+
+    const identCfg = getAdapter().getIdentifyButtonConfig(system.isIdentified);
+    const family = system.isIdentified ? (identCfg.iconFamilyOn ?? "fas") : (identCfg.iconFamilyOff ?? "fas");
+    const icon = system.isIdentified ? identCfg.iconOn : identCfg.iconOff;
+    const labelKey = system.isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey;
+    updateToggle(".ii-toggle-identify", `${family} ${icon}`, game.i18n.localize(labelKey));
+  }
+
+  /**
    * V1 header buttons — Foundry calls this on every render. Module-specific
    * toggles are emitted icon-only (empty label) and use a single-token `class`
    * because Foundry's V1 click delegation looks the descriptor up via

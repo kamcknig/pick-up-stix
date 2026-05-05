@@ -190,9 +190,12 @@ export const Pf2eIdentification = {
     const item = actor.system.embeddedItem;
     if (!item) return {};
 
-    // Resolve the desired display name and description for the active state.
-    // Names fall back through unidentifiedName → generateUnidentifiedName →
-    // actor.name; descriptions fall back to empty.
+    // Resolve the desired display name, description, and image for the
+    // active state. Names fall back through unidentifiedName →
+    // generateUnidentifiedName → actor.name; descriptions fall back to
+    // empty; images use the model's resolveImage which already handles
+    // unidentifiedImage / actor.img precedence — passing a boolean
+    // overrides the model's live isIdentified read.
     let desiredName, desiredDesc;
     if (isIdentified) {
       desiredName = actor.name;
@@ -206,27 +209,34 @@ export const Pf2eIdentification = {
       desiredDesc = actor.system.unidentifiedDescription ?? "";
     }
     if (!desiredName) return {};
+    const desiredImg = actor.system.resolveImage(isIdentified);
 
     // Mirror desired values into both _source (so the in-sheet inputs read
     // the right text) and the per-state caches. pf2e populates
     // `system.identification.identified` once via `??=` from the initial
     // source values, then reads `getMystifiedData(status)` in
-    // `prepareDerivedData` to drive `this.name` and `this.system.description.value`.
-    // Without updating the caches, a later identify cycle resurrects the
-    // stale original name/description.
+    // `prepareDerivedData` to drive `this.name`, `this.img`, and
+    // `this.system.description.value`. Without updating the cached image,
+    // pf2e falls back to `getUnidentifiedPlaceholderImage` and the token
+    // / sheet shows a generic mystery icon.
     const update = {};
     const src = item._source ?? {};
 
     if (src.name !== desiredName) update.name = desiredName;
+    if (desiredImg && src.img !== desiredImg) update.img = desiredImg;
     if ((src.system?.description?.value ?? "") !== desiredDesc) {
       update["system.description.value"] = desiredDesc;
     }
 
     const stateKey = isIdentified ? "identified" : "unidentified";
     const cacheNamePath = `system.identification.${stateKey}.name`;
+    const cacheImgPath = `system.identification.${stateKey}.img`;
     const cacheDescPath = `system.identification.${stateKey}.data.description.value`;
     if (foundry.utils.getProperty(src, cacheNamePath) !== desiredName) {
       update[cacheNamePath] = desiredName;
+    }
+    if (desiredImg && foundry.utils.getProperty(src, cacheImgPath) !== desiredImg) {
+      update[cacheImgPath] = desiredImg;
     }
     if ((foundry.utils.getProperty(src, cacheDescPath) ?? "") !== desiredDesc) {
       update[cacheDescPath] = desiredDesc;

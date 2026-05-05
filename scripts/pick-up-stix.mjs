@@ -854,6 +854,24 @@ function _renderContainerContents(section, actor, containerItem) {
   const adapter = getAdapter();
   section.replaceChildren();
 
+  // Mirror the dnd5e contents-hiding gate (`_hideContainerSheetContents`):
+  // non-GM viewers see a placeholder when the container is closed/locked OR
+  // when they're outside interaction range. The sheet remains accessible
+  // for description/details viewing as long as they're within inspection range.
+  if (!isModuleGM()) {
+    const open = actor.system.isOpen;
+    const inRange = checkProximity(actor, { silent: true, range: "interaction" });
+    if (!open || !inRange) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "pick-up-stix-contents-hidden";
+      placeholder.textContent = open
+        ? game.i18n.localize("INTERACTIVE_ITEMS.Container.ContentsHidden")
+        : game.i18n.localize("INTERACTIVE_ITEMS.Notify.ContainerClosed");
+      section.append(placeholder);
+      return;
+    }
+  }
+
   const containedItems = actor.items.filter(i => {
     if (i.id === containerItem.id) return false;
     return adapter.getItemContainerId(i) === containerItem.id;
@@ -2093,7 +2111,14 @@ async function _deleteInteractiveActors(folderId, { ephemeralOnly = false } = {}
 }
 
 function _reevaluateInteractiveProximity() {
-  for (const app of foundry.applications.instances.values()) {
+  // Walk both registries so V1 sheets (pf2e ContainerSheetPF2e, native item
+  // sheets) close and re-render alongside V2 sheets (dnd5e ContainerSheet).
+  // Item-document sheets resolve their interactive actor via app.item?.actor.
+  const apps = [
+    ...Object.values(ui.windows ?? {}),
+    ...foundry.applications.instances.values()
+  ];
+  for (const app of apps) {
     if (!app.rendered) continue;
     const interactiveActor = app.actor ?? app.item?.actor ?? app.document?.actor;
     if (!isInteractiveActor(interactiveActor)) continue;

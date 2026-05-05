@@ -912,11 +912,6 @@ function _buildContainerContentsHeader({ isTokenActor = false } = {}) {
   name.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Name");
   header.append(name);
 
-  const qty = document.createElement("span");
-  qty.className = "ii-contents-quantity";
-  qty.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Quantity");
-  header.append(qty);
-
   const bulk = document.createElement("span");
   bulk.className = "ii-contents-bulk";
   bulk.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Bulk");
@@ -944,6 +939,18 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
   row.dataset.itemId = item.id;
   row.dataset.itemUuid = item.uuid;
 
+  // Native Foundry drag payload — destinations (canvas, character sheets,
+  // other containers) consume `{type:"Item", uuid}` and either move the item
+  // (sheet drops) or hand off to our `dropCanvasData` placement flow, which
+  // already deletes the source item from its actor after placement.
+  row.draggable = true;
+  row.addEventListener("dragstart", (event) => {
+    const payload = { type: "Item", uuid: item.uuid };
+    event.dataTransfer.setData("text/plain", JSON.stringify(payload));
+    event.dataTransfer.effectAllowed = "all";
+    dbg("contents:dragstart", { itemName: item.name, itemId: item.id, uuid: item.uuid });
+  });
+
   const img = document.createElement("img");
   img.className = "ii-contents-img";
   img.src = item.img;
@@ -954,14 +961,6 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
   name.className = "ii-contents-name";
   name.textContent = item.name;
   row.append(name);
-
-  const quantity = document.createElement("span");
-  quantity.className = "ii-contents-quantity";
-  // pf2e physical items expose `system.quantity` (number); some types may
-  // expose `{ value }` (legacy). Read both shapes defensively.
-  const q = item.system?.quantity;
-  quantity.textContent = (typeof q === "object" ? q?.value : q) ?? 1;
-  row.append(quantity);
 
   const bulk = document.createElement("span");
   bulk.className = "ii-contents-bulk";

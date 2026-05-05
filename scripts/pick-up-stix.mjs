@@ -986,7 +986,15 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
   const isLocked = !!item.flags?.["pick-up-stix"]?.tokenState?.system?.isLocked;
   controls.append(_buildContentRowControl(
     isLocked ? "fa-lock" : "fa-lock-open",
-    "INTERACTIVE_ITEMS.Sheet." + (isLocked ? "StateLocked" : "StateUnlocked")
+    "INTERACTIVE_ITEMS.Sheet." + (isLocked ? "StateLocked" : "StateUnlocked"),
+    "fa-solid",
+    async () => {
+      if (!game.user.isGM) return;
+      dbg("contents:lockRow", { itemName: item.name, itemId: item.id, currentlyLocked: isLocked });
+      // Lock state lives in the same flag the dnd5e ContainerSheet row controls
+      // use, keeping the per-item lock semantics consistent across systems.
+      await item.update({ "flags.pick-up-stix.tokenState.system.isLocked": !isLocked });
+    }
   ));
 
   const isIdentified = adapter.isItemIdentified(item);
@@ -1677,6 +1685,20 @@ Hooks.on("createItem", (item) => {
 Hooks.on("deleteItem", (item) => {
   const actor = item.parent;
   if (actor) _rerenderContainerViews(actor);
+});
+
+// Re-render container views when a deposited item's lock flag flips so the
+// Contents-tab row icon and tooltip refresh. Scoped narrowly: deposited items
+// (i.e. *not* the wrapping container's embedded backpack) on interactive
+// container actors. The main updateItem hook below handles identification
+// changes for the wrapped item.
+Hooks.on("updateItem", (item, changes) => {
+  const actor = item.parent;
+  if (!isInteractiveActor(actor) || !actor.system?.isContainer) return;
+  if (item.id === actor.system.embeddedItem?.id) return;
+  if (!foundry.utils.hasProperty(changes, "flags.pick-up-stix.tokenState.system.isLocked")) return;
+  dbg("hook:updateItem:lockRowRerender", { itemName: item.name, itemId: item.id });
+  _rerenderContainerViews(actor);
 });
 
 Hooks.on("updateItem", async (item, changes, options, userId) => {

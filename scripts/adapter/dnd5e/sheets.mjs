@@ -62,6 +62,9 @@ export const Dnd5eSheets = {
    * @returns {Promise<Application|null>}
    */
   async renderConfigSheet(actor, options = {}) {
+    // Coerce the legacy boolean "force" form into a V2 options object so the
+    // spread below doesn't silently drop the request.
+    if (typeof options !== "object" || options === null) options = {};
     const { default: Dnd5eInteractiveItemConfigSheet } = await import("./configSheet.mjs");
     const sheet = Dnd5eInteractiveItemConfigSheet.forActor(actor);
     await sheet.render({ force: true, ...options });

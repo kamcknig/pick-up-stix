@@ -79,6 +79,10 @@ export const Pf2eSheets = {
    * @returns {Promise<Application|null>}
    */
   async renderConfigSheet(actor, options = {}) {
+    // V1 sheet.render signature is (force, options) where options is an object
+    // Foundry mutates (e.g. options.editable). Coerce defensively in case the
+    // caller forwarded a boolean from the legacy AppV1 force flag.
+    if (typeof options !== "object" || options === null) options = {};
     const { default: Pf2eInteractiveItemConfigSheet } = await import("./configSheet.mjs");
     const sheet = Pf2eInteractiveItemConfigSheet.forActor(actor);
     sheet.render(true, options);

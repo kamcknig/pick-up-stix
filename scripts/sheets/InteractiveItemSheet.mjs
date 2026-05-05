@@ -152,6 +152,13 @@ export default class InteractiveItemSheet extends ActorSheetV2 {
    * not meant to display.
    */
   async render(options = {}, _options = {}) {
+    // Foundry's sidebar / older callers pass `true` as the first positional
+    // arg (legacy AppV1 force flag). Normalise so downstream adapter methods
+    // always receive a plain object — pf2e's V1 sheet treats this slot as the
+    // mutable `options` bag and crashes on a boolean.
+    if (options === true) options = { force: true };
+    else if (typeof options !== "object" || options === null) options = {};
+
     dbg("sheet:render", {
       actorName: this.actor?.name,
       actorId: this.actor?.id,

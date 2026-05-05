@@ -380,7 +380,7 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   // Remove any existing module toggles so the rebuild produces a stable order.
   // The native identify button (if any) is intentionally NOT in this list —
   // we relocate it into the canonical slot below rather than recreating it.
-  header.querySelectorAll(".ii-open-toggle-btn, .ii-lock-toggle-btn, .ii-identify-toggle-btn, .ii-configure-btn")
+  header.querySelectorAll(".ii-open-toggle-btn, .ii-pickup-btn, .ii-lock-toggle-btn, .ii-identify-toggle-btn, .ii-configure-btn")
     .forEach(el => el.remove());
 
   const adapter = getAdapter();
@@ -415,7 +415,28 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
     // Pickup glyph — token-only (synthetic actor). The base actor sheet in the
     // sidebar wraps the *template* and isn't a thing you can "pick up", so the
     // icon is suppressed there. No behaviour wired yet — visual placeholder.
-    if (configActor.isToken) {
+    //
+    // Detect the token case via several fallbacks: pf2e's synthetic actor
+    // resolution can yield references whose getter side-effects (`isToken`)
+    // haven't fired yet by the time the render hook runs, so we also check
+    // `actor.token`, `actor.parent` document type, and `app.token` directly.
+    const isTokenActor = !!(
+      configActor.isToken
+      ?? configActor.token
+      ?? (configActor.parent && configActor.parent.documentName === "Token")
+      ?? app?.token
+    );
+    dbg("inject:headerControls", {
+      actorName: configActor.name,
+      actorType: configActor.type,
+      isContainer: sys.isContainer,
+      isTokenViaIsToken: configActor.isToken,
+      isTokenViaToken: !!configActor.token,
+      parentDoc: configActor.parent?.documentName,
+      appHasToken: !!app?.token,
+      resolvedIsTokenActor: isTokenActor
+    });
+    if (isTokenActor) {
       orderedNodes.push(createAdapterHeaderButton({
         adapter,
         extraClass: "ii-pickup-btn",

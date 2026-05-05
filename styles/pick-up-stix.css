@@ -289,6 +289,51 @@
   width: calc(4 * 16px + 3 * 6px);
 }
 
+/* ===== pf2e Config Sheet — match item-sheet input styling =====
+ * pf2e scopes its sheet-content input styling to `.pf2e.item.sheet`. Our
+ * config dialog is `.pf2e.actor.sheet` so those rules don't reach it.
+ * Worse, pf2e's unlayered rule `.pf2e.actor form input[type=text] { padding: 0 }`
+ * strips the padding the V1 compatibility layer would normally provide.
+ * The selectors below add the `.actor.interactive-item-config form` chain to
+ * outrank pf2e's actor rule (3 classes + 2 elements vs 2 classes + 2 elements)
+ * so our padding/background/border survive the cascade. Padding values come
+ * from foundry's V1 baseline (`body.game .app input[type=text]`). */
+
+.pf2e.actor.interactive-item-config form input[type="text"],
+.pf2e.actor.interactive-item-config form input[type="number"],
+.pf2e.actor.interactive-item-config form select {
+  color: var(--color-text-dark-input);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--color-border-light-2);
+  padding: 1px 3px;
+}
+
+.pf2e.actor.interactive-item-config form input[type="text"]:hover:not(:disabled),
+.pf2e.actor.interactive-item-config form input[type="text"]:focus,
+.pf2e.actor.interactive-item-config form input[type="number"]:hover:not(:disabled),
+.pf2e.actor.interactive-item-config form input[type="number"]:focus,
+.pf2e.actor.interactive-item-config form select:hover:not(:disabled),
+.pf2e.actor.interactive-item-config form select:focus {
+  border-color: var(--color-border-dark-1);
+  box-shadow: 0 0 4px var(--color-pf-secondary);
+}
+
+.pf2e.actor.interactive-item-config form input:read-only,
+.pf2e.actor.interactive-item-config form input:disabled,
+.pf2e.actor.interactive-item-config form select:disabled {
+  color: var(--color-disabled);
+  opacity: 0.8;
+}
+
+/* Form-group labels — match pf2e item-sheet appearance: darker text,
+ * semi-bold, fixed flex-basis so labels align across rows. */
+.pf2e.actor.interactive-item-config form .form-group > label {
+  color: var(--color-text-dark-2);
+  font-weight: 500;
+  padding-right: 0.5em;
+  flex: 0 1 11em;
+}
+
 /* ===== Settings Dialog ===== */
 
 .ii-settings-folder-picker {

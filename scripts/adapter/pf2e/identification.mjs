@@ -111,6 +111,34 @@ export const Pf2eIdentification = {
   },
 
   /**
+   * pf2e binds the in-sheet name input to `item._source.name`, which
+   * `setIdentificationStatus` does not touch. To make the input reflect the
+   * current identification state we explicitly sync it here:
+   *   identified   → actor.name (the canonical real name)
+   *   unidentified → actor.system.unidentifiedName, or pf2e's own
+   *                  `generateUnidentifiedName()` ("Unusual {ItemType}") when
+   *                  the GM hasn't supplied an explicit override.
+   *
+   * Returns `{}` when nothing needs to change so the caller can skip the update.
+   */
+  buildEmbeddedItemSourceUpdate(actor, isIdentified) {
+    const item = actor.system.embeddedItem;
+    if (!item) return {};
+    let desired;
+    if (isIdentified) {
+      desired = actor.name;
+    } else {
+      desired = actor.system.unidentifiedName
+        || (typeof item.generateUnidentifiedName === "function"
+            ? item.generateUnidentifiedName()
+            : "")
+        || actor.name;
+    }
+    if (!desired || item._source?.name === desired) return {};
+    return { name: desired };
+  },
+
+  /**
    * Stamp identification status onto raw item data prior to `createDocuments`.
    * Used when initialising a freshly-dropped pf2e item. Sets
    * `system.identification.status` to the appropriate enum string.

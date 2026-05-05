@@ -147,6 +147,25 @@ export default class SystemAdapter {
   buildItemIdentificationUpdate(actor, changes) { _abstract("buildItemIdentificationUpdate"); }
 
   /**
+   * Build a partial item update that synchronises the embedded item's
+   * source-level fields (e.g. `name`) with the current identification state.
+   *
+   * Some systems display data-prepared values everywhere (dnd5e: item.name in
+   * the sheet header swaps automatically), and need no source sync.
+   * Others bind sheet inputs to the source (pf2e: the name input reads
+   * `item._source.name`), and require an explicit name update so the input
+   * reflects the identification state.
+   *
+   * @param {Actor} actor - The interactive actor (whose name holds the
+   *                        identified display name and whose
+   *                        `system.unidentifiedName` holds the mystified one).
+   * @param {boolean} isIdentified - The post-change identification state.
+   * @returns {object} A flat update object for `item.update(...)`. Empty when
+   *                   the system needs no source sync.
+   */
+  buildEmbeddedItemSourceUpdate(actor, isIdentified) { return {}; }
+
+  /**
    * Returns true if the `updateItem` hook changeset contains an identification
    * state change for this system. Used to decide whether the `updateItem` hook
    * should trigger actor/token sync.

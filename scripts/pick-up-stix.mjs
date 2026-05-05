@@ -1832,6 +1832,24 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
     await actor.update({ "system.isIdentified": newIdentified }, { noHook: true });
   }
 
+  // Some systems (pf2e) bind sheet inputs to `item._source.name`, which
+  // setIdentificationStatus doesn't touch. Ask the adapter for any
+  // source-level updates needed so the in-sheet name field reflects the new
+  // identification state. dnd5e's adapter returns {} (no-op).
+  const sourceUpdate = getAdapter().buildEmbeddedItemSourceUpdate(actor, newIdentified);
+  dbg("hook:updateItem", "embedded item source update probe", {
+    actorName: actor.name,
+    actorUnidentifiedName: actor.system.unidentifiedName,
+    itemSourceName: item._source?.name,
+    itemLiveName: item.name,
+    newIdentified,
+    sourceUpdate
+  });
+  if (Object.keys(sourceUpdate).length > 0) {
+    dbg("hook:updateItem", "applying embedded item source update", { sourceUpdate });
+    await item.update(sourceUpdate);
+  }
+
   if (!isContainer) {
     const newImg = actor.system.resolveImage(newIdentified);
     dbg("hook:updateItem", "item image sync", {

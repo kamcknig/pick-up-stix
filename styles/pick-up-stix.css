@@ -334,6 +334,51 @@
   flex: 0 1 11em;
 }
 
+/* Header layout — pf2e's `.pf2e.actor form .sheet-header` sets a 3rem
+ * height, a bottom divider line, and `flex: 1` on every child (which
+ * stretches the image to match the name's width). Override those so the
+ * header reads like a pf2e item-sheet header: small fixed image on the
+ * left at natural aspect, flexible name on the right, no divider. */
+.pf2e.actor.interactive-item-config form .sheet-header {
+  border-bottom: none;
+  height: auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+}
+
+.pf2e.actor.interactive-item-config form .sheet-header > * {
+  flex: 0 1 auto;
+}
+
+.pf2e.actor.interactive-item-config form .sheet-header img.profile {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: none;
+}
+
+.pf2e.actor.interactive-item-config form .sheet-header .document-name {
+  flex: 1 1 auto;
+  font-size: var(--font-size-24);
+  font-family: var(--serif-condensed);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: normal;
+}
+
+/* Quick-open button (Open Container / Open Item Sheet) sits below the
+ * header on its own row. Existing rule
+ * `.pick-up-stix.sheet .sheet-header + button` already provides margin;
+ * make sure it spans full width and isn't pulled into the header flex. */
+.pf2e.actor.interactive-item-config form .sheet-header + button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+}
+
 /* ===== Settings Dialog ===== */
 
 .ii-settings-folder-picker {

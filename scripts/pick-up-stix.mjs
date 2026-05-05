@@ -971,13 +971,41 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
   const controls = document.createElement("span");
   controls.className = "ii-contents-controls";
 
-  // Pickup glyph — token-only. Sits left of the lock icon. Visual placeholder
-  // for now (no behaviour wired) — clicks should eventually offer to take the
-  // row's item out of the container into a player's inventory.
+  // Pickup glyph — token-only. Sits left of the lock icon. Mirrors the
+  // pickup flow used by the dnd5e ContainerSheet row controls: proximity →
+  // container access (open/lock) → per-item lock → resolve the recipient
+  // (controlled token / assigned character) → route through the GM via
+  // socket if the clicker is a player.
   if (isTokenActor) {
+    const containerActor = item.actor;
     controls.append(_buildContentRowControl(
       "fa-hand",
-      "INTERACTIVE_ITEMS.HUD.PickUp"
+      "INTERACTIVE_ITEMS.HUD.PickUp",
+      "fa-solid",
+      async () => {
+        // Distance is the most actionable failure for players to understand,
+        // so check it first.
+        if (!checkProximity(containerActor)) return;
+        // Container open is implied (the row only shows when the sheet is
+        // open) but the lock state still needs gating.
+        if (!validateContainerAccess(containerActor, { checkOpen: false })) return;
+        const currentItem = containerActor.items.get(item.id);
+        if (!validateItemAccess(currentItem)) return;
+
+        const targetActor = await resolvePickupTarget(containerActor);
+        if (!targetActor) return;
+        const tokenDoc = containerActor.token;
+        if (!tokenDoc) return;
+        const sceneId = tokenDoc.parent.id;
+        const tokenId = tokenDoc.id;
+        dbg("contents:pickupRow", { itemName: item.name, itemId: item.id, sceneId, tokenId, targetActorId: targetActor.id });
+        await dispatchGM(
+          "pickupItem",
+          { sceneId, tokenId, itemId: item.id, targetActorId: targetActor.id },
+          async () => pickupItem(sceneId, tokenId, item.id, targetActor.id)
+        );
+        if (!game.user.isGM) notifyItemAction("PickedUp", item.name);
+      }
     ));
   }
 

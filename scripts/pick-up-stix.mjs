@@ -998,7 +998,15 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
   controls.append(_buildContentRowControl(
     identIcon,
     isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey,
-    identFamily
+    identFamily,
+    async () => {
+      if (!game.user.isGM) return;
+      dbg("contents:identifyRow", { itemName: item.name, itemId: item.id, currentlyIdentified: isIdentified });
+      // Adapter routing handles pf2e's mystify-popup vs direct setIdentified
+      // distinction; the updateItem hook re-renders the container sheet so
+      // the row's icon and tooltip refresh with the new state.
+      await adapter.performIdentifyToggle(item);
+    }
   ));
 
   // Delete is the only currently-active control on contents rows. GM-only —
@@ -1691,6 +1699,19 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
   }
   if (!getAdapter().isIdentificationChange(item, changes)) {
     dbg("hook:updateItem", "not an identification change, bail");
+    return;
+  }
+
+  // The rest of this handler is dedicated to the *wrapped* item — the one
+  // whose identification mirrors the actor's `system.isIdentified`. For
+  // *deposited* items (children of a container actor whose containerId
+  // points at the wrapped backpack), just refresh open container views so
+  // the row's identify icon / tooltip update; do not touch the wrapping
+  // actor's identification state.
+  const embeddedItemId = actor.system.embeddedItem?.id;
+  if (embeddedItemId && item.id !== embeddedItemId) {
+    dbg("hook:updateItem", "deposited-item identify change, just re-render container views");
+    _rerenderContainerViews(actor);
     return;
   }
 

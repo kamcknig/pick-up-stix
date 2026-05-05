@@ -18,8 +18,8 @@ import { Pf2eHooks } from "./hooks.mjs";
  *   (`system.identification.unidentified.img`).
  * - pf2e does NOT fire `pf2e.dropItemSheetData` or `pf2e.getItemContextOptions`
  *   hooks; the adapter substitutes libWrapper / hook-based equivalents.
- * - pf2e has no window-style ContainerSheet; containers render inline on the
- *   actor sheet. Phase 7 will introduce a pick-up-stix-owned ContainerView.
+ * - pf2e has no window-style actor ContainerSheet; the adapter opens the
+ *   embedded backpack item's native ContainerSheetPF2e instead.
  * - pf2e has no `Item5e.createWithContents` equivalent; the adapter walks
  *   `system.contents` manually in `createItemsWithContents`.
  */
@@ -63,7 +63,7 @@ export default class Pf2eAdapter extends SystemAdapter {
     hasItemDropSheetHook: false,
     /** pf2e has no item-context-menu hook; extension deferred to Phase 7. */
     hasItemContextMenuHook: false,
-    /** pf2e has no window-style ContainerSheet; Phase 7 provides a custom view. */
+    /** pf2e has no window-style actor ContainerSheet; the embedded backpack item's ContainerSheetPF2e is opened instead. */
     hasNativeContainerWindow: false,
     /** pf2e has no createWithContents equivalent; the adapter walks manually. */
     hasNativeDeepCreate: false,

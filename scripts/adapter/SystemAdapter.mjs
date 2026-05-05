@@ -209,8 +209,8 @@ export default class SystemAdapter {
 
   /**
    * Render the embedded item's "real" view for an interactive container actor.
-   * dnd5e opens the native ContainerSheet; pf2e opens the pick-up-stix-owned
-   * PfContainerView (see Phase 6).
+   * dnd5e opens the native ContainerSheet; pf2e opens the embedded backpack
+   * item's native ContainerSheetPF2e.
    *
    * @abstract
    * @param {Actor} actor

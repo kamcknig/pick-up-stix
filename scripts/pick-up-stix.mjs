@@ -1169,8 +1169,62 @@ Hooks.on("updateActor", (actor, changes) => {
     return;
   }
   dbg("hook:updateActor:rerender", { name: actor.name, id: actor.id, isLocked: sys.isLocked, isOpen: sys.isOpen, sheetRendered: !!actor.system.embeddedItem?.sheet?.rendered });
+
+  // Re-render the embedded item's native sheet (dnd5e ContainerSheet / pf2e item sheets).
   const item = actor.system.embeddedItem;
   if (item?.sheet?.rendered) item.sheet.render();
+
+  // Also re-render any open apps (AppV1 via ui.windows, AppV2 via foundry.applications.instances)
+  // that own this actor (actor-document match) or whose item belongs to this actor
+  // (item-sheet match, e.g. pf2e ContainerSheetPF2e) so header toggles stay in sync.
+  for (const app of Object.values(ui.windows)) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    if (app === item?.sheet) continue;
+    dbg("hook:updateActor:rerender", "re-rendering AppV1 app", { appId: app.appId, actorName: actor.name });
+    app.render(true);
+  }
+  for (const app of foundry.applications.instances.values()) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    if (app === item?.sheet) continue;
+    dbg("hook:updateActor:rerender", "re-rendering AppV2 app", { appId: app.id, actorName: actor.name });
+    app.render();
+  }
+});
+
+// Re-render any open container views (AppV1 or AppV2) whose document or item's
+// actor matches the given actor. AppV1 apps live in ui.windows; AppV2 in
+// foundry.applications.instances. Item sheets (e.g. pf2e ContainerSheetPF2e)
+// are found via app.item?.actor rather than app.document.
+function _rerenderContainerViews(actor) {
+  if (!isInteractiveActor(actor) || !actor.system?.isContainer) return;
+  for (const app of Object.values(ui.windows)) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    dbg("hook:createDeleteItem:rerender", { appId: app.appId, actorName: actor.name });
+    app.render(true);
+  }
+  for (const app of foundry.applications.instances.values()) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    dbg("hook:createDeleteItem:rerender", { appId: app.id, actorName: actor.name });
+    app.render();
+  }
+}
+
+Hooks.on("createItem", (item) => {
+  const actor = item.parent;
+  if (actor) _rerenderContainerViews(actor);
+});
+
+Hooks.on("deleteItem", (item) => {
+  const actor = item.parent;
+  if (actor) _rerenderContainerViews(actor);
 });
 
 Hooks.on("updateItem", async (item, changes, options, userId) => {

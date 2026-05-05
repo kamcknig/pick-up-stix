@@ -29,6 +29,7 @@
  */
 
 import { dbg } from "../../utils/debugLog.mjs";
+import { isInteractiveContainer } from "../../utils/actorHelpers.mjs";
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 
@@ -147,7 +148,7 @@ export const Pf2eHooks = {
    */
   registerContainerDropGate(callback) {
     // Defer until `setup` so pf2e has registered its sheets.
-    Hooks.once("setup", () => {
+    Hooks.once("setup", async () => {
       // Retrieve ActorSheetPF2e from the registered sheet list. The class is
       // not on the global scope because pf2e bundles it inside an IIFE.
       const registeredSheets = foundry.documents.collections.Actors.registeredSheets ?? [];
@@ -251,15 +252,23 @@ export const Pf2eHooks = {
   },
 
   /**
-   * Register handlers for "an interactive container's contents view was
-   * rendered" on pf2e.
+   * Register handlers for "a pf2e container item sheet was rendered".
    *
-   * pf2e containers render inline on actor sheets rather than in a dedicated
-   * ContainerSheet window. In Phase 7 a dedicated pick-up-stix ContainerView
-   * ApplicationV2 will replace this; for Phase 6 this is a no-op so that the
-   * four decorator callbacks (`injectHeaderControls`, `maybeHideContents`,
-   * `installActorDropListener`, `injectItemRowControls`) do not throw, and so
-   * that Phase 7 can wire them up to `renderPfContainerView` cleanly.
+   * pf2e has no standalone window-style container view. We use ContainerSheetPF2e
+   * (the native pf2e backpack item sheet) as the container UX. This hook subscribes
+   * to `renderContainerSheetPF2e` and forwards each render to the four system-agnostic
+   * decorators, but ONLY when the backpack item belongs to one of our interactive
+   * container actors.
+   *
+   * AppV1 render hooks supply the inner content element; the decorators need the
+   * full window (`.window-header` is outside the inner content), so we pass
+   * `app.element[0]` as `html`.
+   *
+   * Decorators that look for pf2e actor-sheet-specific DOM (e.g.
+   * `section.inventory.tab[data-tab="contents"] .items-list`) will be no-ops
+   * because ContainerSheetPF2e uses the standard pf2e item sheet template
+   * (description + details tabs). Header-control injection and actor-drop
+   * listening both work correctly.
    *
    * @param {object} handlers
    * @param {(ctx: {actor: Actor, app: Application, html: HTMLElement}) => void} [handlers.injectHeaderControls]
@@ -268,8 +277,32 @@ export const Pf2eHooks = {
    * @param {(ctx: {actor: Actor, app: Application, html: HTMLElement}) => void} [handlers.injectItemRowControls]
    */
   registerContainerViewHooks(handlers) {
-    // Phase 6: no-op. Phase 7 replaces this with Hooks.on("renderPfContainerView", ...)
-    // when the dedicated ContainerView ApplicationV2 is introduced.
-    dbg("pf2e-hooks:registerContainerViewHooks", "no-op in Phase 6 — deferred to Phase 7");
+    dbg("pf2e-hooks:registerContainerViewHooks", "subscribing to renderContainerSheetPF2e");
+
+    Hooks.on("renderContainerSheetPF2e", (app, element) => {
+      // Only handle backpack items embedded in our interactive container actors.
+      const actor = app.item?.actor;
+      if (!isInteractiveContainer(actor)) return;
+
+      // AppV1 render hooks pass the inner template content. Decorators need the
+      // full window element to reach `.window-header`. Use app.element[0].
+      const windowEl = app.element instanceof HTMLElement
+        ? app.element
+        : app.element?.[0] ?? null;
+      if (!windowEl) return;
+
+      const ctx = { actor, app, html: windowEl };
+
+      dbg("pf2e-hooks:renderContainerSheetPF2e", {
+        actorName: actor?.name,
+        actorId: actor?.id,
+        itemId: app.item?.id
+      });
+
+      handlers.injectHeaderControls?.(ctx);
+      handlers.maybeHideContents?.(ctx);
+      handlers.installActorDropListener?.(ctx);
+      handlers.injectItemRowControls?.(ctx);
+    });
   }
 };

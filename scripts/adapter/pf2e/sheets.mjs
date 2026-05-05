@@ -1,35 +1,44 @@
 /**
  * pf2e sheet-delegation methods for the SystemAdapter contract.
  *
- * pf2e ships per-type item sheets (WeaponSheetPF2e, EquipmentSheetPF2e, etc.)
- * but has no window-style ContainerSheet equivalent — containers render inline
- * on actor sheets. A dedicated ContainerView application for pf2e is planned
- * for Phase 7; until then `renderContainerView` returns a placeholder warning.
+ * pf2e ships per-type item sheets (WeaponSheetPF2e, EquipmentSheetPF2e, etc.).
+ * For container actors, `renderContainerView` opens the embedded backpack item's
+ * native pf2e sheet (ContainerSheetPF2e), consistent with pf2e's own AppV1
+ * conventions.
  *
  * These methods are mixed into `Pf2eAdapter` in `pf2e/index.mjs`.
  */
+
+import { dbg } from "../../utils/debugLog.mjs";
+
 export const Pf2eSheets = {
 
   /**
-   * Render the container view for an interactive container actor.
+   * Open the pf2e ContainerSheetPF2e for an interactive container actor.
    *
-   * Phase 7 builds the dedicated pf2e ContainerView application. Until then
-   * this method warns and returns null so that Phase 1–5 dnd5e regression
-   * testing remains clean and the empty code path is explicit rather than
-   * silently broken.
+   * pf2e has no standalone window-style container view — containers are shown
+   * inline on actor sheets. We open the embedded backpack item's own native
+   * pf2e sheet, which follows pf2e's AppV1 conventions and gives GMs/players
+   * the familiar pf2e item sheet UX.
    *
-   * @param {Actor} _actor
-   * @param {object} [_options]
-   * @returns {Promise<null>}
+   * @param {Actor} actor - The interactive container actor.
+   * @param {object} [options] - Options forwarded to `item.sheet.render(...)`.
+   * @returns {Promise<Application|null>}
    */
-  async renderContainerView(_actor, _options = {}) {
-    ui.notifications.warn("Container view for pf2e is not yet wired (Phase 7).");
-    return null;
+  async renderContainerView(actor, options = {}) {
+    // InteractiveItemSheet.render(options) may receive a boolean force flag from
+    // callers using the AppV2 render(true) pattern — normalize to a plain object.
+    if (typeof options !== "object" || options === null) options = {};
+    const containerItem = actor.system?.containerItem;
+    if (!containerItem) return null;
+    dbg("pf2e-sheets:renderContainerView", { actorName: actor?.name, containerItemId: containerItem?.id });
+    return containerItem.sheet.render({ force: true, ...options });
   },
 
   /**
    * Open the pf2e per-type item sheet for an item-mode interactive actor.
-   * Item-mode actors carry exactly one embedded item; `item.sheet` resolves to
+   *
+   * Item-mode actors carry exactly one embedded item. `item.sheet` resolves to
    * the sheet class registered by pf2e for that item type (e.g. WeaponSheetPF2e
    * for "weapon", EquipmentSheetPF2e for "equipment", ContainerSheetPF2e for
    * "backpack", etc.).
@@ -39,8 +48,10 @@ export const Pf2eSheets = {
    * @returns {Promise<Application|null>}
    */
   async renderItemView(actor, options = {}) {
+    if (typeof options !== "object" || options === null) options = {};
     const item = actor.items.contents[0];
     if (!item) return null;
+    dbg("pf2e-sheets:renderItemView", { actorName: actor?.name, itemType: item.type });
     return item.sheet.render({ force: true, ...options });
   },
 

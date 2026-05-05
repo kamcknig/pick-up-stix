@@ -448,6 +448,10 @@ export function buildInteractiveItemData(droppedActor) {
 
   const itemData = sourceItem.toObject();
   delete itemData._id;
+  // Clear any stale container-parent pointer carried from a prior life.
+  // depositCanvasTokenToTarget / depositActorToTarget will set the new
+  // parent (if the destination is a container) immediately after this call.
+  getAdapter().setItemContainerId(itemData, null);
   stripEquipmentState(itemData);
   stampInteractiveIdentity(itemData, droppedActor);
 

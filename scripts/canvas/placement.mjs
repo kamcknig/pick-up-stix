@@ -439,15 +439,20 @@ async function createInteractiveToken(item, x, y, { ephemeral = false, level = n
 
       // Inline items on Actor.create so createActor hook sees them and skips its
       // empty-container auto-creation path.
+      // Always strip the system's container-parent pointer via the adapter:
+      // the embedded item is becoming the top-level item of a new interactive
+      // actor, so any stale pointer from its prior life would mis-classify it
+      // as a child item in `topLevelItems`.
       const initialItems = [];
       if (isContainer) {
         const containerData = item.toObject();
         delete containerData._id;
-        delete containerData.system?.container;
+        getAdapter().setItemContainerId(containerData, null);
         initialItems.push(containerData);
       } else {
         const itemData = item.toObject();
         delete itemData._id;
+        getAdapter().setItemContainerId(itemData, null);
         initialItems.push(itemData);
       }
 
@@ -510,6 +515,9 @@ async function createInteractiveToken(item, x, y, { ephemeral = false, level = n
 
     const itemData = item.toObject();
     delete itemData._id;
+    // Strip stale container-parent pointer — the embedded item becomes the
+    // top-level item of this ephemeral actor.
+    getAdapter().setItemContainerId(itemData, null);
     dbg("place:createInteractiveToken", "creating embedded item on ephemeral actor", { itemName: itemData.name, itemImg: itemData.img });
     await actor.createEmbeddedDocuments("Item", [itemData]);
   }

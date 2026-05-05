@@ -27,6 +27,16 @@ export default function InteractiveModelMixin(Base) {
     }
 
     get topLevelItems() {
+      // An item is "top-level" when its container-parent pointer is null OR
+      // points to a sibling that doesn't exist in this actor. The latter
+      // catches stale pointers preserved from a prior inventory life — without
+      // this, an item dragged out of a container and re-wrapped as an
+      // interactive actor would be filtered out as a phantom child.
+      const localIds = new Set(this.parent.items.map(i => i.id));
+      const isTopLevel = (i) => {
+        const cid = getAdapter().getItemContainerId(i);
+        return !cid || !localIds.has(cid);
+      };
       const tokenDoc = this.parent.token;
       if (tokenDoc) {
         const snapshotIds = tokenDoc.flags?.["pick-up-stix"]?.snapshotItemIds;
@@ -34,12 +44,10 @@ export default function InteractiveModelMixin(Base) {
         const baseItemIds = baseActor ? new Set(baseActor.items.keys()) : new Set();
         const allowed = snapshotIds ? new Set(snapshotIds) : new Set();
         return this.parent.items.filter(i =>
-          (allowed.has(i.id) || !baseItemIds.has(i.id)) && !getAdapter().getItemContainerId(i)
+          (allowed.has(i.id) || !baseItemIds.has(i.id)) && isTopLevel(i)
         );
       }
-      // Delegate container-parent field access to the adapter so the field path
-      // is not hard-coded to dnd5e's `system.container`.
-      return this.parent.items.filter(i => !getAdapter().getItemContainerId(i));
+      return this.parent.items.filter(isTopLevel);
     }
   };
 }

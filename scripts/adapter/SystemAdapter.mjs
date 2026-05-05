@@ -341,13 +341,21 @@ export default class SystemAdapter {
    * native sheet header. Different systems use different classes; the adapter
    * picks values that compose with the system's stylesheet.
    *
-   * @returns {{ stateToggle: string, configButton: string, rowControl: string }}
+   * `headerElementType` selects the DOM element kind used for header buttons:
+   *   - `"button"` for ApplicationV2 sheets (dnd5e), styled by Foundry's
+   *     `.header-control` CSS.
+   *   - `"a"` for ApplicationV1 sheets (pf2e), where the system stylesheet
+   *     targets `<a class="header-button">`.
+   *
+   * @returns {{ stateToggle: string, configButton: string, rowControl: string,
+   *             headerElementType: "button"|"a" }}
    */
   get cssClasses() {
     return {
-      stateToggle: "header-control",
+      stateToggle: "header-control pseudo-header-control state-toggle",
       configButton: "header-control-button",
-      rowControl: ""
+      rowControl: "",
+      headerElementType: "button"
     };
   }
 }

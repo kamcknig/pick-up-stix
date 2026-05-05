@@ -13,7 +13,7 @@ import { dispatchGM } from "./utils/gmDispatch.mjs";
 import { notifyItemAction } from "./utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "./utils/containerAccess.mjs";
 import { resolvePickupTarget } from "./utils/pickupFlow.mjs";
-import { createStateToggleButton, insertHeaderButton, createRowControl } from "./utils/domButtons.mjs";
+import { createStateToggleButton, createAdapterHeaderButton, insertHeaderButton, createRowControl } from "./utils/domButtons.mjs";
 import { dbg } from "./utils/debugLog.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
@@ -325,10 +325,12 @@ function _injectItemSheetHeaderControls({ app, html }) {
   html.querySelector(".mode-slider")?.remove();
   const closeBtn = header.querySelector("button.close, a.close, [data-action='close']");
 
-  header.querySelector(".ii-identify-toggle-btn")?.remove();
   const _adapter = getAdapter();
+
+  header.querySelector(".ii-identify-toggle-btn")?.remove();
   const identCfg = _adapter.getIdentifyButtonConfig(configActor.system.isIdentified);
-  const identifyToggle = createStateToggleButton({
+  const identifyToggle = createAdapterHeaderButton({
+    adapter: _adapter,
     extraClass: "ii-identify-toggle-btn",
     active: configActor.system.isIdentified,
     iconOn: identCfg.iconOn,
@@ -349,7 +351,8 @@ function _injectItemSheetHeaderControls({ app, html }) {
   insertHeaderButton(header, identifyToggle, closeBtn);
 
   header.querySelector(".ii-lock-toggle-btn")?.remove();
-  const lockToggle = createStateToggleButton({
+  const lockToggle = createAdapterHeaderButton({
+    adapter: _adapter,
     extraClass: "ii-lock-toggle-btn",
     active: configActor.system.isLocked,
     iconOn: "fa-lock",
@@ -364,19 +367,19 @@ function _injectItemSheetHeaderControls({ app, html }) {
   insertHeaderButton(header, lockToggle, closeBtn);
 
   if (!header.querySelector(".ii-configure-btn")) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "header-control-button ii-configure-btn";
-    btn.dataset.tooltip = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.ConfigureHUD");
-    btn.innerHTML = '<i class="fa-solid fa-gear"></i>';
-    btn.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      await app.close();
-      configActor.sheet.renderConfig();
+    const cfgBtn = createAdapterHeaderButton({
+      adapter: _adapter,
+      kind: "config",
+      extraClass: "ii-configure-btn",
+      iconOn: "fa-gear",
+      labelOnKey: "INTERACTIVE_ITEMS.Sheet.ConfigureHUD",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        await app.close();
+        configActor.sheet.renderConfig();
+      }
     });
-
-    if (closeBtn) closeBtn.before(btn);
-    else header.appendChild(btn);
+    insertHeaderButton(header, cfgBtn, closeBtn);
   }
 }
 
@@ -398,10 +401,13 @@ function _injectContainerSheetHeaderControls({ actor, app, html }) {
   html.querySelector(".mode-slider")?.remove();
   const closeBtn = header.querySelector("button.close, a.close, [data-action='close']");
 
+  const _adapter = getAdapter();
+
   // Remove existing to refresh state on re-render.
   header.querySelector(".ii-open-toggle-btn")?.remove();
 
-  const openBtn = createStateToggleButton({
+  const openBtn = createAdapterHeaderButton({
+    adapter: _adapter,
     extraClass: "ii-open-toggle-btn",
     active: actor.system.isOpen,
     iconOn: "fa-box-open",
@@ -416,7 +422,8 @@ function _injectContainerSheetHeaderControls({ actor, app, html }) {
   insertHeaderButton(header, openBtn, closeBtn);
 
   header.querySelector(".ii-lock-toggle-btn")?.remove();
-  const lockBtn = createStateToggleButton({
+  const lockBtn = createAdapterHeaderButton({
+    adapter: _adapter,
     extraClass: "ii-lock-toggle-btn",
     active: actor.system.isLocked,
     iconOn: "fa-lock",
@@ -431,19 +438,19 @@ function _injectContainerSheetHeaderControls({ actor, app, html }) {
   insertHeaderButton(header, lockBtn, closeBtn);
 
   if (!header.querySelector(".ii-configure-btn")) {
-    const cfgBtn = document.createElement("button");
-    cfgBtn.type = "button";
-    cfgBtn.className = "header-control-button ii-configure-btn";
-    cfgBtn.dataset.tooltip = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.ConfigureHUD");
-    cfgBtn.innerHTML = '<i class="fa-solid fa-gear"></i>';
-    cfgBtn.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      await app.close();
-      actor.sheet.renderConfig();
+    const cfgBtn = createAdapterHeaderButton({
+      adapter: _adapter,
+      kind: "config",
+      extraClass: "ii-configure-btn",
+      iconOn: "fa-gear",
+      labelOnKey: "INTERACTIVE_ITEMS.Sheet.ConfigureHUD",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        await app.close();
+        actor.sheet.renderConfig();
+      }
     });
-
-    if (closeBtn) closeBtn.before(cfgBtn);
-    else header.appendChild(cfgBtn);
+    insertHeaderButton(header, cfgBtn, closeBtn);
   }
 }
 

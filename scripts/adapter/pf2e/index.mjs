@@ -73,19 +73,19 @@ export default class Pf2eAdapter extends SystemAdapter {
 
   /**
    * CSS class names for controls injected into pf2e AppV1 item sheet headers
-   * and inventory rows. pf2e AppV1 sheets use the standard Foundry AppV1
-   * `.header-button` class for window-header controls.
+   * and inventory rows. pf2e AppV1 sheets use `<a class="header-button">` for
+   * window-header controls — `headerElementType: "a"` tells the shared button
+   * factory to produce anchors instead of `<button>` elements.
    *
-   * @returns {{ stateToggle: string, configButton: string, rowControl: string }}
+   * @returns {{ stateToggle: string, configButton: string, rowControl: string,
+   *             headerElementType: "button"|"a" }}
    */
   get cssClasses() {
     return {
-      /** Standard AppV1 header button class used by pf2e item sheets. */
       stateToggle: "header-button",
-      /** Standard AppV1 header button class used by pf2e item sheets. */
       configButton: "header-button",
-      /** pf2e inventory row control class. */
-      rowControl: "item-control"
+      rowControl: "item-control",
+      headerElementType: "a"
     };
   }
 

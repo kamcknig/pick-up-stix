@@ -36,6 +36,22 @@ export const Pf2eContainer = {
   defaultLootItemType: "equipment",
 
   /**
+   * pf2e enumerates physical-item types in `game.pf2e.system.PHYSICAL_ITEM_TYPES`.
+   * Falls back to a hardcoded set when the runtime symbol isn't reachable
+   * (e.g. very early init before pf2e finishes booting).
+   *
+   * @param {Item} item
+   * @returns {boolean}
+   */
+  isPhysicalItem(item) {
+    if (item == null) return false;
+    const fromRuntime = game.pf2e?.system?.PHYSICAL_ITEM_TYPES;
+    if (fromRuntime?.has) return fromRuntime.has(item.type);
+    const FALLBACK = new Set(["ammo", "armor", "backpack", "book", "consumable", "equipment", "shield", "treasure", "weapon"]);
+    return FALLBACK.has(item.type);
+  },
+
+  /**
    * Read the parent-container id (or null) from a live pf2e Item.
    * pf2e stores this as a plain string in `system.containerId`.
    *

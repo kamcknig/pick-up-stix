@@ -67,5 +67,21 @@ export const Pf2eSheets = {
     return actor.system.isContainer
       ? this.renderContainerView(actor, options)
       : this.renderItemView(actor, options);
+  },
+
+  /**
+   * Open the pf2e GM config sheet (ApplicationV1). pf2e's own actor and item
+   * sheets are V1; the config dialog follows the same convention. The sheet
+   * class is imported lazily so the adapter file remains cheap to evaluate.
+   *
+   * @param {Actor} actor
+   * @param {object} [options]
+   * @returns {Promise<Application|null>}
+   */
+  async renderConfigSheet(actor, options = {}) {
+    const { default: Pf2eInteractiveItemConfigSheet } = await import("./configSheet.mjs");
+    const sheet = Pf2eInteractiveItemConfigSheet.forActor(actor);
+    sheet.render(true, options);
+    return sheet;
   }
 };

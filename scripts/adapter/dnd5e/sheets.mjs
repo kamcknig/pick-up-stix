@@ -50,5 +50,21 @@ export const Dnd5eSheets = {
     return actor.system.isContainer
       ? this.renderContainerView(actor, options)
       : this.renderItemView(actor, options);
+  },
+
+  /**
+   * Open the dnd5e GM config sheet (ApplicationV2). The concrete class is
+   * imported lazily so that the dnd5e adapter file does not pull the sheet
+   * module at module-evaluation time on systems where the adapter is unused.
+   *
+   * @param {Actor} actor
+   * @param {object} [options]
+   * @returns {Promise<Application|null>}
+   */
+  async renderConfigSheet(actor, options = {}) {
+    const { default: Dnd5eInteractiveItemConfigSheet } = await import("./configSheet.mjs");
+    const sheet = Dnd5eInteractiveItemConfigSheet.forActor(actor);
+    await sheet.render({ force: true, ...options });
+    return sheet;
   }
 };

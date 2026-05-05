@@ -56,6 +56,17 @@ export default class SystemAdapter {
     return item?.type === this.containerItemType;
   }
 
+  /**
+   * True if `item` is a "physical" item the module is willing to wrap as an
+   * interactive object. dnd5e checks for `quantity` on `system`; pf2e checks
+   * the system's PHYSICAL_ITEM_TYPES set.
+   *
+   * @abstract
+   * @param {Item} item
+   * @returns {boolean}
+   */
+  isPhysicalItem(item) { _abstract("isPhysicalItem"); }
+
   // === Container parent reference ============================================
 
   /**
@@ -229,6 +240,20 @@ export default class SystemAdapter {
    * @returns {Promise<Application|null>}
    */
   async renderItemView(actor, options) { _abstract("renderItemView"); }
+
+  /**
+   * Render the GM-only configuration sheet for an interactive object actor.
+   * Each adapter ships its own sheet implementation matching the active
+   * system's UI conventions: dnd5e uses an ApplicationV2 sheet (consistent
+   * with dnd5e's own actor/item sheets); pf2e uses an ApplicationV1 sheet
+   * (consistent with pf2e's actor/item sheets).
+   *
+   * @abstract
+   * @param {Actor} actor
+   * @param {object} [options]
+   * @returns {Promise<Application|null>}
+   */
+  async renderConfigSheet(actor, options) { _abstract("renderConfigSheet"); }
 
   // === Hook registration =====================================================
   // Each `register*` is a one-shot called from init. Inside, the adapter

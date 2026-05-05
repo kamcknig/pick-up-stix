@@ -24,6 +24,17 @@ export const Dnd5eContainer = {
   defaultLootItemType: "loot",
 
   /**
+   * dnd5e marks physical items by exposing a `quantity` field on the system
+   * data. Spells / classes / features etc. don't carry one.
+   *
+   * @param {Item} item
+   * @returns {boolean}
+   */
+  isPhysicalItem(item) {
+    return item != null && "quantity" in (item.system ?? {});
+  },
+
+  /**
    * Read the parent-container id (or null) from a live Item.
    * dnd5e stores this in `system.container`.
    *

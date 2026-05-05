@@ -57,7 +57,8 @@ Hooks.once("init", async () => {
   });
 
   foundry.applications.handlebars.loadTemplates({
-    "pick-up-stix.config-fields": "modules/pick-up-stix/templates/partials/config-fields.hbs"
+    "pick-up-stix.config-fields": "modules/pick-up-stix/templates/partials/config-fields.hbs",
+    "pick-up-stix.config-fields-v1": "modules/pick-up-stix/templates/partials/config-fields-v1.hbs"
   });
 
   game.settings.register(MODULE_ID, "debugLogging", {

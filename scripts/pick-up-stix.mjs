@@ -511,6 +511,16 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   const title = header.querySelector(".window-title");
   if (title) title.after(...orderedNodes);
   else header.prepend(...orderedNodes);
+
+  // Post-insert diagnostic — confirms what actually landed in the DOM rather
+  // than just whether the code path ran.
+  const pickup = header.querySelector(".ii-pickup-btn");
+  dbg("inject:headerControls:after", {
+    pickupInDom: !!pickup,
+    pickupOuter: pickup?.outerHTML?.slice(0, 200),
+    pickupRect: pickup ? pickup.getBoundingClientRect() : null,
+    headerChildren: Array.from(header.children).map(c => `${c.tagName}.${(c.className || "").trim().split(/\s+/).join(".")}`).join(" | ")
+  });
 }
 
 /**

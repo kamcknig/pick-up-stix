@@ -166,6 +166,27 @@ export default class SystemAdapter {
   buildEmbeddedItemSourceUpdate(actor, isIdentified) { return {}; }
 
   /**
+   * Inverse of `buildEmbeddedItemSourceUpdate`: when the GM edits the
+   * embedded item's source-level name input on the system's native item
+   * sheet, return the matching actor update so the wrapping interactive
+   * actor's authoritative name fields stay in sync.
+   *
+   * For pf2e the in-sheet name input writes `_source.name` regardless of
+   * identification state; we route that change to either `actor.name`
+   * (identified) or `actor.system.unidentifiedName` (unidentified).
+   *
+   * Systems that route name edits through their own identification field
+   * paths internally (dnd5e) should return `{}` — there is nothing for the
+   * module to do.
+   *
+   * @param {Item} item - The embedded item that was just updated.
+   * @param {object} changes - The raw changeset from the updateItem hook.
+   * @param {Actor} actor - The wrapping interactive actor (item.actor).
+   * @returns {object} A flat update object for `actor.update(...)`.
+   */
+  parseEmbeddedItemNameChange(item, changes, actor) { return {}; }
+
+  /**
    * Returns true if the `updateItem` hook changeset contains an identification
    * state change for this system. Used to decide whether the `updateItem` hook
    * should trigger actor/token sync.

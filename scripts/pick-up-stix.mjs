@@ -1660,6 +1660,20 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
     const tokenName = tokenSystem.resolveTokenName();
     await token.update({ name: tokenName });
   }
+
+  // Propagate the name change to the embedded item's source-level fields
+  // so the system's native sheet input stays in sync (and on pf2e, the
+  // per-state cache `system.identification.{identified|unidentified}.name`
+  // is updated — otherwise prepareDerivedData resurrects the stale original
+  // name on the next identify cycle). Adapter returns {} when no sync needed.
+  const item = system.embeddedItem;
+  if (item) {
+    const sourceUpdate = getAdapter().buildEmbeddedItemSourceUpdate(actor, system.isIdentified);
+    if (Object.keys(sourceUpdate).length > 0) {
+      dbg("hook:updateActor", "propagating actor name change to embedded item", { sourceUpdate });
+      await item.update(sourceUpdate, { pickUpStix: { internalSourceSync: true } });
+    }
+  }
 });
 
 Hooks.on("updateActor", (actor, changes) => {
@@ -1756,6 +1770,35 @@ Hooks.on("updateItem", (item, changes) => {
   _rerenderContainerViews(actor);
 });
 
+// Route name edits made on the embedded item's native sheet back to the
+// wrapping actor's identified/unidentified fields. The adapter decides which
+// field receives the new value (pf2e: actor.name when identified,
+// actor.system.unidentifiedName when unidentified; dnd5e: no-op since its
+// sheet routes name edits internally by identification state).
+//
+// Skipped when the update originated from our own source-sync write
+// (`buildEmbeddedItemSourceUpdate`) — that flag prevents the round-trip
+// loop where mystifying writes a generated name to _source.name and then
+// this hook would persist that auto-generated label as unidentifiedName.
+Hooks.on("updateItem", async (item, changes, options, userId) => {
+  if (!game.user.isGM) return;
+  if (options?.pickUpStix?.internalSourceSync) return;
+  if (!("name" in changes)) return;
+
+  const actor = item.actor;
+  if (!isInteractiveActor(actor)) return;
+  if (item.id !== actor.system.embeddedItem?.id) return;
+
+  const actorUpdate = getAdapter().parseEmbeddedItemNameChange(item, changes, actor);
+  if (Object.keys(actorUpdate).length === 0) return;
+
+  dbg("hook:updateItem:nameToActor", {
+    itemName: item.name, newName: changes.name,
+    isIdentified: actor.system.isIdentified, actorUpdate
+  });
+  await actor.update(actorUpdate);
+});
+
 Hooks.on("updateItem", async (item, changes, options, userId) => {
   dbg("hook:updateItem", {
     itemName: item.name,
@@ -1847,7 +1890,9 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
   });
   if (Object.keys(sourceUpdate).length > 0) {
     dbg("hook:updateItem", "applying embedded item source update", { sourceUpdate });
-    await item.update(sourceUpdate);
+    // Tag this update so the inverse-direction name-sync hook
+    // (`hook:updateItem:nameToActor`) can recognise our own write and skip.
+    await item.update(sourceUpdate, { pickUpStix: { internalSourceSync: true } });
   }
 
   if (!isContainer) {

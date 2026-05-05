@@ -111,16 +111,33 @@ export const Pf2eIdentification = {
   },
 
   /**
-   * pf2e binds the in-sheet name input to `item._source.name`, which
-   * `setIdentificationStatus` does not touch. To make the input reflect the
-   * current identification state we explicitly sync it here:
-   *   identified   → actor.name (the canonical real name)
-   *   unidentified → actor.system.unidentifiedName, or pf2e's own
-   *                  `generateUnidentifiedName()` ("Unusual {ItemType}") when
-   *                  the GM hasn't supplied an explicit override.
+   * pf2e item sheets bind the name input to `item._source.name` regardless
+   * of identification state. When the GM edits that input we route the
+   * change to the wrapping actor:
+   *   identified   → actor.name (canonical real name)
+   *   unidentified → actor.system.unidentifiedName (mystified label)
    *
-   * Returns `{}` when nothing needs to change so the caller can skip the update.
+   * The downstream `updateActor` flow propagates further: identified writes
+   * fan out to the prototype/synthetic token name, unidentified writes flow
+   * through `buildItemIdentificationUpdate` to update
+   * `system.identification.unidentified.name` on the embedded item.
+   *
+   * Returns `{}` when nothing needs to change so the caller can skip the
+   * update (also avoids needless hook fan-out).
    */
+  parseEmbeddedItemNameChange(item, changes, actor) {
+    if (!("name" in changes)) return {};
+    const newName = changes.name;
+    if (typeof newName !== "string") return {};
+    const isIdentified = actor.system.isIdentified;
+    if (isIdentified) {
+      if (actor.name === newName) return {};
+      return { name: newName };
+    }
+    if (actor.system.unidentifiedName === newName) return {};
+    return { "system.unidentifiedName": newName };
+  },
+
   buildEmbeddedItemSourceUpdate(actor, isIdentified) {
     const item = actor.system.embeddedItem;
     if (!item) return {};
@@ -134,8 +151,22 @@ export const Pf2eIdentification = {
             : "")
         || actor.name;
     }
-    if (!desired || item._source?.name === desired) return {};
-    return { name: desired };
+    if (!desired) return {};
+
+    // Mirror the desired value into both `_source.name` (the in-sheet input)
+    // and pf2e's per-state cache. pf2e populates
+    // `system.identification.identified` once via `??=` from the initial
+    // source name, then relies on `getMystifiedData(status)` to drive
+    // `this.name` in `prepareDerivedData`. Without updating the cache, a
+    // later identify cycle resurrects the stale original name.
+    const update = {};
+    if (item._source?.name !== desired) update.name = desired;
+    const cachePath = isIdentified
+      ? "system.identification.identified.name"
+      : "system.identification.unidentified.name";
+    const currentCache = foundry.utils.getProperty(item._source ?? {}, cachePath);
+    if (currentCache !== desired) update[cachePath] = desired;
+    return update;
   },
 
   /**

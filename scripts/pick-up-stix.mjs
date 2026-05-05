@@ -411,6 +411,22 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
         await setContainerOpen(configActor, !configActor.system.isOpen);
       }
     }));
+
+    // Pickup glyph — token-only (synthetic actor). The base actor sheet in the
+    // sidebar wraps the *template* and isn't a thing you can "pick up", so the
+    // icon is suppressed there. No behaviour wired yet — visual placeholder.
+    if (configActor.isToken) {
+      orderedNodes.push(createAdapterHeaderButton({
+        adapter,
+        extraClass: "ii-pickup-btn",
+        iconOn: "fa-hand",
+        labelOnKey: "INTERACTIVE_ITEMS.HUD.PickUp",
+        // Empty onClick still attaches our listener so the V1 anchor calls
+        // stopImmediatePropagation — without it, clicks would fall through to
+        // Foundry's `.header-button` delegated handler and crash.
+        onClick: () => {}
+      }));
+    }
   }
 
   orderedNodes.push(createAdapterHeaderButton({

@@ -736,6 +736,20 @@ function _hideContainerSheetContents({ actor, app, html }) {
 }
 
 /**
+ * Per-app tracking for whether the user is currently viewing the injected
+ * Contents tab. Needed because Foundry V1's `_activateCoreListeners` calls
+ * `Tabs.bind()` *before* our render-hook decorator runs, so `Tabs.activate`
+ * can't see our injected nav link and falls back to the first tab —
+ * silently corrupting `Tabs.active` to `"description"`. We restore the
+ * user's intent post-injection by checking this map.
+ *
+ * Keyed by the app instance (WeakMap so entries clear when sheets close).
+ *
+ * @type {WeakMap<Application, boolean>}
+ */
+const _activeContentsTabByApp = new WeakMap();
+
+/**
  * Inject a "Contents" tab into the system's container item-sheet between the
  * native Description and Details tabs, then render deposited inventory rows
  * inside it. Targets pf2e's tab markup (`<nav class="sheet-tabs">
@@ -743,10 +757,8 @@ function _hideContainerSheetContents({ actor, app, html }) {
  * dnd5e (which has no matching selector) so the native dnd5e contents grid is
  * untouched.
  *
- * The nav link and section element are created once and reused on re-render
- * so Foundry's Tabs controller doesn't lose its `.active` state. The row
- * list inside the section is rebuilt every render so items added/removed via
- * createItem/deleteItem hooks reflect immediately.
+ * Re-activates the Contents tab after injection when the user was previously
+ * viewing it — see `_activeContentsTabByApp` for the rationale.
  *
  * @param {object} ctx
  * @param {Actor} ctx.actor - The interactive container actor owning the container item.
@@ -792,6 +804,36 @@ function _injectContainerContentsTab({ actor, app, html }) {
   }
 
   _renderContainerContents(section, actor, app.item);
+
+  // Track which tab the user is on. The nav was rebuilt by V1's _replaceHTML,
+  // so we (re)attach a delegated click handler each render. The previous nav
+  // (and its handler) was discarded with the old DOM, so no leak.
+  tabsNav.addEventListener("click", (event) => {
+    const tab = event.target.closest("a[data-tab]");
+    if (!tab) return;
+    if (tab.dataset.tab === "ii-contents") {
+      _activeContentsTabByApp.set(app, true);
+    } else {
+      _activeContentsTabByApp.delete(app);
+    }
+  });
+
+  // Restore Contents activation when the user was viewing it before re-render.
+  // pf2e's Tabs.bind() ran before us with our nav link absent, so it activated
+  // "description" as a fallback. Now that our nav link exists, switch back.
+  if (_activeContentsTabByApp.get(app)) {
+    const primaryTabs = app._tabs?.[0];
+    if (primaryTabs) {
+      primaryTabs.activate("ii-contents");
+    } else {
+      tabsNav.querySelectorAll('a[data-tab]').forEach(a =>
+        a.classList.toggle("active", a.dataset.tab === "ii-contents")
+      );
+      sheetBody.querySelectorAll('section.tab[data-tab]').forEach(s =>
+        s.classList.toggle("active", s.dataset.tab === "ii-contents")
+      );
+    }
+  }
 }
 
 /**
@@ -816,6 +858,10 @@ function _renderContainerContents(section, actor, containerItem) {
     return adapter.getItemContainerId(i) === containerItem.id;
   });
 
+  // Column headers above the list. Image and controls columns get blank
+  // spacers so the header text aligns with the data rows below.
+  section.append(_buildContainerContentsHeader());
+
   const list = document.createElement("ol");
   list.className = "ii-contents-list";
 
@@ -832,6 +878,43 @@ function _renderContainerContents(section, actor, containerItem) {
     list.append(_buildContainerContentRow(item, adapter));
   }
   section.append(list);
+}
+
+/**
+ * Build the column-header row that sits above the contents list. Reuses the
+ * row's flex layout so columns line up — empty spacers fill the image and
+ * controls columns.
+ *
+ * @returns {HTMLDivElement}
+ */
+function _buildContainerContentsHeader() {
+  const header = document.createElement("div");
+  header.className = "ii-contents-row ii-contents-header";
+
+  const imgSpacer = document.createElement("span");
+  imgSpacer.className = "ii-contents-img-spacer";
+  header.append(imgSpacer);
+
+  const name = document.createElement("span");
+  name.className = "ii-contents-name";
+  name.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Name");
+  header.append(name);
+
+  const qty = document.createElement("span");
+  qty.className = "ii-contents-quantity";
+  qty.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Quantity");
+  header.append(qty);
+
+  const bulk = document.createElement("span");
+  bulk.className = "ii-contents-bulk";
+  bulk.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Bulk");
+  header.append(bulk);
+
+  const controlsSpacer = document.createElement("span");
+  controlsSpacer.className = "ii-contents-controls-spacer";
+  header.append(controlsSpacer);
+
+  return header;
 }
 
 /**

@@ -257,6 +257,33 @@
   opacity: 0.6;
 }
 
+/* Header row above the contents list. Reuses .ii-contents-row's flex layout
+ * so column widths match the data rows below. The image and controls columns
+ * use empty spacers (display:inline-block) since <span> isn't a replaced
+ * element and the actual data columns get their width from <img>/<span>
+ * children with explicit widths. */
+.ii-contents-row.ii-contents-header {
+  font-size: 0.78em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary, rgba(0, 0, 0, 0.6));
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.ii-contents-img-spacer {
+  display: inline-block;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.ii-contents-controls-spacer {
+  /* Width approximates the controls block: 4 icons (16px each) + 3 gaps (6px each). */
+  display: inline-block;
+  width: calc(4 * 16px + 3 * 6px);
+  flex-shrink: 0;
+}
+
 /* ===== Settings Dialog ===== */
 
 .ii-settings-folder-picker {

@@ -65,6 +65,8 @@
       "InspectionRange": "Inspection Range (squares)",
       "NameLabel": "Name",
       "Name": "Name",
+      "Quantity": "Qty",
+      "Bulk": "Bulk",
       "NamePlaceholder": "Name for this object...",
       "UnidentifiedName": "Unidentified Name",
       "UnidentifiedNamePlaceholder": "Name shown when unidentified...",

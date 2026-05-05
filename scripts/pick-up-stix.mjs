@@ -376,15 +376,27 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   root.querySelector?.(".mode-slider")?.remove();
 
   // Remove any existing module toggles so the rebuild produces a stable order.
+  // The native identify button (if any) is intentionally NOT in this list —
+  // we relocate it into the canonical slot below rather than recreating it.
   header.querySelectorAll(".ii-open-toggle-btn, .ii-lock-toggle-btn, .ii-identify-toggle-btn, .ii-configure-btn")
     .forEach(el => el.remove());
 
   const adapter = getAdapter();
   const sys = configActor.system;
-  const buttons = [];
+
+  // If the system already provides a header-level identify control (e.g.
+  // dnd5e's `.toggle-identified` button) reuse it in our canonical slot
+  // instead of injecting a duplicate. Moving the live element preserves
+  // its event listeners.
+  const nativeIdentifySelector = adapter.nativeIdentifyHeaderSelector;
+  const nativeIdentifyBtn = nativeIdentifySelector
+    ? header.querySelector(nativeIdentifySelector)
+    : null;
+
+  const orderedNodes = [];
 
   if (sys.isContainer) {
-    buttons.push(createAdapterHeaderButton({
+    orderedNodes.push(createAdapterHeaderButton({
       adapter,
       extraClass: "ii-open-toggle-btn",
       active: sys.isOpen,
@@ -399,7 +411,7 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
     }));
   }
 
-  buttons.push(createAdapterHeaderButton({
+  orderedNodes.push(createAdapterHeaderButton({
     adapter,
     extraClass: "ii-lock-toggle-btn",
     active: sys.isLocked,
@@ -413,28 +425,33 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
     }
   }));
 
-  const identCfg = adapter.getIdentifyButtonConfig(sys.isIdentified);
-  buttons.push(createAdapterHeaderButton({
-    adapter,
-    extraClass: "ii-identify-toggle-btn",
-    active: sys.isIdentified,
-    iconOn: identCfg.iconOn,
-    iconFamilyOn: identCfg.iconFamilyOn,
-    iconOff: identCfg.iconOff,
-    iconFamilyOff: identCfg.iconFamilyOff,
-    labelOnKey: identCfg.labelOnKey,
-    labelOffKey: identCfg.labelOffKey,
-    onClick: async (ev) => {
-      ev.preventDefault();
-      const embeddedItem = configActor.system.embeddedItem;
-      if (!embeddedItem) return;
-      // Route through the adapter — pf2e opens a DC dialog for unidentified
-      // items rather than flipping the flag directly.
-      await adapter.performIdentifyToggle(embeddedItem);
-    }
-  }));
+  if (nativeIdentifyBtn) {
+    // Relocate the system's button into our canonical position.
+    orderedNodes.push(nativeIdentifyBtn);
+  } else {
+    const identCfg = adapter.getIdentifyButtonConfig(sys.isIdentified);
+    orderedNodes.push(createAdapterHeaderButton({
+      adapter,
+      extraClass: "ii-identify-toggle-btn",
+      active: sys.isIdentified,
+      iconOn: identCfg.iconOn,
+      iconFamilyOn: identCfg.iconFamilyOn,
+      iconOff: identCfg.iconOff,
+      iconFamilyOff: identCfg.iconFamilyOff,
+      labelOnKey: identCfg.labelOnKey,
+      labelOffKey: identCfg.labelOffKey,
+      onClick: async (ev) => {
+        ev.preventDefault();
+        const embeddedItem = configActor.system.embeddedItem;
+        if (!embeddedItem) return;
+        // Route through the adapter — pf2e opens a DC dialog for unidentified
+        // items rather than flipping the flag directly.
+        await adapter.performIdentifyToggle(embeddedItem);
+      }
+    }));
+  }
 
-  buttons.push(createAdapterHeaderButton({
+  orderedNodes.push(createAdapterHeaderButton({
     adapter,
     kind: "config",
     extraClass: "ii-configure-btn",
@@ -450,9 +467,11 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   // Insert immediately after the title so buttons sit left of system-injected
   // header controls (Sheet/Prototype Token/Close on pf2e; ellipsis/Close on
   // dnd5e V2). The header's flex layout pushes system buttons to the far right.
+  // For the native identify button, `.after(...)` moves it from its previous
+  // slot into the canonical position rather than cloning it.
   const title = header.querySelector(".window-title");
-  if (title) title.after(...buttons);
-  else header.prepend(...buttons);
+  if (title) title.after(...orderedNodes);
+  else header.prepend(...orderedNodes);
 }
 
 /**

@@ -358,6 +358,22 @@ export default class SystemAdapter {
       headerElementType: "button"
     };
   }
+
+  /**
+   * Selector for the system's own identify-toggle button injected into item
+   * and container sheet headers, if the system provides one. When present,
+   * the unified header-controls decorator skips emitting its own identify
+   * toggle and relocates the system's button into the module's canonical
+   * slot (between Lock and Configure) so the two don't appear duplicated.
+   *
+   * Return `null` when the system has no header-level identify control —
+   * the module will inject its own toggle in that case.
+   *
+   * @returns {string|null}
+   */
+  get nativeIdentifyHeaderSelector() {
+    return null;
+  }
 }
 
 /**

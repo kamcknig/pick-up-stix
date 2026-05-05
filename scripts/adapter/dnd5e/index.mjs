@@ -36,6 +36,19 @@ export default class Dnd5eAdapter extends SystemAdapter {
     hasNativeDeepCreate: true
   };
 
+  /**
+   * dnd5e injects a `<button class="header-control pseudo-header-control state-toggle ... toggle-identified">`
+   * into every item sheet header for items with `system.identified` (see
+   * dnd5e's ItemSheet5e._renderFrame). The unified header decorator picks
+   * this up and relocates it into the canonical Lock → Identify → Configure
+   * slot so the module doesn't render a duplicate.
+   *
+   * @returns {string}
+   */
+  get nativeIdentifyHeaderSelector() {
+    return ".toggle-identified";
+  }
+
   // containerItemType and defaultLootItemType come from Dnd5eContainer (assigned below).
 }
 

@@ -1,4 +1,5 @@
 import InteractiveModelMixin from "./InteractiveModelMixin.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 
 const { TypeDataModel } = foundry.abstract;
@@ -54,11 +55,15 @@ export default class InteractiveItemModel extends InteractiveModelMixin(TypeData
   }
 
   get isContainer() {
-    return this.parent.items.some(i => i.type === "container");
+    // Delegate item-type check to the adapter so the literal "container" is not
+    // hard-coded to the dnd5e vocabulary.
+    return this.parent.items.some(i => getAdapter().isContainerItem(i));
   }
 
   get containerItem() {
-    return this.parent.items.find(i => i.type === "container") ?? null;
+    // Delegate item-type check to the adapter so the literal "container" is not
+    // hard-coded to the dnd5e vocabulary.
+    return this.parent.items.find(i => getAdapter().isContainerItem(i)) ?? null;
   }
 
   get embeddedItem() {
@@ -67,10 +72,9 @@ export default class InteractiveItemModel extends InteractiveModelMixin(TypeData
 
   get isIdentified() {
     const item = this.embeddedItem;
-    if (item?.system?.identified !== undefined) {
-      return item.system.identified !== false;
-    }
-    return false;
+    // Delegate to the active system adapter so the identification field path
+    // is not hard-coded to dnd5e's `system.identified` boolean.
+    return item ? getAdapter().isItemIdentified(item) : false;
   }
 
   get lockedDisplayMessage() {

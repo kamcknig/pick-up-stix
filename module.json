@@ -26,6 +26,14 @@
         "compatibility": {
           "minimum": "4.0.0"
         }
+      },
+      {
+        "id": "pf2e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "8.0.0",
+          "verified": "8.1.0"
+        }
       }
     ]
   },

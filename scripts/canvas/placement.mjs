@@ -1,7 +1,7 @@
-import { isInteractiveActor } from "../utils/actorHelpers.mjs";
+import { isInteractiveActor, getTokenActor } from "../utils/actorHelpers.mjs";
 import { getItemSourceActorId } from "../utils/itemFlags.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
-import { notifyItemAction } from "../utils/notify.mjs";
+import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
 import { getPlayerCandidateTokens, depositItem, buildInteractiveItemData, assignContainerParent } from "../transfer/ItemTransfer.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { dragModifiersHeld } from "../utils/dragModifier.mjs";
@@ -811,6 +811,73 @@ class PlacementDialog extends foundry.applications.api.DialogV2 {
       ]
     });
   }
+}
+
+/**
+ * Split a stacked interactive token in two. Decrements the source's embedded
+ * item by `splitQty` and creates a new interactive token of the same kind
+ * (templated → reuse base actor; ephemeral → fresh one-shot) in the next free
+ * adjacent grid cell.
+ *
+ * Caller is responsible for clamping splitQty into [1, sourceQty - 1].
+ *
+ * @param {string} sceneId
+ * @param {string} tokenId
+ * @param {number} splitQty
+ * @returns {Promise<null>}
+ */
+export async function splitInteractiveToken(sceneId, tokenId, splitQty) {
+  dbg("place:splitInteractiveToken", { sceneId, tokenId, splitQty });
+  const result = getTokenActor(sceneId, tokenId);
+  if (!result) {
+    notifyTransferError();
+    return null;
+  }
+  const { actor: sourceActor, tokenDoc } = result;
+  const adapter = getAdapter();
+  const item = sourceActor.system?.embeddedItem;
+  if (!item) {
+    dbg("place:splitInteractiveToken", "no embedded item, bail");
+    return null;
+  }
+  const sourceQty = adapter.getItemQuantity(item);
+  const n = Math.max(1, Math.min(Math.floor(splitQty), sourceQty - 1));
+  if (n < 1) return null;
+
+  // Find a free adjacent grid cell. Prefer right of the source; fall back to
+  // walking the 8 neighbors clockwise.
+  const grid = canvas.grid;
+  const sourcePos = { x: tokenDoc.x, y: tokenDoc.y };
+  const offsets = [
+    [grid.size, 0], [grid.size, grid.size], [0, grid.size], [-grid.size, grid.size],
+    [-grid.size, 0], [-grid.size, -grid.size], [0, -grid.size], [grid.size, -grid.size]
+  ];
+  let target = null;
+  for (const [dx, dy] of offsets) {
+    const candidate = { x: sourcePos.x + dx, y: sourcePos.y + dy };
+    const occupied = canvas.tokens.placeables.some(t =>
+      t.document.x === candidate.x && t.document.y === candidate.y
+    );
+    if (!occupied) { target = candidate; break; }
+  }
+  // Last-resort fallback when all neighbors are occupied.
+  if (!target) target = { x: sourcePos.x + grid.size, y: sourcePos.y };
+
+  // Reuse createInteractiveToken so all the templated/ephemeral branching,
+  // identity stamping, and v14 level handling remain in one place.
+  const isEphemeralSource = !!tokenDoc.flags?.["pick-up-stix"]?.ephemeral;
+  await createInteractiveToken(item, target.x, target.y, {
+    ephemeral: isEphemeralSource,
+    level: hasLevels() ? getTokenLevelId(tokenDoc) : null,
+    quantity: n
+  });
+
+  // Decrement the source by n. n is clamped to < sourceQty above, so the
+  // source always retains at least 1 — no token deletion ever happens here.
+  await item.update({ "system.quantity": sourceQty - n });
+  dbg("place:splitInteractiveToken", "split complete", { actorName: sourceActor.name, n, remaining: sourceQty - n });
+  notifyItemAction("Split", sourceActor.name);
+  return null;
 }
 
 export { createInteractiveToken, createTokenFromActor, _handleItemDrop as handleItemDrop };

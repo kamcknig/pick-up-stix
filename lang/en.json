@@ -97,6 +97,7 @@
     "HUD": {
       "Inspect": "Inspect",
       "PickUp": "Pick Up",
+      "SplitStack": "Split stack",
       "Open": "Open",
       "Close": "Close",
       "Identify": "Identify",
@@ -108,6 +109,7 @@
       "Placed": "{name} placed on the scene.",
       "PickedUp": "Picked up {name}.",
       "Deposited": "Deposited {name}.",
+      "Split": "Split {name} off the stack.",
       "TransferError": "Failed to transfer item.",
       "NoCharacter": "No character assigned. Set your character in User Configuration.",
       "NoItems": "No items to pick up.",
@@ -168,6 +170,7 @@
       "QuantityActionDeposit": "How many to deposit into {target}?",
       "QuantityActionGive": "How many to give to {target}?",
       "QuantityActionPickup": "How many to pick up into {target}?",
+      "QuantityActionSplit": "Split off how many?",
       "QuantityActionDelete": "How many to remove from this stack?",
       "QuantityActionDeleteMulti": "Choose a quantity to remove from each stack.",
       "QuantityBatchTitle": "Delete from {count} stacks",

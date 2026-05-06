@@ -1,5 +1,5 @@
 import { pickupItem, depositItem, setContainerOpen } from "../transfer/ItemTransfer.mjs";
-import { createInteractiveToken } from "../canvas/placement.mjs";
+import { createInteractiveToken, splitInteractiveToken } from "../canvas/placement.mjs";
 import { getTokenActor } from "../utils/actorHelpers.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
@@ -65,6 +65,13 @@ export function registerSocket() {
         }
         break;
       }
+      case "splitItem":
+        await splitInteractiveToken(
+          payload.data.sceneId,
+          payload.data.tokenId,
+          payload.data.splitQty
+        );
+        break;
     }
   });
 }

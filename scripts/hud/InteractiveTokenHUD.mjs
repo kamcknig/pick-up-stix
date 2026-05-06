@@ -8,6 +8,8 @@ import { resolvePickupTarget } from "../utils/pickupFlow.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
 import { hasLevels, getTokenLevelId, getViewedLevelId } from "../utils/levels.mjs";
+import { promptItemQuantity } from "../utils/quantityPrompt.mjs";
+import { splitInteractiveToken } from "../canvas/placement.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -138,12 +140,31 @@ function onRenderTokenHUD(app, html, context, options) {
       }
       const itemId = item.id;
       const itemName = item.name;
-      dbg("hud:pickup", "picking up item", { itemId, itemName, targetActorId: targetActor.id });
+
+      // Prompt for a partial-stack pickup when the embedded item has qty > 1.
+      // Skipped for containers (their top-level item is the backpack itself, qty 1).
+      let chosenQuantity = null;
+      const adapter = getAdapter();
+      const sourceQty = adapter.getItemQuantity(item);
+      if (sourceQty > 1 && !adapter.isContainerItem(item)) {
+        chosenQuantity = await promptItemQuantity({
+          itemName,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+          actionFormatArgs: { target: targetActor.name }
+        });
+        if (chosenQuantity == null) {
+          dbg("hud:pickup", "quantity dialog cancelled, bail");
+          return;
+        }
+      }
+
+      dbg("hud:pickup", "picking up item", { itemId, itemName, targetActorId: targetActor.id, chosenQuantity });
 
       await dispatchGM(
         "pickupItem",
-        { sceneId, tokenId, itemId, targetActorId: targetActor.id },
-        async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
+        { sceneId, tokenId, itemId, targetActorId: targetActor.id, quantity: chosenQuantity },
+        async () => pickupItem(sceneId, tokenId, itemId, targetActor.id, chosenQuantity)
       );
       if (!game.user.isGM) notifyItemAction("PickedUp", itemName);
       canvas.tokens.hud.close();
@@ -151,6 +172,39 @@ function onRenderTokenHUD(app, html, context, options) {
   );
   pickupBtn.dataset.action = "pickup";
   col.appendChild(pickupBtn);
+  }
+
+  // GM-only "Split stack" button: visible on non-container stacked tokens (qty > 1).
+  if (isGM && !system.isContainer) {
+    const adapter = getAdapter();
+    const embeddedItem = system.topLevelItems[0];
+    const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
+    if (embeddedItem && sourceQty > 1 && !adapter.isContainerItem(embeddedItem)) {
+      const splitBtn = createHUDButton(
+        "fa-arrows-split-up-and-left",
+        game.i18n.localize("INTERACTIVE_ITEMS.HUD.SplitStack"),
+        async () => {
+          dbg("hud:split", { actorName: actor.name, sourceQty });
+          const chosen = await promptItemQuantity({
+            itemName: actor.name,
+            max: sourceQty - 1,  // cannot split off the entire stack
+            actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionSplit"
+          });
+          if (chosen == null) {
+            dbg("hud:split", "split dialog cancelled, bail");
+            return;
+          }
+          await dispatchGM(
+            "splitItem",
+            { sceneId, tokenId, splitQty: chosen },
+            async () => splitInteractiveToken(sceneId, tokenId, chosen)
+          );
+          canvas.tokens.hud.close();
+        }
+      );
+      splitBtn.dataset.action = "split";
+      col.appendChild(splitBtn);
+    }
   }
 
   if (system.isContainer) {

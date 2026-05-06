@@ -3,8 +3,9 @@ import InteractiveItemModel from "./models/InteractiveItemModel.mjs";
 import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
 import { registerTokenHUD } from "./hud/InteractiveTokenHUD.mjs";
 import { registerPlacement, _handleTokenMoveWithOverlap } from "./canvas/placement.mjs";
+import { registerQtyBadge } from "./canvas/qtyBadge.mjs";
 import { registerSocket } from "./socket/SocketHandler.mjs";
-import { pickupItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
+import { pickupItem, depositItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
 import { INTERACTIVE_TYPES } from "./constants.mjs";
 export { INTERACTIVE_TYPES } from "./constants.mjs";
 import { isInteractiveActor, isInteractiveContainer } from "./utils/actorHelpers.mjs";
@@ -15,6 +16,7 @@ import { validateContainerAccess, validateItemAccess } from "./utils/containerAc
 import { resolvePickupTarget } from "./utils/pickupFlow.mjs";
 import { createAdapterHeaderButton, createRowControl } from "./utils/domButtons.mjs";
 import { dbg } from "./utils/debugLog.mjs";
+import { promptItemQuantity, promptItemQuantitiesBatch, decrementOrDeleteItem } from "./utils/quantityPrompt.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
@@ -206,8 +208,57 @@ Hooks.once("init", async () => {
     return false;
   });
 
+  // Drag-out cleanup: when an item is dragged FROM an interactive container's
+  // sheet onto a non-interactive actor sheet, the system creates a copy on the
+  // destination (cross-actor UUIDs always resolve to "copy" behavior) and the
+  // source on our custom actor sub-type is left behind. Detect this on the
+  // target sheet and delete the source after the destination's createItem fires.
+  Hooks.on("dropActorSheetData", (actor, sheet, data) => {
+    if (!game.user.isGM) return;
+    if (isInteractiveActor(actor)) return;
+    if (data?.type !== "Item") return;
+
+    const sourceItem = fromUuidSync(data.uuid);
+    if (!sourceItem) return;
+    const sourceActor = sourceItem.actor;
+    if (!sourceActor || !isInteractiveContainer(sourceActor)) return;
+
+    dbg("hook:dropActorSheetData:dragOut", "interactive-container drag-out detected", {
+      sourceItemId: sourceItem.id, sourceActorName: sourceActor.name, targetActorName: actor.name
+    });
+
+    const targetActorId = actor.id;
+    const sourceItemId = sourceItem.id;
+    const sourceActorRef = sourceActor;
+    let handled = false;
+
+    // One-shot listener for the destination's matching createItem.
+    const hookId = Hooks.on("createItem", (newItem, _options, userId) => {
+      if (handled) return;
+      if (userId !== game.userId) return;
+      if (newItem.parent?.id !== targetActorId) return;
+      handled = true;
+      Hooks.off("createItem", hookId);
+      const liveSourceItem = sourceActorRef.items.get(sourceItemId);
+      if (!liveSourceItem) return;
+      dbg("hook:dropActorSheetData:dragOut", "deleting source after drag-out createItem", { sourceItemId });
+      liveSourceItem.delete({ deleteContents: true })
+        .catch(err => console.error(`${MODULE_ID} | failed to delete container source after drag-out:`, err));
+    });
+
+    // Safety unhook so the listener doesn't leak when the drop is rejected
+    // (owner check fails, dropEffect "none", etc.).
+    setTimeout(() => {
+      if (handled) return;
+      handled = true;
+      Hooks.off("createItem", hookId);
+      dbg("hook:dropActorSheetData:dragOut", "no createItem within timeout, abandoning cleanup", { sourceItemId });
+    }, 2000);
+  });
+
   registerTokenHUD();
   registerPlacement();
+  registerQtyBadge();
 });
 
 /**
@@ -257,50 +308,81 @@ function _injectItemContextMenuEntries(item, menuItems) {
 }
 
 /**
- * Injects a wand-icon identification toggle into each inventory row on dnd5e
- * character/NPC sheets for items originating from interactive actors.
+ * Injects GM-only row controls (lock, identify, delete) into each inventory
+ * row of a non-interactive actor sheet. Identify branches on the round-trip
+ * flag: items picked up from interactive tokens (sourceActorId set) toggle
+ * via the cached identifiedData/unidentifiedData payloads; plain inventory
+ * items just flip the system's native identified flag through the adapter.
  *
- * dnd5e uses both `<img class="item-image">` (raster) and
- * `<dnd5e-icon class="item-image">` (SVG); both share the class so the
- * querySelector catches either.
+ * The identify icon is suppressed on systems that already render a native
+ * inventory identify control (pf2e); lock and delete are added uniformly.
  *
  * @param {ActorSheet} app - The rendered actor sheet application.
  * @param {HTMLElement|jQuery} html - The sheet's root element.
  */
 function _injectActorInventoryIdentifyToggles(app, html) {
   if (!game.user.isGM) return;
-  // pf2e (and other systems with hasNativeInventoryIdentify) already render
-  // toggle-identified controls on every inventory row — skip ours to avoid
-  // duplicating the control.
-  if (getAdapter().capabilities.hasNativeInventoryIdentify) return;
   if (isInteractiveActor(app.actor)) return;
   const root = html instanceof HTMLElement ? html : html?.[0];
   if (!root) return;
+
+  const adapter = getAdapter();
+  const skipIdentify = adapter.capabilities.hasNativeInventoryIdentify;
+
+  // Add an empty, label-less header cell to each items-section header so the
+  // row's controls column has a matching slot in the header. dnd5e's inventory
+  // headers and rows are sibling flex layouts whose column widths are set by
+  // class selectors — using the same class on both keeps them aligned.
+  root.querySelectorAll(".items-section .items-header.header").forEach(header => {
+    if (header.querySelector(".ii-row-controls-cell")) return;
+    const cell = document.createElement("div");
+    cell.className = "item-header ii-row-controls-cell";
+    header.appendChild(cell);
+  });
 
   root.querySelectorAll("[data-item-id]").forEach(el => {
     const itemId = el.dataset.itemId;
     const item = app.actor.items.get(itemId);
     if (!item) return;
-    const iiFlags = getItemIIFlags(item);
-    if (!iiFlags?.sourceActorId) return;
-
-    if (el.querySelector(".pick-up-stix-identify-toggle")) return;
-
-    const isIdentified = isItemIdentified(item);
-    const toggle = document.createElement("a");
-    toggle.className = `pick-up-stix-identify-toggle ii-row-control${isIdentified ? " active" : ""}`;
-    toggle.title = game.i18n.localize(isIdentified
-      ? "INTERACTIVE_ITEMS.Context.HideItem"
-      : "INTERACTIVE_ITEMS.Context.RevealItem");
-    toggle.innerHTML = `<i class="fas fa-wand-sparkles"></i>`;
-    toggle.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      await toggleItemIdentification(item);
-    });
-
     const itemRow = el.querySelector(".item-row");
-    (itemRow ?? el).appendChild(toggle);
+    if (!itemRow) return;
+    if (itemRow.querySelector(":scope > .ii-row-controls-cell")) return;
+
+    const isInteractive = !!getItemSourceActorId(item);
+    const cell = document.createElement("div");
+    cell.className = "item-detail ii-row-controls-cell";
+
+    const isLocked = isItemLocked(item);
+    cell.appendChild(createRowControl({
+      iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
+      titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
+      onClick: async () => {
+        await item.update({
+          "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
+        });
+      }
+    }));
+
+    if (!skipIdentify) {
+      cell.appendChild(createRowControl({
+        iconClass: "fa-solid fa-wand-sparkles",
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+        extraClass: "pick-up-stix-identify-toggle",
+        active: adapter.isItemIdentified(item),
+        onClick: async () => {
+          if (isInteractive) await toggleItemIdentification(item);
+          else await adapter.performIdentifyToggle(item);
+        }
+      }));
+    }
+
+    cell.appendChild(createRowControl({
+      iconClass: "fa-solid fa-trash-can",
+      titleKey: "INTERACTIVE_ITEMS.Sheet.DeleteItem",
+      onClick: async () => { await item.delete({ deleteContents: true }); }
+    }));
+
+    itemRow.appendChild(cell);
   });
 }
 
@@ -516,10 +598,26 @@ function _injectContainerSheetRowControls({ actor, app, html }) {
           if (!tokenDoc) return;
           const sceneId = tokenDoc.parent.id;
           const tokenId = tokenDoc.id;
+
+          // Prompt for a partial-stack pickup when qty > 1 and the item is not
+          // a container type (containers are always single-quantity).
+          let chosen = null;
+          const rowAdapter = getAdapter();
+          const sourceQty = rowAdapter.getItemQuantity(currentItem);
+          if (sourceQty > 1 && !rowAdapter.isContainerItem(currentItem)) {
+            chosen = await promptItemQuantity({
+              itemName: currentItem.name,
+              max: sourceQty,
+              actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+              actionFormatArgs: { target: targetActor.name }
+            });
+            if (chosen == null) return;
+          }
+
           await dispatchGM(
             "pickupItem",
-            { sceneId, tokenId, itemId, targetActorId: targetActor.id },
-            async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
+            { sceneId, tokenId, itemId, targetActorId: targetActor.id, quantity: chosen },
+            async () => pickupItem(sceneId, tokenId, itemId, targetActor.id, chosen)
           );
           if (!game.user.isGM && item) notifyItemAction("PickedUp", item.name);
         }
@@ -530,27 +628,31 @@ function _injectContainerSheetRowControls({ actor, app, html }) {
     if (isModuleGM() && item) {
       const isInteractive = !!getItemSourceActorId(item);
 
-      if (isInteractive) {
-        const isLocked = isItemLocked(item);
-        target.appendChild(createRowControl({
-          iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
-          titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
-          onClick: async () => {
-            await item.update({
-              "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
-            });
-          }
-        }));
+      const isLocked = isItemLocked(item);
+      target.appendChild(createRowControl({
+        iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
+        onClick: async () => {
+          await item.update({
+            "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
+          });
+        }
+      }));
 
-        target.appendChild(createRowControl({
-          iconClass: "fa-solid fa-wand-sparkles",
-          titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
-          active: getAdapter().isItemIdentified(item),
-          onClick: async () => { await toggleItemIdentification(item); }
-        }));
-      }
+      // Interactive items round-trip via the cached identifiedData/unidentifiedData
+      // payloads (toggleItemIdentification swaps name/img/description); plain
+      // deposited items just flip the system's native identified flag through
+      // the adapter.
+      target.appendChild(createRowControl({
+        iconClass: "fa-solid fa-wand-sparkles",
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+        active: getAdapter().isItemIdentified(item),
+        onClick: async () => {
+          if (isInteractive) await toggleItemIdentification(item);
+          else await getAdapter().performIdentifyToggle(item);
+        }
+      }));
 
-      // Delete applies to all items, not just interactive ones.
       target.appendChild(createRowControl({
         iconClass: "fa-solid fa-trash-can",
         titleKey: "INTERACTIVE_ITEMS.Sheet.DeleteItem",
@@ -613,42 +715,52 @@ function _installContainerSheetItemDrop({ actor, app, html }) {
       return;
     }
 
-    if (!adapter.isPhysicalItem(droppedItem)) {
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
-      return;
-    }
-    if (adapter.isContainerItem(droppedItem)) {
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
-      return;
-    }
-
     if (isPlayerView() && !validateContainerAccess(actor, { checkOpen: true })) return;
 
-    // Only the GM can write to actors players don't own; route through the
-    // socket on the player path so the active GM creates the embedded item.
     if (!game.user.isGM) {
-      // Fallback: ask GM via socket. For now players can't deposit on the
-      // sheet directly — this can be wired through gmDispatch later if needed.
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
+      // Players can't write directly to OBSERVER-level actors — route through the
+      // socket so the active GM performs the deposit with quantity handling.
+      const sourceActor = droppedItem.actor;
+      if (!sourceActor) {
+        dbg("place:_installContainerSheetItemDrop", "player drop has no source actor, bail");
+        return;
+      }
+      const tokenDoc = actor.token;
+      if (!tokenDoc) {
+        dbg("place:_installContainerSheetItemDrop", "no token doc on actor, bail");
+        return;
+      }
+
+      let chosen = null;
+      const sourceQty = adapter.getItemQuantity(droppedItem);
+      if (sourceQty > 1 && !adapter.isContainerItem(droppedItem)) {
+        chosen = await promptItemQuantity({
+          itemName: droppedItem.name,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+          actionFormatArgs: { target: actor.name }
+        });
+        if (chosen == null) {
+          dbg("place:_installContainerSheetItemDrop", "player quantity cancelled, bail");
+          return;
+        }
+      }
+
+      const sceneId = tokenDoc.parent.id;
+      const tokenId = tokenDoc.id;
+      dbg("place:_installContainerSheetItemDrop", "player path — dispatching depositItem via socket", {
+        sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, chosen
+      });
+      dispatchGM(
+        "depositItem",
+        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, quantity: chosen },
+        async () => depositItem(sourceActor.id, droppedItem.id, sceneId, tokenId, chosen)
+      );
+      notifyItemAction("Deposited", droppedItem.name);
       return;
     }
 
-    const itemData = droppedItem.toObject();
-    delete itemData._id;
-    adapter.setItemContainerId(itemData, destContainerItem.id);
-
-    try {
-      await CONFIG.Item.documentClass.createDocuments([itemData], { parent: actor, keepId: false });
-      // Move semantics — if the drag had a source actor, remove the original
-      // so quantities don't double up. World items (no parent actor) and items
-      // already on this container actor are left alone.
-      if (droppedItem.actor && droppedItem.actor.id !== actor.id) {
-        await droppedItem.delete();
-      }
-      ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
-    } catch (err) {
-      console.error("pick-up-stix | failed to deposit item on container sheet:", err);
-    }
+    await _handleContainerSheetGmDeposit({ destActor: actor, droppedItem, destContainerItem });
   });
 }
 
@@ -940,6 +1052,11 @@ function _buildContainerContentsHeader({ isTokenActor = false } = {}) {
   name.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Name");
   header.append(name);
 
+  const qty = document.createElement("span");
+  qty.className = "ii-contents-quantity";
+  qty.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Quantity");
+  header.append(qty);
+
   const bulk = document.createElement("span");
   bulk.className = "ii-contents-bulk";
   bulk.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Bulk");
@@ -990,6 +1107,53 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
   name.textContent = item.name;
   row.append(name);
 
+  const qty = document.createElement("span");
+  qty.className = "ii-contents-quantity";
+  const currentQty = adapter.getItemQuantity(item) ?? 1;
+  if (game.user.isGM) {
+    // Inline stepper for the GM: ±1 default, Shift+Click ±5, Ctrl+Click ±10.
+    // Subtraction clamps at 1 — deletion belongs on the trash icon, not here.
+    const stepDelta = (ev) => ev.ctrlKey ? 10 : ev.shiftKey ? 5 : 1;
+    const apply = async (signed) => {
+      const cur = adapter.getItemQuantity(item) ?? 1;
+      const next = signed < 0 ? Math.max(1, cur + signed) : cur + signed;
+      if (next === cur) return;
+      dbg("contents:qtyStep", { itemId: item.id, from: cur, to: next });
+      await item.update({ "system.quantity": next });
+    };
+
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.className = "ii-contents-qty-step";
+    minus.title = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.QuantityDecrease");
+    minus.innerHTML = `<i class="fa-solid fa-minus"></i>`;
+    minus.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await apply(-stepDelta(ev));
+    });
+
+    const value = document.createElement("span");
+    value.className = "ii-contents-qty-value";
+    value.textContent = String(currentQty);
+
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = "ii-contents-qty-step";
+    plus.title = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.QuantityIncrease");
+    plus.innerHTML = `<i class="fa-solid fa-plus"></i>`;
+    plus.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await apply(stepDelta(ev));
+    });
+
+    qty.append(minus, value, plus);
+  } else {
+    qty.textContent = String(currentQty);
+  }
+  row.append(qty);
+
   const bulk = document.createElement("span");
   bulk.className = "ii-contents-bulk";
   bulk.textContent = _formatItemBulk(item);
@@ -1025,11 +1189,26 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
         if (!tokenDoc) return;
         const sceneId = tokenDoc.parent.id;
         const tokenId = tokenDoc.id;
-        dbg("contents:pickupRow", { itemName: item.name, itemId: item.id, sceneId, tokenId, targetActorId: targetActor.id });
+
+        // Prompt for a partial-stack pickup when qty > 1 and the item is not
+        // a container type (containers are always single-quantity).
+        let chosen = null;
+        const sourceQty = adapter.getItemQuantity(currentItem);
+        if (sourceQty > 1 && !adapter.isContainerItem(currentItem)) {
+          chosen = await promptItemQuantity({
+            itemName: currentItem.name,
+            max: sourceQty,
+            actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+            actionFormatArgs: { target: targetActor.name }
+          });
+          if (chosen == null) return;
+        }
+
+        dbg("contents:pickupRow", { itemName: item.name, itemId: item.id, sceneId, tokenId, targetActorId: targetActor.id, chosen });
         await dispatchGM(
           "pickupItem",
-          { sceneId, tokenId, itemId: item.id, targetActorId: targetActor.id },
-          async () => pickupItem(sceneId, tokenId, item.id, targetActor.id)
+          { sceneId, tokenId, itemId: item.id, targetActorId: targetActor.id, quantity: chosen },
+          async () => pickupItem(sceneId, tokenId, item.id, targetActor.id, chosen)
         );
         if (!game.user.isGM) notifyItemAction("PickedUp", item.name);
       }
@@ -1136,18 +1315,24 @@ function _formatItemBulk(item) {
 
 /**
  * Handles dnd5e's container-drop gate. Called when an item is dropped onto a
- * ContainerSheet; routes player deposits through the socket and cancels dnd5e's
- * native handling for player users.
+ * ContainerSheet; prompts for quantity when the source stack is > 1, routes
+ * player deposits through the socket, and intercepts dnd5e's native GM deposit
+ * so our split-aware helper runs instead.
  *
  * @param {object} ctx
  * @param {Actor} ctx.actor - The actor owning the container item.
  * @param {Item} ctx.item - The container item receiving the drop.
  * @param {Application} ctx.sheet - The ContainerSheet application.
  * @param {object} ctx.data - The drag event data payload.
- * @returns {false|undefined} Returns `false` to cancel dnd5e's native drop handling for players.
+ * @returns {false|undefined} Returns `false` to cancel dnd5e's native drop handling.
  */
 function _gateContainerDrop({ actor, item, sheet, data }) {
   if (!isInteractiveContainer(actor)) return;
+
+  // dnd5e fires this hook when an item is dragged FROM the container sheet too
+  // (not only when something is dropped onto it). If the UUID belongs to this
+  // actor, it's a drag-out operation — let dnd5e handle the move natively.
+  if (data.uuid?.startsWith(actor.uuid + ".")) return;
 
   if (isPlayerView()) {
     if (!validateContainerAccess(actor, { checkProximity: true })) return false;
@@ -1161,14 +1346,125 @@ function _gateContainerDrop({ actor, item, sheet, data }) {
       if (!sourceActor) return;
       const tokenDoc = actor.token;
       if (!tokenDoc) return;
+
+      let chosen = null;
+      const adapter = getAdapter();
+      const sourceQty = adapter.getItemQuantity(droppedItem);
+      if (sourceQty > 1 && !adapter.isContainerItem(droppedItem)) {
+        chosen = await promptItemQuantity({
+          itemName: droppedItem.name,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+          actionFormatArgs: { target: actor.name }
+        });
+        if (chosen == null) {
+          dbg("place:_gateContainerDrop", "player quantity cancelled, bail");
+          return;
+        }
+      }
+
+      const sceneId = tokenDoc.parent.id;
+      const tokenId = tokenDoc.id;
+      dbg("place:_gateContainerDrop", "player path — dispatching depositItem via socket", {
+        sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, chosen
+      });
       dispatchGM(
         "depositItem",
-        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId: tokenDoc.parent.id, tokenId: tokenDoc.id },
-        () => {} // unreachable: isGM is false in this branch
+        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, quantity: chosen },
+        async () => depositItem(sourceActor.id, droppedItem.id, sceneId, tokenId, chosen)
       );
       notifyItemAction("Deposited", droppedItem.name);
     })();
     return false;
+  }
+
+  // GM path — intercept dnd5e's native deposit so our split-aware helper runs.
+  // Fire-and-forget; return false to suppress dnd5e's native handling.
+  (async () => {
+    const droppedItem = await fromUuid(data.uuid);
+    if (!droppedItem) return;
+    dbg("place:_gateContainerDrop", "GM path — delegating to _handleContainerSheetGmDeposit", {
+      itemName: droppedItem.name, destActorName: actor.name
+    });
+    await _handleContainerSheetGmDeposit({ destActor: actor, droppedItem, destContainerItem: item });
+  })();
+  return false;
+}
+
+/**
+ * Shared GM-side deposit-to-container helper used by both `_gateContainerDrop`
+ * (dnd5e) and `_installContainerSheetItemDrop` (pf2e). Validates physical/container
+ * guards, prompts for quantity when the source stack is > 1 (skipped for world
+ * items with no source actor), creates the destination item with the chosen
+ * quantity, and decrements (or deletes) the source when it had an inventory actor.
+ *
+ * Container-typed items are rejected with a `NoContainerInContainer` warning.
+ * Non-physical items are rejected with a `NotPhysical` warning.
+ *
+ * @param {object} args
+ * @param {Actor} args.destActor - The interactive container actor receiving the deposit.
+ * @param {Item} args.droppedItem - The source item being deposited.
+ * @param {Item} args.destContainerItem - The container item on `destActor`
+ *   whose contents the deposit should live in.
+ */
+async function _handleContainerSheetGmDeposit({ destActor, droppedItem, destContainerItem }) {
+  const adapter = getAdapter();
+
+  if (!adapter.isPhysicalItem(droppedItem)) {
+    dbg("place:_handleContainerSheetGmDeposit", "dropped item is not physical, bail", { itemName: droppedItem.name });
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
+    return;
+  }
+  if (adapter.isContainerItem(droppedItem)) {
+    dbg("place:_handleContainerSheetGmDeposit", "dropped item is a container, bail", { itemName: droppedItem.name });
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
+    return;
+  }
+
+  // Only prompt when the source is owned by an actor (world items have no
+  // source to decrement so they move at full quantity with no prompt).
+  const sourceQty = adapter.getItemQuantity(droppedItem);
+  let chosen = null;
+  if (droppedItem.actor && sourceQty > 1) {
+    chosen = await promptItemQuantity({
+      itemName: droppedItem.name,
+      max: sourceQty,
+      actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+      actionFormatArgs: { target: destActor.name }
+    });
+    if (chosen == null) {
+      dbg("place:_handleContainerSheetGmDeposit", "GM quantity cancelled, bail");
+      return;
+    }
+  }
+
+  const itemData = droppedItem.toObject();
+  delete itemData._id;
+  adapter.setItemContainerId(itemData, destContainerItem.id);
+  if (chosen != null && chosen !== sourceQty) {
+    adapter.setItemDataQuantity(itemData, chosen);
+  }
+
+  dbg("place:_handleContainerSheetGmDeposit", "creating deposited item on destActor", {
+    itemName: itemData.name, destActorName: destActor.name,
+    chosen, sourceQty, hasSourceActor: !!droppedItem.actor
+  });
+  try {
+    await CONFIG.Item.documentClass.createDocuments([itemData], { parent: destActor, keepId: false });
+    // Decrement or delete the source only when it came from another actor's
+    // inventory (world items have no source actor; same-actor moves would be a
+    // no-op since we already excluded same-actor deposits upstream).
+    if (droppedItem.actor && droppedItem.actor.id !== destActor.id) {
+      if (chosen != null) {
+        await decrementOrDeleteItem(droppedItem, chosen);
+      } else {
+        // chosen == null means world item or qty=1 — full move, delete source.
+        await droppedItem.delete();
+      }
+    }
+    ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
+  } catch (err) {
+    console.error("pick-up-stix | failed to deposit item on container sheet:", err);
   }
 }
 
@@ -1334,6 +1630,83 @@ Hooks.on("preUpdateToken", (tokenDoc, changes, options, userId) => {
   _handleTokenMoveWithOverlap(tokenDoc, changes, overlapTargets)
     .catch(err => console.error(`${MODULE_ID} | Token move-overlap flow failed:`, err));
   return false; // cancel the update
+});
+
+// preDeleteToken: gate stacked interactive token deletions behind a
+// quantity prompt. Multi-select deletes fire this hook once per token
+// synchronously; we collect them into a batch and flush one combined
+// dialog in the next microtask. Cancel keeps every queued token; per-row
+// choice >= max re-fires that token's delete with a suppressPrompt flag;
+// per-row choice < max decrements its embedded item and leaves the token alone.
+let _pendingDeleteBatch = null;
+
+/**
+ * Flush the accumulated batch of stacked interactive tokens that were
+ * intercepted by preDeleteToken. Presents a single combined quantity dialog
+ * (or the focused single-row dialog for a one-token batch), then either
+ * re-deletes (full) or decrements (partial) each token according to the
+ * user's choice.
+ */
+async function _flushPendingDeleteBatch() {
+  const batch = _pendingDeleteBatch;
+  _pendingDeleteBatch = null;
+  if (!batch?.tokens.length) return;
+
+  dbg("hook:preDeleteToken:flush", "flushing batch", { count: batch.tokens.length });
+
+  const items = batch.tokens.map(t => ({ itemName: t.actorName, max: t.sourceQty }));
+  const choices = await promptItemQuantitiesBatch({
+    items,
+    actionKey: items.length === 1
+      ? "INTERACTIVE_ITEMS.Dialog.QuantityActionDelete"
+      : "INTERACTIVE_ITEMS.Dialog.QuantityActionDeleteMulti"
+  });
+  if (!choices) {
+    dbg("hook:preDeleteToken:flush", "batch cancelled, no deletions");
+    return;
+  }
+
+  for (let i = 0; i < batch.tokens.length; i++) {
+    const { tokenDoc, item, sourceQty } = batch.tokens[i];
+    const chosen = choices[i];
+    if (chosen == null) continue;
+    if (chosen >= sourceQty) {
+      dbg("hook:preDeleteToken:flush", "full delete", { tokenId: tokenDoc.id, chosen, sourceQty });
+      await tokenDoc.delete({ pickUpStix: { suppressPrompt: true } });
+    } else {
+      dbg("hook:preDeleteToken:flush", "partial decrement", { tokenId: tokenDoc.id, chosen, sourceQty });
+      await item.update({ "system.quantity": sourceQty - chosen });
+    }
+  }
+}
+
+Hooks.on("preDeleteToken", (tokenDoc, options) => {
+  if (!game.user.isGM) return;
+  if (options?.pickUpStix?.suppressPrompt) return;
+
+  const actor = tokenDoc.actor;
+  if (!isInteractiveActor(actor)) return;
+  if (actor.system?.isContainer) return;
+
+  const adapter = getAdapter();
+  const item = actor.system?.embeddedItem;
+  if (!item) return;
+  const sourceQty = adapter.getItemQuantity(item);
+  if (sourceQty <= 1) return;
+
+  dbg("hook:preDeleteToken:enqueue", { tokenId: tokenDoc.id, actorName: actor.name, sourceQty });
+
+  if (!_pendingDeleteBatch) {
+    _pendingDeleteBatch = { tokens: [] };
+    // setTimeout (macrotask), not queueMicrotask: Foundry's
+    // _preDeleteOperation awaits each document's _preDelete in a loop,
+    // so a microtask flush would run *between* hook fires and split a
+    // multi-select into one dialog per token. A 0-delay timeout defers
+    // past the entire await loop so all enqueued tokens share one flush.
+    setTimeout(_flushPendingDeleteBatch, 0);
+  }
+  _pendingDeleteBatch.tokens.push({ tokenDoc, item, sourceQty, actorName: actor.name });
+  return false;
 });
 
 Hooks.on("deleteToken", async (tokenDoc, options, userId) => {
@@ -1760,17 +2133,19 @@ Hooks.on("deleteItem", (item) => {
   if (actor) _rerenderContainerViews(actor);
 });
 
-// Re-render container views when a deposited item's lock flag flips so the
-// Contents-tab row icon and tooltip refresh. Scoped narrowly: deposited items
-// (i.e. *not* the wrapping container's embedded backpack) on interactive
-// container actors. The main updateItem hook below handles identification
-// changes for the wrapped item.
+// Re-render container views when a deposited item's lock flag or stack
+// quantity changes so the Contents-tab row stays current. Scoped narrowly:
+// deposited items (i.e. *not* the wrapping container's embedded backpack)
+// on interactive container actors. The main updateItem hook below handles
+// identification changes for the wrapped item.
 Hooks.on("updateItem", (item, changes) => {
   const actor = item.parent;
   if (!isInteractiveActor(actor) || !actor.system?.isContainer) return;
   if (item.id === actor.system.embeddedItem?.id) return;
-  if (!foundry.utils.hasProperty(changes, "flags.pick-up-stix.tokenState.system.isLocked")) return;
-  dbg("hook:updateItem:lockRowRerender", { itemName: item.name, itemId: item.id });
+  const lockChanged = foundry.utils.hasProperty(changes, "flags.pick-up-stix.tokenState.system.isLocked");
+  const qtyChanged = foundry.utils.hasProperty(changes, "system.quantity");
+  if (!lockChanged && !qtyChanged) return;
+  dbg("hook:updateItem:rowRerender", { itemName: item.name, itemId: item.id, lockChanged, qtyChanged });
   _rerenderContainerViews(actor);
 });
 

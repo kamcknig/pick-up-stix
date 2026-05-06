@@ -66,6 +66,8 @@
       "NameLabel": "Name",
       "Name": "Name",
       "Quantity": "Qty",
+      "QuantityIncrease": "Increase quantity (+1, Shift +5, Ctrl +10)",
+      "QuantityDecrease": "Decrease quantity (-1, Shift -5, Ctrl -10)",
       "Bulk": "Bulk",
       "NamePlaceholder": "Name for this object...",
       "UnidentifiedName": "Unidentified Name",
@@ -90,11 +92,12 @@
       "ConfigLegend": "Interactive Object Settings",
       "ViewItemSheet": "Open Item Sheet",
       "ViewContainerSheet": "Open Container",
-      "ConfigureHUD": "Configure"
+      "ConfigureHUD": "Interactive Item Configuration"
     },
     "HUD": {
       "Inspect": "Inspect",
       "PickUp": "Pick Up",
+      "SplitStack": "Split stack",
       "Open": "Open",
       "Close": "Close",
       "Identify": "Identify",
@@ -106,6 +109,7 @@
       "Placed": "{name} placed on the scene.",
       "PickedUp": "Picked up {name}.",
       "Deposited": "Deposited {name}.",
+      "Split": "Split {name} off the stack.",
       "TransferError": "Failed to transfer item.",
       "NoCharacter": "No character assigned. Set your character in User Configuration.",
       "NoItems": "No items to pick up.",
@@ -159,7 +163,23 @@
       "TokenMultiMoveHint": "The destination overlaps {count} tokens. Choose whether to move the token here or pick a recipient.",
       "DepositToActor": "Deposit to {name}",
       "ChooseRecipient": "Choose Recipient\u2026",
-      "MoveToPosition": "Move to Position"
+      "MoveToPosition": "Move to Position",
+      "QuantityTitle": "How many \"{name}\"?",
+      "QuantityActionMove": "How many of this stack should be moved?",
+      "QuantityActionPlace": "How many to place on the canvas?",
+      "QuantityActionDeposit": "How many to deposit into {target}?",
+      "QuantityActionGive": "How many to give to {target}?",
+      "QuantityActionPickup": "How many to pick up into {target}?",
+      "QuantityActionSplit": "Split off how many?",
+      "QuantityActionDelete": "How many to remove from this stack?",
+      "QuantityActionDeleteMulti": "Choose a quantity to remove from each stack.",
+      "QuantityBatchTitle": "Delete from {count} stacks",
+      "QuantityLabel": "Quantity",
+      "QuantityRange": "Choose a value between 1 and {max}.",
+      "QuantityMin": "Min",
+      "QuantityMax": "Max",
+      "QuantityConfirm": "Confirm",
+      "QuantityCancel": "Cancel"
     },
     "Limited": {
       "DefaultContainerName": "A container of some sort",
@@ -170,7 +190,8 @@
       "AppearsClosed": "It appears to be closed."
     },
     "Container": {
-      "ContentsHidden": "You are too far away to see the contents"
+      "ContentsHidden": "You are too far away to see the contents",
+      "Empty": "This container is empty."
     },
     "Model": {
       "FIELDS": {

@@ -6,6 +6,7 @@ import { validateContainerAccess, validateItemAccess } from "../utils/containerA
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "../utils/levels.mjs";
+import { decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -79,8 +80,17 @@ function getPlayerPositionOverride(tokenId) {
 }
 
 
-export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
-  dbg("xfer:pickupItem", { sceneId, tokenId, itemId, targetActorId });
+/**
+ * @param {string} sceneId
+ * @param {string} tokenId
+ * @param {string} itemId
+ * @param {string} targetActorId
+ * @param {number|null} [quantity=null] - Optional partial-stack quantity. When
+ *   null/undefined the full stack is moved (existing behavior). Clamped to
+ *   `[1, source quantity]` server-side.
+ */
+export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quantity = null) {
+  dbg("xfer:pickupItem", { sceneId, tokenId, itemId, targetActorId, quantity });
   const result = getTokenActor(sceneId, tokenId);
   const targetActor = game.actors.get(targetActorId);
 
@@ -121,9 +131,22 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
 
   const baseActorId = tokenDoc.actorId;
   const isEphemeralToken = !!tokenDoc.flags?.["pick-up-stix"]?.ephemeral;
-  dbg("xfer:pickupItem", "preparing item transfer", { baseActorId, isEphemeralToken, isContainer: sourceActor.system.isContainer });
 
-  const toCreate = await getAdapter().flattenItemsForCreate([item], {
+  const adapter = getAdapter();
+  const sourceQty = adapter.getItemQuantity(item);
+  // Clamp the requested quantity into [1, sourceQty]. null/undefined means
+  // "move the full stack" (legacy behavior).
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
+  const isPartial = moveQty < sourceQty;
+
+  dbg("xfer:pickupItem", "preparing item transfer", {
+    baseActorId, isEphemeralToken, isContainer: sourceActor.system.isContainer,
+    sourceQty, moveQty, isPartial
+  });
+
+  const toCreate = await adapter.flattenItemsForCreate([item], {
     transformAll: (itemData) => {
       if (itemData instanceof foundry.abstract.Document) itemData = itemData.toObject();
       stripEquipmentState(itemData);
@@ -144,13 +167,27 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
     }
   });
 
-  dbg("xfer:pickupItem", "creating items on targetActor", { toCreateCount: toCreate.length, targetActorName: targetActor.name });
+  // Override quantity on the first entry — flattenItemsForCreate yields the
+  // source item first; nested container contents (rare on pickup) keep their
+  // own quantities.
+  if (isPartial && toCreate.length) {
+    adapter.setItemDataQuantity(toCreate[0], moveQty);
+  }
+
+  dbg("xfer:pickupItem", "creating items on targetActor", { toCreateCount: toCreate.length, targetActorName: targetActor.name, moveQty });
   await CONFIG.Item.documentClass.createDocuments(toCreate, {
     parent: targetActor,
     keepId: true
   });
 
-  await item.delete({ deleteContents: true });
+  if (isPartial) {
+    // Partial pickup — decrement, do not delete. The source token stays
+    // because the actor's items.size doesn't drop below 1.
+    dbg("xfer:pickupItem", "partial pickup, decrementing source item", { moveQty, sourceQty });
+    await decrementOrDeleteItem(item, moveQty);
+  } else {
+    await item.delete({ deleteContents: true });
+  }
 
   if (!sourceActor.system.isContainer && sourceActor.items.size === 0) {
     dbg("xfer:pickupItem", "source actor now empty, deleting token", { tokenId });
@@ -163,8 +200,16 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
   return true;
 }
 
-export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
-  dbg("xfer:depositItem", { sourceActorId, itemId, sceneId, tokenId });
+/**
+ * @param {string} sourceActorId
+ * @param {string} itemId
+ * @param {string} sceneId
+ * @param {string} tokenId
+ * @param {number|null} [quantity=null] - Optional partial-stack quantity. When
+ *   null/undefined the full stack is moved (existing behavior).
+ */
+export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quantity = null) {
+  dbg("xfer:depositItem", { sourceActorId, itemId, sceneId, tokenId, quantity });
   const sourceActor = game.actors.get(sourceActorId);
   const result = getTokenActor(sceneId, tokenId);
 
@@ -183,10 +228,19 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
     return false;
   }
 
+  // Compute the actual move quantity. If the caller passed null/undefined,
+  // we move the full stack (legacy behavior). Otherwise clamp into [1, src].
+  const adapter = getAdapter();
+  const sourceQty = adapter.getItemQuantity(item);
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
+
   dbg("xfer:depositItem", "resolved item and actors", {
     itemName: item.name, itemId: item.id,
     sourceActorName: sourceActor.name, targetActorName: targetActor.name,
-    targetIsContainer: targetActor.system?.isContainer, targetIsLocked: targetActor.system?.isLocked, targetIsOpen: targetActor.system?.isOpen
+    targetIsContainer: targetActor.system?.isContainer, targetIsLocked: targetActor.system?.isLocked, targetIsOpen: targetActor.system?.isOpen,
+    sourceQty, moveQty
   });
 
   // isContainer guard inside validateContainerAccess ensures open is only
@@ -196,19 +250,27 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
     return false;
   }
 
-  const toCreate = await getAdapter().flattenItemsForCreate([item]);
+  const toCreate = await adapter.flattenItemsForCreate([item]);
+
+  // Override quantity on the first entry (the source item). flattenItemsForCreate
+  // yields the source item first; any nested container contents follow and keep
+  // their own quantities.
+  if (moveQty !== sourceQty && toCreate.length) {
+    adapter.setItemDataQuantity(toCreate[0], moveQty);
+  }
 
   assignContainerParent(targetActor, toCreate);
 
-  dbg("xfer:depositItem", "creating deposited items on targetActor", { toCreateCount: toCreate.length });
+  dbg("xfer:depositItem", "creating deposited items on targetActor", { toCreateCount: toCreate.length, moveQty, sourceQty });
   await CONFIG.Item.documentClass.createDocuments(toCreate, {
     parent: targetActor,
     keepId: true
   });
 
-  await item.delete({ deleteContents: true });
+  // Decrement or delete the source depending on how much was moved.
+  await decrementOrDeleteItem(item, moveQty);
 
-  dbg("xfer:depositItem", "deposit complete");
+  dbg("xfer:depositItem", "deposit complete", { moveQty, sourceQty });
   notifyItemAction("Deposited", item.name);
   return true;
 }

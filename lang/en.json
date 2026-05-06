@@ -92,7 +92,7 @@
       "ConfigLegend": "Interactive Object Settings",
       "ViewItemSheet": "Open Item Sheet",
       "ViewContainerSheet": "Open Container",
-      "ConfigureHUD": "Configure"
+      "ConfigureHUD": "Interactive Item Configuration"
     },
     "HUD": {
       "Inspect": "Inspect",

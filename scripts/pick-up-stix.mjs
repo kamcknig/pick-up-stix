@@ -16,7 +16,7 @@ import { validateContainerAccess, validateItemAccess } from "./utils/containerAc
 import { resolvePickupTarget } from "./utils/pickupFlow.mjs";
 import { createAdapterHeaderButton, createRowControl } from "./utils/domButtons.mjs";
 import { dbg } from "./utils/debugLog.mjs";
-import { promptItemQuantity, decrementOrDeleteItem } from "./utils/quantityPrompt.mjs";
+import { promptItemQuantity, promptItemQuantitiesBatch, decrementOrDeleteItem } from "./utils/quantityPrompt.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
@@ -1630,6 +1630,83 @@ Hooks.on("preUpdateToken", (tokenDoc, changes, options, userId) => {
   _handleTokenMoveWithOverlap(tokenDoc, changes, overlapTargets)
     .catch(err => console.error(`${MODULE_ID} | Token move-overlap flow failed:`, err));
   return false; // cancel the update
+});
+
+// preDeleteToken: gate stacked interactive token deletions behind a
+// quantity prompt. Multi-select deletes fire this hook once per token
+// synchronously; we collect them into a batch and flush one combined
+// dialog in the next microtask. Cancel keeps every queued token; per-row
+// choice >= max re-fires that token's delete with a suppressPrompt flag;
+// per-row choice < max decrements its embedded item and leaves the token alone.
+let _pendingDeleteBatch = null;
+
+/**
+ * Flush the accumulated batch of stacked interactive tokens that were
+ * intercepted by preDeleteToken. Presents a single combined quantity dialog
+ * (or the focused single-row dialog for a one-token batch), then either
+ * re-deletes (full) or decrements (partial) each token according to the
+ * user's choice.
+ */
+async function _flushPendingDeleteBatch() {
+  const batch = _pendingDeleteBatch;
+  _pendingDeleteBatch = null;
+  if (!batch?.tokens.length) return;
+
+  dbg("hook:preDeleteToken:flush", "flushing batch", { count: batch.tokens.length });
+
+  const items = batch.tokens.map(t => ({ itemName: t.actorName, max: t.sourceQty }));
+  const choices = await promptItemQuantitiesBatch({
+    items,
+    actionKey: items.length === 1
+      ? "INTERACTIVE_ITEMS.Dialog.QuantityActionDelete"
+      : "INTERACTIVE_ITEMS.Dialog.QuantityActionDeleteMulti"
+  });
+  if (!choices) {
+    dbg("hook:preDeleteToken:flush", "batch cancelled, no deletions");
+    return;
+  }
+
+  for (let i = 0; i < batch.tokens.length; i++) {
+    const { tokenDoc, item, sourceQty } = batch.tokens[i];
+    const chosen = choices[i];
+    if (chosen == null) continue;
+    if (chosen >= sourceQty) {
+      dbg("hook:preDeleteToken:flush", "full delete", { tokenId: tokenDoc.id, chosen, sourceQty });
+      await tokenDoc.delete({ pickUpStix: { suppressPrompt: true } });
+    } else {
+      dbg("hook:preDeleteToken:flush", "partial decrement", { tokenId: tokenDoc.id, chosen, sourceQty });
+      await item.update({ "system.quantity": sourceQty - chosen });
+    }
+  }
+}
+
+Hooks.on("preDeleteToken", (tokenDoc, options) => {
+  if (!game.user.isGM) return;
+  if (options?.pickUpStix?.suppressPrompt) return;
+
+  const actor = tokenDoc.actor;
+  if (!isInteractiveActor(actor)) return;
+  if (actor.system?.isContainer) return;
+
+  const adapter = getAdapter();
+  const item = actor.system?.embeddedItem;
+  if (!item) return;
+  const sourceQty = adapter.getItemQuantity(item);
+  if (sourceQty <= 1) return;
+
+  dbg("hook:preDeleteToken:enqueue", { tokenId: tokenDoc.id, actorName: actor.name, sourceQty });
+
+  if (!_pendingDeleteBatch) {
+    _pendingDeleteBatch = { tokens: [] };
+    // setTimeout (macrotask), not queueMicrotask: Foundry's
+    // _preDeleteOperation awaits each document's _preDelete in a loop,
+    // so a microtask flush would run *between* hook fires and split a
+    // multi-select into one dialog per token. A 0-delay timeout defers
+    // past the entire await loop so all enqueued tokens share one flush.
+    setTimeout(_flushPendingDeleteBatch, 0);
+  }
+  _pendingDeleteBatch.tokens.push({ tokenDoc, item, sourceQty, actorName: actor.name });
+  return false;
 });
 
 Hooks.on("deleteToken", async (tokenDoc, options, userId) => {

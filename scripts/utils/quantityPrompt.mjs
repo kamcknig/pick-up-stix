@@ -114,6 +114,133 @@ export async function promptItemQuantity({
 }
 
 /**
+ * Multi-row variant of promptItemQuantity. Renders one row per item
+ * with its own number input + Min / Max shortcuts; returns an array
+ * of chosen quantities aligned with the input order, or null if the
+ * user cancelled (or closed) the dialog.
+ *
+ * Single-item batches fall through to promptItemQuantity for the
+ * compact, focused UX. The header hint above the row list comes from
+ * `actionKey` — typically a *Multi key (e.g. QuantityActionDeleteMulti)
+ * with plural phrasing. The window title takes a {count} format arg.
+ *
+ * @param {object} args
+ * @param {Array<{ itemName: string, max: number }>} args.items
+ * @param {string} [args.actionKey="INTERACTIVE_ITEMS.Dialog.QuantityActionMove"]
+ * @param {object} [args.actionFormatArgs]
+ * @returns {Promise<number[]|null>}
+ */
+export async function promptItemQuantitiesBatch({
+  items,
+  actionKey = "INTERACTIVE_ITEMS.Dialog.QuantityActionMove",
+  actionFormatArgs = {}
+}) {
+  if (!items?.length) return [];
+  if (items.length === 1) {
+    const { itemName, max } = items[0];
+    const chosen = await promptItemQuantity({ itemName, max, actionKey, actionFormatArgs });
+    return chosen == null ? null : [chosen];
+  }
+
+  const action = game.i18n.format(actionKey, actionFormatArgs);
+  const minLabel = game.i18n.localize("INTERACTIVE_ITEMS.Dialog.QuantityMin");
+  const maxLabel = game.i18n.localize("INTERACTIVE_ITEMS.Dialog.QuantityMax");
+
+  const rows = items.map((it, i) => `
+    <div class="form-group ii-quantity-row ii-quantity-batch-row" data-row-index="${i}">
+      <label class="ii-quantity-batch-label" title="${it.itemName}">${it.itemName}</label>
+      <div class="form-fields ii-quantity-fields">
+        <button type="button" class="ii-quantity-shortcut" data-shortcut="min" data-row-index="${i}">
+          ${minLabel}
+        </button>
+        <input type="number" name="quantity-${i}" min="1" max="${it.max}" value="${it.max}" step="1" autocomplete="off" />
+        <button type="button" class="ii-quantity-shortcut" data-shortcut="max" data-row-index="${i}">
+          ${maxLabel}
+        </button>
+        <span class="ii-quantity-batch-cap">/ ${it.max}</span>
+      </div>
+    </div>
+  `).join("");
+
+  const content = `
+    <p class="ii-quantity-action">${action}</p>
+    <div class="ii-quantity-batch-list">${rows}</div>
+  `;
+
+  dbg("qty:promptItemQuantitiesBatch", "rendering batch dialog", { count: items.length });
+
+  const result = await foundry.applications.api.DialogV2.wait({
+    window: {
+      title: game.i18n.format("INTERACTIVE_ITEMS.Dialog.QuantityBatchTitle", { count: items.length }),
+      classes: ["ii-quantity-dialog", "ii-quantity-batch-dialog"]
+    },
+    content,
+    render: (event, dialog) => {
+      const root = dialog.element;
+
+      const clampInput = (input) => {
+        const max = Number(input.max);
+        let v = parseInt(input.value, 10);
+        if (!Number.isFinite(v) || v < 1) v = 1;
+        else if (v > max) v = max;
+        input.value = String(v);
+      };
+
+      root.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener("blur",   () => clampInput(input));
+        input.addEventListener("change", () => clampInput(input));
+      });
+
+      root.querySelectorAll(".ii-quantity-shortcut").forEach(btn => {
+        btn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const rowIndex = btn.dataset.rowIndex;
+          const input = root.querySelector(`input[name="quantity-${rowIndex}"]`);
+          if (!input) return;
+          input.value = btn.dataset.shortcut === "min" ? "1" : input.max;
+        });
+      });
+
+      // Pre-select the first row's input contents.
+      const firstInput = root.querySelector('input[name="quantity-0"]');
+      if (firstInput) requestAnimationFrame(() => { firstInput.focus(); firstInput.select(); });
+    },
+    buttons: [
+      {
+        action: "confirm",
+        label: game.i18n.localize("INTERACTIVE_ITEMS.Dialog.QuantityConfirm"),
+        icon: "fa-solid fa-check",
+        default: true,
+        callback: (event, button) => {
+          const out = items.map((it, i) => {
+            const raw = button.form?.elements[`quantity-${i}`]?.value ?? it.max;
+            let v = parseInt(raw, 10);
+            if (!Number.isFinite(v) || v < 1) v = 1;
+            if (v > it.max) v = it.max;
+            return v;
+          });
+          return out;
+        }
+      },
+      {
+        action: "cancel",
+        label: game.i18n.localize("INTERACTIVE_ITEMS.Dialog.QuantityCancel"),
+        icon: "fa-solid fa-xmark"
+      }
+    ],
+    rejectClose: false
+  });
+
+  if (result === null || result === undefined) {
+    dbg("qty:promptItemQuantitiesBatch", "cancelled");
+    return null;
+  }
+  dbg("qty:promptItemQuantitiesBatch", "confirmed", { result });
+  return result;
+}
+
+/**
  * Decrement the source item's quantity by `chosen`, or delete it outright
  * when `chosen >= source quantity`. Used after a partial-stack move where
  * the destination has already been written.

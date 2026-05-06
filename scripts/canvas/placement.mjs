@@ -422,7 +422,7 @@ async function depositCanvasTokenToTarget(tokenDoc, targetToken, { quantity = nu
     // item out from under the actor; isPartial guarantees moveQty < sourceQty.
     await embeddedItem.update({ "system.quantity": sourceQty - moveQty });
   } else {
-    await tokenDoc.delete();
+    await tokenDoc.delete({ pickUpStix: { suppressPrompt: true } });
   }
   notifyItemAction("Deposited", sourceActor.name);
 }

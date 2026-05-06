@@ -306,50 +306,81 @@ function _injectItemContextMenuEntries(item, menuItems) {
 }
 
 /**
- * Injects a wand-icon identification toggle into each inventory row on dnd5e
- * character/NPC sheets for items originating from interactive actors.
+ * Injects GM-only row controls (lock, identify, delete) into each inventory
+ * row of a non-interactive actor sheet. Identify branches on the round-trip
+ * flag: items picked up from interactive tokens (sourceActorId set) toggle
+ * via the cached identifiedData/unidentifiedData payloads; plain inventory
+ * items just flip the system's native identified flag through the adapter.
  *
- * dnd5e uses both `<img class="item-image">` (raster) and
- * `<dnd5e-icon class="item-image">` (SVG); both share the class so the
- * querySelector catches either.
+ * The identify icon is suppressed on systems that already render a native
+ * inventory identify control (pf2e); lock and delete are added uniformly.
  *
  * @param {ActorSheet} app - The rendered actor sheet application.
  * @param {HTMLElement|jQuery} html - The sheet's root element.
  */
 function _injectActorInventoryIdentifyToggles(app, html) {
   if (!game.user.isGM) return;
-  // pf2e (and other systems with hasNativeInventoryIdentify) already render
-  // toggle-identified controls on every inventory row — skip ours to avoid
-  // duplicating the control.
-  if (getAdapter().capabilities.hasNativeInventoryIdentify) return;
   if (isInteractiveActor(app.actor)) return;
   const root = html instanceof HTMLElement ? html : html?.[0];
   if (!root) return;
+
+  const adapter = getAdapter();
+  const skipIdentify = adapter.capabilities.hasNativeInventoryIdentify;
+
+  // Add an empty, label-less header cell to each items-section header so the
+  // row's controls column has a matching slot in the header. dnd5e's inventory
+  // headers and rows are sibling flex layouts whose column widths are set by
+  // class selectors — using the same class on both keeps them aligned.
+  root.querySelectorAll(".items-section .items-header.header").forEach(header => {
+    if (header.querySelector(".ii-row-controls-cell")) return;
+    const cell = document.createElement("div");
+    cell.className = "item-header ii-row-controls-cell";
+    header.appendChild(cell);
+  });
 
   root.querySelectorAll("[data-item-id]").forEach(el => {
     const itemId = el.dataset.itemId;
     const item = app.actor.items.get(itemId);
     if (!item) return;
-    const iiFlags = getItemIIFlags(item);
-    if (!iiFlags?.sourceActorId) return;
-
-    if (el.querySelector(".pick-up-stix-identify-toggle")) return;
-
-    const isIdentified = isItemIdentified(item);
-    const toggle = document.createElement("a");
-    toggle.className = `pick-up-stix-identify-toggle ii-row-control${isIdentified ? " active" : ""}`;
-    toggle.title = game.i18n.localize(isIdentified
-      ? "INTERACTIVE_ITEMS.Context.HideItem"
-      : "INTERACTIVE_ITEMS.Context.RevealItem");
-    toggle.innerHTML = `<i class="fas fa-wand-sparkles"></i>`;
-    toggle.addEventListener("click", async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      await toggleItemIdentification(item);
-    });
-
     const itemRow = el.querySelector(".item-row");
-    (itemRow ?? el).appendChild(toggle);
+    if (!itemRow) return;
+    if (itemRow.querySelector(":scope > .ii-row-controls-cell")) return;
+
+    const isInteractive = !!getItemSourceActorId(item);
+    const cell = document.createElement("div");
+    cell.className = "item-detail ii-row-controls-cell";
+
+    const isLocked = isItemLocked(item);
+    cell.appendChild(createRowControl({
+      iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
+      titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
+      onClick: async () => {
+        await item.update({
+          "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
+        });
+      }
+    }));
+
+    if (!skipIdentify) {
+      cell.appendChild(createRowControl({
+        iconClass: "fa-solid fa-wand-sparkles",
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+        extraClass: "pick-up-stix-identify-toggle",
+        active: adapter.isItemIdentified(item),
+        onClick: async () => {
+          if (isInteractive) await toggleItemIdentification(item);
+          else await adapter.performIdentifyToggle(item);
+        }
+      }));
+    }
+
+    cell.appendChild(createRowControl({
+      iconClass: "fa-solid fa-trash-can",
+      titleKey: "INTERACTIVE_ITEMS.Sheet.DeleteItem",
+      onClick: async () => { await item.delete({ deleteContents: true }); }
+    }));
+
+    itemRow.appendChild(cell);
   });
 }
 
@@ -579,27 +610,31 @@ function _injectContainerSheetRowControls({ actor, app, html }) {
     if (isModuleGM() && item) {
       const isInteractive = !!getItemSourceActorId(item);
 
-      if (isInteractive) {
-        const isLocked = isItemLocked(item);
-        target.appendChild(createRowControl({
-          iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
-          titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
-          onClick: async () => {
-            await item.update({
-              "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
-            });
-          }
-        }));
+      const isLocked = isItemLocked(item);
+      target.appendChild(createRowControl({
+        iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
+        onClick: async () => {
+          await item.update({
+            "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
+          });
+        }
+      }));
 
-        target.appendChild(createRowControl({
-          iconClass: "fa-solid fa-wand-sparkles",
-          titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
-          active: getAdapter().isItemIdentified(item),
-          onClick: async () => { await toggleItemIdentification(item); }
-        }));
-      }
+      // Interactive items round-trip via the cached identifiedData/unidentifiedData
+      // payloads (toggleItemIdentification swaps name/img/description); plain
+      // deposited items just flip the system's native identified flag through
+      // the adapter.
+      target.appendChild(createRowControl({
+        iconClass: "fa-solid fa-wand-sparkles",
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+        active: getAdapter().isItemIdentified(item),
+        onClick: async () => {
+          if (isInteractive) await toggleItemIdentification(item);
+          else await getAdapter().performIdentifyToggle(item);
+        }
+      }));
 
-      // Delete applies to all items, not just interactive ones.
       target.appendChild(createRowControl({
         iconClass: "fa-solid fa-trash-can",
         titleKey: "INTERACTIVE_ITEMS.Sheet.DeleteItem",

@@ -70,8 +70,22 @@
 }
 
 .ii-row-control.active {
-  color: var(--color-text-hyperlink);
+  color: var(--item-control-active-color, var(--color-text-hyperlink));
   opacity: 1;
+}
+
+/* ===== Inventory Row Controls Column (injected into dnd5e character sheets) =====
+ * dnd5e renders the items-section header and each row as sibling flex
+ * containers; column widths come from per-cell class selectors. Adding a
+ * matched class to a header cell and a row cell keeps them aligned.
+ */
+.dnd5e2 .items-section .items-header .ii-row-controls-cell,
+.dnd5e2 .items-section .item .ii-row-controls-cell {
+  width: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
@@ -90,13 +104,13 @@
 }
 
 .pick-up-stix-identify-toggle.active {
-  color: var(--color-text-hyperlink);
+  color: var(--item-control-active-color, var(--color-text-hyperlink));
   opacity: 1;
 }
 
 .pick-up-stix-identify-toggle:hover {
   opacity: 1;
-  color: var(--color-text-hyperlink);
+  color: var(--item-control-active-color, var(--color-text-hyperlink));
 }
 
 /* ===== Folder Trash Button ===== */

@@ -1,16 +1,40 @@
 import { isInteractiveActor, isInteractiveContainer } from "./actorHelpers.mjs";
 import { dbg } from "./debugLog.mjs";
+import { hasLevels, getViewedLevelId, getTokenLevelId } from "./levels.mjs";
 
 export const PLACE_ON_CANVAS = "__place__";
 
-export function findCanvasDropTargets(x, y, { sourceActorId = null } = {}) {
+/**
+ * Finds canvas tokens whose footprint contains the given pixel position that are
+ * valid deposit targets (non-interactive actors, interactive containers, or PC/NPC
+ * tokens). Excludes the source actor when `sourceActorId` is provided.
+ *
+ * On Foundry v14, an optional `level` filter restricts results to tokens on the
+ * specified level. When `level` is null on v14, defaults to the currently-viewed
+ * level so that stacked-visible tokens on a different floor are never falsely
+ * registered as drop targets. On v13 the filter is a no-op.
+ *
+ * @param {number} x - Canvas x coordinate of the drop point.
+ * @param {number} y - Canvas y coordinate of the drop point.
+ * @param {object} [options]
+ * @param {string|null} [options.sourceActorId=null] - Actor id to exclude from results.
+ * @param {string|null} [options.level=null] - v14 level id to restrict to. Null defaults
+ *   to the currently-viewed level on v14, or no filtering on v13.
+ * @returns {Token[]} Array of matching Token placeables.
+ */
+export function findCanvasDropTargets(x, y, { sourceActorId = null, level = null } = {}) {
   const size = canvas.grid.size;
   const targets = [];
+  // On v14, default to the currently-viewed level when no explicit level was supplied.
+  // On v13 this resolves to null and the level filter below is a no-op.
+  const requireLevel = level ?? (hasLevels() ? getViewedLevelId() : null);
   for (const t of canvas.tokens?.placeables ?? []) {
     const actor = t.actor;
     if (!actor) continue;
     if (isInteractiveActor(actor) && !isInteractiveContainer(actor)) continue;
     if (sourceActorId && actor.id === sourceActorId) continue;
+    // v14: skip tokens on a different level than the drop target level.
+    if (requireLevel && getTokenLevelId(t.document) !== requireLevel) continue;
     const tx = t.document.x;
     const ty = t.document.y;
     const tw = t.document.width * size;
@@ -18,8 +42,8 @@ export function findCanvasDropTargets(x, y, { sourceActorId = null } = {}) {
     if (x < tx || x >= tx + tw || y < ty || y >= ty + th) continue;
     targets.push(t);
   }
-  dbg("dropTargets:find", { x, y, sourceActorId, count: targets.length,
-    names: targets.map(t => t.actor.name) });
+  dbg("dropTargets:find", { x, y, sourceActorId, level: requireLevel,
+    count: targets.length, names: targets.map(t => t.actor.name) });
   return targets;
 }
 

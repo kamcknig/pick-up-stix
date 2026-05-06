@@ -1,9 +1,12 @@
 import { getTokenActor, isInteractiveActor } from "../utils/actorHelpers.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
+import { hasLevels, getTokenLevelId } from "../utils/levels.mjs";
+import { decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -23,14 +26,22 @@ function stampInteractiveIdentity(itemData, actor, { embeddedItemData } = {}) {
     description: actor.system.description || descriptionValue
   };
 
+  // Wrap the raw system-data slice as a duck-typed item so the adapter's
+  // getItemUnidentified* methods can read the correct system-specific fields.
+  const adapter = getAdapter();
+  const embeddedItemLike = embeddedItemData ? { system: embeddedItemData } : null;
   const unidentifiedData = {
-    name: embeddedItemData?.unidentified?.name || actor.system.unidentifiedName || actor.name,
+    name: (embeddedItemLike && adapter.getItemUnidentifiedName(embeddedItemLike))
+      || actor.system.unidentifiedName || actor.name,
     img: actor.system.unidentifiedImage || actor.img,
-    description: embeddedItemData?.unidentified?.description || actor.system.unidentifiedDescription || identifiedData.description
+    description: (embeddedItemLike && adapter.getItemUnidentifiedDescription(embeddedItemLike))
+      || actor.system.unidentifiedDescription || identifiedData.description
   };
 
-  const isIdentified = embeddedItemData
-    ? (embeddedItemData.identified !== false)
+  // Read identification state through the adapter so the field path is not
+  // hard-coded to dnd5e's `system.identified` boolean.
+  const isIdentified = embeddedItemLike
+    ? adapter.isItemIdentified(embeddedItemLike)
     : actor.system.isIdentified;
 
   const display = isIdentified ? identifiedData : unidentifiedData;
@@ -69,8 +80,17 @@ function getPlayerPositionOverride(tokenId) {
 }
 
 
-export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
-  dbg("xfer:pickupItem", { sceneId, tokenId, itemId, targetActorId });
+/**
+ * @param {string} sceneId
+ * @param {string} tokenId
+ * @param {string} itemId
+ * @param {string} targetActorId
+ * @param {number|null} [quantity=null] - Optional partial-stack quantity. When
+ *   null/undefined the full stack is moved (existing behavior). Clamped to
+ *   `[1, source quantity]` server-side.
+ */
+export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quantity = null) {
+  dbg("xfer:pickupItem", { sceneId, tokenId, itemId, targetActorId, quantity });
   const result = getTokenActor(sceneId, tokenId);
   const targetActor = game.actors.get(targetActorId);
 
@@ -111,9 +131,22 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
 
   const baseActorId = tokenDoc.actorId;
   const isEphemeralToken = !!tokenDoc.flags?.["pick-up-stix"]?.ephemeral;
-  dbg("xfer:pickupItem", "preparing item transfer", { baseActorId, isEphemeralToken, isContainer: sourceActor.system.isContainer });
 
-  const toCreate = await CONFIG.Item.documentClass.createWithContents([item], {
+  const adapter = getAdapter();
+  const sourceQty = adapter.getItemQuantity(item);
+  // Clamp the requested quantity into [1, sourceQty]. null/undefined means
+  // "move the full stack" (legacy behavior).
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
+  const isPartial = moveQty < sourceQty;
+
+  dbg("xfer:pickupItem", "preparing item transfer", {
+    baseActorId, isEphemeralToken, isContainer: sourceActor.system.isContainer,
+    sourceQty, moveQty, isPartial
+  });
+
+  const toCreate = await adapter.flattenItemsForCreate([item], {
     transformAll: (itemData) => {
       if (itemData instanceof foundry.abstract.Document) itemData = itemData.toObject();
       stripEquipmentState(itemData);
@@ -134,13 +167,27 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
     }
   });
 
-  dbg("xfer:pickupItem", "creating items on targetActor", { toCreateCount: toCreate.length, targetActorName: targetActor.name });
+  // Override quantity on the first entry — flattenItemsForCreate yields the
+  // source item first; nested container contents (rare on pickup) keep their
+  // own quantities.
+  if (isPartial && toCreate.length) {
+    adapter.setItemDataQuantity(toCreate[0], moveQty);
+  }
+
+  dbg("xfer:pickupItem", "creating items on targetActor", { toCreateCount: toCreate.length, targetActorName: targetActor.name, moveQty });
   await CONFIG.Item.documentClass.createDocuments(toCreate, {
     parent: targetActor,
     keepId: true
   });
 
-  await item.delete({ deleteContents: true });
+  if (isPartial) {
+    // Partial pickup — decrement, do not delete. The source token stays
+    // because the actor's items.size doesn't drop below 1.
+    dbg("xfer:pickupItem", "partial pickup, decrementing source item", { moveQty, sourceQty });
+    await decrementOrDeleteItem(item, moveQty);
+  } else {
+    await item.delete({ deleteContents: true });
+  }
 
   if (!sourceActor.system.isContainer && sourceActor.items.size === 0) {
     dbg("xfer:pickupItem", "source actor now empty, deleting token", { tokenId });
@@ -153,8 +200,16 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
   return true;
 }
 
-export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
-  dbg("xfer:depositItem", { sourceActorId, itemId, sceneId, tokenId });
+/**
+ * @param {string} sourceActorId
+ * @param {string} itemId
+ * @param {string} sceneId
+ * @param {string} tokenId
+ * @param {number|null} [quantity=null] - Optional partial-stack quantity. When
+ *   null/undefined the full stack is moved (existing behavior).
+ */
+export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quantity = null) {
+  dbg("xfer:depositItem", { sourceActorId, itemId, sceneId, tokenId, quantity });
   const sourceActor = game.actors.get(sourceActorId);
   const result = getTokenActor(sceneId, tokenId);
 
@@ -173,10 +228,19 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
     return false;
   }
 
+  // Compute the actual move quantity. If the caller passed null/undefined,
+  // we move the full stack (legacy behavior). Otherwise clamp into [1, src].
+  const adapter = getAdapter();
+  const sourceQty = adapter.getItemQuantity(item);
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
+
   dbg("xfer:depositItem", "resolved item and actors", {
     itemName: item.name, itemId: item.id,
     sourceActorName: sourceActor.name, targetActorName: targetActor.name,
-    targetIsContainer: targetActor.system?.isContainer, targetIsLocked: targetActor.system?.isLocked, targetIsOpen: targetActor.system?.isOpen
+    targetIsContainer: targetActor.system?.isContainer, targetIsLocked: targetActor.system?.isLocked, targetIsOpen: targetActor.system?.isOpen,
+    sourceQty, moveQty
   });
 
   // isContainer guard inside validateContainerAccess ensures open is only
@@ -186,19 +250,27 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
     return false;
   }
 
-  const toCreate = await CONFIG.Item.documentClass.createWithContents([item]);
+  const toCreate = await adapter.flattenItemsForCreate([item]);
+
+  // Override quantity on the first entry (the source item). flattenItemsForCreate
+  // yields the source item first; any nested container contents follow and keep
+  // their own quantities.
+  if (moveQty !== sourceQty && toCreate.length) {
+    adapter.setItemDataQuantity(toCreate[0], moveQty);
+  }
 
   assignContainerParent(targetActor, toCreate);
 
-  dbg("xfer:depositItem", "creating deposited items on targetActor", { toCreateCount: toCreate.length });
+  dbg("xfer:depositItem", "creating deposited items on targetActor", { toCreateCount: toCreate.length, moveQty, sourceQty });
   await CONFIG.Item.documentClass.createDocuments(toCreate, {
     parent: targetActor,
     keepId: true
   });
 
-  await item.delete({ deleteContents: true });
+  // Decrement or delete the source depending on how much was moved.
+  await decrementOrDeleteItem(item, moveQty);
 
-  dbg("xfer:depositItem", "deposit complete");
+  dbg("xfer:depositItem", "deposit complete", { moveQty, sourceQty });
   notifyItemAction("Deposited", item.name);
   return true;
 }
@@ -232,6 +304,24 @@ export function checkProximity(interactiveActor, { silent = false, range = "inte
   // the updateToken / controlToken hooks) over the live document coords, which
   // Foundry's animation system overwrites mid-flight.
   const override = getPlayerPositionOverride(playerToken.document.id);
+
+  // v14: a candidate on a different level than the interactive object can never
+  // be in interaction or inspection range. Use override.level (animation-safe)
+  // when available, else fall back to the live document's _source.level.
+  if (hasLevels()) {
+    const objectToken = interactiveActor.token
+      ? canvas.tokens.get(interactiveActor.token.id)
+      : canvas.tokens.placeables.find(t => t.actor?.id === interactiveActor.id);
+    const objectLevel = objectToken ? getTokenLevelId(objectToken.document) : null;
+    const playerLevel = override?.level ?? getTokenLevelId(playerToken.document);
+    if (objectLevel && playerLevel && objectLevel !== playerLevel) {
+      dbg("xfer:checkProximity", "level mismatch, fail",
+        { actorName: interactiveActor.name, objectLevel, playerLevel });
+      if (!silent) ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TooFar"));
+      return false;
+    }
+  }
+
   const source = override ?? {
     x: playerToken.document.x,
     y: playerToken.document.y,
@@ -383,25 +473,34 @@ export async function toggleItemIdentification(item) {
     return null;
   }
 
-  dbg("xfer:toggleItemIdentification", "applying identification toggle", { name: data.name, img: data.img });
+  dbg("xfer:toggleItemIdentification", "applying identification toggle", { name: data.name, img: data.img, newState });
   await item.update({
     name: data.name,
     img: data.img,
     "system.description.value": data.description,
     "flags.pick-up-stix.tokenState.system.isIdentified": newState
   });
+  // Sync the system's native identification field so the game system's own
+  // identified/unidentified UI reflects the new state (e.g. dnd5e hides item
+  // details from players when system.identified is false).
+  await getAdapter().setItemIdentified(item, newState);
   dbg("xfer:toggleItemIdentification", "toggle complete", { newState });
   return newState;
 }
 
+/**
+ * Assigns the container parent reference on each item data object so that the
+ * deposited items appear as children of the destination container in the system's
+ * native sheet. Delegates the field write to the adapter so the field path is not
+ * hard-coded to dnd5e's `system.container`.
+ */
 export function assignContainerParent(containerActor, itemDataArray) {
   if (!containerActor.system?.isContainer) return;
   const containerItem = containerActor.system.containerItem;
   if (!containerItem) return;
   const items = Array.isArray(itemDataArray) ? itemDataArray : [itemDataArray];
   for (const itemData of items) {
-    itemData.system = itemData.system ?? {};
-    itemData.system.container = containerItem.id;
+    getAdapter().setItemContainerId(itemData, containerItem.id);
   }
 }
 
@@ -411,6 +510,10 @@ export function buildInteractiveItemData(droppedActor) {
 
   const itemData = sourceItem.toObject();
   delete itemData._id;
+  // Clear any stale container-parent pointer carried from a prior life.
+  // depositCanvasTokenToTarget / depositActorToTarget will set the new
+  // parent (if the destination is a container) immediately after this call.
+  getAdapter().setItemContainerId(itemData, null);
   stripEquipmentState(itemData);
   stampInteractiveIdentity(itemData, droppedActor);
 

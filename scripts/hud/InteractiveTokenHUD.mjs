@@ -1,4 +1,5 @@
 import { pickupItem, checkProximity, setContainerOpen, toggleContainerLocked } from "../transfer/ItemTransfer.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 import { isInteractiveActor } from "../utils/actorHelpers.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { notifyItemAction } from "../utils/notify.mjs";
@@ -6,6 +7,9 @@ import { validateContainerAccess } from "../utils/containerAccess.mjs";
 import { resolvePickupTarget } from "../utils/pickupFlow.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
+import { hasLevels, getTokenLevelId, getViewedLevelId } from "../utils/levels.mjs";
+import { promptItemQuantity } from "../utils/quantityPrompt.mjs";
+import { splitInteractiveToken } from "../canvas/placement.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -21,6 +25,9 @@ function _patchCanHUD() {
     if (isInteractiveActor(this.actor)) {
       dbg("hud:_canHUD", { actorName: this.actor?.name, isDragged: !!this.layer._draggedToken, layerActive: this.layer.active, isPreview: this.isPreview });
       if (this.layer._draggedToken || !this.layer.active || this.isPreview) return false;
+      // Cross-level interactive tokens still return true here so that the PIXI
+      // clickRight event fires and _patchClickRight can handle the level switch.
+      // The HUD itself is suppressed inside _patchClickRight by not calling hud.bind().
       return this.actor.testUserPermission(user, "OBSERVER");
     }
     return wrapped(user, event);
@@ -46,6 +53,22 @@ function _patchClickRight() {
   libWrapper.register(MODULE_ID, "foundry.canvas.placeables.Token.prototype._onClickRight", function(wrapped, event) {
     if (!isInteractiveActor(this.actor)) return wrapped(event);
 
+    // v14: when this interactive token is on a different level than the viewed
+    // level, defer to core. _canHUD intentionally returns true for cross-level
+    // tokens so the PIXI clickRight event is not blocked and this wrapper fires;
+    // returning wrapped(event) lets core's _onClickRight → control() → _onControl()
+    // → scene.view() handle the level switch naturally.
+    if (hasLevels()) {
+      const tokenLevel = getTokenLevelId(this.document);
+      const viewedLevel = getViewedLevelId();
+      if (tokenLevel && viewedLevel && tokenLevel !== viewedLevel) {
+        dbg("hud:_onClickRight", "cross-level click, deferring to core",
+          { actorName: this.actor?.name, tokenLevel, viewedLevel });
+        return wrapped(event);
+      }
+    }
+
+    // Same-level (or v13) interactive token: keep custom HUD-bind behavior.
     dbg("hud:_onClickRight", { actorName: this.actor?.name, hasActiveHUD: this.hasActiveHUD, playerView: isPlayerView() });
     if (this.layer.hud) {
       // In player-view mode skip control() so the interactive token is never
@@ -117,19 +140,71 @@ function onRenderTokenHUD(app, html, context, options) {
       }
       const itemId = item.id;
       const itemName = item.name;
-      dbg("hud:pickup", "picking up item", { itemId, itemName, targetActorId: targetActor.id });
+
+      // Prompt for a partial-stack pickup when the embedded item has qty > 1.
+      // Skipped for containers (their top-level item is the backpack itself, qty 1).
+      let chosenQuantity = null;
+      const adapter = getAdapter();
+      const sourceQty = adapter.getItemQuantity(item);
+      if (sourceQty > 1 && !adapter.isContainerItem(item)) {
+        chosenQuantity = await promptItemQuantity({
+          itemName,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+          actionFormatArgs: { target: targetActor.name }
+        });
+        if (chosenQuantity == null) {
+          dbg("hud:pickup", "quantity dialog cancelled, bail");
+          return;
+        }
+      }
+
+      dbg("hud:pickup", "picking up item", { itemId, itemName, targetActorId: targetActor.id, chosenQuantity });
 
       await dispatchGM(
         "pickupItem",
-        { sceneId, tokenId, itemId, targetActorId: targetActor.id },
-        async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
+        { sceneId, tokenId, itemId, targetActorId: targetActor.id, quantity: chosenQuantity },
+        async () => pickupItem(sceneId, tokenId, itemId, targetActor.id, chosenQuantity)
       );
-      if (!isGM) notifyItemAction("PickedUp", itemName);
+      if (!game.user.isGM) notifyItemAction("PickedUp", itemName);
       canvas.tokens.hud.close();
     }
   );
   pickupBtn.dataset.action = "pickup";
   col.appendChild(pickupBtn);
+  }
+
+  // GM-only "Split stack" button: visible on non-container stacked tokens (qty > 1).
+  if (isGM && !system.isContainer) {
+    const adapter = getAdapter();
+    const embeddedItem = system.topLevelItems[0];
+    const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
+    if (embeddedItem && sourceQty > 1 && !adapter.isContainerItem(embeddedItem)) {
+      const splitBtn = createHUDButton(
+        "fa-arrows-split-up-and-left",
+        game.i18n.localize("INTERACTIVE_ITEMS.HUD.SplitStack"),
+        async () => {
+          dbg("hud:split", { actorName: actor.name, sourceQty });
+          const chosen = await promptItemQuantity({
+            itemName: actor.name,
+            max: sourceQty - 1,  // cannot split off the entire stack
+            actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionSplit"
+          });
+          if (chosen == null) {
+            dbg("hud:split", "split dialog cancelled, bail");
+            return;
+          }
+          await dispatchGM(
+            "splitItem",
+            { sceneId, tokenId, splitQty: chosen },
+            async () => splitInteractiveToken(sceneId, tokenId, chosen)
+          );
+          canvas.tokens.hud.close();
+        }
+      );
+      splitBtn.dataset.action = "split";
+      col.appendChild(splitBtn);
+    }
   }
 
   if (system.isContainer) {
@@ -189,22 +264,29 @@ function onRenderTokenHUD(app, html, context, options) {
 
   if (isGM) {
     const identified = system.isIdentified;
-    const identifyBtn = createHUDButton(
-      "fa-wand-sparkles",
-      game.i18n.localize(identified
-        ? "INTERACTIVE_ITEMS.HUD.Unidentify"
-        : "INTERACTIVE_ITEMS.HUD.Identify"),
-      async () => {
-        dbg("hud:identify", { actorName: actor.name, currentIdentified: identified });
-        const item = system.embeddedItem;
-        if (!item || item.system?.identified === undefined) {
-          dbg("hud:identify", "no embeddedItem or identified field, bail");
-          return;
-        }
-        dbg("hud:identify", "toggling item.system.identified", { from: identified, to: !identified, itemId: item.id });
-        await item.update({ "system.identified": !identified });
+    const adapter = getAdapter();
+    const identCfg = adapter.getIdentifyButtonConfig(identified);
+    const icon = identified ? identCfg.iconOn : identCfg.iconOff;
+    const iconFamily = identified ? identCfg.iconFamilyOn : identCfg.iconFamilyOff;
+    const labelKey = identified ? identCfg.labelOnKey : identCfg.labelOffKey;
+    const identifyBtn = document.createElement("div");
+    identifyBtn.classList.add("control-icon");
+    // Override to flex so the icon centers correctly regardless of FA weight
+    // (fa-regular icons have different line metrics than fa-solid).
+    identifyBtn.style.cssText = "display:flex;align-items:center;justify-content:center;";
+    identifyBtn.title = game.i18n.localize(labelKey);
+    identifyBtn.innerHTML = `<i class="${iconFamily} ${icon}"></i>`;
+    identifyBtn.addEventListener("click", async () => {
+      dbg("hud:identify", { actorName: actor.name, currentIdentified: identified });
+      const item = system.embeddedItem;
+      if (!item) {
+        dbg("hud:identify", "no embeddedItem, bail");
+        return;
       }
-    );
+      dbg("hud:identify", "toggling identification via adapter", { from: identified, to: !identified, itemId: item.id });
+      // Route through the adapter — pf2e opens a DC dialog for unidentified items.
+      await adapter.performIdentifyToggle(item);
+    });
     if (identified) identifyBtn.classList.add("ii-hud-active");
     col.appendChild(identifyBtn);
   }

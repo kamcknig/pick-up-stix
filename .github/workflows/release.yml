@@ -63,3 +63,5 @@ jobs:
           git add module.json
           git diff --cached --quiet || git commit -m "chore: update module.json to $VERSION"
           git push origin "$SOURCE_BRANCH"
+          git tag -f "$TAG" HEAD
+          git push origin "refs/tags/$TAG" --force

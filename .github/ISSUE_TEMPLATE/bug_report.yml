@@ -1,0 +1,90 @@
+name: Bug report
+description: Report something that doesn't work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in every section — issues missing version info or repro steps are very hard to act on.
+
+  - type: input
+    id: module-version
+    attributes:
+      label: Module version
+      description: From `module.json` (e.g. `1.0.4`).
+      placeholder: 1.0.4
+    validations:
+      required: true
+
+  - type: input
+    id: foundry-version
+    attributes:
+      label: Foundry VTT version
+      description: Full version including build (e.g. `13.351`, `14.360`).
+      placeholder: 13.351
+    validations:
+      required: true
+
+  - type: dropdown
+    id: system
+    attributes:
+      label: Game system
+      options:
+        - dnd5e
+        - pf2e
+    validations:
+      required: true
+
+  - type: input
+    id: system-version
+    attributes:
+      label: System version
+      description: Full version (e.g. dnd5e `4.3.6`, pf2e `8.1.0`).
+      placeholder: 8.1.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Exact reproduction steps
+      description: Numbered steps starting (from a fresh world is best if possible). Include what you clicked, dragged, typed, and which sheet/dialog was open.
+      placeholder: |
+        1. Create a new interactive container actor (which method was used?).
+        2. Drop a backpack item onto its config sheet.
+        3. Place a token on the canvas.
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug logs
+      description: |
+        Enable debug logging in the module settings (`Pick-Up-Stix > Debug Logging`), reproduce the bug, then paste the relevant `[PUS]` lines from the browser console (F12 → Console). Include any non-PUS errors that fired in the same window.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Other modules / notes
+      description: Other active modules that touch tokens, sheets, drag-and-drop, or items. Anything else you think might be relevant.
+    validations:
+      required: false

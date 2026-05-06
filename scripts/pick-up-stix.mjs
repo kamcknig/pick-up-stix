@@ -1,9 +1,11 @@
+import { loadAdapter, getAdapter } from "./adapter/index.mjs";
 import InteractiveItemModel from "./models/InteractiveItemModel.mjs";
 import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
 import { registerTokenHUD } from "./hud/InteractiveTokenHUD.mjs";
 import { registerPlacement, _handleTokenMoveWithOverlap } from "./canvas/placement.mjs";
+import { registerQtyBadge } from "./canvas/qtyBadge.mjs";
 import { registerSocket } from "./socket/SocketHandler.mjs";
-import { pickupItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
+import { pickupItem, depositItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
 import { INTERACTIVE_TYPES } from "./constants.mjs";
 export { INTERACTIVE_TYPES } from "./constants.mjs";
 import { isInteractiveActor, isInteractiveContainer } from "./utils/actorHelpers.mjs";
@@ -12,22 +14,31 @@ import { dispatchGM } from "./utils/gmDispatch.mjs";
 import { notifyItemAction } from "./utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "./utils/containerAccess.mjs";
 import { resolvePickupTarget } from "./utils/pickupFlow.mjs";
-import { createStateToggleButton, insertHeaderButton, createRowControl } from "./utils/domButtons.mjs";
+import { createAdapterHeaderButton, createRowControl } from "./utils/domButtons.mjs";
 import { dbg } from "./utils/debugLog.mjs";
+import { promptItemQuantity, promptItemQuantitiesBatch, decrementOrDeleteItem } from "./utils/quantityPrompt.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
+import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
 
 const MODULE_ID = "pick-up-stix";
 const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
 const CHEST_CLOSED = `modules/${MODULE_ID}/icons/treasure-chest-closed.png`;
 const CHEST_OPEN = `modules/${MODULE_ID}/icons/treasure-chest-open.png`;
 
-Hooks.once("init", () => {
-  console.log(`${MODULE_ID} | Initializing Pick-Up-Stix module`);
-
+Hooks.once("init", async () => {
+  // Register the base data model first so it is in place before loadAdapter()
+  // runs. The active system's adapter may overwrite this entry with a more
+  // specific subclass (e.g. Pf2eInteractiveItemModel for pf2e) during its
+  // constructor, which runs synchronously inside loadAdapter().
   Object.assign(CONFIG.Actor.dataModels, {
     "pick-up-stix.interactiveItem": InteractiveItemModel
   });
+
+  // game.system is available from this point on; dynamically import only the
+  // active system's adapter so pf2e users never fetch dnd5e code and vice versa.
+  await loadAdapter();
+  console.log(`${MODULE_ID} | Initializing Pick-Up-Stix module`);
 
   const originalGetDefaultArtwork = CONFIG.Actor.documentClass.getDefaultArtwork;
   CONFIG.Actor.documentClass.getDefaultArtwork = function(actorData) {
@@ -48,7 +59,8 @@ Hooks.once("init", () => {
   });
 
   foundry.applications.handlebars.loadTemplates({
-    "pick-up-stix.config-fields": "modules/pick-up-stix/templates/partials/config-fields.hbs"
+    "pick-up-stix.config-fields": "modules/pick-up-stix/templates/partials/config-fields.hbs",
+    "pick-up-stix.config-fields-v1": "modules/pick-up-stix/templates/partials/config-fields-v1.hbs"
   });
 
   game.settings.register(MODULE_ID, "debugLogging", {
@@ -57,7 +69,7 @@ Hooks.once("init", () => {
     scope: "client",
     config: true,
     type: Boolean,
-    default: true
+    default: false
   });
 
   game.settings.register(MODULE_ID, "gmOverrideEnabled", {
@@ -150,368 +162,29 @@ Hooks.once("init", () => {
     default: false
   });
 
-  Hooks.on("dnd5e.getItemContextOptions", (item, menuItems) => {
-    if (!item.actor) return;
+  getAdapter().registerItemContextMenu(_injectItemContextMenuEntries);
 
-    if (!isInteractiveActor(item.actor)) {
-      menuItems.push({
-        name: "INTERACTIVE_ITEMS.Context.DropItem",
-        icon: '<i class="fa-solid fa-arrow-down fa-fw"></i>',
-        group: "action",
-        condition: () => !!canvas.scene,
-        callback: () => _dropItemOnCanvas(item)
-      });
-    }
+  getAdapter().registerActorInventoryHooks(_injectActorInventoryIdentifyToggles);
 
-    if (isPlayerView()) return;
-    const iiFlags = getItemIIFlags(item);
-    if (!iiFlags?.sourceActorId) return;
-    const sourceActorId = getItemSourceActorId(item);
+  // One unified header-controls decorator covers both item and container
+  // sheets. Both callbacks point at the same function — it's idempotent on
+  // re-render and on the container item sheet (where both hooks fire), it
+  // produces identical DOM either time.
+  getAdapter().registerItemSheetHooks({ injectHeaderControls: _injectInteractiveSheetHeaderControls });
 
-    const isIdentified = isItemIdentified(item);
-    menuItems.push({
-      name: isIdentified
-        ? "INTERACTIVE_ITEMS.Context.HideItem"
-        : "INTERACTIVE_ITEMS.Context.RevealItem",
-      icon: `<i class="fa-solid fa-wand-sparkles fa-fw"></i>`,
-      group: "action",
-      callback: () => toggleItemIdentification(item)
-    });
+  getAdapter().registerContainerDropGate(_gateContainerDrop);
 
-    // Override dnd5e's "Edit" to open our config sheet instead.
-    const editEntry = menuItems.find(e => e.name === "DND5E.ContextMenuActionEdit");
-    if (editEntry) {
-      editEntry.callback = () => {
-        const sourceActor = game.actors.get(sourceActorId);
-        if (sourceActor?.sheet?.renderConfig) sourceActor.sheet.renderConfig();
-      };
-    }
-  });
-
-  // dnd5e uses both `<img class="item-image">` (raster) and `<dnd5e-icon class="item-image">` (SVG);
-  // both share the class so the querySelector catches either.
-  const _injectIdentifyToggles = (app, html) => {
-    if (isPlayerView()) return;
-    if (isInteractiveActor(app.actor)) return;
-    const root = html instanceof HTMLElement ? html : html?.[0];
-    if (!root) return;
-
-    root.querySelectorAll("[data-item-id]").forEach(el => {
-      const itemId = el.dataset.itemId;
-      const item = app.actor.items.get(itemId);
-      if (!item) return;
-      const iiFlags = getItemIIFlags(item);
-      if (!iiFlags?.sourceActorId) return;
-
-      if (el.querySelector(".pick-up-stix-identify-toggle")) return;
-
-      const isIdentified = isItemIdentified(item);
-      const toggle = document.createElement("a");
-      toggle.className = "pick-up-stix-identify-toggle ii-row-control";
-      toggle.title = game.i18n.localize(isIdentified
-        ? "INTERACTIVE_ITEMS.Context.HideItem"
-        : "INTERACTIVE_ITEMS.Context.RevealItem");
-      toggle.innerHTML = `<i class="fas fa-wand-sparkles"></i>`;
-      toggle.addEventListener("click", async (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        await toggleItemIdentification(item);
-      });
-
-      const itemRow = el.querySelector(".item-row");
-      (itemRow ?? el).appendChild(toggle);
-    });
-  };
-
-  Hooks.on("renderActorSheet", _injectIdentifyToggles);
-  Hooks.on("renderCharacterActorSheet", _injectIdentifyToggles);
-  Hooks.on("renderNPCActorSheet", _injectIdentifyToggles);
-
-  Hooks.on("renderItemSheet5e", (app, html) => {
-    if (isPlayerView()) return;
-    const item = app.item;
-    const actor = item?.actor;
-
-    let configActor = null;
-    if (isInteractiveActor(actor)) {
-      configActor = actor;
-    } else {
-      const sourceActorId = getItemSourceActorId(item);
-      if (sourceActorId) configActor = game.actors.get(sourceActorId);
-    }
-    if (!configActor) return;
-
-    const header = html.querySelector(".window-header");
-    if (!header) return;
-    html.querySelector(".mode-slider")?.remove();
-    const closeBtn = header.querySelector("button.close, [data-action='close']");
-
-    header.querySelector(".ii-lock-toggle-btn")?.remove();
-    const lockToggle = createStateToggleButton({
-      extraClass: "ii-lock-toggle-btn",
-      active: configActor.system.isLocked,
-      iconOn: "fa-lock",
-      iconOff: "fa-lock-open",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
-      labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
-      onClick: (ev) => {
-        ev.preventDefault();
-        toggleContainerLocked(configActor);
-      }
-    });
-    insertHeaderButton(header, lockToggle, closeBtn);
-
-    if (!header.querySelector(".ii-configure-btn")) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "header-control-button ii-configure-btn";
-      btn.dataset.tooltip = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.ConfigureHUD");
-      btn.innerHTML = '<i class="fa-solid fa-gear"></i>';
-      btn.addEventListener("click", async (ev) => {
-        ev.preventDefault();
-        await app.close();
-        configActor.sheet.renderConfig();
-      });
-
-      if (closeBtn) closeBtn.before(btn);
-      else header.appendChild(btn);
-    }
-  });
-
-  Hooks.on("renderContainerSheet", (app, html) => {
-    if (isPlayerView()) return;
-    const actor = app.item?.actor;
-    if (!isInteractiveContainer(actor)) return;
-
-    const header = html.querySelector(".window-header");
-    if (!header) return;
-    html.querySelector(".mode-slider")?.remove();
-    const closeBtn = header.querySelector("button.close, [data-action='close']");
-
-    // Remove existing to refresh state on re-render.
-    header.querySelector(".ii-open-toggle-btn")?.remove();
-
-    const openBtn = createStateToggleButton({
-      extraClass: "ii-open-toggle-btn",
-      active: actor.system.isOpen,
-      iconOn: "fa-box-open",
-      iconOff: "fa-box",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateOpened",
-      labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateClosed",
-      onClick: async (ev) => {
-        ev.preventDefault();
-        await setContainerOpen(actor, !actor.system.isOpen);
-      }
-    });
-    insertHeaderButton(header, openBtn, closeBtn);
-
-    header.querySelector(".ii-lock-toggle-btn")?.remove();
-    const lockBtn = createStateToggleButton({
-      extraClass: "ii-lock-toggle-btn",
-      active: actor.system.isLocked,
-      iconOn: "fa-lock",
-      iconOff: "fa-lock-open",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
-      labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
-      onClick: (ev) => {
-        ev.preventDefault();
-        toggleContainerLocked(actor);
-      }
-    });
-    insertHeaderButton(header, lockBtn, closeBtn);
-
-    if (!header.querySelector(".ii-configure-btn")) {
-      const cfgBtn = document.createElement("button");
-      cfgBtn.type = "button";
-      cfgBtn.className = "header-control-button ii-configure-btn";
-      cfgBtn.dataset.tooltip = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.ConfigureHUD");
-      cfgBtn.innerHTML = '<i class="fa-solid fa-gear"></i>';
-      cfgBtn.addEventListener("click", async (ev) => {
-        ev.preventDefault();
-        await app.close();
-        actor.sheet.renderConfig();
-      });
-
-      if (closeBtn) closeBtn.before(cfgBtn);
-      else header.appendChild(cfgBtn);
-    }
-  });
-
-  Hooks.on("dnd5e.dropItemSheetData", (item, sheet, data) => {
-    const actor = item.actor;
-    if (!isInteractiveContainer(actor)) return;
-
-    if (isPlayerView()) {
-      if (!validateContainerAccess(actor, { checkProximity: true })) return false;
-
-      // Players can't create items on OBSERVER-level actors — route through socket.
-      // Fire async then return false synchronously to cancel dnd5e's native handling.
-      (async () => {
-        const droppedItem = await fromUuid(data.uuid);
-        if (!droppedItem) return;
-        const sourceActor = droppedItem.actor;
-        if (!sourceActor) return;
-        const tokenDoc = actor.token;
-        if (!tokenDoc) return;
-        dispatchGM(
-          "depositItem",
-          { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId: tokenDoc.parent.id, tokenId: tokenDoc.id },
-          () => {} // unreachable: isGM is false in this branch
-        );
-        notifyItemAction("Deposited", droppedItem.name);
-      })();
-      return false;
-    }
-  });
-
-  Hooks.on("renderContainerSheet", (app, html) => {
-    const actor = app.item?.actor;
-    if (!isInteractiveContainer(actor)) return;
-
-    html.querySelectorAll(".item-list [data-item-id]").forEach(row => {
-      const itemId = row.dataset.itemId;
-      if (row.querySelector(".ii-row-control, .ii-pickup-btn")) return;
-
-      const item = actor.items.get(itemId);
-      const itemRow = row.querySelector(".item-row");
-      const target = itemRow || row;
-
-      if (actor.token) {
-        const pickupBtn = createRowControl({
-          iconClass: "fa-solid fa-hand",
-          titleKey: "INTERACTIVE_ITEMS.HUD.PickUp",
-          extraClass: "ii-pickup-btn",
-          onClick: async () => {
-            // Check proximity before lock — distance is more actionable to players.
-            if (!checkProximity(actor)) return;
-            // Open is not checked: the row only renders while the container is open.
-            if (!validateContainerAccess(actor, { checkOpen: false })) return;
-            const currentItem = actor.items.get(itemId);
-            if (!validateItemAccess(currentItem)) return;
-
-            const targetActor = await resolvePickupTarget(actor);
-            if (!targetActor) return;
-            const tokenDoc = actor.token;
-            if (!tokenDoc) return;
-            const sceneId = tokenDoc.parent.id;
-            const tokenId = tokenDoc.id;
-            await dispatchGM(
-              "pickupItem",
-              { sceneId, tokenId, itemId, targetActorId: targetActor.id },
-              async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
-            );
-            if (isPlayerView() && item) notifyItemAction("PickedUp", item.name);
-          }
-        });
-        target.appendChild(pickupBtn);
-      }
-
-      if (isModuleGM() && item) {
-        const isInteractive = !!getItemSourceActorId(item);
-
-        if (isInteractive) {
-          const isLocked = isItemLocked(item);
-          target.appendChild(createRowControl({
-            iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
-            titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
-            onClick: async () => {
-              await item.update({
-                "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
-              });
-            }
-          }));
-
-          target.appendChild(createRowControl({
-            iconClass: "fa-solid fa-wand-sparkles",
-            titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
-            onClick: async () => { await toggleItemIdentification(item); }
-          }));
-        }
-
-        // Delete applies to all items, not just interactive ones.
-        target.appendChild(createRowControl({
-          iconClass: "fa-solid fa-trash-can",
-          titleKey: "INTERACTIVE_ITEMS.Sheet.DeleteItem",
-          onClick: async () => { await item.delete({ deleteContents: true }); }
-        }));
-      }
-    });
-  });
-
-  // dnd5e's native _onDrop only handles Item and Folder types; Actor drops need
-  // this separate listener on the ContainerSheet.
-  Hooks.on("renderContainerSheet", (app, html) => {
-    const destContainerItem = app.item;
-    if (!destContainerItem || destContainerItem.type !== "container") return;
-
-    if (html.dataset.iiActorDropAttached) return;
-    html.dataset.iiActorDropAttached = "1";
-
-    html.addEventListener("drop", async (event) => {
-      const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
-      if (data?.type !== "Actor") return;
-
-      const droppedActor = await fromUuid(data.uuid);
-      if (!isInteractiveActor(droppedActor)) return;
-
-      if (droppedActor.system.isContainer) {
-        ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
-        return;
-      }
-
-      const destActor = destContainerItem.actor;
-      const destIsInteractive = isInteractiveContainer(destActor);
-
-      if (destIsInteractive && isPlayerView()) {
-        if (!validateContainerAccess(destActor, { checkProximity: true })) return;
-      }
-
-      // Players can't see sidebar actors, but gate explicitly in case that ever changes.
-      if (!destIsInteractive && isPlayerView()) return;
-
-      const itemData = buildInteractiveItemData(droppedActor);
-      if (!itemData) {
-        ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotInitialized"));
-        return;
-      }
-
-      itemData.system = itemData.system ?? {};
-      itemData.system.container = destContainerItem.id;
-
-      if (destActor) {
-        await CONFIG.Item.documentClass.createDocuments([itemData], { parent: destActor, keepId: false });
-      } else {
-        await CONFIG.Item.documentClass.createDocuments([itemData], { keepId: false }); // world-level container
-      }
-      ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
-    });
-  });
-
-  Hooks.on("renderContainerSheet", (app, html) => {
-    if (isModuleGM()) return;
-    const actor = app.item?.actor;
-    if (!isInteractiveContainer(actor)) return;
-
-    if (actor.system.isOpen && checkProximity(actor, { silent: true, range: "interaction" })) return;
-
-    // Target the outer `.items-list` wrapper — replacing its children hides all categories
-    // at once while preserving currency/search/encumbrance siblings and the description tab.
-    const list = html.querySelector('section.inventory.tab[data-tab="contents"] .items-list');
-    if (!list) return;
-
-    const message = actor.system.isOpen
-      ? game.i18n.localize("INTERACTIVE_ITEMS.Container.ContentsHidden")
-      : game.i18n.localize("INTERACTIVE_ITEMS.Notify.ContainerClosed");
-
-    list.replaceChildren();
-    const placeholder = document.createElement("div");
-    placeholder.className = "pick-up-stix-contents-hidden";
-    placeholder.textContent = message;
-    list.append(placeholder);
+  getAdapter().registerContainerViewHooks({
+    injectHeaderControls: _injectInteractiveSheetHeaderControls,
+    maybeHideContents: _hideContainerSheetContents,
+    installActorDropListener: _installContainerSheetActorDrop,
+    installItemDropListener: _installContainerSheetItemDrop,
+    injectItemRowControls: _injectContainerSheetRowControls,
+    injectContentsTab: _injectContainerContentsTab,
   });
 
   Hooks.on("dropActorSheetData", (actor, sheet, data) => {
-    if (isPlayerView()) return;
+    if (!game.user.isGM) return;
     if (isInteractiveActor(actor)) return;
     if (data?.type !== "Actor") return;
 
@@ -535,9 +208,1265 @@ Hooks.once("init", () => {
     return false;
   });
 
+  // Drag-out cleanup: when an item is dragged FROM an interactive container's
+  // sheet onto a non-interactive actor sheet, the system creates a copy on the
+  // destination (cross-actor UUIDs always resolve to "copy" behavior) and the
+  // source on our custom actor sub-type is left behind. Detect this on the
+  // target sheet and delete the source after the destination's createItem fires.
+  Hooks.on("dropActorSheetData", (actor, sheet, data) => {
+    if (!game.user.isGM) return;
+    if (isInteractiveActor(actor)) return;
+    if (data?.type !== "Item") return;
+
+    const sourceItem = fromUuidSync(data.uuid);
+    if (!sourceItem) return;
+    const sourceActor = sourceItem.actor;
+    if (!sourceActor || !isInteractiveContainer(sourceActor)) return;
+
+    dbg("hook:dropActorSheetData:dragOut", "interactive-container drag-out detected", {
+      sourceItemId: sourceItem.id, sourceActorName: sourceActor.name, targetActorName: actor.name
+    });
+
+    const targetActorId = actor.id;
+    const sourceItemId = sourceItem.id;
+    const sourceActorRef = sourceActor;
+    let handled = false;
+
+    // One-shot listener for the destination's matching createItem.
+    const hookId = Hooks.on("createItem", (newItem, _options, userId) => {
+      if (handled) return;
+      if (userId !== game.userId) return;
+      if (newItem.parent?.id !== targetActorId) return;
+      handled = true;
+      Hooks.off("createItem", hookId);
+      const liveSourceItem = sourceActorRef.items.get(sourceItemId);
+      if (!liveSourceItem) return;
+      dbg("hook:dropActorSheetData:dragOut", "deleting source after drag-out createItem", { sourceItemId });
+      liveSourceItem.delete({ deleteContents: true })
+        .catch(err => console.error(`${MODULE_ID} | failed to delete container source after drag-out:`, err));
+    });
+
+    // Safety unhook so the listener doesn't leak when the drop is rejected
+    // (owner check fails, dropEffect "none", etc.).
+    setTimeout(() => {
+      if (handled) return;
+      handled = true;
+      Hooks.off("createItem", hookId);
+      dbg("hook:dropActorSheetData:dragOut", "no createItem within timeout, abandoning cleanup", { sourceItemId });
+    }, 2000);
+  });
+
   registerTokenHUD();
   registerPlacement();
+  registerQtyBadge();
 });
+
+/**
+ * Extends the dnd5e item context menu with pick-up-stix entries.
+ * Adds a "Drop Item" option for non-interactive actors and a
+ * "Reveal / Hide" identification toggle for GM users on interactive items.
+ *
+ * @param {Item} item - The item whose context menu is being built.
+ * @param {object[]} menuItems - The mutable array of menu entries to extend.
+ */
+function _injectItemContextMenuEntries(item, menuItems) {
+  if (!item.actor) return;
+
+  if (!isInteractiveActor(item.actor)) {
+    menuItems.push({
+      name: "INTERACTIVE_ITEMS.Context.DropItem",
+      icon: '<i class="fa-solid fa-arrow-down fa-fw"></i>',
+      group: "action",
+      condition: () => !!canvas.scene,
+      callback: () => _dropItemOnCanvas(item)
+    });
+  }
+
+  if (!game.user.isGM) return;
+  const iiFlags = getItemIIFlags(item);
+  if (!iiFlags?.sourceActorId) return;
+  const sourceActorId = getItemSourceActorId(item);
+
+  const isIdentified = isItemIdentified(item);
+  menuItems.push({
+    name: isIdentified
+      ? "INTERACTIVE_ITEMS.Context.HideItem"
+      : "INTERACTIVE_ITEMS.Context.RevealItem",
+    icon: `<i class="fa-solid fa-wand-sparkles fa-fw"></i>`,
+    group: "action",
+    callback: () => toggleItemIdentification(item)
+  });
+
+  // Override dnd5e's "Edit" to open our config sheet instead.
+  const editEntry = menuItems.find(e => e.name === "DND5E.ContextMenuActionEdit");
+  if (editEntry) {
+    editEntry.callback = () => {
+      const sourceActor = game.actors.get(sourceActorId);
+      if (sourceActor?.sheet?.renderConfig) sourceActor.sheet.renderConfig();
+    };
+  }
+}
+
+/**
+ * Injects GM-only row controls (lock, identify, delete) into each inventory
+ * row of a non-interactive actor sheet. Identify branches on the round-trip
+ * flag: items picked up from interactive tokens (sourceActorId set) toggle
+ * via the cached identifiedData/unidentifiedData payloads; plain inventory
+ * items just flip the system's native identified flag through the adapter.
+ *
+ * The identify icon is suppressed on systems that already render a native
+ * inventory identify control (pf2e); lock and delete are added uniformly.
+ *
+ * @param {ActorSheet} app - The rendered actor sheet application.
+ * @param {HTMLElement|jQuery} html - The sheet's root element.
+ */
+function _injectActorInventoryIdentifyToggles(app, html) {
+  if (!game.user.isGM) return;
+  if (isInteractiveActor(app.actor)) return;
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  if (!root) return;
+
+  const adapter = getAdapter();
+  const skipIdentify = adapter.capabilities.hasNativeInventoryIdentify;
+
+  // Add an empty, label-less header cell to each items-section header so the
+  // row's controls column has a matching slot in the header. dnd5e's inventory
+  // headers and rows are sibling flex layouts whose column widths are set by
+  // class selectors — using the same class on both keeps them aligned.
+  root.querySelectorAll(".items-section .items-header.header").forEach(header => {
+    if (header.querySelector(".ii-row-controls-cell")) return;
+    const cell = document.createElement("div");
+    cell.className = "item-header ii-row-controls-cell";
+    header.appendChild(cell);
+  });
+
+  root.querySelectorAll("[data-item-id]").forEach(el => {
+    const itemId = el.dataset.itemId;
+    const item = app.actor.items.get(itemId);
+    if (!item) return;
+    const itemRow = el.querySelector(".item-row");
+    if (!itemRow) return;
+    if (itemRow.querySelector(":scope > .ii-row-controls-cell")) return;
+
+    const isInteractive = !!getItemSourceActorId(item);
+    const cell = document.createElement("div");
+    cell.className = "item-detail ii-row-controls-cell";
+
+    const isLocked = isItemLocked(item);
+    cell.appendChild(createRowControl({
+      iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
+      titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
+      onClick: async () => {
+        await item.update({
+          "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
+        });
+      }
+    }));
+
+    if (!skipIdentify) {
+      cell.appendChild(createRowControl({
+        iconClass: "fa-solid fa-wand-sparkles",
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+        extraClass: "pick-up-stix-identify-toggle",
+        active: adapter.isItemIdentified(item),
+        onClick: async () => {
+          if (isInteractive) await toggleItemIdentification(item);
+          else await adapter.performIdentifyToggle(item);
+        }
+      }));
+    }
+
+    cell.appendChild(createRowControl({
+      iconClass: "fa-solid fa-trash-can",
+      titleKey: "INTERACTIVE_ITEMS.Sheet.DeleteItem",
+      onClick: async () => { await item.delete({ deleteContents: true }); }
+    }));
+
+    itemRow.appendChild(cell);
+  });
+}
+
+/**
+ * Resolve the interactive actor associated with a sheet's `app.item`. When
+ * the item belongs directly to an interactive actor, that actor is the answer.
+ * When the item lives in a player's inventory but was picked up from one,
+ * resolve via the `sourceActorId` flag so configure/lock/identify still work
+ * on inventory items.
+ *
+ * @param {Application} app
+ * @returns {Actor|null}
+ */
+function _resolveInteractiveActor(app) {
+  const item = app?.item;
+  if (!item) return null;
+  if (isInteractiveActor(item.actor)) return item.actor;
+  const sourceActorId = getItemSourceActorId(item);
+  return sourceActorId ? game.actors.get(sourceActorId) : null;
+}
+
+/**
+ * Resolve the full window root element for a render-hook callback. Foundry V1
+ * fires render hooks with the inner `.window-content` jQuery on re-render
+ * (only the initial render passes the full window), so we fall back to
+ * `app.element[0]` (V1) or `app.element` (V2) when `.window-header` isn't
+ * reachable from the hook's html argument.
+ *
+ * @param {Application} app
+ * @param {HTMLElement|null} html
+ * @returns {HTMLElement|null}
+ */
+function _resolveSheetRoot(app, html) {
+  if (html?.querySelector?.(".window-header")) return html;
+  if (app?.element instanceof HTMLElement) return app.element;
+  return app?.element?.[0] ?? null;
+}
+
+/**
+ * Inject the module's header toggles — open/close (containers only), lock,
+ * identify, configure — into a system's native item or container sheet header.
+ *
+ * Always emits the four buttons in canonical left-to-right order
+ * (`open, lock, identify, configure`) regardless of which decorator callback
+ * triggered the render. Existing module buttons are removed and re-created on
+ * every call so the order stays stable across re-renders.
+ *
+ * Inserts the group immediately after `.window-title` so the buttons sit on
+ * the *left* of any system-injected header buttons (Sheet, Prototype Token,
+ * Close on pf2e; ellipsis menu, Close on dnd5e V2). The flex layout pushes
+ * system buttons to the far right, leaving our buttons grouped just to the
+ * right of the title.
+ *
+ * Idempotent — both `registerItemSheetHooks` and `registerContainerViewHooks`
+ * route here, so on container item sheets where both fire the second call
+ * produces the same DOM as the first.
+ *
+ * @param {object} ctx
+ * @param {Actor} [ctx.actor] - Pre-resolved interactive actor (container hook supplies this).
+ * @param {Application} ctx.app
+ * @param {HTMLElement} ctx.html
+ */
+function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
+  if (!game.user.isGM) return;
+
+  const configActor = isInteractiveActor(actor) ? actor : _resolveInteractiveActor(app);
+  if (!configActor) return;
+
+  const root = _resolveSheetRoot(app, html);
+  const header = root?.querySelector?.(".window-header");
+  if (!header) return;
+
+  // dnd5e injects a `.mode-slider` edit-mode toggle into the header on AppV2
+  // sheets — interactive object sheets shouldn't expose that to anyone.
+  root.querySelector?.(".mode-slider")?.remove();
+
+  // Remove any existing module toggles so the rebuild produces a stable order.
+  // The native identify button (if any) is intentionally NOT in this list —
+  // we relocate it into the canonical slot below rather than recreating it.
+  header.querySelectorAll(".ii-open-toggle-btn, .ii-lock-toggle-btn, .ii-identify-toggle-btn, .ii-configure-btn")
+    .forEach(el => el.remove());
+
+  const adapter = getAdapter();
+  const sys = configActor.system;
+
+  // If the system already provides a header-level identify control (e.g.
+  // dnd5e's `.toggle-identified` button) reuse it in our canonical slot
+  // instead of injecting a duplicate. Moving the live element preserves
+  // its event listeners.
+  const nativeIdentifySelector = adapter.nativeIdentifyHeaderSelector;
+  const nativeIdentifyBtn = nativeIdentifySelector
+    ? header.querySelector(nativeIdentifySelector)
+    : null;
+
+  const orderedNodes = [];
+
+  if (sys.isContainer) {
+    orderedNodes.push(createAdapterHeaderButton({
+      adapter,
+      extraClass: "ii-open-toggle-btn",
+      active: sys.isOpen,
+      iconOn: "fa-box-open",
+      iconOff: "fa-box",
+      labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateOpened",
+      labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateClosed",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        await setContainerOpen(configActor, !configActor.system.isOpen);
+      }
+    }));
+
+  }
+
+  orderedNodes.push(createAdapterHeaderButton({
+    adapter,
+    extraClass: "ii-lock-toggle-btn",
+    active: sys.isLocked,
+    iconOn: "fa-lock",
+    iconOff: "fa-lock-open",
+    labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
+    labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
+    onClick: (ev) => {
+      ev.preventDefault();
+      toggleContainerLocked(configActor);
+    }
+  }));
+
+  if (nativeIdentifyBtn) {
+    // Relocate the system's button into our canonical position.
+    orderedNodes.push(nativeIdentifyBtn);
+  } else {
+    const identCfg = adapter.getIdentifyButtonConfig(sys.isIdentified);
+    orderedNodes.push(createAdapterHeaderButton({
+      adapter,
+      extraClass: "ii-identify-toggle-btn",
+      active: sys.isIdentified,
+      iconOn: identCfg.iconOn,
+      iconFamilyOn: identCfg.iconFamilyOn,
+      iconOff: identCfg.iconOff,
+      iconFamilyOff: identCfg.iconFamilyOff,
+      labelOnKey: identCfg.labelOnKey,
+      labelOffKey: identCfg.labelOffKey,
+      onClick: async (ev) => {
+        ev.preventDefault();
+        const embeddedItem = configActor.system.embeddedItem;
+        if (!embeddedItem) return;
+        // Route through the adapter — pf2e opens a DC dialog for unidentified
+        // items rather than flipping the flag directly.
+        await adapter.performIdentifyToggle(embeddedItem);
+      }
+    }));
+  }
+
+  orderedNodes.push(createAdapterHeaderButton({
+    adapter,
+    kind: "config",
+    extraClass: "ii-configure-btn",
+    iconOn: "fa-gear",
+    labelOnKey: "INTERACTIVE_ITEMS.Sheet.ConfigureHUD",
+    onClick: async (ev) => {
+      ev.preventDefault();
+      await app.close();
+      configActor.sheet.renderConfig();
+    }
+  }));
+
+  // Insert immediately after the title so buttons sit left of system-injected
+  // header controls (Sheet/Prototype Token/Close on pf2e; ellipsis/Close on
+  // dnd5e V2). The header's flex layout pushes system buttons to the far right.
+  // For the native identify button, `.after(...)` moves it from its previous
+  // slot into the canonical position rather than cloning it.
+  const title = header.querySelector(".window-title");
+  if (title) title.after(...orderedNodes);
+  else header.prepend(...orderedNodes);
+}
+
+/**
+ * Injects pickup, lock, identify, and delete row controls into each item row
+ * of the dnd5e ContainerSheet rendered for an interactive container actor.
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The interactive container actor owning the container item.
+ * @param {Application} ctx.app - The rendered ContainerSheet application.
+ * @param {HTMLElement} ctx.html - The sheet's root element.
+ */
+function _injectContainerSheetRowControls({ actor, app, html }) {
+  if (!isInteractiveContainer(actor)) return;
+
+  html.querySelectorAll(".item-list [data-item-id]").forEach(row => {
+    const itemId = row.dataset.itemId;
+    if (row.querySelector(".ii-row-control, .ii-pickup-btn")) return;
+
+    const item = actor.items.get(itemId);
+    const itemRow = row.querySelector(".item-row");
+    const target = itemRow || row;
+
+    if (actor.token) {
+      const pickupBtn = createRowControl({
+        iconClass: "fa-solid fa-hand",
+        titleKey: "INTERACTIVE_ITEMS.HUD.PickUp",
+        extraClass: "ii-pickup-btn",
+        onClick: async () => {
+          // Check proximity before lock — distance is more actionable to players.
+          if (!checkProximity(actor)) return;
+          // Open is not checked: the row only renders while the container is open.
+          if (!validateContainerAccess(actor, { checkOpen: false })) return;
+          const currentItem = actor.items.get(itemId);
+          if (!validateItemAccess(currentItem)) return;
+
+          const targetActor = await resolvePickupTarget(actor);
+          if (!targetActor) return;
+          const tokenDoc = actor.token;
+          if (!tokenDoc) return;
+          const sceneId = tokenDoc.parent.id;
+          const tokenId = tokenDoc.id;
+
+          // Prompt for a partial-stack pickup when qty > 1 and the item is not
+          // a container type (containers are always single-quantity).
+          let chosen = null;
+          const rowAdapter = getAdapter();
+          const sourceQty = rowAdapter.getItemQuantity(currentItem);
+          if (sourceQty > 1 && !rowAdapter.isContainerItem(currentItem)) {
+            chosen = await promptItemQuantity({
+              itemName: currentItem.name,
+              max: sourceQty,
+              actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+              actionFormatArgs: { target: targetActor.name }
+            });
+            if (chosen == null) return;
+          }
+
+          await dispatchGM(
+            "pickupItem",
+            { sceneId, tokenId, itemId, targetActorId: targetActor.id, quantity: chosen },
+            async () => pickupItem(sceneId, tokenId, itemId, targetActor.id, chosen)
+          );
+          if (!game.user.isGM && item) notifyItemAction("PickedUp", item.name);
+        }
+      });
+      target.appendChild(pickupBtn);
+    }
+
+    if (isModuleGM() && item) {
+      const isInteractive = !!getItemSourceActorId(item);
+
+      const isLocked = isItemLocked(item);
+      target.appendChild(createRowControl({
+        iconClass: `fas ${isLocked ? "fa-lock" : "fa-lock-open"}`,
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleLock",
+        onClick: async () => {
+          await item.update({
+            "flags.pick-up-stix.tokenState.system.isLocked": !isLocked
+          });
+        }
+      }));
+
+      // Interactive items round-trip via the cached identifiedData/unidentifiedData
+      // payloads (toggleItemIdentification swaps name/img/description); plain
+      // deposited items just flip the system's native identified flag through
+      // the adapter.
+      target.appendChild(createRowControl({
+        iconClass: "fa-solid fa-wand-sparkles",
+        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+        active: getAdapter().isItemIdentified(item),
+        onClick: async () => {
+          if (isInteractive) await toggleItemIdentification(item);
+          else await getAdapter().performIdentifyToggle(item);
+        }
+      }));
+
+      target.appendChild(createRowControl({
+        iconClass: "fa-solid fa-trash-can",
+        titleKey: "INTERACTIVE_ITEMS.Sheet.DeleteItem",
+        onClick: async () => { await item.delete({ deleteContents: true }); }
+      }));
+    }
+  });
+}
+
+/**
+ * Attaches a drop event listener to the dnd5e ContainerSheet that handles
+ * Actor drops onto the container. dnd5e's native _onDrop only handles Item and
+ * Folder types, so this listener handles the Actor case separately.
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The actor owning the container item (may be null for world-level containers).
+ * @param {Application} ctx.app - The rendered ContainerSheet application.
+ * @param {HTMLElement} ctx.html - The sheet's root element.
+ */
+/**
+ * Wire an Item drop listener onto the container item sheet so dragging a
+ * physical item from anywhere (sidebar, character sheet, compendium) deposits
+ * it into the interactive container.
+ *
+ * Skipped on systems that already fire a native item-drop hook on container
+ * sheets (dnd5e fires `dnd5e.dropItemSheetData`, gated by `_gateContainerDrop`);
+ * pf2e's `ContainerSheetPF2e` has no equivalent so we attach the listener
+ * directly. Idempotent across re-renders via the `iiItemDropAttached` marker.
+ *
+ * Only non-container physical items are accepted — other types are rejected
+ * with a notification. Player drops also need open / unlocked / proximity.
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The interactive container actor.
+ * @param {Application} ctx.app - The rendered container item sheet.
+ * @param {HTMLElement} ctx.html - The sheet's root element.
+ */
+function _installContainerSheetItemDrop({ actor, app, html }) {
+  const adapter = getAdapter();
+  // dnd5e's own sheet drop hook handles this case; bail to avoid double-handling.
+  if (adapter.capabilities.hasItemDropSheetHook) return;
+  if (!isInteractiveContainer(actor)) return;
+
+  const destContainerItem = app.item;
+  if (!destContainerItem || !adapter.isContainerItem(destContainerItem)) return;
+
+  if (html.dataset.iiItemDropAttached) return;
+  html.dataset.iiItemDropAttached = "1";
+
+  html.addEventListener("drop", async (event) => {
+    const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
+    if (data?.type !== "Item") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const droppedItem = await fromUuid(data.uuid);
+    if (!droppedItem) {
+      dbg("place:_installContainerSheetItemDrop", "could not resolve dropped item", { uuid: data.uuid });
+      return;
+    }
+
+    if (isPlayerView() && !validateContainerAccess(actor, { checkOpen: true })) return;
+
+    if (!game.user.isGM) {
+      // Players can't write directly to OBSERVER-level actors — route through the
+      // socket so the active GM performs the deposit with quantity handling.
+      const sourceActor = droppedItem.actor;
+      if (!sourceActor) {
+        dbg("place:_installContainerSheetItemDrop", "player drop has no source actor, bail");
+        return;
+      }
+      const tokenDoc = actor.token;
+      if (!tokenDoc) {
+        dbg("place:_installContainerSheetItemDrop", "no token doc on actor, bail");
+        return;
+      }
+
+      let chosen = null;
+      const sourceQty = adapter.getItemQuantity(droppedItem);
+      if (sourceQty > 1 && !adapter.isContainerItem(droppedItem)) {
+        chosen = await promptItemQuantity({
+          itemName: droppedItem.name,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+          actionFormatArgs: { target: actor.name }
+        });
+        if (chosen == null) {
+          dbg("place:_installContainerSheetItemDrop", "player quantity cancelled, bail");
+          return;
+        }
+      }
+
+      const sceneId = tokenDoc.parent.id;
+      const tokenId = tokenDoc.id;
+      dbg("place:_installContainerSheetItemDrop", "player path — dispatching depositItem via socket", {
+        sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, chosen
+      });
+      dispatchGM(
+        "depositItem",
+        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, quantity: chosen },
+        async () => depositItem(sourceActor.id, droppedItem.id, sceneId, tokenId, chosen)
+      );
+      notifyItemAction("Deposited", droppedItem.name);
+      return;
+    }
+
+    await _handleContainerSheetGmDeposit({ destActor: actor, droppedItem, destContainerItem });
+  });
+}
+
+function _installContainerSheetActorDrop({ actor, app, html }) {
+  const destContainerItem = app.item;
+  // Delegate item-type check to the adapter so the literal "container" is not
+  // hard-coded to the dnd5e vocabulary.
+  if (!destContainerItem || !getAdapter().isContainerItem(destContainerItem)) return;
+
+  if (html.dataset.iiActorDropAttached) return;
+  html.dataset.iiActorDropAttached = "1";
+
+  html.addEventListener("drop", async (event) => {
+    const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
+    if (data?.type !== "Actor") return;
+
+    const droppedActor = await fromUuid(data.uuid);
+    if (!isInteractiveActor(droppedActor)) return;
+
+    if (droppedActor.system.isContainer) {
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
+      return;
+    }
+
+    const destActor = destContainerItem.actor;
+    const destIsInteractive = isInteractiveContainer(destActor);
+
+    if (destIsInteractive && isPlayerView()) {
+      if (!validateContainerAccess(destActor, { checkProximity: true })) return;
+    }
+
+    // Players can't see sidebar actors, but gate explicitly in case that ever changes.
+    if (!destIsInteractive && isPlayerView()) return;
+
+    const itemData = buildInteractiveItemData(droppedActor);
+    if (!itemData) {
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotInitialized"));
+      return;
+    }
+
+    // Delegate container-parent field write to the adapter so the field path
+    // is not hard-coded to dnd5e's `system.container`.
+    getAdapter().setItemContainerId(itemData, destContainerItem.id);
+
+    if (destActor) {
+      await CONFIG.Item.documentClass.createDocuments([itemData], { parent: destActor, keepId: false });
+    } else {
+      await CONFIG.Item.documentClass.createDocuments([itemData], { keepId: false }); // world-level container
+    }
+    ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
+  });
+}
+
+/**
+ * Hides the contents list in the dnd5e ContainerSheet when a non-GM viewer is
+ * outside interaction range or the container is closed, replacing it with a
+ * placeholder message.
+ *
+ * Targets the outer `.items-list` wrapper — replacing its children hides all
+ * categories at once while preserving currency/search/encumbrance siblings and
+ * the description tab.
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The interactive container actor owning the container item.
+ * @param {Application} ctx.app - The rendered ContainerSheet application.
+ * @param {HTMLElement} ctx.html - The sheet's root element.
+ */
+function _hideContainerSheetContents({ actor, app, html }) {
+  if (isModuleGM()) return;
+  if (!isInteractiveContainer(actor)) return;
+
+  if (actor.system.isOpen && checkProximity(actor, { silent: true, range: "interaction" })) return;
+
+  const tab = html.querySelector('section.inventory.tab[data-tab="contents"]');
+  if (!tab) return;
+
+  const message = actor.system.isOpen
+    ? game.i18n.localize("INTERACTIVE_ITEMS.Container.ContentsHidden")
+    : game.i18n.localize("INTERACTIVE_ITEMS.Notify.ContainerClosed");
+
+  // dnd5e contents tab also exposes a treasure/currency row and a
+  // search/filter/sort bar above the items list — both leak inventory
+  // information when the player is out of interaction range, so hide them
+  // alongside the items grid.
+  tab.querySelector('section.currency')?.remove();
+  tab.querySelector('.middle')?.remove();
+
+  const list = tab.querySelector('.items-list');
+  if (!list) return;
+
+  list.replaceChildren();
+  const placeholder = document.createElement("div");
+  placeholder.className = "pick-up-stix-contents-hidden";
+  placeholder.textContent = message;
+  list.append(placeholder);
+}
+
+/**
+ * Per-app tracking for whether the user is currently viewing the injected
+ * Contents tab. Needed because Foundry V1's `_activateCoreListeners` calls
+ * `Tabs.bind()` *before* our render-hook decorator runs, so `Tabs.activate`
+ * can't see our injected nav link and falls back to the first tab —
+ * silently corrupting `Tabs.active` to `"description"`. We restore the
+ * user's intent post-injection by checking this map.
+ *
+ * Keyed by the app instance (WeakMap so entries clear when sheets close).
+ *
+ * @type {WeakMap<Application, boolean>}
+ */
+const _activeContentsTabByApp = new WeakMap();
+
+/**
+ * Inject a "Contents" tab into the system's container item-sheet between the
+ * native Description and Details tabs, then render deposited inventory rows
+ * inside it. Targets pf2e's tab markup (`<nav class="sheet-tabs">
+ * <div class="tabs" data-tab-container="primary">`); the function no-ops on
+ * dnd5e (which has no matching selector) so the native dnd5e contents grid is
+ * untouched.
+ *
+ * Re-activates the Contents tab after injection when the user was previously
+ * viewing it — see `_activeContentsTabByApp` for the rationale.
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The interactive container actor owning the container item.
+ * @param {Application} ctx.app - The rendered container item sheet application.
+ * @param {HTMLElement} ctx.html - The sheet's root element (or inner content on V1 re-render).
+ */
+function _injectContainerContentsTab({ actor, app, html }) {
+  if (!isInteractiveContainer(actor)) return;
+
+  const root = _resolveSheetRoot(app, html);
+  if (!root) return;
+
+  // Locate pf2e's primary tabs container. dnd5e's ContainerSheet uses a
+  // different markup, so this selector failing means we're on a non-pf2e
+  // container view and we silently no-op.
+  const tabsNav = root.querySelector('.sheet-tabs .tabs[data-tab-container="primary"]');
+  if (!tabsNav) return;
+
+  const descriptionLink = tabsNav.querySelector('a[data-tab="description"]');
+  if (!descriptionLink) return;
+
+  // Inject the nav link if it isn't already present (idempotent across re-renders).
+  if (!tabsNav.querySelector('a[data-tab="ii-contents"]')) {
+    const link = document.createElement("a");
+    link.className = "list-row";
+    link.dataset.tab = "ii-contents";
+    link.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Tab.Contents");
+    descriptionLink.after(link);
+  }
+
+  const sheetBody = root.querySelector('.sheet-body');
+  if (!sheetBody) return;
+
+  // Reuse the section element across re-renders so Foundry's Tabs controller
+  // keeps tracking `.active` on it; only the inner row list is rebuilt.
+  let section = sheetBody.querySelector('section.tab[data-tab="ii-contents"]');
+  if (!section) {
+    const descriptionSection = sheetBody.querySelector('section.tab[data-tab="description"]');
+    section = document.createElement("section");
+    section.className = "tab ii-contents";
+    section.dataset.tab = "ii-contents";
+    descriptionSection?.after(section);
+  }
+
+  _renderContainerContents(section, actor, app.item);
+
+  // Track which tab the user is on. The nav was rebuilt by V1's _replaceHTML,
+  // so we (re)attach a delegated click handler each render. The previous nav
+  // (and its handler) was discarded with the old DOM, so no leak.
+  tabsNav.addEventListener("click", (event) => {
+    const tab = event.target.closest("a[data-tab]");
+    if (!tab) return;
+    if (tab.dataset.tab === "ii-contents") {
+      _activeContentsTabByApp.set(app, true);
+    } else {
+      _activeContentsTabByApp.delete(app);
+    }
+  });
+
+  // Restore Contents activation when the user was viewing it before re-render.
+  // pf2e's Tabs.bind() ran before us with our nav link absent, so it activated
+  // "description" as a fallback. Now that our nav link exists, switch back.
+  if (_activeContentsTabByApp.get(app)) {
+    const primaryTabs = app._tabs?.[0];
+    if (primaryTabs) {
+      primaryTabs.activate("ii-contents");
+    } else {
+      tabsNav.querySelectorAll('a[data-tab]').forEach(a =>
+        a.classList.toggle("active", a.dataset.tab === "ii-contents")
+      );
+      sheetBody.querySelectorAll('section.tab[data-tab]').forEach(s =>
+        s.classList.toggle("active", s.dataset.tab === "ii-contents")
+      );
+    }
+  }
+}
+
+/**
+ * Build (or rebuild) the deposited-items list inside the Contents tab. Reads
+ * the live actor inventory and emits one row per child item whose
+ * `containerId` matches the wrapped container item.
+ *
+ * Row layout mirrors the pf2e inventory line: image, name, quantity, bulk,
+ * lock / identify / configure / delete controls. Controls have no behaviour
+ * yet — they're rendered for visual parity only.
+ *
+ * @param {HTMLElement} section - The `<section data-tab="ii-contents">` to fill.
+ * @param {Actor} actor - The interactive container actor.
+ * @param {Item} containerItem - The embedded backpack item whose id is the parent pointer.
+ */
+function _renderContainerContents(section, actor, containerItem) {
+  const adapter = getAdapter();
+  section.replaceChildren();
+
+  // Mirror the dnd5e contents-hiding gate (`_hideContainerSheetContents`):
+  // non-GM viewers see a placeholder when the container is closed/locked OR
+  // when they're outside interaction range. The sheet remains accessible
+  // for description/details viewing as long as they're within inspection range.
+  if (!isModuleGM()) {
+    const open = actor.system.isOpen;
+    const inRange = checkProximity(actor, { silent: true, range: "interaction" });
+    if (!open || !inRange) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "pick-up-stix-contents-hidden";
+      placeholder.textContent = open
+        ? game.i18n.localize("INTERACTIVE_ITEMS.Container.ContentsHidden")
+        : game.i18n.localize("INTERACTIVE_ITEMS.Notify.ContainerClosed");
+      section.append(placeholder);
+      return;
+    }
+  }
+
+  const containedItems = actor.items.filter(i => {
+    if (i.id === containerItem.id) return false;
+    return adapter.getItemContainerId(i) === containerItem.id;
+  });
+
+  // Pickup is only meaningful on placed-token sheets — the hand glyph is
+  // rendered on rows when the wrapping actor is synthetic. The base-actor
+  // sheet in the sidebar holds the *template* of a container, so picking up
+  // a row from there has no game-world meaning. The header's controls-spacer
+  // width also depends on this so the columns line up with the data rows.
+  const isTokenActor = !!(actor.isToken ?? actor.token ?? (actor.parent?.documentName === "Token"));
+
+  // Column headers above the list. Image and controls columns get blank
+  // spacers so the header text aligns with the data rows below.
+  section.append(_buildContainerContentsHeader({ isTokenActor }));
+
+  const list = document.createElement("ol");
+  list.className = "ii-contents-list";
+
+  if (containedItems.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "ii-contents-empty";
+    empty.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Container.Empty");
+    list.append(empty);
+    section.append(list);
+    return;
+  }
+
+  for (const item of containedItems) {
+    list.append(_buildContainerContentRow(item, adapter, { isTokenActor }));
+  }
+  section.append(list);
+}
+
+/**
+ * Build the column-header row that sits above the contents list. Reuses the
+ * row's flex layout so columns line up — empty spacers fill the image and
+ * controls columns. The controls spacer's width is selected via the modifier
+ * class `.is-token` (4 icons) vs default (3 icons) so the data columns
+ * remain aligned across token-sheet vs actor-sheet renders.
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.isTokenActor=false]
+ * @returns {HTMLDivElement}
+ */
+function _buildContainerContentsHeader({ isTokenActor = false } = {}) {
+  const header = document.createElement("div");
+  header.className = "ii-contents-row ii-contents-header";
+
+  const imgSpacer = document.createElement("span");
+  imgSpacer.className = "ii-contents-img-spacer";
+  header.append(imgSpacer);
+
+  const name = document.createElement("span");
+  name.className = "ii-contents-name";
+  name.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Name");
+  header.append(name);
+
+  const qty = document.createElement("span");
+  qty.className = "ii-contents-quantity";
+  qty.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Quantity");
+  header.append(qty);
+
+  const bulk = document.createElement("span");
+  bulk.className = "ii-contents-bulk";
+  bulk.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Bulk");
+  header.append(bulk);
+
+  const controlsSpacer = document.createElement("span");
+  controlsSpacer.className = `ii-contents-controls-spacer${isTokenActor ? " is-token" : ""}`;
+  header.append(controlsSpacer);
+
+  return header;
+}
+
+/**
+ * Build one inventory-style row representing an item inside the container.
+ * Icons (lock / identify / configure / delete) are decorative for now — the
+ * caller wires no click handlers per the current spec.
+ *
+ * @param {Item} item
+ * @param {SystemAdapter} adapter
+ * @returns {HTMLLIElement}
+ */
+function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {}) {
+  const row = document.createElement("li");
+  row.className = "ii-contents-row";
+  row.dataset.itemId = item.id;
+  row.dataset.itemUuid = item.uuid;
+
+  // Native Foundry drag payload — destinations (canvas, character sheets,
+  // other containers) consume `{type:"Item", uuid}` and either move the item
+  // (sheet drops) or hand off to our `dropCanvasData` placement flow, which
+  // already deletes the source item from its actor after placement.
+  row.draggable = true;
+  row.addEventListener("dragstart", (event) => {
+    const payload = { type: "Item", uuid: item.uuid };
+    event.dataTransfer.setData("text/plain", JSON.stringify(payload));
+    event.dataTransfer.effectAllowed = "all";
+    dbg("contents:dragstart", { itemName: item.name, itemId: item.id, uuid: item.uuid });
+  });
+
+  const img = document.createElement("img");
+  img.className = "ii-contents-img";
+  img.src = item.img;
+  img.alt = item.name;
+  row.append(img);
+
+  const name = document.createElement("span");
+  name.className = "ii-contents-name";
+  name.textContent = item.name;
+  row.append(name);
+
+  const qty = document.createElement("span");
+  qty.className = "ii-contents-quantity";
+  const currentQty = adapter.getItemQuantity(item) ?? 1;
+  if (game.user.isGM) {
+    // Inline stepper for the GM: ±1 default, Shift+Click ±5, Ctrl+Click ±10.
+    // Subtraction clamps at 1 — deletion belongs on the trash icon, not here.
+    const stepDelta = (ev) => ev.ctrlKey ? 10 : ev.shiftKey ? 5 : 1;
+    const apply = async (signed) => {
+      const cur = adapter.getItemQuantity(item) ?? 1;
+      const next = signed < 0 ? Math.max(1, cur + signed) : cur + signed;
+      if (next === cur) return;
+      dbg("contents:qtyStep", { itemId: item.id, from: cur, to: next });
+      await item.update({ "system.quantity": next });
+    };
+
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.className = "ii-contents-qty-step";
+    minus.title = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.QuantityDecrease");
+    minus.innerHTML = `<i class="fa-solid fa-minus"></i>`;
+    minus.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await apply(-stepDelta(ev));
+    });
+
+    const value = document.createElement("span");
+    value.className = "ii-contents-qty-value";
+    value.textContent = String(currentQty);
+
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = "ii-contents-qty-step";
+    plus.title = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.QuantityIncrease");
+    plus.innerHTML = `<i class="fa-solid fa-plus"></i>`;
+    plus.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await apply(stepDelta(ev));
+    });
+
+    qty.append(minus, value, plus);
+  } else {
+    qty.textContent = String(currentQty);
+  }
+  row.append(qty);
+
+  const bulk = document.createElement("span");
+  bulk.className = "ii-contents-bulk";
+  bulk.textContent = _formatItemBulk(item);
+  row.append(bulk);
+
+  const controls = document.createElement("span");
+  controls.className = "ii-contents-controls";
+
+  // Pickup glyph — token-only. Sits left of the lock icon. Mirrors the
+  // pickup flow used by the dnd5e ContainerSheet row controls: proximity →
+  // container access (open/lock) → per-item lock → resolve the recipient
+  // (controlled token / assigned character) → route through the GM via
+  // socket if the clicker is a player.
+  if (isTokenActor) {
+    const containerActor = item.actor;
+    controls.append(_buildContentRowControl(
+      "fa-hand",
+      "INTERACTIVE_ITEMS.HUD.PickUp",
+      "fa-solid",
+      async () => {
+        // Distance is the most actionable failure for players to understand,
+        // so check it first.
+        if (!checkProximity(containerActor)) return;
+        // Container open is implied (the row only shows when the sheet is
+        // open) but the lock state still needs gating.
+        if (!validateContainerAccess(containerActor, { checkOpen: false })) return;
+        const currentItem = containerActor.items.get(item.id);
+        if (!validateItemAccess(currentItem)) return;
+
+        const targetActor = await resolvePickupTarget(containerActor);
+        if (!targetActor) return;
+        const tokenDoc = containerActor.token;
+        if (!tokenDoc) return;
+        const sceneId = tokenDoc.parent.id;
+        const tokenId = tokenDoc.id;
+
+        // Prompt for a partial-stack pickup when qty > 1 and the item is not
+        // a container type (containers are always single-quantity).
+        let chosen = null;
+        const sourceQty = adapter.getItemQuantity(currentItem);
+        if (sourceQty > 1 && !adapter.isContainerItem(currentItem)) {
+          chosen = await promptItemQuantity({
+            itemName: currentItem.name,
+            max: sourceQty,
+            actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+            actionFormatArgs: { target: targetActor.name }
+          });
+          if (chosen == null) return;
+        }
+
+        dbg("contents:pickupRow", { itemName: item.name, itemId: item.id, sceneId, tokenId, targetActorId: targetActor.id, chosen });
+        await dispatchGM(
+          "pickupItem",
+          { sceneId, tokenId, itemId: item.id, targetActorId: targetActor.id, quantity: chosen },
+          async () => pickupItem(sceneId, tokenId, item.id, targetActor.id, chosen)
+        );
+        if (!game.user.isGM) notifyItemAction("PickedUp", item.name);
+      }
+    ));
+  }
+
+  // Lock / identify / delete — Lock and identify reflect the live state on
+  // the item; delete is wired below.
+  const isLocked = !!item.flags?.["pick-up-stix"]?.tokenState?.system?.isLocked;
+  controls.append(_buildContentRowControl(
+    isLocked ? "fa-lock" : "fa-lock-open",
+    "INTERACTIVE_ITEMS.Sheet." + (isLocked ? "StateLocked" : "StateUnlocked"),
+    "fa-solid",
+    async () => {
+      if (!game.user.isGM) return;
+      dbg("contents:lockRow", { itemName: item.name, itemId: item.id, currentlyLocked: isLocked });
+      // Lock state lives in the same flag the dnd5e ContainerSheet row controls
+      // use, keeping the per-item lock semantics consistent across systems.
+      await item.update({ "flags.pick-up-stix.tokenState.system.isLocked": !isLocked });
+    }
+  ));
+
+  const isIdentified = adapter.isItemIdentified(item);
+  const identCfg = adapter.getIdentifyButtonConfig(isIdentified);
+  const identIcon = isIdentified ? identCfg.iconOn : identCfg.iconOff;
+  const identFamily = isIdentified
+    ? (identCfg.iconFamilyOn ?? "fa-solid")
+    : (identCfg.iconFamilyOff ?? "fa-solid");
+  controls.append(_buildContentRowControl(
+    identIcon,
+    isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey,
+    identFamily,
+    async () => {
+      if (!game.user.isGM) return;
+      dbg("contents:identifyRow", { itemName: item.name, itemId: item.id, currentlyIdentified: isIdentified });
+      // Adapter routing handles pf2e's mystify-popup vs direct setIdentified
+      // distinction; the updateItem hook re-renders the container sheet so
+      // the row's icon and tooltip refresh with the new state.
+      await adapter.performIdentifyToggle(item);
+    }
+  ));
+
+  // Delete is the only currently-active control on contents rows. GM-only —
+  // players see the icon but the click no-ops for them. The deleteItem hook
+  // re-renders the container sheet automatically, so the row disappears.
+  controls.append(_buildContentRowControl(
+    "fa-trash",
+    "INTERACTIVE_ITEMS.Sheet.DeleteItem",
+    "fa-solid",
+    async () => {
+      if (!game.user.isGM) return;
+      dbg("contents:deleteRow", { itemName: item.name, itemId: item.id, actorName: item.actor?.name });
+      await item.delete();
+    }
+  ));
+
+  row.append(controls);
+  return row;
+}
+
+/**
+ * Build a single inventory-row control glyph (anchor with FontAwesome icon).
+ *
+ * @param {string} icon - FontAwesome icon class (e.g. `fa-lock`).
+ * @param {string} tooltipKey - i18n key for the hover tooltip.
+ * @param {string} [family="fa-solid"] - FontAwesome family class.
+ * @param {((event: MouseEvent) => void)|null} [onClick=null] - Optional click handler.
+ *   When provided, the click event has `preventDefault` + `stopPropagation` called
+ *   on it before invocation so it doesn't bubble to pf2e's row-level handlers.
+ * @returns {HTMLAnchorElement}
+ */
+function _buildContentRowControl(icon, tooltipKey, family = "fa-solid", onClick = null) {
+  const a = document.createElement("a");
+  a.className = "ii-contents-control";
+  const tooltip = game.i18n.localize(tooltipKey);
+  a.dataset.tooltip = tooltip;
+  a.setAttribute("aria-label", tooltip);
+  a.innerHTML = `<i class="${family} ${icon}"></i>`;
+  if (onClick) {
+    a.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      return onClick(event);
+    });
+  }
+  return a;
+}
+
+/**
+ * Format an item's bulk for display. pf2e uses `system.bulk.value` where 0
+ * means negligible and 0.1 means light ("L" in the rules). Numbers >= 1 are
+ * displayed as integers.
+ *
+ * @param {Item} item
+ * @returns {string}
+ */
+function _formatItemBulk(item) {
+  const v = item.system?.bulk?.value;
+  if (v == null) return "—";
+  if (v === 0) return "—";
+  if (v < 1) return "L";
+  return String(v);
+}
+
+/**
+ * Handles dnd5e's container-drop gate. Called when an item is dropped onto a
+ * ContainerSheet; prompts for quantity when the source stack is > 1, routes
+ * player deposits through the socket, and intercepts dnd5e's native GM deposit
+ * so our split-aware helper runs instead.
+ *
+ * @param {object} ctx
+ * @param {Actor} ctx.actor - The actor owning the container item.
+ * @param {Item} ctx.item - The container item receiving the drop.
+ * @param {Application} ctx.sheet - The ContainerSheet application.
+ * @param {object} ctx.data - The drag event data payload.
+ * @returns {false|undefined} Returns `false` to cancel dnd5e's native drop handling.
+ */
+function _gateContainerDrop({ actor, item, sheet, data }) {
+  if (!isInteractiveContainer(actor)) return;
+
+  // dnd5e fires this hook when an item is dragged FROM the container sheet too
+  // (not only when something is dropped onto it). If the UUID belongs to this
+  // actor, it's a drag-out operation — let dnd5e handle the move natively.
+  if (data.uuid?.startsWith(actor.uuid + ".")) return;
+
+  if (isPlayerView()) {
+    if (!validateContainerAccess(actor, { checkProximity: true })) return false;
+
+    // Players can't create items on OBSERVER-level actors — route through socket.
+    // Fire async then return false synchronously to cancel dnd5e's native handling.
+    (async () => {
+      const droppedItem = await fromUuid(data.uuid);
+      if (!droppedItem) return;
+      const sourceActor = droppedItem.actor;
+      if (!sourceActor) return;
+      const tokenDoc = actor.token;
+      if (!tokenDoc) return;
+
+      let chosen = null;
+      const adapter = getAdapter();
+      const sourceQty = adapter.getItemQuantity(droppedItem);
+      if (sourceQty > 1 && !adapter.isContainerItem(droppedItem)) {
+        chosen = await promptItemQuantity({
+          itemName: droppedItem.name,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+          actionFormatArgs: { target: actor.name }
+        });
+        if (chosen == null) {
+          dbg("place:_gateContainerDrop", "player quantity cancelled, bail");
+          return;
+        }
+      }
+
+      const sceneId = tokenDoc.parent.id;
+      const tokenId = tokenDoc.id;
+      dbg("place:_gateContainerDrop", "player path — dispatching depositItem via socket", {
+        sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, chosen
+      });
+      dispatchGM(
+        "depositItem",
+        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, quantity: chosen },
+        async () => depositItem(sourceActor.id, droppedItem.id, sceneId, tokenId, chosen)
+      );
+      notifyItemAction("Deposited", droppedItem.name);
+    })();
+    return false;
+  }
+
+  // GM path — intercept dnd5e's native deposit so our split-aware helper runs.
+  // Fire-and-forget; return false to suppress dnd5e's native handling.
+  (async () => {
+    const droppedItem = await fromUuid(data.uuid);
+    if (!droppedItem) return;
+    dbg("place:_gateContainerDrop", "GM path — delegating to _handleContainerSheetGmDeposit", {
+      itemName: droppedItem.name, destActorName: actor.name
+    });
+    await _handleContainerSheetGmDeposit({ destActor: actor, droppedItem, destContainerItem: item });
+  })();
+  return false;
+}
+
+/**
+ * Shared GM-side deposit-to-container helper used by both `_gateContainerDrop`
+ * (dnd5e) and `_installContainerSheetItemDrop` (pf2e). Validates physical/container
+ * guards, prompts for quantity when the source stack is > 1 (skipped for world
+ * items with no source actor), creates the destination item with the chosen
+ * quantity, and decrements (or deletes) the source when it had an inventory actor.
+ *
+ * Container-typed items are rejected with a `NoContainerInContainer` warning.
+ * Non-physical items are rejected with a `NotPhysical` warning.
+ *
+ * @param {object} args
+ * @param {Actor} args.destActor - The interactive container actor receiving the deposit.
+ * @param {Item} args.droppedItem - The source item being deposited.
+ * @param {Item} args.destContainerItem - The container item on `destActor`
+ *   whose contents the deposit should live in.
+ */
+async function _handleContainerSheetGmDeposit({ destActor, droppedItem, destContainerItem }) {
+  const adapter = getAdapter();
+
+  if (!adapter.isPhysicalItem(droppedItem)) {
+    dbg("place:_handleContainerSheetGmDeposit", "dropped item is not physical, bail", { itemName: droppedItem.name });
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
+    return;
+  }
+  if (adapter.isContainerItem(droppedItem)) {
+    dbg("place:_handleContainerSheetGmDeposit", "dropped item is a container, bail", { itemName: droppedItem.name });
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
+    return;
+  }
+
+  // Only prompt when the source is owned by an actor (world items have no
+  // source to decrement so they move at full quantity with no prompt).
+  const sourceQty = adapter.getItemQuantity(droppedItem);
+  let chosen = null;
+  if (droppedItem.actor && sourceQty > 1) {
+    chosen = await promptItemQuantity({
+      itemName: droppedItem.name,
+      max: sourceQty,
+      actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+      actionFormatArgs: { target: destActor.name }
+    });
+    if (chosen == null) {
+      dbg("place:_handleContainerSheetGmDeposit", "GM quantity cancelled, bail");
+      return;
+    }
+  }
+
+  const itemData = droppedItem.toObject();
+  delete itemData._id;
+  adapter.setItemContainerId(itemData, destContainerItem.id);
+  if (chosen != null && chosen !== sourceQty) {
+    adapter.setItemDataQuantity(itemData, chosen);
+  }
+
+  dbg("place:_handleContainerSheetGmDeposit", "creating deposited item on destActor", {
+    itemName: itemData.name, destActorName: destActor.name,
+    chosen, sourceQty, hasSourceActor: !!droppedItem.actor
+  });
+  try {
+    await CONFIG.Item.documentClass.createDocuments([itemData], { parent: destActor, keepId: false });
+    // Decrement or delete the source only when it came from another actor's
+    // inventory (world items have no source actor; same-actor moves would be a
+    // no-op since we already excluded same-actor deposits upstream).
+    if (droppedItem.actor && droppedItem.actor.id !== destActor.id) {
+      if (chosen != null) {
+        await decrementOrDeleteItem(droppedItem, chosen);
+      } else {
+        // chosen == null means world item or qty=1 — full move, delete source.
+        await droppedItem.delete();
+      }
+    }
+    ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
+  } catch (err) {
+    console.error("pick-up-stix | failed to deposit item on container sheet:", err);
+  }
+}
 
 Hooks.on("renderSettingsConfig", (app, html) => {
   const input = html.querySelector(`[name="${MODULE_ID}.actorFolder"]`);
@@ -686,7 +1615,10 @@ Hooks.on("preUpdateToken", (tokenDoc, changes, options, userId) => {
 
   const newX = changes.x ?? tokenDoc.x;
   const newY = changes.y ?? tokenDoc.y;
-  const overlapTargets = findCanvasDropTargets(newX, newY, { sourceActorId: actor.id });
+  // v14: a token can only overlap deposit targets on the same level it's moving to.
+  // Use the destination level from `changes.level` if present, else the token's current level.
+  const newLevel = hasLevels() ? (changes.level ?? getTokenLevelId(tokenDoc)) : null;
+  const overlapTargets = findCanvasDropTargets(newX, newY, { sourceActorId: actor.id, level: newLevel });
 
   if (!overlapTargets.length) {
     dbg("hook:preUpdateToken", "no overlap targets, allow move");
@@ -698,6 +1630,83 @@ Hooks.on("preUpdateToken", (tokenDoc, changes, options, userId) => {
   _handleTokenMoveWithOverlap(tokenDoc, changes, overlapTargets)
     .catch(err => console.error(`${MODULE_ID} | Token move-overlap flow failed:`, err));
   return false; // cancel the update
+});
+
+// preDeleteToken: gate stacked interactive token deletions behind a
+// quantity prompt. Multi-select deletes fire this hook once per token
+// synchronously; we collect them into a batch and flush one combined
+// dialog in the next microtask. Cancel keeps every queued token; per-row
+// choice >= max re-fires that token's delete with a suppressPrompt flag;
+// per-row choice < max decrements its embedded item and leaves the token alone.
+let _pendingDeleteBatch = null;
+
+/**
+ * Flush the accumulated batch of stacked interactive tokens that were
+ * intercepted by preDeleteToken. Presents a single combined quantity dialog
+ * (or the focused single-row dialog for a one-token batch), then either
+ * re-deletes (full) or decrements (partial) each token according to the
+ * user's choice.
+ */
+async function _flushPendingDeleteBatch() {
+  const batch = _pendingDeleteBatch;
+  _pendingDeleteBatch = null;
+  if (!batch?.tokens.length) return;
+
+  dbg("hook:preDeleteToken:flush", "flushing batch", { count: batch.tokens.length });
+
+  const items = batch.tokens.map(t => ({ itemName: t.actorName, max: t.sourceQty }));
+  const choices = await promptItemQuantitiesBatch({
+    items,
+    actionKey: items.length === 1
+      ? "INTERACTIVE_ITEMS.Dialog.QuantityActionDelete"
+      : "INTERACTIVE_ITEMS.Dialog.QuantityActionDeleteMulti"
+  });
+  if (!choices) {
+    dbg("hook:preDeleteToken:flush", "batch cancelled, no deletions");
+    return;
+  }
+
+  for (let i = 0; i < batch.tokens.length; i++) {
+    const { tokenDoc, item, sourceQty } = batch.tokens[i];
+    const chosen = choices[i];
+    if (chosen == null) continue;
+    if (chosen >= sourceQty) {
+      dbg("hook:preDeleteToken:flush", "full delete", { tokenId: tokenDoc.id, chosen, sourceQty });
+      await tokenDoc.delete({ pickUpStix: { suppressPrompt: true } });
+    } else {
+      dbg("hook:preDeleteToken:flush", "partial decrement", { tokenId: tokenDoc.id, chosen, sourceQty });
+      await item.update({ "system.quantity": sourceQty - chosen });
+    }
+  }
+}
+
+Hooks.on("preDeleteToken", (tokenDoc, options) => {
+  if (!game.user.isGM) return;
+  if (options?.pickUpStix?.suppressPrompt) return;
+
+  const actor = tokenDoc.actor;
+  if (!isInteractiveActor(actor)) return;
+  if (actor.system?.isContainer) return;
+
+  const adapter = getAdapter();
+  const item = actor.system?.embeddedItem;
+  if (!item) return;
+  const sourceQty = adapter.getItemQuantity(item);
+  if (sourceQty <= 1) return;
+
+  dbg("hook:preDeleteToken:enqueue", { tokenId: tokenDoc.id, actorName: actor.name, sourceQty });
+
+  if (!_pendingDeleteBatch) {
+    _pendingDeleteBatch = { tokens: [] };
+    // setTimeout (macrotask), not queueMicrotask: Foundry's
+    // _preDeleteOperation awaits each document's _preDelete in a loop,
+    // so a microtask flush would run *between* hook fires and split a
+    // multi-select into one dialog per token. A 0-delay timeout defers
+    // past the entire await loop so all enqueued tokens share one flush.
+    setTimeout(_flushPendingDeleteBatch, 0);
+  }
+  _pendingDeleteBatch.tokens.push({ tokenDoc, item, sourceQty, actorName: actor.name });
+  return false;
 });
 
 Hooks.on("deleteToken", async (tokenDoc, options, userId) => {
@@ -817,13 +1826,12 @@ Hooks.on("createActor", async (actor, options, userId) => {
   });
 
   if (actor.getFlag(MODULE_ID, "containerDefault")) {
-    if (!actor.items.some(i => i.type === "container")) {
-      await actor.createEmbeddedDocuments("Item", [{
-        name: actor.name,
-        type: "container",
-        img: actor.img,
-        system: { identified: true }
-      }]);
+    if (!actor.items.some(i => getAdapter().isContainerItem(i))) {
+      // Use the adapter for both item type and identification field so neither
+      // is hard-coded to the dnd5e vocabulary or `system.identified` boolean.
+      const containerData = { name: actor.name, type: getAdapter().containerItemType, img: actor.img };
+      getAdapter().stampNewItemIdentified(containerData, true);
+      await actor.createEmbeddedDocuments("Item", [containerData]);
     }
     return;
   }
@@ -854,12 +1862,11 @@ Hooks.on("createActor", async (actor, options, userId) => {
       "system.openImage": openImg,
       [`flags.${MODULE_ID}.containerDefault`]: true
     });
-    await actor.createEmbeddedDocuments("Item", [{
-      name: actor.name,
-      type: "container",
-      img: closedImg,
-      system: { identified: true }
-    }]);
+    // Use the adapter for both item type and identification field so neither
+    // is hard-coded to the dnd5e vocabulary or `system.identified` boolean.
+    const containerData = { name: actor.name, type: getAdapter().containerItemType, img: closedImg };
+    getAdapter().stampNewItemIdentified(containerData, true);
+    await actor.createEmbeddedDocuments("Item", [containerData]);
     actor.sheet?.render({ force: true });
   } else if (result === "item") {
     await actor.setFlag(MODULE_ID, "createKindConfirmed", true);
@@ -945,36 +1952,19 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
     });
 
     if (embeddedItem && (identifiedChanged || unidentifiedNameChanged || descChanged || unidentifiedDescChanged || nameChanged)) {
-      if ("identified" in (embeddedItem.system ?? {})) {
-        const itemUpdates = {};
+      // Build the system-specific update payload via the adapter so the field
+      // paths are not hard-coded to dnd5e's `system.identified` / `system.unidentified.*`.
+      const itemUpdates = getAdapter().buildItemIdentificationUpdate(actor, systemChanges);
+      if (nameChanged) {
+        itemUpdates.name = actor.name;
+      }
 
-        if (identifiedChanged) {
-          itemUpdates["system.identified"] = actor.system.isIdentified;
-        }
-        if (nameChanged) {
-          itemUpdates.name = actor.name;
-        }
-        if (unidentifiedNameChanged) {
-          itemUpdates["system.unidentified.name"] = actor.system.unidentifiedName || "";
-        }
-        // system.description is the identified description — syncs to item's description.value
-        if (descChanged) {
-          itemUpdates["system.description.value"] = actor.system.description || "";
-        }
-        // system.unidentifiedDescription → item's unidentified.description
-        if (unidentifiedDescChanged) {
-          itemUpdates["system.unidentified.description"] = actor.system.unidentifiedDescription || "";
-        }
-
-        if (Object.keys(itemUpdates).length > 0) {
-          dbg("hook:updateActor", "updating embeddedItem fields", { embeddedItemId: embeddedItem.id, itemUpdates });
-          await embeddedItem.update(itemUpdates);
-          if (embeddedItem.sheet?.rendered) embeddedItem.sheet.render();
-        } else {
-          dbg("hook:updateActor", "no item field changes needed");
-        }
+      if (Object.keys(itemUpdates).length > 0) {
+        dbg("hook:updateActor", "updating embeddedItem fields", { embeddedItemId: embeddedItem.id, itemUpdates });
+        await embeddedItem.update(itemUpdates);
+        if (embeddedItem.sheet?.rendered) embeddedItem.sheet.render();
       } else {
-        dbg("hook:updateActor", "embeddedItem has no identified field, skipping field sync");
+        dbg("hook:updateActor", "no item field changes needed");
       }
     } else if (!embeddedItem) {
       dbg("hook:updateActor", "no embeddedItem found, skipping field sync");
@@ -1027,21 +2017,39 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
 
   const unidentifiedNameChanged = "unidentifiedName" in systemChanges;
   const nameChanged = "name" in changes;
-  if (!unidentifiedNameChanged && !nameChanged) return;
+  const descriptionChanged = "description" in systemChanges;
+  const unidentifiedDescriptionChanged = "unidentifiedDescription" in systemChanges;
+  if (!unidentifiedNameChanged && !nameChanged
+      && !descriptionChanged && !unidentifiedDescriptionChanged) return;
 
   const system = actor.system;
-  const protoName = system.resolveTokenName();
-  const protoUpdates = { "prototypeToken.name": protoName };
 
-  await actor.update(protoUpdates, { noHook: true });
+  // Token nameplate sync is needed only when the *display name* changes.
+  if (nameChanged || unidentifiedNameChanged) {
+    const protoName = system.resolveTokenName();
+    await actor.update({ "prototypeToken.name": protoName }, { noHook: true });
+    const tokens = canvas.scene?.tokens.filter(t => t.actorId === actor.id) ?? [];
+    for (const token of tokens) {
+      const tokenSystem = token.actor?.system;
+      if (!tokenSystem) continue;
+      const tokenName = tokenSystem.resolveTokenName();
+      await token.update({ name: tokenName });
+    }
+  }
 
-  // Each token may have its own identification state via delta.
-  const tokens = canvas.scene?.tokens.filter(t => t.actorId === actor.id) ?? [];
-  for (const token of tokens) {
-    const tokenSystem = token.actor?.system;
-    if (!tokenSystem) continue;
-    const tokenName = tokenSystem.resolveTokenName();
-    await token.update({ name: tokenName });
+  // Propagate name and description changes to the embedded item's
+  // source-level fields so the system's native sheet inputs stay in sync.
+  // On pf2e this also writes the per-state caches
+  // (`system.identification.{identified|unidentified}.{name,data.description.value}`),
+  // otherwise prepareDerivedData resurrects the stale original values on
+  // the next identify cycle. Adapter returns {} when no sync needed.
+  const item = system.embeddedItem;
+  if (item) {
+    const sourceUpdate = getAdapter().buildEmbeddedItemSourceUpdate(actor, system.isIdentified);
+    if (Object.keys(sourceUpdate).length > 0) {
+      dbg("hook:updateActor", "propagating actor name/description change to embedded item", { sourceUpdate });
+      await item.update(sourceUpdate, { pickUpStix: { internalSourceSync: true } });
+    }
   }
 });
 
@@ -1058,13 +2066,116 @@ Hooks.on("updateActor", (actor, changes) => {
 Hooks.on("updateActor", (actor, changes) => {
   if (!isInteractiveActor(actor)) return;
   const sys = changes.system ?? {};
-  if (!("isLocked" in sys) && !("isOpen" in sys)) {
-    dbg("hook:updateActor:rerender", { name: actor.name }, "no isLocked/isOpen change, bail");
+  // isIdentified must be in this set too — pf2e item/container sheets and our
+  // own config sheet inject identify toggles whose icon and tooltip have to
+  // refresh after a Mystify/Identify action; otherwise the visual stays stale
+  // even though the underlying data updated correctly.
+  if (!("isLocked" in sys) && !("isOpen" in sys) && !("isIdentified" in sys)) {
+    dbg("hook:updateActor:rerender", { name: actor.name }, "no isLocked/isOpen/isIdentified change, bail");
     return;
   }
-  dbg("hook:updateActor:rerender", { name: actor.name, id: actor.id, isLocked: sys.isLocked, isOpen: sys.isOpen, sheetRendered: !!actor.system.embeddedItem?.sheet?.rendered });
+  dbg("hook:updateActor:rerender", { name: actor.name, id: actor.id, isLocked: sys.isLocked, isOpen: sys.isOpen, isIdentified: sys.isIdentified, sheetRendered: !!actor.system.embeddedItem?.sheet?.rendered });
+
+  // Re-render the embedded item's native sheet (dnd5e ContainerSheet / pf2e item sheets).
   const item = actor.system.embeddedItem;
   if (item?.sheet?.rendered) item.sheet.render();
+
+  // Also re-render any open apps (AppV1 via ui.windows, AppV2 via foundry.applications.instances)
+  // that own this actor (actor-document match) or whose item belongs to this actor
+  // (item-sheet match, e.g. pf2e ContainerSheetPF2e) so header toggles stay in sync.
+  for (const app of Object.values(ui.windows)) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    if (app === item?.sheet) continue;
+    dbg("hook:updateActor:rerender", "re-rendering AppV1 app", { appId: app.appId, actorName: actor.name });
+    app.render(true);
+  }
+  for (const app of foundry.applications.instances.values()) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    if (app === item?.sheet) continue;
+    dbg("hook:updateActor:rerender", "re-rendering AppV2 app", { appId: app.id, actorName: actor.name });
+    app.render();
+  }
+});
+
+// Re-render any open container views (AppV1 or AppV2) whose document or item's
+// actor matches the given actor. AppV1 apps live in ui.windows; AppV2 in
+// foundry.applications.instances. Item sheets (e.g. pf2e ContainerSheetPF2e)
+// are found via app.item?.actor rather than app.document.
+function _rerenderContainerViews(actor) {
+  if (!isInteractiveActor(actor) || !actor.system?.isContainer) return;
+  for (const app of Object.values(ui.windows)) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    dbg("hook:createDeleteItem:rerender", { appId: app.appId, actorName: actor.name });
+    app.render(true);
+  }
+  for (const app of foundry.applications.instances.values()) {
+    if (!app.rendered) continue;
+    const matchesActor = app.document?.id === actor.id || app.item?.actor?.id === actor.id;
+    if (!matchesActor) continue;
+    dbg("hook:createDeleteItem:rerender", { appId: app.id, actorName: actor.name });
+    app.render();
+  }
+}
+
+Hooks.on("createItem", (item) => {
+  const actor = item.parent;
+  if (actor) _rerenderContainerViews(actor);
+});
+
+Hooks.on("deleteItem", (item) => {
+  const actor = item.parent;
+  if (actor) _rerenderContainerViews(actor);
+});
+
+// Re-render container views when a deposited item's lock flag or stack
+// quantity changes so the Contents-tab row stays current. Scoped narrowly:
+// deposited items (i.e. *not* the wrapping container's embedded backpack)
+// on interactive container actors. The main updateItem hook below handles
+// identification changes for the wrapped item.
+Hooks.on("updateItem", (item, changes) => {
+  const actor = item.parent;
+  if (!isInteractiveActor(actor) || !actor.system?.isContainer) return;
+  if (item.id === actor.system.embeddedItem?.id) return;
+  const lockChanged = foundry.utils.hasProperty(changes, "flags.pick-up-stix.tokenState.system.isLocked");
+  const qtyChanged = foundry.utils.hasProperty(changes, "system.quantity");
+  if (!lockChanged && !qtyChanged) return;
+  dbg("hook:updateItem:rowRerender", { itemName: item.name, itemId: item.id, lockChanged, qtyChanged });
+  _rerenderContainerViews(actor);
+});
+
+// Route edits made on the embedded item's native sheet back to the wrapping
+// actor's identified/unidentified fields. Covers both the main sheet name
+// input and (on pf2e) the Mystification tab's name and description inputs.
+// The adapter decides which actor fields to set; dnd5e returns {} since its
+// sheet routes edits through the system's own identification field paths.
+//
+// Skipped when the update originated from our own source-sync write
+// (`buildEmbeddedItemSourceUpdate`) — that flag prevents the round-trip
+// where mystifying writes a generated name to _source.name and this hook
+// would otherwise persist that auto-generated label as unidentifiedName.
+Hooks.on("updateItem", async (item, changes, options, userId) => {
+  if (!game.user.isGM) return;
+  if (options?.pickUpStix?.internalSourceSync) return;
+
+  const actor = item.actor;
+  if (!isInteractiveActor(actor)) return;
+  if (item.id !== actor.system.embeddedItem?.id) return;
+
+  const actorUpdate = getAdapter().parseEmbeddedItemChanges(item, changes, actor);
+  if (Object.keys(actorUpdate).length === 0) return;
+
+  dbg("hook:updateItem:itemToActor", {
+    itemName: item.name,
+    isIdentified: actor.system.isIdentified,
+    actorUpdate
+  });
+  await actor.update(actorUpdate);
 });
 
 Hooks.on("updateItem", async (item, changes, options, userId) => {
@@ -1073,8 +2184,7 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
     itemId: item.id,
     itemImg: item.img,
     actorName: item.actor?.name,
-    identifiedInChanges: "identified" in (changes.system ?? {}),
-    changedIdentifiedValue: changes.system?.identified,
+    isIdentificationChange: getAdapter().isIdentificationChange(item, changes),
     systemChangeKeys: Object.keys(changes.system ?? {})
   });
   if (!game.user.isGM) {
@@ -1086,12 +2196,27 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
     dbg("hook:updateItem", "actor is not interactive, bail", { actorName: actor?.name });
     return;
   }
-  if (!("identified" in (changes.system ?? {}))) {
-    dbg("hook:updateItem", "identified not in changes, bail");
+  if (!getAdapter().isIdentificationChange(item, changes)) {
+    dbg("hook:updateItem", "not an identification change, bail");
     return;
   }
 
-  const newIdentified = item.system.identified !== false;
+  // The rest of this handler is dedicated to the *wrapped* item — the one
+  // whose identification mirrors the actor's `system.isIdentified`. For
+  // *deposited* items (children of a container actor whose containerId
+  // points at the wrapped backpack), just refresh open container views so
+  // the row's identify icon / tooltip update; do not touch the wrapping
+  // actor's identification state.
+  const embeddedItemId = actor.system.embeddedItem?.id;
+  if (embeddedItemId && item.id !== embeddedItemId) {
+    dbg("hook:updateItem", "deposited-item identify change, just re-render container views");
+    _rerenderContainerViews(actor);
+    return;
+  }
+
+  // Read identification state through the adapter so the field path is not
+  // hard-coded to dnd5e's `system.identified` boolean.
+  const newIdentified = getAdapter().isItemIdentified(item);
   const isContainer = actor.system.isContainer;
 
   dbg("hook:updateItem", "processing identification change", {
@@ -1127,6 +2252,26 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
   if (actor.system.isIdentified !== newIdentified) {
     dbg("hook:updateItem", "syncing actor.system.isIdentified", { from: actor.system.isIdentified, to: newIdentified });
     await actor.update({ "system.isIdentified": newIdentified }, { noHook: true });
+  }
+
+  // Some systems (pf2e) bind sheet inputs to `item._source.name`, which
+  // setIdentificationStatus doesn't touch. Ask the adapter for any
+  // source-level updates needed so the in-sheet name field reflects the new
+  // identification state. dnd5e's adapter returns {} (no-op).
+  const sourceUpdate = getAdapter().buildEmbeddedItemSourceUpdate(actor, newIdentified);
+  dbg("hook:updateItem", "embedded item source update probe", {
+    actorName: actor.name,
+    actorUnidentifiedName: actor.system.unidentifiedName,
+    itemSourceName: item._source?.name,
+    itemLiveName: item.name,
+    newIdentified,
+    sourceUpdate
+  });
+  if (Object.keys(sourceUpdate).length > 0) {
+    dbg("hook:updateItem", "applying embedded item source update", { sourceUpdate });
+    // Tag this update so the inverse-direction name-sync hook
+    // (`hook:updateItem:nameToActor`) can recognise our own write and skip.
+    await item.update(sourceUpdate, { pickUpStix: { internalSourceSync: true } });
   }
 
   if (!isContainer) {
@@ -1182,7 +2327,7 @@ Hooks.on("updateItem", async (item, changes, options, userId) => {
 Hooks.on("renderActorDirectory", (app, html, context, options) => {
   const ephemeralFolderId = game.settings.get(MODULE_ID, "ephemeralFolder");
   const ephemeralVisible = game.settings.get(MODULE_ID, "ephemeralFolderVisible");
-  const hideEphemeralFolder = isPlayerView() || !ephemeralVisible;
+  const hideEphemeralFolder = !game.user.isGM || !ephemeralVisible;
 
   if (ephemeralFolderId && hideEphemeralFolder) {
     const folderEl = html.querySelector(`.folder[data-folder-id="${ephemeralFolderId}"]`);
@@ -1194,12 +2339,12 @@ Hooks.on("renderActorDirectory", (app, html, context, options) => {
     const actor = game.actors.get(actorId);
     if (!isInteractiveActor(actor)) return;
     const isEphemeral = !!actor.getFlag(MODULE_ID, "ephemeral");
-    if (isPlayerView() || (isEphemeral && hideEphemeralFolder)) {
+    if (!game.user.isGM || (isEphemeral && hideEphemeralFolder)) {
       el.remove();
     }
   });
 
-  if (isPlayerView()) return;
+  if (!game.user.isGM) return;
 
   // Ephemeral actors are created programmatically — block manual creation.
   if (ephemeralFolderId && !hideEphemeralFolder) {
@@ -1240,7 +2385,7 @@ Hooks.on("renderUserConfig", (app, html) => {
 });
 
 Hooks.on("renderActorDirectory", (app, element) => {
-  if (isPlayerView()) return;
+  if (!game.user.isGM) return;
   if (element.dataset.iiCreatePickerAttached) return;
   element.dataset.iiCreatePickerAttached = "1";
 
@@ -1418,7 +2563,14 @@ async function _deleteInteractiveActors(folderId, { ephemeralOnly = false } = {}
 }
 
 function _reevaluateInteractiveProximity() {
-  for (const app of foundry.applications.instances.values()) {
+  // Walk both registries so V1 sheets (pf2e ContainerSheetPF2e, native item
+  // sheets) close and re-render alongside V2 sheets (dnd5e ContainerSheet).
+  // Item-document sheets resolve their interactive actor via app.item?.actor.
+  const apps = [
+    ...Object.values(ui.windows ?? {}),
+    ...foundry.applications.instances.values()
+  ];
+  for (const app of apps) {
     if (!app.rendered) continue;
     const interactiveActor = app.actor ?? app.item?.actor ?? app.document?.actor;
     if (!isInteractiveActor(interactiveActor)) continue;
@@ -1444,8 +2596,10 @@ function _reevaluateInteractiveProximity() {
 // so we identify stale apps by parent actor rather than instanceof.
 Hooks.on("updateToken", (tokenDoc, changes, options, userId) => {
   if (isModuleGM()) return;
-  if (!("x" in changes || "y" in changes)) {
-    dbg("hook:updateToken", "no x/y in changes, bail", { tokenId: tokenDoc.id });
+  // Trigger on x, y, OR level changes — level is a movement field in v14
+  // and a pure level transition can change proximity outcomes without a coord change.
+  if (!("x" in changes || "y" in changes || "level" in changes)) {
+    dbg("hook:updateToken", "no x/y/level in changes, bail", { tokenId: tokenDoc.id });
     return;
   }
 
@@ -1457,8 +2611,12 @@ Hooks.on("updateToken", (tokenDoc, changes, options, userId) => {
 
   // Record the definitive final position for this specific token. Foundry's
   // animation interpolates document.x/y mid-flight so the `changes` payload
-  // is the only reliable source of the final coordinates.
+  // is the only reliable source of the final coordinates. Also capture level
+  // on v14 so cross-level proximity checks use animation-safe data.
   const newPos = { x: changes.x ?? tokenDoc.x, y: changes.y ?? tokenDoc.y, width: tokenDoc.width, height: tokenDoc.height };
+  if (hasLevels()) {
+    newPos.level = changes.level ?? getTokenLevelId(tokenDoc);
+  }
   dbg("hook:updateToken", "candidate token moved, recording position override", { tokenId: tokenDoc.id, newPos });
   setPlayerPositionOverride(tokenDoc.id, newPos);
 
@@ -1479,8 +2637,13 @@ Hooks.on("controlToken", (token, controlled) => {
 
   // When newly controlled, seed its position override so checkProximity uses
   // fresh coords immediately (rather than waiting for its next updateToken).
+  // Also capture level on v14 so cross-level proximity checks are correct
+  // from the moment of selection.
   if (controlled) {
     const pos = { x: tokenDoc.x, y: tokenDoc.y, width: tokenDoc.width, height: tokenDoc.height };
+    if (hasLevels()) {
+      pos.level = getTokenLevelId(tokenDoc);
+    }
     dbg("hook:controlToken", "seeding position override for newly controlled token", { tokenId: tokenDoc.id, pos });
     setPlayerPositionOverride(tokenDoc.id, pos);
   }
@@ -1675,16 +2838,34 @@ async function _onActorFolderChanged(value) {
   }
 }
 
+/**
+ * Drops an item from the dnd5e context menu "Drop Item" entry onto the canvas
+ * at the dropping actor's current token position. On v14, also forwards the
+ * actor's current level so the placed token lands on the correct floor.
+ *
+ * @param {Item} item - The item to drop from the actor's inventory.
+ */
 async function _dropItemOnCanvas(item) {
   const actor = item.actor;
   if (!actor) return;
 
   const token = canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
   if (!token) {
+    dbg("place:_dropItemOnCanvas", "no canvas token for actor, bail", { actorName: actor?.name });
     ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoToken"));
     return;
   }
 
+  const tokenDoc = token.document;
+  dbg("place:_dropItemOnCanvas", {
+    itemName: item.name, x: tokenDoc.x, y: tokenDoc.y, level: getTokenLevelId(tokenDoc)
+  });
+
   const { handleItemDrop } = await import("./canvas/placement.mjs");
-  await handleItemDrop({ uuid: item.uuid, x: token.document.x, y: token.document.y });
+  await handleItemDrop({
+    uuid: item.uuid,
+    x: tokenDoc.x,
+    y: tokenDoc.y,
+    level: getTokenLevelId(tokenDoc)    // v14: forward the dropping actor's level
+  });
 }

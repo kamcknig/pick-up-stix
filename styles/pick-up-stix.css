@@ -69,6 +69,25 @@
   opacity: 1;
 }
 
+.ii-row-control.active {
+  color: var(--item-control-active-color, var(--color-text-hyperlink));
+  opacity: 1;
+}
+
+/* ===== Inventory Row Controls Column (injected into dnd5e character sheets) =====
+ * dnd5e renders the items-section header and each row as sibling flex
+ * containers; column widths come from per-cell class selectors. Adding a
+ * matched class to a header cell and a row cell keeps them aligned.
+ */
+.dnd5e2 .items-section .items-header .ii-row-controls-cell,
+.dnd5e2 .items-section .item .ii-row-controls-cell {
+  width: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
 
 .pick-up-stix-identify-toggle {
@@ -84,9 +103,14 @@
   opacity: 0.75;
 }
 
+.pick-up-stix-identify-toggle.active {
+  color: var(--item-control-active-color, var(--color-text-hyperlink));
+  opacity: 1;
+}
+
 .pick-up-stix-identify-toggle:hover {
   opacity: 1;
-  color: var(--color-text-hyperlink);
+  color: var(--item-control-active-color, var(--color-text-hyperlink));
 }
 
 /* ===== Folder Trash Button ===== */
@@ -175,6 +199,238 @@
   --control-hover-border-color: var(--control-active-border-color);
 }
 
+/* ===== pf2e ContainerSheetPF2e Contents Tab ===== */
+
+.ii-contents-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ii-contents-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.1));
+}
+
+.ii-contents-row:last-child {
+  border-bottom: none;
+}
+
+.ii-contents-img {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border: 1px solid var(--color-border-dark-2, rgba(0, 0, 0, 0.3));
+  border-radius: 2px;
+}
+
+.ii-contents-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.ii-contents-quantity,
+.ii-contents-bulk {
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+/* GM-only inline stepper rendered inside .ii-contents-quantity. Anchored at
+ * the Contents-tab section level so the header cell widens to match the data
+ * rows whenever any row contains a stepper — keeping the QTY label centered
+ * over the same column track as `– 1 +`. */
+.ii-contents:has(.ii-contents-qty-step) .ii-contents-quantity {
+  min-width: 72px;
+}
+
+.ii-contents-quantity:has(.ii-contents-qty-step) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ii-contents-qty-step {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  margin: 0;
+  width: auto;
+  height: auto;
+  line-height: 1;
+  font-size: 0.85em;
+  cursor: pointer;
+  opacity: 0.7;
+  color: inherit;
+}
+
+.ii-contents-qty-step:hover {
+  opacity: 1;
+}
+
+.ii-contents-qty-value {
+  min-width: 1.5em;
+  text-align: center;
+}
+
+.ii-contents-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ii-contents-control {
+  cursor: pointer;
+  opacity: 0.7;
+  width: 16px;
+  text-align: center;
+}
+
+.ii-contents-control:hover {
+  opacity: 1;
+}
+
+.ii-contents-empty {
+  padding: 1rem;
+  text-align: center;
+  font-style: italic;
+  opacity: 0.6;
+}
+
+/* Header row above the contents list. Reuses .ii-contents-row's flex layout
+ * so column widths match the data rows below. The image and controls columns
+ * use empty spacers (display:inline-block) since <span> isn't a replaced
+ * element and the actual data columns get their width from <img>/<span>
+ * children with explicit widths. */
+.ii-contents-row.ii-contents-header {
+  font-size: 0.78em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary, rgba(0, 0, 0, 0.6));
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.ii-contents-img-spacer {
+  display: inline-block;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.ii-contents-controls-spacer {
+  /* Default: 3 icons (lock + identify + delete) — actor-sheet renders. */
+  display: inline-block;
+  width: calc(3 * 16px + 2 * 6px);
+  flex-shrink: 0;
+}
+
+.ii-contents-controls-spacer.is-token {
+  /* Token-sheet renders gain a fourth icon (hand) before the lock. */
+  width: calc(4 * 16px + 3 * 6px);
+}
+
+/* ===== pf2e Config Sheet — match item-sheet input styling =====
+ * pf2e scopes its sheet-content input styling to `.pf2e.item.sheet`. Our
+ * config dialog is `.pf2e.actor.sheet` so those rules don't reach it.
+ * Worse, pf2e's unlayered rule `.pf2e.actor form input[type=text] { padding: 0 }`
+ * strips the padding the V1 compatibility layer would normally provide.
+ * The selectors below add the `.actor.interactive-item-config form` chain to
+ * outrank pf2e's actor rule (3 classes + 2 elements vs 2 classes + 2 elements)
+ * so our padding/background/border survive the cascade. Padding values come
+ * from foundry's V1 baseline (`body.game .app input[type=text]`). */
+
+.pf2e.actor.interactive-item-config form input[type="text"],
+.pf2e.actor.interactive-item-config form input[type="number"],
+.pf2e.actor.interactive-item-config form select {
+  color: var(--color-text-dark-input);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--color-border-light-2);
+  padding: 1px 3px;
+}
+
+.pf2e.actor.interactive-item-config form input[type="text"]:hover:not(:disabled),
+.pf2e.actor.interactive-item-config form input[type="text"]:focus,
+.pf2e.actor.interactive-item-config form input[type="number"]:hover:not(:disabled),
+.pf2e.actor.interactive-item-config form input[type="number"]:focus,
+.pf2e.actor.interactive-item-config form select:hover:not(:disabled),
+.pf2e.actor.interactive-item-config form select:focus {
+  border-color: var(--color-border-dark-1);
+  box-shadow: 0 0 4px var(--color-pf-secondary);
+}
+
+.pf2e.actor.interactive-item-config form input:read-only,
+.pf2e.actor.interactive-item-config form input:disabled,
+.pf2e.actor.interactive-item-config form select:disabled {
+  color: var(--color-disabled);
+  opacity: 0.8;
+}
+
+/* Form-group labels — match pf2e item-sheet appearance: darker text,
+ * semi-bold, fixed flex-basis so labels align across rows. */
+.pf2e.actor.interactive-item-config form .form-group > label {
+  color: var(--color-text-dark-2);
+  font-weight: 500;
+  padding-right: 0.5em;
+  flex: 0 1 11em;
+}
+
+/* Header layout — pf2e's `.pf2e.actor form .sheet-header` sets a 3rem
+ * height, a bottom divider line, and `flex: 1` on every child (which
+ * stretches the image to match the name's width). Override those so the
+ * header reads like a pf2e item-sheet header: small fixed image on the
+ * left at natural aspect, flexible name on the right, no divider. */
+.pf2e.actor.interactive-item-config form .sheet-header {
+  border-bottom: none;
+  height: auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px;
+}
+
+.pf2e.actor.interactive-item-config form .sheet-header > * {
+  flex: 0 1 auto;
+}
+
+.pf2e.actor.interactive-item-config form .sheet-header img.profile {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: none;
+}
+
+.pf2e.actor.interactive-item-config form .sheet-header .document-name {
+  flex: 1 1 auto;
+  font-size: var(--font-size-24);
+  font-family: var(--serif-condensed);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: normal;
+}
+
+/* Quick-open button (Open Container / Open Item Sheet) sits below the
+ * header on its own row. Existing rule
+ * `.pick-up-stix.sheet .sheet-header + button` already provides margin;
+ * make sure it spans full width and isn't pulled into the header flex. */
+.pf2e.actor.interactive-item-config form .sheet-header + button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+}
+
 /* ===== Settings Dialog ===== */
 
 .ii-settings-folder-picker {
@@ -192,4 +448,54 @@
   width: 3rem;
   height: 2rem;
   cursor: pointer;
+}
+
+/* ===== Quantity Prompt ===== */
+.ii-quantity-dialog .ii-quantity-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.ii-quantity-dialog .ii-quantity-fields input[type="number"] {
+  flex: 1 1 auto;
+  text-align: center;
+  min-width: 4em;
+}
+
+.ii-quantity-dialog .ii-quantity-shortcut {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 0.25em 0.6em;
+}
+
+.ii-quantity-dialog .ii-quantity-action {
+  margin-bottom: 0.5em;
+}
+
+/* ===== Batch Quantity Prompt (multi-token delete) ===== */
+.ii-quantity-batch-dialog .ii-quantity-batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.ii-quantity-batch-dialog .ii-quantity-batch-row {
+  align-items: center;
+}
+
+.ii-quantity-batch-dialog .ii-quantity-batch-label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ii-quantity-batch-dialog .ii-quantity-batch-cap {
+  font-size: 0.85em;
+  opacity: 0.7;
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
 }

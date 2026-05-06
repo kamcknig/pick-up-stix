@@ -1,12 +1,14 @@
-import { isInteractiveActor } from "../utils/actorHelpers.mjs";
+import { isInteractiveActor, getTokenActor } from "../utils/actorHelpers.mjs";
 import { getItemSourceActorId } from "../utils/itemFlags.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
-import { notifyItemAction } from "../utils/notify.mjs";
+import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
 import { getPlayerCandidateTokens, depositItem, buildInteractiveItemData, assignContainerParent } from "../transfer/ItemTransfer.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { dragModifiersHeld } from "../utils/dragModifier.mjs";
 import { findCanvasDropTargets, promptDropChoice, PLACE_ON_CANVAS } from "../utils/canvasDropTargets.mjs";
-import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
+import { hasLevels, getViewedLevelId, getTokenLevelId } from "../utils/levels.mjs";
+import { getAdapter } from "../adapter/index.mjs";
+import { promptItemQuantity, decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -69,7 +71,9 @@ async function _handleItemDrop(data) {
   }
 
   const hasSource = !!item.flags?.["pick-up-stix"]?.sourceActorId;
-  const isContainer = item.type === "container";
+  // Delegate item-type check to the adapter so the literal "container" is not
+  // hard-coded to the dnd5e vocabulary.
+  const isContainer = getAdapter().isContainerItem(item);
   const isWorldItem = !item.actor; // From Items directory, no parent actor
 
   let ephemeral = false;
@@ -94,7 +98,21 @@ async function _handleItemDrop(data) {
   }
 
   const sourceActorId = item.actor?.id ?? null;
-  const overlapTargets = findCanvasDropTargets(data.x, data.y, { sourceActorId });
+  // On v14, restrict overlap targets to the level the item is being dropped onto.
+  // GMs use the viewed level (null → findCanvasDropTargets internal default).
+  // Players use their character's level so a stacked-visible container on a different
+  // floor doesn't falsely prompt for deposit.
+  const dropLevel = game.user.isGM
+    ? (data.level ?? null)
+    : (() => {
+        const ownerToken = item.actor
+          ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
+          : null;
+        const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
+        return playerToken ? getTokenLevelId(playerToken.document) : null;
+      })();
+  dbg("place:_handleItemDrop", "resolving overlap targets", { sourceActorId, dropLevel });
+  const overlapTargets = findCanvasDropTargets(data.x, data.y, { sourceActorId, level: dropLevel });
   if (overlapTargets.length) {
     dbg("place:_handleItemDrop", "overlap targets found, prompting user",
       { count: overlapTargets.length, names: overlapTargets.map(t => t.actor.name) });
@@ -111,16 +129,71 @@ async function _handleItemDrop(data) {
       return;
     }
     if (result !== PLACE_ON_CANVAS) {
-      await depositItemToTarget(item, result);
+      // ---------- Quantity prompt (deposit branch) ----------
+      // Only prompt when moving from a real inventory source (world items have no
+      // source to decrement) and the item is not a container (always quantity 1).
+      let depositQty = null;
+      if (item.actor && !isContainer) {
+        const sourceQty = getAdapter().getItemQuantity(item);
+        if (sourceQty > 1) {
+          const isInteractiveContainerTarget = result.actor.system?.isContainer === true;
+          depositQty = await promptItemQuantity({
+            itemName: item.name,
+            max: sourceQty,
+            actionKey: isInteractiveContainerTarget
+              ? "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit"
+              : "INTERACTIVE_ITEMS.Dialog.QuantityActionGive",
+            actionFormatArgs: { target: result.actor.name }
+          });
+          if (depositQty == null) {
+            dbg("place:_handleItemDrop", "deposit quantity dialog cancelled, bail");
+            return;
+          }
+          dbg("place:_handleItemDrop", "deposit quantity chosen", { depositQty, sourceQty });
+        }
+      }
+      // ---------- End quantity prompt (deposit branch) ----------
+      await depositItemToTarget(item, result, { quantity: depositQty });
       return;
     }
     dbg("place:_handleItemDrop", "user chose PLACE_ON_CANVAS, fall through to placement");
   }
 
-  if (isModuleGM()) {
-    dbg("place:_handleItemDrop", "GM path — createInteractiveToken", { x: data.x, y: data.y, ephemeral });
-    await createInteractiveToken(item, data.x, data.y, { ephemeral });
-    if (item.actor) await item.delete({ deleteContents: true });
+  // ---------- Quantity prompt (canvas placement branch) ----------
+  // Only prompt when moving from a real inventory source (world items have no
+  // source to decrement) and the item is not a container (always quantity 1).
+  let chosenQuantity = null;
+  if (item.actor && !isContainer) {
+    const sourceQty = getAdapter().getItemQuantity(item);
+    if (sourceQty > 1) {
+      chosenQuantity = await promptItemQuantity({
+        itemName: item.name,
+        max: sourceQty,
+        actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPlace"
+      });
+      if (chosenQuantity == null) {
+        dbg("place:_handleItemDrop", "quantity dialog cancelled, bail");
+        return;
+      }
+      dbg("place:_handleItemDrop", "quantity chosen", { chosenQuantity, sourceQty });
+    }
+  }
+  // ---------- End quantity prompt (canvas placement branch) ----------
+
+  if (game.user.isGM) {
+    dbg("place:_handleItemDrop", "GM path — createInteractiveToken", {
+      x: data.x, y: data.y, ephemeral, level: data.level ?? null, chosenQuantity
+    });
+    await createInteractiveToken(item, data.x, data.y, { ephemeral, level: data.level ?? null, quantity: chosenQuantity });
+    // Decrement or delete the source based on how much was placed.
+    // World items (no actor) are not decremented — there is no source to split.
+    if (item.actor) {
+      if (chosenQuantity != null) {
+        await decrementOrDeleteItem(item, chosenQuantity);
+      } else {
+        await item.delete({ deleteContents: true });
+      }
+    }
   } else {
     // Prefer the owner's canvas token so the item lands at the dragger's position,
     // not the first controlled token.
@@ -128,7 +201,9 @@ async function _handleItemDrop(data) {
       ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
       : null;
     const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
-    dbg("place:_handleItemDrop", "player path", { ownerTokenId: ownerToken?.document?.id, playerTokenId: playerToken?.document?.id, ephemeral });
+    dbg("place:_handleItemDrop", "player path", {
+      ownerTokenId: ownerToken?.document?.id, playerTokenId: playerToken?.document?.id, ephemeral
+    });
     if (!playerToken) {
       dbg("place:_handleItemDrop", "no player token found, bail");
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoCharacter"));
@@ -136,11 +211,23 @@ async function _handleItemDrop(data) {
     }
     const x = playerToken.document.x;
     const y = playerToken.document.y;
+    // Player drops always target the player's character's level, even if the GM
+    // is currently viewing a different level.
+    const playerLevel = getTokenLevelId(playerToken.document);
 
-    dbg("place:_handleItemDrop", "routing placeItem via socket", { x, y, ephemeral, itemUuid: data.uuid });
+    dbg("place:_handleItemDrop", "routing placeItem via socket",
+      { x, y, level: playerLevel, ephemeral, itemUuid: data.uuid, chosenQuantity });
     dispatchGM(
       "placeItem",
-      { itemUuid: data.uuid, sourceActorId: item.actor?.id ?? null, itemId: item.id, x, y, ephemeral },
+      {
+        itemUuid: data.uuid,
+        sourceActorId: item.actor?.id ?? null,
+        itemId: item.id,
+        x, y,
+        level: playerLevel,
+        ephemeral,
+        quantity: chosenQuantity   // forwarded to GM-side handler
+      },
       () => {} // unreachable — game.user.isGM is false in this branch
     );
     notifyItemAction("Placed", item.name);
@@ -177,52 +264,75 @@ async function _promptCreateTemplate(item) {
   });
 }
 
-async function depositItemToTarget(item, targetToken) {
+/**
+ * Deposit `item` into the actor represented by `targetToken`.
+ *
+ * @param {Item} item
+ * @param {Token} targetToken
+ * @param {object} [options]
+ * @param {number|null} [options.quantity=null] - Optional partial-stack quantity.
+ *   When null, the full stack is moved (legacy behavior).
+ */
+async function depositItemToTarget(item, targetToken, { quantity = null } = {}) {
   const targetActor = targetToken.actor;
   const tokenDoc = targetToken.document;
   const sceneId = tokenDoc.parent.id;
   const tokenId = tokenDoc.id;
+  const adapter = getAdapter();
+  const sourceQty = adapter.getItemQuantity(item);
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
 
   dbg("place:depositItemToTarget", {
     itemName: item.name, itemUuid: item.uuid,
     targetName: targetActor.name, targetId: targetActor.id,
     tokenId, sceneId, isGM: game.user.isGM,
-    targetIsInteractiveContainer: targetActor.system?.isContainer === true
+    targetIsInteractiveContainer: targetActor.system?.isContainer === true,
+    sourceQty, moveQty
   });
 
   // Players can't remove world items; depositItem requires a source actor.
-  if (isPlayerView() && !item.actor) {
+  if (!game.user.isGM && !item.actor) {
     dbg("place:depositItemToTarget", "player dropping world item onto target, bail");
     ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
     return;
   }
 
-  if (isModuleGM()) {
+  if (game.user.isGM) {
     // Use item reference directly — synthetic parent actors aren't in game.actors.
     if (!item.actor) {
+      // World items: no source to decrement, quantity override still applies to the created copy.
       const itemData = item.toObject();
       delete itemData._id;
+      if (moveQty !== sourceQty) adapter.setItemDataQuantity(itemData, moveQty);
       assignContainerParent(targetActor, itemData);
-      dbg("place:depositItemToTarget", "GM world-item path: creating on target", { targetName: targetActor.name });
+      dbg("place:depositItemToTarget", "GM world-item path: creating on target", { targetName: targetActor.name, moveQty });
       await CONFIG.Item.documentClass.createDocuments([itemData], { parent: targetActor, keepId: false });
       notifyItemAction("Deposited", item.name);
       return;
     }
     const toCreate = await CONFIG.Item.documentClass.createWithContents([item]);
+    // Override quantity on the first entry (the source item); nested contents keep their own.
+    if (moveQty !== sourceQty && toCreate.length) {
+      adapter.setItemDataQuantity(toCreate[0], moveQty);
+    }
     assignContainerParent(targetActor, toCreate);
-    dbg("place:depositItemToTarget", "GM inventory-source path: creating on target, deleting source",
-      { sourceActorName: item.actor.name, targetName: targetActor.name, toCreateCount: toCreate.length });
+    dbg("place:depositItemToTarget", "GM inventory-source path: creating on target",
+      { sourceActorName: item.actor.name, targetName: targetActor.name, toCreateCount: toCreate.length, moveQty, sourceQty });
     await CONFIG.Item.documentClass.createDocuments(toCreate, { parent: targetActor, keepId: true });
-    await item.delete({ deleteContents: true });
+    // Decrement or delete the source based on how much was moved.
+    await decrementOrDeleteItem(item, moveQty);
     notifyItemAction("Deposited", item.name);
     return;
   }
 
   // Player source is always a linked character, so game.actors.get resolves correctly.
+  // Forward the chosen quantity so the GM-side handler does the partial-stack split.
   await dispatchGM(
     "depositItem",
-    { sourceActorId: item.actor.id, itemId: item.id, sceneId, tokenId },
-    async () => depositItem(item.actor.id, item.id, sceneId, tokenId)
+    { sourceActorId: item.actor.id, itemId: item.id, sceneId, tokenId, quantity: moveQty },
+    async () => depositItem(item.actor.id, item.id, sceneId, tokenId, moveQty)
   );
   notifyItemAction("Deposited", item.name);
 }
@@ -249,11 +359,12 @@ async function depositActorToTarget(droppedActor, targetToken) {
   }
 
   if (targetActor.system?.isContainer && targetActor.system.containerItem) {
-    itemData.system = itemData.system ?? {};
-    itemData.system.container = targetActor.system.containerItem.id;
+    // Delegate container-parent field write to the adapter so the field path
+    // is not hard-coded to dnd5e's `system.container`.
+    getAdapter().setItemContainerId(itemData, targetActor.system.containerItem.id);
   }
 
-  if (isModuleGM()) {
+  if (game.user.isGM) {
     dbg("place:depositActorToTarget", "GM path: createDocuments on target");
     await CONFIG.Item.documentClass.createDocuments([itemData], { parent: targetActor, keepId: false });
     notifyItemAction("Deposited", droppedActor.name);
@@ -264,19 +375,28 @@ async function depositActorToTarget(droppedActor, targetToken) {
   }
 }
 
-async function depositCanvasTokenToTarget(tokenDoc, targetToken) {
+async function depositCanvasTokenToTarget(tokenDoc, targetToken, { quantity = null } = {}) {
   const sourceActor = tokenDoc.actor;
   const targetActor  = targetToken.actor;
   dbg("place:depositCanvasTokenToTarget", {
     sourceName: sourceActor?.name, sourceId: sourceActor?.id,
     targetName: targetActor.name, targetId: targetActor.id,
-    targetIsContainer: targetActor.system?.isContainer === true
+    targetIsContainer: targetActor.system?.isContainer === true,
+    quantity
   });
 
   if (!sourceActor) {
     dbg("place:depositCanvasTokenToTarget", "no actor on source token, bail");
     return;
   }
+
+  const adapter = getAdapter();
+  const embeddedItem = sourceActor.system?.topLevelItems?.[0] ?? null;
+  const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
+  const isPartial = moveQty < sourceQty;
 
   const itemData = buildInteractiveItemData(sourceActor);
   if (!itemData) {
@@ -285,14 +405,25 @@ async function depositCanvasTokenToTarget(tokenDoc, targetToken) {
     return;
   }
 
+  if (isPartial) adapter.setItemDataQuantity(itemData, moveQty);
+
   if (targetActor.system?.isContainer && targetActor.system.containerItem) {
-    itemData.system = itemData.system ?? {};
-    itemData.system.container = targetActor.system.containerItem.id;
+    // Delegate container-parent field write to the adapter so the field path
+    // is not hard-coded to dnd5e's `system.container`.
+    adapter.setItemContainerId(itemData, targetActor.system.containerItem.id);
   }
 
-  dbg("place:depositCanvasTokenToTarget", "creating item on target, deleting source token");
+  dbg("place:depositCanvasTokenToTarget", "creating item on target", { moveQty, sourceQty, isPartial });
   await CONFIG.Item.documentClass.createDocuments([itemData], { parent: targetActor, keepId: false });
-  await tokenDoc.delete();
+
+  if (isPartial && embeddedItem) {
+    // Partial move — leave the token in place and decrement the embedded item.
+    // Skip decrementOrDeleteItem so we never accidentally delete the wrapped
+    // item out from under the actor; isPartial guarantees moveQty < sourceQty.
+    await embeddedItem.update({ "system.quantity": sourceQty - moveQty });
+  } else {
+    await tokenDoc.delete({ pickUpStix: { suppressPrompt: true } });
+  }
   notifyItemAction("Deposited", sourceActor.name);
 }
 
@@ -321,9 +452,31 @@ export async function _handleTokenMoveWithOverlap(tokenDoc, changes, overlapTarg
     await tokenDoc.update(changes, { interactiveItems: { bypassOverlapCheck: true } });
     return;
   }
-  // Deposit into the chosen target and delete the source token.
+  // Deposit into the chosen target. Prompt for a partial-stack quantity when
+  // the source token's embedded item has more than one. Skipped for container
+  // tokens (their embedded backpack is a single item, never a stack).
   dbg("place:tokenMove", "user chose deposit target", { targetName: result.actor.name });
-  await depositCanvasTokenToTarget(tokenDoc, result);
+  const adapter = getAdapter();
+  const sourceActor = tokenDoc.actor;
+  const embeddedItem = sourceActor?.system?.topLevelItems?.[0] ?? null;
+  const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
+  let chosen = null;
+  if (embeddedItem && !adapter.isContainerItem(embeddedItem) && sourceQty > 1) {
+    const isInteractiveContainerTarget = result.actor.system?.isContainer === true;
+    chosen = await promptItemQuantity({
+      itemName: sourceActor.name,
+      max: sourceQty,
+      actionKey: isInteractiveContainerTarget
+        ? "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit"
+        : "INTERACTIVE_ITEMS.Dialog.QuantityActionGive",
+      actionFormatArgs: { target: result.actor.name }
+    });
+    if (chosen == null) {
+      dbg("place:tokenMove", "quantity dialog cancelled, bail");
+      return;
+    }
+  }
+  await depositCanvasTokenToTarget(tokenDoc, result, { quantity: chosen });
 }
 
 async function _handleInteractiveActorDropWithOverlap(dropped, data, targets) {
@@ -349,17 +502,46 @@ async function _handleInteractiveActorDropWithOverlap(dropped, data, targets) {
   await depositActorToTarget(dropped, result);
 }
 
-async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
+/**
+ * Creates an interactive token on the canvas for the given item at the given coordinates.
+ *
+ * On Foundry v14, the token will be assigned to the correct scene level using the
+ * following priority order:
+ *   1. Explicit `level` argument (forwarded via socket from the player's character level).
+ *   2. Saved `tokenState.level` from a previous pickup snapshot (round-trip restore).
+ *   3. Currently-viewed level (GM drop default via `canvas.level.id`).
+ * On Foundry v13 (no levels system), `level`/`depth` are never written.
+ *
+ * @param {Item} item - The item to place as an interactive token.
+ * @param {number} x - Canvas x coordinate.
+ * @param {number} y - Canvas y coordinate.
+ * @param {object} [options]
+ * @param {boolean} [options.ephemeral=false] - When true, creates an ephemeral (non-template) actor.
+ * @param {string|null} [options.level=null] - v14 level id to assign. Null = fall through to snapshot/viewed-level logic.
+ * @param {number|null} [options.quantity=null] - Optional quantity override for the embedded item.
+ *   When null, the item's current quantity is used unchanged. Container items always ignore this.
+ */
+async function createInteractiveToken(item, x, y, { ephemeral = false, level = null, quantity = null } = {}) {
   const snapped = canvas.grid.getTopLeftPoint({ x, y });
   x = snapped.x;
   y = snapped.y;
 
-  const isContainer = item.type === "container";
+  // Delegate item-type check to the adapter so the literal "container" is not
+  // hard-coded to the dnd5e vocabulary.
+  const adapter = getAdapter();
+  const isContainer = adapter.isContainerItem(item);
   const img = item.img || "icons/svg/item-bag.svg";
 
   if (isContainer) ephemeral = false; // containers always use templates
 
-  dbg("place:createInteractiveToken", { itemName: item.name, itemUuid: item.uuid, itemImg: item.img, x, y, ephemeral, isContainer });
+  // Compute the actual embedded-item quantity. Container items are always left
+  // at their natural quantity (1); the quantity arg is ignored for them.
+  const sourceQty = adapter.getItemQuantity(item);
+  const moveQty = (!isContainer && quantity != null)
+    ? Math.max(1, Math.min(Math.floor(quantity), sourceQty))
+    : sourceQty;
+
+  dbg("place:createInteractiveToken", { itemName: item.name, itemUuid: item.uuid, itemImg: item.img, x, y, ephemeral, isContainer, sourceQty, moveQty });
 
   let actor;
 
@@ -386,15 +568,22 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
 
       // Inline items on Actor.create so createActor hook sees them and skips its
       // empty-container auto-creation path.
+      // Always strip the system's container-parent pointer via the adapter:
+      // the embedded item is becoming the top-level item of a new interactive
+      // actor, so any stale pointer from its prior life would mis-classify it
+      // as a child item in `topLevelItems`.
       const initialItems = [];
       if (isContainer) {
         const containerData = item.toObject();
         delete containerData._id;
-        delete containerData.system?.container;
+        adapter.setItemContainerId(containerData, null);
         initialItems.push(containerData);
       } else {
         const itemData = item.toObject();
         delete itemData._id;
+        adapter.setItemContainerId(itemData, null);
+        // Apply the quantity override when a partial stack was requested.
+        if (moveQty !== sourceQty) adapter.setItemDataQuantity(itemData, moveQty);
         initialItems.push(itemData);
       }
 
@@ -417,14 +606,15 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
       dbg("place:createInteractiveToken", "new template actor created", { actorId: actor?.id, actorImg: actor?.img });
 
       if (isContainer) {
-        const newContainerItem = actor.items.find(i => i.type === "container");
+        // Delegate item-type check and container-parent field write to the adapter
+        // so neither is hard-coded to the dnd5e vocabulary.
+        const newContainerItem = actor.items.find(i => adapter.isContainerItem(i));
         if (newContainerItem && item.system.contents?.size > 0) {
           const toCreate = await CONFIG.Item.documentClass.createWithContents(
             Array.from(item.system.contents)
           );
           toCreate.forEach(i => {
-            i.system = i.system ?? {};
-            i.system.container = newContainerItem.id;
+            adapter.setItemContainerId(i, newContainerItem.id);
           });
           dbg("place:createInteractiveToken", "copying container contents", { contentCount: toCreate.length });
           if (toCreate.length > 0) {
@@ -436,6 +626,19 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
       }
     } else {
       dbg("place:createInteractiveToken", "reusing existing actor, skipping create");
+      // Templated reuse: align the base actor's embedded item quantity with
+      // moveQty so the token snapshot reflects the chosen stack size.
+      // Without this, a partial-stack drop onto a reused template would
+      // place a token showing the template's prior quantity.
+      if (!isContainer) {
+        const reusedItem = actor.system?.embeddedItem;
+        if (reusedItem && adapter.getItemQuantity(reusedItem) !== moveQty) {
+          dbg("place:createInteractiveToken", "syncing reused template quantity", {
+            actorId: actor.id, prevQty: adapter.getItemQuantity(reusedItem), moveQty
+          });
+          await reusedItem.update({ "system.quantity": moveQty });
+        }
+      }
     }
   } else {
     dbg("place:createInteractiveToken", "ephemeral mode — creating ephemeral actor", { itemName: item.name });
@@ -456,7 +659,12 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
 
     const itemData = item.toObject();
     delete itemData._id;
-    dbg("place:createInteractiveToken", "creating embedded item on ephemeral actor", { itemName: itemData.name, itemImg: itemData.img });
+    // Strip stale container-parent pointer — the embedded item becomes the
+    // top-level item of this ephemeral actor.
+    adapter.setItemContainerId(itemData, null);
+    // Apply the quantity override when a partial stack was requested.
+    if (moveQty !== sourceQty) adapter.setItemDataQuantity(itemData, moveQty);
+    dbg("place:createInteractiveToken", "creating embedded item on ephemeral actor", { itemName: itemData.name, itemImg: itemData.img, moveQty, sourceQty });
     await actor.createEmbeddedDocuments("Item", [itemData]);
   }
 
@@ -465,7 +673,10 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
   if (savedState) tokenFlags["pick-up-stix"].savedState = savedState;
   if (ephemeral) tokenFlags["pick-up-stix"].ephemeral = true;
 
-  dbg("place:createInteractiveToken", "placing token", { actorId: actor.id, actorImg: actor.img, x, y, hasSavedState: !!savedState });
+  dbg("place:createInteractiveToken", "placing token", {
+    actorId: actor.id, actorImg: actor.img, x, y,
+    hasSavedState: !!savedState, levelArg: level
+  });
   const tokenData = foundry.utils.mergeObject(
     actor.prototypeToken.toObject(),
     {
@@ -473,16 +684,43 @@ async function createInteractiveToken(item, x, y, { ephemeral = false } = {}) {
       flags: tokenFlags
     }
   );
+
+  // v14: tokens always land on the currently-active level.
+  //   - Explicit `level` arg: player-drop level forwarded via socket (the player's own level).
+  //   - Fallback: the GM's currently-viewed level for all other paths.
+  //   Snapshot-saved level is intentionally not used — items should appear wherever
+  //   they are dropped now, not where they were originally picked up from.
+  if (hasLevels()) {
+    tokenData.level = level ?? getViewedLevelId();
+    dbg("place:createInteractiveToken", "v14 level assigned", {
+      level: tokenData.level, fromArg: level !== null
+    });
+  }
+
   await canvas.scene.createEmbeddedDocuments("Token", [tokenData]);
   dbg("place:createInteractiveToken", "token placed", { actorId: actor.id, ephemeral });
 
   notifyItemAction("Placed", item.name);
 }
 
+/**
+ * Creates a token on the canvas from a base actor at the given coordinates.
+ * On v14, stamps the currently-viewed level onto the token document so the
+ * token lands on the correct floor without relying on core's _onDropActorData.
+ *
+ * @param {Actor} actor
+ * @param {number} x
+ * @param {number} y
+ */
 async function createTokenFromActor(actor, x, y) {
   dbg("place:createTokenFromActor", { actorName: actor.name, actorId: actor.id, x, y });
   const snapped = canvas.grid.getTopLeftPoint({ x, y });
-  const tokenDocument = await actor.getTokenDocument({ x: snapped.x, y: snapped.y });
+  const data = { x: snapped.x, y: snapped.y };
+  if (hasLevels()) {
+    data.level = getViewedLevelId();
+    dbg("place:createTokenFromActor", "v14 level assigned", { level: data.level });
+  }
+  const tokenDocument = await actor.getTokenDocument(data);
   return canvas.scene.createEmbeddedDocuments("Token", [tokenDocument.toObject()]);
 }
 
@@ -491,7 +729,9 @@ function onGetSceneControlButtons(controls) {
 
   controls.tokens.tools.interactiveItemsTools = {
     name: "interactiveItemsTools",
-    title: "INTERACTIVE_ITEMS.Controls.ToolsTool",
+    title: game.settings.get(MODULE_ID, "gmOverrideEnabled")
+      ? "INTERACTIVE_ITEMS.Controls.DisableGMOverride"
+      : "INTERACTIVE_ITEMS.Controls.EnableGMOverride",
     icon: "fa-solid fa-hand-holding-box",
     order: 100,
     toggle: true,
@@ -542,13 +782,20 @@ class PlacementDialog extends foundry.applications.api.DialogV2 {
             const centerX = x;
             const centerY = y;
 
+            // Use the adapter for item type literals so the placement dialog creates
+            // items using the active system's vocabulary rather than dnd5e hard-codes.
+            // `objectType` is a picker-dialog token ("container" | "item") — not an
+            // item type — so the `objectType === "container"` comparisons stay as-is.
+            const fakeItemType = objectType === "container"
+              ? getAdapter().containerItemType
+              : getAdapter().defaultLootItemType;
             const fakeItem = {
               name,
-              type: objectType === "container" ? "container" : "loot",
+              type: fakeItemType,
               img: objectType === "container" ? "icons/svg/chest.svg" : "icons/svg/item-bag.svg",
               toObject: () => ({
                 name,
-                type: objectType === "container" ? "container" : "loot",
+                type: fakeItemType,
                 img: objectType === "container" ? "icons/svg/chest.svg" : "icons/svg/item-bag.svg"
               }),
               system: { description: { value: "" }, contents: { size: 0 } }
@@ -564,6 +811,73 @@ class PlacementDialog extends foundry.applications.api.DialogV2 {
       ]
     });
   }
+}
+
+/**
+ * Split a stacked interactive token in two. Decrements the source's embedded
+ * item by `splitQty` and creates a new interactive token of the same kind
+ * (templated → reuse base actor; ephemeral → fresh one-shot) in the next free
+ * adjacent grid cell.
+ *
+ * Caller is responsible for clamping splitQty into [1, sourceQty - 1].
+ *
+ * @param {string} sceneId
+ * @param {string} tokenId
+ * @param {number} splitQty
+ * @returns {Promise<null>}
+ */
+export async function splitInteractiveToken(sceneId, tokenId, splitQty) {
+  dbg("place:splitInteractiveToken", { sceneId, tokenId, splitQty });
+  const result = getTokenActor(sceneId, tokenId);
+  if (!result) {
+    notifyTransferError();
+    return null;
+  }
+  const { actor: sourceActor, tokenDoc } = result;
+  const adapter = getAdapter();
+  const item = sourceActor.system?.embeddedItem;
+  if (!item) {
+    dbg("place:splitInteractiveToken", "no embedded item, bail");
+    return null;
+  }
+  const sourceQty = adapter.getItemQuantity(item);
+  const n = Math.max(1, Math.min(Math.floor(splitQty), sourceQty - 1));
+  if (n < 1) return null;
+
+  // Find a free adjacent grid cell. Prefer right of the source; fall back to
+  // walking the 8 neighbors clockwise.
+  const grid = canvas.grid;
+  const sourcePos = { x: tokenDoc.x, y: tokenDoc.y };
+  const offsets = [
+    [grid.size, 0], [grid.size, grid.size], [0, grid.size], [-grid.size, grid.size],
+    [-grid.size, 0], [-grid.size, -grid.size], [0, -grid.size], [grid.size, -grid.size]
+  ];
+  let target = null;
+  for (const [dx, dy] of offsets) {
+    const candidate = { x: sourcePos.x + dx, y: sourcePos.y + dy };
+    const occupied = canvas.tokens.placeables.some(t =>
+      t.document.x === candidate.x && t.document.y === candidate.y
+    );
+    if (!occupied) { target = candidate; break; }
+  }
+  // Last-resort fallback when all neighbors are occupied.
+  if (!target) target = { x: sourcePos.x + grid.size, y: sourcePos.y };
+
+  // Reuse createInteractiveToken so all the templated/ephemeral branching,
+  // identity stamping, and v14 level handling remain in one place.
+  const isEphemeralSource = !!tokenDoc.flags?.["pick-up-stix"]?.ephemeral;
+  await createInteractiveToken(item, target.x, target.y, {
+    ephemeral: isEphemeralSource,
+    level: hasLevels() ? getTokenLevelId(tokenDoc) : null,
+    quantity: n
+  });
+
+  // Decrement the source by n. n is clamped to < sourceQty above, so the
+  // source always retains at least 1 — no token deletion ever happens here.
+  await item.update({ "system.quantity": sourceQty - n });
+  dbg("place:splitInteractiveToken", "split complete", { actorName: sourceActor.name, n, remaining: sourceQty - n });
+  notifyItemAction("Split", sourceActor.name);
+  return null;
 }
 
 export { createInteractiveToken, createTokenFromActor, _handleItemDrop as handleItemDrop };

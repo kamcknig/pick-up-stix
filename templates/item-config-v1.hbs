@@ -1,0 +1,83 @@
+{{!-- pf2e (V1) GM config dialog template for pick-up-stix interactive object actors. --}}
+
+<form class="pf2e item-config" autocomplete="off">
+
+  {{#if needsItem}}
+  <div class="needs-item-prompt">
+    <i class="fa-solid fa-arrow-down"></i>
+    <p>{{localize "INTERACTIVE_ITEMS.Sheet.NeedsItem"}}</p>
+    <img class="needs-item-icon" src="modules/pick-up-stix/icons/interactive-item-icon.svg" alt="" />
+  </div>
+  {{else}}
+
+  {{!-- Preview + quick-open button --}}
+  {{#if isContainer}}
+    {{#if hasContainerItem}}
+    <header class="sheet-header">
+      <img class="profile ii-clickable-image" src="{{containerImg}}" alt="{{containerName}}"
+           data-action="editActorImage" />
+      <span class="document-name">{{containerName}}</span>
+    </header>
+    <button type="button" data-action="openContainerSheet">
+      <i class="fa-solid fa-up-right-from-square"></i>
+      {{localize "INTERACTIVE_ITEMS.Sheet.ViewContainerSheet"}}
+    </button>
+    {{/if}}
+  {{else}}
+    {{#if hasItem}}
+    <header class="sheet-header">
+      <img class="profile ii-clickable-image" src="{{itemImg}}" alt="{{itemName}}"
+           data-action="editActorImage" />
+      <span class="document-name">{{itemName}}</span>
+    </header>
+    <button type="button" data-action="openItemSheet">
+      <i class="fa-solid fa-up-right-from-square"></i>
+      {{localize "INTERACTIVE_ITEMS.Sheet.ViewItemSheet"}}
+    </button>
+    {{/if}}
+  {{/if}}
+
+  {{#if isEditable}}
+  <fieldset>
+    <legend>{{localize "INTERACTIVE_ITEMS.Sheet.ConfigLegend"}}</legend>
+
+    {{> "pick-up-stix.config-fields-v1"}}
+
+    {{#if isContainer}}
+    <div class="form-group">
+      <label>{{localize "INTERACTIVE_ITEMS.Sheet.OpenImage"}}</label>
+      <div class="form-fields">
+        <button type="button" class="file-picker" data-type="image" data-target="system.openImage"
+                title="{{localize 'FILES.BrowseTooltip'}}" tabindex="-1">
+          <i class="fas fa-file-import fa-fw"></i>
+        </button>
+        <input class="image" type="text" name="system.openImage"
+               placeholder="path/to/file.png" value="{{system.openImage}}" />
+      </div>
+    </div>
+    {{else}}
+    <div class="form-group">
+      <label>{{localize "INTERACTIVE_ITEMS.Sheet.UnidentifiedImage"}}</label>
+      <div class="form-fields">
+        <button type="button" class="file-picker" data-type="image" data-target="system.unidentifiedImage"
+                title="{{localize 'FILES.BrowseTooltip'}}" tabindex="-1">
+          <i class="fas fa-file-import fa-fw"></i>
+        </button>
+        <input class="image" type="text" name="system.unidentifiedImage"
+               placeholder="path/to/file.png" value="{{system.unidentifiedImage}}" />
+      </div>
+    </div>
+    {{/if}}
+
+    <div class="form-group">
+      <label>{{localize "INTERACTIVE_ITEMS.Sheet.LockedMessage"}}</label>
+      <div class="form-fields">
+        <input type="text" name="system.lockedMessage" value="{{system.lockedMessage}}"
+          placeholder="{{localize 'INTERACTIVE_ITEMS.Sheet.LockedMessagePlaceholder'}}" />
+      </div>
+    </div>
+  </fieldset>
+  {{/if}}
+
+  {{/if}}
+</form>

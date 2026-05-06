@@ -1,25 +1,47 @@
-import { checkProximity, setContainerOpen, toggleContainerLocked } from "../transfer/ItemTransfer.mjs";
-import { createStateToggleButton } from "../utils/domButtons.mjs";
+/**
+ * InteractiveItemSheet — registered actor sheet for `pick-up-stix.interactiveItem`.
+ *
+ * Acts as a system-agnostic dispatcher: never renders its own UI. On `render()`
+ * it routes to one of:
+ *   - `getAdapter().renderConfigSheet(actor)` — base actor click or `renderConfig()` call
+ *   - `getAdapter().renderContainerView(actor)` — token click on a container actor
+ *   - `getAdapter().renderItemView(actor)` — token click on an item-mode actor
+ *   - `showLimitedDialog(actor)` — non-GM player outside inspection range
+ *
+ * The actual config-form UI lives in adapter-owned sheet classes
+ * (`Dnd5eInteractiveItemConfigSheet` V2 / `Pf2eInteractiveItemConfigSheet` V1)
+ * so each system can use its own ApplicationV1/V2 conventions.
+ *
+ * Static helpers `pendingPicker`, `limitedDialogs`, `showLimitedDialog`,
+ * `refreshLimitedDialog`, `promoteLimitedDialogsInRange` are kept here because
+ * they're system-agnostic and called from elsewhere in the module.
+ */
+
+import { checkProximity } from "../transfer/ItemTransfer.mjs";
+import { getAdapter } from "../adapter/index.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
 
-const { HandlebarsApplicationMixin } = foundry.applications.api;
 const ActorSheetV2 = foundry.applications.sheets.ActorSheetV2;
 
-export default class InteractiveItemSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
+export default class InteractiveItemSheet extends ActorSheetV2 {
 
+  /** Actors with a kind-picker dialog open — suppress the auto-render flash. */
   static pendingPicker = new Set();
 
+  /** Open limited-view dialogs keyed by actor UUID. */
   static limitedDialogs = new Map();
 
+  /**
+   * Render the limited-view dialog for an actor that the viewer is too far
+   * away to inspect properly. Closes any existing dialog for the same actor
+   * before opening the new one.
+   */
   static async showLimitedDialog(actor) {
     dbg("sheet:showLimitedDialog", { actorName: actor.name, actorUuid: actor.uuid, isContainer: actor.system.isContainer });
     const key = actor.uuid;
     const existing = InteractiveItemSheet.limitedDialogs.get(key);
-    if (existing) {
-      dbg("sheet:showLimitedDialog", "closing existing dialog for actor", { actorUuid: key });
-      await existing.close();
-    }
+    if (existing) await existing.close();
 
     const system = actor.system;
     const title = system.limitedDisplayName;
@@ -49,13 +71,14 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
     await dialog.render({ force: true });
   }
 
+  /**
+   * Update the title and body of an open limited-view dialog without closing
+   * and re-opening it (avoids losing the user's window position).
+   */
   static async refreshLimitedDialog(actor) {
     dbg("sheet:refreshLimitedDialog", { actorName: actor.name, actorUuid: actor.uuid, hasDialog: InteractiveItemSheet.limitedDialogs.has(actor.uuid) });
     const dialog = InteractiveItemSheet.limitedDialogs.get(actor.uuid);
-    if (!dialog?.element) {
-      dbg("sheet:refreshLimitedDialog", "no active dialog to refresh");
-      return;
-    }
+    if (!dialog?.element) return;
 
     const titleEl = dialog.element.querySelector(".window-title");
     if (titleEl) titleEl.textContent = actor.system.limitedDisplayName;
@@ -69,6 +92,12 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
     }
   }
 
+  /**
+   * Walk every open limited-view dialog and promote it to the actor's real
+   * sheet if the viewer has moved into inspection range. Preserves the
+   * dialog's on-screen position so the new sheet appears in roughly the same
+   * spot.
+   */
   static async promoteLimitedDialogsInRange() {
     dbg("sheet:promoteLimitedDialogsInRange", { openDialogCount: InteractiveItemSheet.limitedDialogs.size });
     // Snapshot — dialog.close() mutates the Map during iteration.
@@ -77,7 +106,6 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       const actor = dialog.interactiveActor;
       if (!actor) continue;
       const inRange = checkProximity(actor, { silent: true, range: "inspection" });
-      dbg("sheet:promoteLimitedDialogsInRange", { actorName: actor.name, inRange });
       if (!inRange) continue;
 
       const rect = dialog.element?.getBoundingClientRect();
@@ -85,15 +113,11 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
 
       dialog.close();
 
-      // Render the embedded item's sheet directly — our actor sheet gates would
-      // re-block it. The renderContainerSheet hook hides contents when inaccessible.
-      const embedded = actor.system.embeddedItem;
-      if (!embedded) continue;
-      const realSheet = embedded.sheet;
-      await realSheet.render({ force: true });
+      if (!actor.system.embeddedItem) continue;
+      const renderedSheet = await getAdapter().renderEmbeddedSheet(actor, { force: true });
 
       if (!hasPosition) continue;
-      const el = realSheet.element;
+      const el = renderedSheet?.element;
       if (!el) continue;
 
       const appRect = el.getBoundingClientRect();
@@ -102,52 +126,39 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       const left = Math.max(0, Math.min(rect.left, maxLeft));
       const top = Math.max(0, Math.min(rect.top, maxTop));
 
-      realSheet.setPosition({ left, top });
+      renderedSheet.setPosition({ left, top });
     }
   }
 
+  /** True when the next render() should open the GM config sheet. */
   #configMode = false;
 
-  #editingDescriptionTarget = null;
-
-  #expandedSections = {};
-
   static DEFAULT_OPTIONS = {
-    classes: ["pick-up-stix", "interactive-item-sheet", "dnd5e2", "sheet", "item", "standard-form"],
-    position: { width: 400, height: "auto" },
-    window: { resizable: true },
-    form: { submitOnChange: true },
-    actions: {
-      openItemSheet: InteractiveItemSheet.#onOpenItemSheet,
-      openContainerSheet: InteractiveItemSheet.#onOpenContainerSheet,
-      editActorImage: InteractiveItemSheet.#onEditActorImage,
-      toggleOpen: InteractiveItemSheet.#onToggleOpen,
-      toggleIdentified: InteractiveItemSheet.#onToggleIdentified,
-      toggleLock: InteractiveItemSheet.#onToggleLock,
-      editDescription: InteractiveItemSheet.#onEditDescription,
-      toggleCollapsed: InteractiveItemSheet.#onToggleCollapsed
-    }
+    classes: ["pick-up-stix", "interactive-item-sheet-dispatcher"],
+    // Keep a tiny window footprint just in case Foundry forces a render of
+    // this dispatcher (it should never visually appear).
+    position: { width: 100, height: 100 },
+    window: { resizable: false }
   };
-
-  static PARTS = {
-    config: {
-      template: "modules/pick-up-stix/templates/item-config.hbs"
-    }
-  };
-
-  get title() {
-    return `${game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Configure")}: ${this.actor.system.displayName}`;
-  }
-
-  get containerItem() {
-    return this.actor.system.containerItem;
-  }
 
   get _tokenDoc() {
     return this.actor.token ?? null;
   }
 
+  /**
+   * Dispatch entry point. Inspects actor / mode / viewer state and routes to
+   * the correct adapter-owned sheet (config / container / item) or to the
+   * limited-view dialog. Never calls `super.render()` — this class itself is
+   * not meant to display.
+   */
   async render(options = {}, _options = {}) {
+    // Foundry's sidebar / older callers pass `true` as the first positional
+    // arg (legacy AppV1 force flag). Normalise so downstream adapter methods
+    // always receive a plain object — pf2e's V1 sheet treats this slot as the
+    // mutable `options` bag and crashes on a boolean.
+    if (options === true) options = { force: true };
+    else if (typeof options !== "object" || options === null) options = {};
+
     dbg("sheet:render", {
       actorName: this.actor?.name,
       actorId: this.actor?.id,
@@ -173,9 +184,13 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       if (!hasMarker) return this;
     }
 
+    const adapter = getAdapter();
+
     if (this.#configMode || !this._tokenDoc) {
-      dbg("sheet:render", "config mode or base actor → rendering config form");
-      return super.render(options, _options);
+      dbg("sheet:render", "config mode or base actor → adapter.renderConfigSheet");
+      this.#configMode = false;
+      await adapter.renderConfigSheet(this.actor, options);
+      return this;
     }
 
     const system = this.actor.system;
@@ -186,10 +201,10 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
         InteractiveItemSheet.showLimitedDialog(this.actor);
         return this;
       }
-      const item = this.containerItem;
+      const item = system.containerItem;
       if (item) {
-        dbg("sheet:render", "container: delegating to ContainerSheet", { itemId: item.id, itemName: item.name });
-        await item.sheet.render({ force: true });
+        dbg("sheet:render", "container: delegating to adapter.renderContainerView", { itemId: item.id, itemName: item.name });
+        await adapter.renderContainerView(this.actor, options);
         return this;
       }
     } else {
@@ -200,353 +215,26 @@ export default class InteractiveItemSheet extends HandlebarsApplicationMixin(Act
       }
       const item = this.actor.items.contents[0];
       if (item) {
-        dbg("sheet:render", "item: delegating to ItemSheet5e", { itemId: item.id, itemName: item.name, itemImg: item.img });
-        await this.#syncItemImage(item);
-        await item.sheet.render({ force: true });
+        dbg("sheet:render", "item: delegating to adapter.renderItemView", { itemId: item.id, itemName: item.name });
+        await adapter.renderItemView(this.actor, options);
         return this;
       }
     }
 
-    dbg("sheet:render", "no embedded item → falling back to config form");
-    return super.render(options, _options);
+    dbg("sheet:render", "no embedded item → falling back to config sheet");
+    await adapter.renderConfigSheet(this.actor, options);
+    return this;
   }
 
-  async close(options = {}) {
-    dbg("sheet:close", { actorName: this.actor?.name, actorId: this.actor?.id, configMode: this.#configMode });
-    const actor = this.actor;
-    this.#configMode = false;
-    const result = await super.close(options);
-
-    // Item-kind actors abandoned in the picker (no item ever dropped) — delete.
-    const MODULE_ID = "pick-up-stix";
-    if (actor && game.actors.has(actor.id) && !actor.token && isModuleGM()
-      && actor.getFlag(MODULE_ID, "createKindConfirmed")
-      && actor.items.size === 0) {
-      await actor.delete();
-    }
-    return result;
-  }
-
+  /**
+   * Open the GM config sheet. Sets the dispatcher's #configMode flag so the
+   * subsequent render() call routes to `adapter.renderConfigSheet()` even when
+   * a token document is present (which would otherwise route to the system's
+   * native sheet).
+   */
   renderConfig() {
     dbg("sheet:renderConfig", { actorName: this.actor?.name, actorId: this.actor?.id });
     this.#configMode = true;
-    return super.render({ force: true });
-  }
-
-  async _prepareContext(options) {
-    const context = await super._prepareContext(options);
-    const system = this.actor.system;
-    context.actor = this.actor;
-    context.system = system;
-    context.isEditable = this.isEditable;
-    context.isContainer = system.isContainer;
-    context.needsItem = this.actor.items.size === 0 && !this._tokenDoc;
-    context.isIdentified = system.isIdentified;
-    context.displayName = system.displayName;
-
-    if (system.isContainer) {
-      const item = this.containerItem;
-      context.hasContainerItem = !!item;
-      context.containerName = system.resolveTokenName();
-      context.containerImg = (system.isOpen && system.openImage)
-        ? system.openImage
-        : (item?.img ?? this.actor.img);
-    } else {
-      const item = this.actor.items.contents[0];
-      context.hasItem = !!item;
-      context.itemName = system.resolveTokenName();
-      context.itemImg = system.resolveImage();
-    }
-
-    if (this.isEditable) {
-      context.source = this.actor._source;
-    }
-    context.editingDescriptionTarget = this.#editingDescriptionTarget;
-    context.expanded = this.#expandedSections;
-    context.descriptionEnriched = !!system.description;
-    context.unidentifiedDescriptionEnriched = !!system.unidentifiedDescription;
-    context.limitedDescriptionEnriched = !!system.limitedDescription;
-
-    if (this.#editingDescriptionTarget) {
-      const parts = this.#editingDescriptionTarget.split(".");
-      let value = this.actor._source;
-      for (const part of parts) value = value?.[part];
-      context.editingDescriptionValue = value ?? "";
-    }
-    return context;
-  }
-
-  _onRender(context, options) {
-    super._onRender(context, options);
-    this.element.querySelectorAll("prose-mirror").forEach(editor => {
-      editor.addEventListener("save", () => {
-        this.#editingDescriptionTarget = null;
-        this.render();
-      });
-    });
-
-    if (this.isEditable) {
-      const header = this.element.querySelector(".window-header");
-      if (header) {
-        const closeBtn = header.querySelector("button.close, [data-action='close']");
-        this.#injectHeaderToggles(header, closeBtn);
-      }
-    }
-  }
-
-  _canDragDrop(selector) {
-    return true;
-  }
-
-  _onDropStackConsumables() {
-    return null;
-  }
-
-  _prepareSubmitData(event, form, formData) {
-    const data = super._prepareSubmitData(event, form, formData);
-    dbg("sheet:_prepareSubmitData", {
-      incomingKeys: Object.keys(data),
-      imgInData: "img" in data,
-      dataImg: data.img,
-      actorImg: this.actor.img,
-      isIdentified: this.actor.system.isIdentified,
-      unidentifiedImage: this.actor.system.unidentifiedImage,
-      unidentifiedImageInData: "system.unidentifiedImage" in data
-    });
-    if (data.img && data.img !== this.actor.img) {
-      if (this.actor.system.isIdentified || !this.actor.system.unidentifiedImage) {
-        data["prototypeToken.texture.src"] = data.img;
-        dbg("sheet:_prepareSubmitData", "syncing prototypeToken.texture.src to new img", { src: data.img });
-      }
-    }
-    if ("system.unidentifiedImage" in data && !this.actor.system.isIdentified) {
-      const newUnidentifiedImage = data["system.unidentifiedImage"];
-      if (newUnidentifiedImage) {
-        data["prototypeToken.texture.src"] = newUnidentifiedImage;
-        dbg("sheet:_prepareSubmitData", "syncing prototypeToken.texture.src to unidentifiedImage", { src: newUnidentifiedImage });
-      } else {
-        data["prototypeToken.texture.src"] = data.img || this.actor.img;
-        dbg("sheet:_prepareSubmitData", "unidentifiedImage cleared, using actor img", { src: data["prototypeToken.texture.src"] });
-      }
-    }
-    dbg("sheet:_prepareSubmitData", "final submit keys", Object.keys(data));
-    return data;
-  }
-
-  static #onEditActorImage(event, target) {
-    dbg("sheet:#onEditActorImage", { actorName: this.actor?.name, currentImg: this.actor?.img });
-    event.preventDefault();
-    const fp = new foundry.applications.apps.FilePicker.implementation({
-      type: "image",
-      current: this.actor.img,
-      callback: (path) => {
-        dbg("sheet:#onEditActorImage:callback", { chosenPath: path, actorName: this.actor?.name });
-        this.actor.system.updateImage(path);
-      }
-    });
-    fp.render(true);
-  }
-
-  static async #onOpenItemSheet(event, target) {
-    const item = this.actor.items.contents[0];
-    if (!item) return;
-    await this.#syncItemImage(item);
-    await this.close();
-    item.sheet.render({ force: true });
-  }
-
-  static async #onOpenContainerSheet(event, target) {
-    const item = this.containerItem;
-    if (!item) return;
-    await this.close();
-    item.sheet.render({ force: true });
-  }
-
-  async #syncItemImage(item) {
-    dbg("sheet:#syncItemImage", {
-      actorName: this.actor?.name,
-      itemName: item?.name,
-      itemImg: item?.img,
-      isGM: isModuleGM()
-    });
-    if (isPlayerView()) {
-      dbg("sheet:#syncItemImage", "not GM, bail");
-      return;
-    }
-    const system = this.actor.system;
-    const expectedImg = system.resolveImage();
-    dbg("sheet:#syncItemImage", {
-      expectedImg,
-      isIdentified: system.isIdentified,
-      unidentifiedImage: system.unidentifiedImage,
-      actorImg: this.actor.img,
-      needsUpdate: item.img !== expectedImg
-    });
-    if (item.img !== expectedImg) {
-      dbg("sheet:#syncItemImage", "updating item.img", { from: item.img, to: expectedImg });
-      await item.update({ img: expectedImg });
-    } else {
-      dbg("sheet:#syncItemImage", "item.img already matches, no update needed");
-    }
-  }
-
-  static async #onToggleOpen(event, target) {
-    dbg("sheet:#onToggleOpen", { actorName: this.actor?.name, currentIsOpen: this.actor?.system?.isOpen, newIsOpen: !this.actor?.system?.isOpen });
-    await setContainerOpen(this.actor, !this.actor.system.isOpen);
-  }
-
-  static async #onToggleIdentified(event, target) {
-    const item = this.actor.system.embeddedItem;
-    dbg("sheet:#onToggleIdentified", { actorName: this.actor?.name, embeddedItemId: item?.id, currentIdentified: item?.system?.identified, newIdentified: !item?.system?.identified });
-    if (!item || item.system?.identified === undefined) return;
-    await item.update({ "system.identified": !item.system.identified });
-  }
-
-  static async #onToggleLock(event, target) {
-    dbg("sheet:#onToggleLock", { actorName: this.actor?.name, currentIsLocked: this.actor?.system?.isLocked });
-    await toggleContainerLocked(this.actor);
-  }
-
-  static #onEditDescription(event, target) {
-    event.stopPropagation();
-    this.#editingDescriptionTarget = target.dataset.target;
-    this.render();
-  }
-
-  static #onToggleCollapsed(event, target) {
-    if (event.target.closest(".collapsible-content")) return;
-    const expandId = target.dataset.expandId;
-    if (expandId) this.#expandedSections[expandId] = !this.#expandedSections[expandId];
-    target.classList.toggle("collapsed");
-  }
-
-  #injectHeaderToggles(header, closeBtn) {
-    header.querySelectorAll(".ii-config-toggle").forEach(el => el.remove());
-
-    const system = this.actor.system;
-    const buttons = [];
-
-    if (system.isContainer) {
-      buttons.push(createStateToggleButton({
-        extraClass: "ii-config-toggle",
-        active: system.isOpen,
-        iconOn: "fa-box-open",
-        iconOff: "fa-box",
-        labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateOpened",
-        labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateClosed",
-        action: "toggleOpen"
-      }));
-    }
-
-    buttons.push(createStateToggleButton({
-      extraClass: "ii-config-toggle",
-      active: system.isLocked,
-      iconOn: "fa-lock",
-      iconOff: "fa-lock-open",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
-      labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
-      action: "toggleLock"
-    }));
-
-    buttons.push(createStateToggleButton({
-      extraClass: "ii-config-toggle",
-      active: system.isIdentified,
-      iconOn: "fa-wand-sparkles",
-      iconOff: "fa-wand-sparkles",
-      labelOnKey: "INTERACTIVE_ITEMS.Sheet.Identified",
-      labelOffKey: "INTERACTIVE_ITEMS.Sheet.Unidentified",
-      action: "toggleIdentified"
-    }));
-
-    if (closeBtn) closeBtn.before(...buttons);
-    else header.append(...buttons);
-  }
-
-  async _onDrop(event) {
-    const data = foundry.applications.ux.TextEditor.implementation.getDragEventData(event);
-    dbg("sheet:_onDrop", { dataType: data.type, uuid: data.uuid });
-    if (data.type !== "Item") {
-      dbg("sheet:_onDrop", "not an Item drop, bail");
-      return;
-    }
-
-    const item = await fromUuid(data.uuid);
-    if (!item) {
-      dbg("sheet:_onDrop", "could not resolve item from uuid, bail", { uuid: data.uuid });
-      return;
-    }
-
-    dbg("sheet:_onDrop", "resolved dropped item", { itemName: item.name, itemImg: item.img, itemUuid: item.uuid, itemType: item.type });
-
-    if (!("quantity" in (item.system ?? {}))) {
-      dbg("sheet:_onDrop", "item is not a physical item (no quantity), bail");
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
-      return;
-    }
-
-    if (isPlayerView()) {
-      dbg("sheet:_onDrop", "not GM, bail");
-      return;
-    }
-
-    const itemData = item.toObject();
-    delete itemData._id;
-
-    // Set before creation so the updateItem hook doesn't fire for this change
-    // while actor.img is still the old value.
-    if (itemData.system && "identified" in itemData.system) {
-      itemData.system.identified = true;
-    }
-
-    // Interactive actors hold exactly one embedded item.
-    if (this.actor.items.size > 0) {
-      const ids = this.actor.items.map(i => i.id);
-      dbg("sheet:_onDrop", "clearing existing embedded items", { ids });
-      await this.actor.deleteEmbeddedDocuments("Item", ids);
-    }
-
-    // Update actor first so actor.img is correct before item hooks fire.
-    const updates = {
-      name: item.name,
-      img: item.img,
-      "prototypeToken.name": item.name,
-      "prototypeToken.texture.src": item.img
-    };
-    if (item.system.description?.value) {
-      updates["system.description"] = item.system.description.value;
-    }
-    if (item.system.unidentified?.name) {
-      updates["system.unidentifiedName"] = item.system.unidentified.name;
-    }
-    if (item.system.unidentified?.description) {
-      updates["system.unidentifiedDescription"] = item.system.unidentified.description;
-    }
-    dbg("sheet:_onDrop", "firing actor.update with metadata", { updates });
-    await this.actor.update(updates);
-    dbg("sheet:_onDrop", "actor.update complete", { actorImg: this.actor.img });
-
-    dbg("sheet:_onDrop", "firing createEmbeddedDocuments", { itemDataImg: itemData.img });
-    const [createdItem] = await this.actor.createEmbeddedDocuments("Item", [itemData]);
-    dbg("sheet:_onDrop", "createEmbeddedDocuments complete", { createdItemId: createdItem?.id, createdItemImg: createdItem?.img });
-
-    if (createdItem && "identified" in (createdItem.system ?? {})) {
-      const itemUpdates = {};
-      if (this.actor.system.unidentifiedName) {
-        itemUpdates["system.unidentified.name"] = this.actor.system.unidentifiedName;
-      }
-      if (this.actor.system.unidentifiedDescription) {
-        itemUpdates["system.unidentified.description"] = this.actor.system.unidentifiedDescription;
-      }
-      if (this.actor.system.description) {
-        itemUpdates["system.description.value"] = this.actor.system.description;
-      }
-      if (Object.keys(itemUpdates).length > 0) {
-        dbg("sheet:_onDrop", "syncing unidentified fields on createdItem", { itemUpdates });
-        await createdItem.update(itemUpdates);
-      }
-    }
-
-    dbg("sheet:_onDrop", "drop complete", { finalActorImg: this.actor.img, finalCreatedItemImg: createdItem?.img });
-    ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: item.name }));
+    return this.render({ force: true });
   }
 }

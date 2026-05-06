@@ -68,7 +68,7 @@ export async function promptItemQuantity({
         input.value = String(v);
       };
 
-      input.addEventListener("input",  clamp);
+      input.addEventListener("blur",   clamp);
       input.addEventListener("change", clamp);
 
       root.querySelectorAll(".ii-quantity-shortcut").forEach(btn => {

@@ -6,6 +6,7 @@ import { validateContainerAccess, validateItemAccess } from "../utils/containerA
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "../utils/levels.mjs";
+import { decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -163,8 +164,16 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId) {
   return true;
 }
 
-export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
-  dbg("xfer:depositItem", { sourceActorId, itemId, sceneId, tokenId });
+/**
+ * @param {string} sourceActorId
+ * @param {string} itemId
+ * @param {string} sceneId
+ * @param {string} tokenId
+ * @param {number|null} [quantity=null] - Optional partial-stack quantity. When
+ *   null/undefined the full stack is moved (existing behavior).
+ */
+export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quantity = null) {
+  dbg("xfer:depositItem", { sourceActorId, itemId, sceneId, tokenId, quantity });
   const sourceActor = game.actors.get(sourceActorId);
   const result = getTokenActor(sceneId, tokenId);
 
@@ -183,10 +192,19 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
     return false;
   }
 
+  // Compute the actual move quantity. If the caller passed null/undefined,
+  // we move the full stack (legacy behavior). Otherwise clamp into [1, src].
+  const adapter = getAdapter();
+  const sourceQty = adapter.getItemQuantity(item);
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
+
   dbg("xfer:depositItem", "resolved item and actors", {
     itemName: item.name, itemId: item.id,
     sourceActorName: sourceActor.name, targetActorName: targetActor.name,
-    targetIsContainer: targetActor.system?.isContainer, targetIsLocked: targetActor.system?.isLocked, targetIsOpen: targetActor.system?.isOpen
+    targetIsContainer: targetActor.system?.isContainer, targetIsLocked: targetActor.system?.isLocked, targetIsOpen: targetActor.system?.isOpen,
+    sourceQty, moveQty
   });
 
   // isContainer guard inside validateContainerAccess ensures open is only
@@ -196,19 +214,27 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId) {
     return false;
   }
 
-  const toCreate = await getAdapter().flattenItemsForCreate([item]);
+  const toCreate = await adapter.flattenItemsForCreate([item]);
+
+  // Override quantity on the first entry (the source item). flattenItemsForCreate
+  // yields the source item first; any nested container contents follow and keep
+  // their own quantities.
+  if (moveQty !== sourceQty && toCreate.length) {
+    adapter.setItemDataQuantity(toCreate[0], moveQty);
+  }
 
   assignContainerParent(targetActor, toCreate);
 
-  dbg("xfer:depositItem", "creating deposited items on targetActor", { toCreateCount: toCreate.length });
+  dbg("xfer:depositItem", "creating deposited items on targetActor", { toCreateCount: toCreate.length, moveQty, sourceQty });
   await CONFIG.Item.documentClass.createDocuments(toCreate, {
     parent: targetActor,
     keepId: true
   });
 
-  await item.delete({ deleteContents: true });
+  // Decrement or delete the source depending on how much was moved.
+  await decrementOrDeleteItem(item, moveQty);
 
-  dbg("xfer:depositItem", "deposit complete");
+  dbg("xfer:depositItem", "deposit complete", { moveQty, sourceQty });
   notifyItemAction("Deposited", item.name);
   return true;
 }

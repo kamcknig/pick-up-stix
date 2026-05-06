@@ -62,6 +62,10 @@ Install via the Foundry module browser by searching for "Pick-Up-Stix", or paste
 
 AI has been used for CSS styling and for researching the Foundry VTT APIs to ensure proper usage, most especially for determining the differences between the various versions of Foundry supported by the module.
 
+## Tutorials
+
+You can find a playlist of videos quickly explaining some of the functionality on the [Pick-Up-Stix](https://www.youtube.com/playlist?list=PLNzm8yjPdznaPpEjILB0y66kDnE-gR_St) YouTube playlist.
+
 ---
 
 Some icons included are from [vecteezy.com](https://www.vecteezy.com).

@@ -4,7 +4,7 @@ import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
 import { registerTokenHUD } from "./hud/InteractiveTokenHUD.mjs";
 import { registerPlacement, _handleTokenMoveWithOverlap } from "./canvas/placement.mjs";
 import { registerSocket } from "./socket/SocketHandler.mjs";
-import { pickupItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
+import { pickupItem, depositItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
 import { INTERACTIVE_TYPES } from "./constants.mjs";
 export { INTERACTIVE_TYPES } from "./constants.mjs";
 import { isInteractiveActor, isInteractiveContainer } from "./utils/actorHelpers.mjs";
@@ -15,6 +15,7 @@ import { validateContainerAccess, validateItemAccess } from "./utils/containerAc
 import { resolvePickupTarget } from "./utils/pickupFlow.mjs";
 import { createAdapterHeaderButton, createRowControl } from "./utils/domButtons.mjs";
 import { dbg } from "./utils/debugLog.mjs";
+import { promptItemQuantity, decrementOrDeleteItem } from "./utils/quantityPrompt.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
@@ -204,6 +205,54 @@ Hooks.once("init", async () => {
     }).catch(err => console.error(`${MODULE_ID} | player-sheet actor drop failed:`, err));
 
     return false;
+  });
+
+  // Drag-out cleanup: when an item is dragged FROM an interactive container's
+  // sheet onto a non-interactive actor sheet, the system creates a copy on the
+  // destination (cross-actor UUIDs always resolve to "copy" behavior) and the
+  // source on our custom actor sub-type is left behind. Detect this on the
+  // target sheet and delete the source after the destination's createItem fires.
+  Hooks.on("dropActorSheetData", (actor, sheet, data) => {
+    if (!game.user.isGM) return;
+    if (isInteractiveActor(actor)) return;
+    if (data?.type !== "Item") return;
+
+    const sourceItem = fromUuidSync(data.uuid);
+    if (!sourceItem) return;
+    const sourceActor = sourceItem.actor;
+    if (!sourceActor || !isInteractiveContainer(sourceActor)) return;
+
+    dbg("hook:dropActorSheetData:dragOut", "interactive-container drag-out detected", {
+      sourceItemId: sourceItem.id, sourceActorName: sourceActor.name, targetActorName: actor.name
+    });
+
+    const targetActorId = actor.id;
+    const sourceItemId = sourceItem.id;
+    const sourceActorRef = sourceActor;
+    let handled = false;
+
+    // One-shot listener for the destination's matching createItem.
+    const hookId = Hooks.on("createItem", (newItem, _options, userId) => {
+      if (handled) return;
+      if (userId !== game.userId) return;
+      if (newItem.parent?.id !== targetActorId) return;
+      handled = true;
+      Hooks.off("createItem", hookId);
+      const liveSourceItem = sourceActorRef.items.get(sourceItemId);
+      if (!liveSourceItem) return;
+      dbg("hook:dropActorSheetData:dragOut", "deleting source after drag-out createItem", { sourceItemId });
+      liveSourceItem.delete({ deleteContents: true })
+        .catch(err => console.error(`${MODULE_ID} | failed to delete container source after drag-out:`, err));
+    });
+
+    // Safety unhook so the listener doesn't leak when the drop is rejected
+    // (owner check fails, dropEffect "none", etc.).
+    setTimeout(() => {
+      if (handled) return;
+      handled = true;
+      Hooks.off("createItem", hookId);
+      dbg("hook:dropActorSheetData:dragOut", "no createItem within timeout, abandoning cleanup", { sourceItemId });
+    }, 2000);
   });
 
   registerTokenHUD();
@@ -613,42 +662,52 @@ function _installContainerSheetItemDrop({ actor, app, html }) {
       return;
     }
 
-    if (!adapter.isPhysicalItem(droppedItem)) {
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
-      return;
-    }
-    if (adapter.isContainerItem(droppedItem)) {
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
-      return;
-    }
-
     if (isPlayerView() && !validateContainerAccess(actor, { checkOpen: true })) return;
 
-    // Only the GM can write to actors players don't own; route through the
-    // socket on the player path so the active GM creates the embedded item.
     if (!game.user.isGM) {
-      // Fallback: ask GM via socket. For now players can't deposit on the
-      // sheet directly — this can be wired through gmDispatch later if needed.
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
+      // Players can't write directly to OBSERVER-level actors — route through the
+      // socket so the active GM performs the deposit with quantity handling.
+      const sourceActor = droppedItem.actor;
+      if (!sourceActor) {
+        dbg("place:_installContainerSheetItemDrop", "player drop has no source actor, bail");
+        return;
+      }
+      const tokenDoc = actor.token;
+      if (!tokenDoc) {
+        dbg("place:_installContainerSheetItemDrop", "no token doc on actor, bail");
+        return;
+      }
+
+      let chosen = null;
+      const sourceQty = adapter.getItemQuantity(droppedItem);
+      if (sourceQty > 1 && !adapter.isContainerItem(droppedItem)) {
+        chosen = await promptItemQuantity({
+          itemName: droppedItem.name,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+          actionFormatArgs: { target: actor.name }
+        });
+        if (chosen == null) {
+          dbg("place:_installContainerSheetItemDrop", "player quantity cancelled, bail");
+          return;
+        }
+      }
+
+      const sceneId = tokenDoc.parent.id;
+      const tokenId = tokenDoc.id;
+      dbg("place:_installContainerSheetItemDrop", "player path — dispatching depositItem via socket", {
+        sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, chosen
+      });
+      dispatchGM(
+        "depositItem",
+        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, quantity: chosen },
+        async () => depositItem(sourceActor.id, droppedItem.id, sceneId, tokenId, chosen)
+      );
+      notifyItemAction("Deposited", droppedItem.name);
       return;
     }
 
-    const itemData = droppedItem.toObject();
-    delete itemData._id;
-    adapter.setItemContainerId(itemData, destContainerItem.id);
-
-    try {
-      await CONFIG.Item.documentClass.createDocuments([itemData], { parent: actor, keepId: false });
-      // Move semantics — if the drag had a source actor, remove the original
-      // so quantities don't double up. World items (no parent actor) and items
-      // already on this container actor are left alone.
-      if (droppedItem.actor && droppedItem.actor.id !== actor.id) {
-        await droppedItem.delete();
-      }
-      ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
-    } catch (err) {
-      console.error("pick-up-stix | failed to deposit item on container sheet:", err);
-    }
+    await _handleContainerSheetGmDeposit({ destActor: actor, droppedItem, destContainerItem });
   });
 }
 
@@ -1136,18 +1195,24 @@ function _formatItemBulk(item) {
 
 /**
  * Handles dnd5e's container-drop gate. Called when an item is dropped onto a
- * ContainerSheet; routes player deposits through the socket and cancels dnd5e's
- * native handling for player users.
+ * ContainerSheet; prompts for quantity when the source stack is > 1, routes
+ * player deposits through the socket, and intercepts dnd5e's native GM deposit
+ * so our split-aware helper runs instead.
  *
  * @param {object} ctx
  * @param {Actor} ctx.actor - The actor owning the container item.
  * @param {Item} ctx.item - The container item receiving the drop.
  * @param {Application} ctx.sheet - The ContainerSheet application.
  * @param {object} ctx.data - The drag event data payload.
- * @returns {false|undefined} Returns `false` to cancel dnd5e's native drop handling for players.
+ * @returns {false|undefined} Returns `false` to cancel dnd5e's native drop handling.
  */
 function _gateContainerDrop({ actor, item, sheet, data }) {
   if (!isInteractiveContainer(actor)) return;
+
+  // dnd5e fires this hook when an item is dragged FROM the container sheet too
+  // (not only when something is dropped onto it). If the UUID belongs to this
+  // actor, it's a drag-out operation — let dnd5e handle the move natively.
+  if (data.uuid?.startsWith(actor.uuid + ".")) return;
 
   if (isPlayerView()) {
     if (!validateContainerAccess(actor, { checkProximity: true })) return false;
@@ -1161,14 +1226,125 @@ function _gateContainerDrop({ actor, item, sheet, data }) {
       if (!sourceActor) return;
       const tokenDoc = actor.token;
       if (!tokenDoc) return;
+
+      let chosen = null;
+      const adapter = getAdapter();
+      const sourceQty = adapter.getItemQuantity(droppedItem);
+      if (sourceQty > 1 && !adapter.isContainerItem(droppedItem)) {
+        chosen = await promptItemQuantity({
+          itemName: droppedItem.name,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+          actionFormatArgs: { target: actor.name }
+        });
+        if (chosen == null) {
+          dbg("place:_gateContainerDrop", "player quantity cancelled, bail");
+          return;
+        }
+      }
+
+      const sceneId = tokenDoc.parent.id;
+      const tokenId = tokenDoc.id;
+      dbg("place:_gateContainerDrop", "player path — dispatching depositItem via socket", {
+        sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, chosen
+      });
       dispatchGM(
         "depositItem",
-        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId: tokenDoc.parent.id, tokenId: tokenDoc.id },
-        () => {} // unreachable: isGM is false in this branch
+        { sourceActorId: sourceActor.id, itemId: droppedItem.id, sceneId, tokenId, quantity: chosen },
+        async () => depositItem(sourceActor.id, droppedItem.id, sceneId, tokenId, chosen)
       );
       notifyItemAction("Deposited", droppedItem.name);
     })();
     return false;
+  }
+
+  // GM path — intercept dnd5e's native deposit so our split-aware helper runs.
+  // Fire-and-forget; return false to suppress dnd5e's native handling.
+  (async () => {
+    const droppedItem = await fromUuid(data.uuid);
+    if (!droppedItem) return;
+    dbg("place:_gateContainerDrop", "GM path — delegating to _handleContainerSheetGmDeposit", {
+      itemName: droppedItem.name, destActorName: actor.name
+    });
+    await _handleContainerSheetGmDeposit({ destActor: actor, droppedItem, destContainerItem: item });
+  })();
+  return false;
+}
+
+/**
+ * Shared GM-side deposit-to-container helper used by both `_gateContainerDrop`
+ * (dnd5e) and `_installContainerSheetItemDrop` (pf2e). Validates physical/container
+ * guards, prompts for quantity when the source stack is > 1 (skipped for world
+ * items with no source actor), creates the destination item with the chosen
+ * quantity, and decrements (or deletes) the source when it had an inventory actor.
+ *
+ * Container-typed items are rejected with a `NoContainerInContainer` warning.
+ * Non-physical items are rejected with a `NotPhysical` warning.
+ *
+ * @param {object} args
+ * @param {Actor} args.destActor - The interactive container actor receiving the deposit.
+ * @param {Item} args.droppedItem - The source item being deposited.
+ * @param {Item} args.destContainerItem - The container item on `destActor`
+ *   whose contents the deposit should live in.
+ */
+async function _handleContainerSheetGmDeposit({ destActor, droppedItem, destContainerItem }) {
+  const adapter = getAdapter();
+
+  if (!adapter.isPhysicalItem(droppedItem)) {
+    dbg("place:_handleContainerSheetGmDeposit", "dropped item is not physical, bail", { itemName: droppedItem.name });
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotPhysical"));
+    return;
+  }
+  if (adapter.isContainerItem(droppedItem)) {
+    dbg("place:_handleContainerSheetGmDeposit", "dropped item is a container, bail", { itemName: droppedItem.name });
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoContainerInContainer"));
+    return;
+  }
+
+  // Only prompt when the source is owned by an actor (world items have no
+  // source to decrement so they move at full quantity with no prompt).
+  const sourceQty = adapter.getItemQuantity(droppedItem);
+  let chosen = null;
+  if (droppedItem.actor && sourceQty > 1) {
+    chosen = await promptItemQuantity({
+      itemName: droppedItem.name,
+      max: sourceQty,
+      actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit",
+      actionFormatArgs: { target: destActor.name }
+    });
+    if (chosen == null) {
+      dbg("place:_handleContainerSheetGmDeposit", "GM quantity cancelled, bail");
+      return;
+    }
+  }
+
+  const itemData = droppedItem.toObject();
+  delete itemData._id;
+  adapter.setItemContainerId(itemData, destContainerItem.id);
+  if (chosen != null && chosen !== sourceQty) {
+    adapter.setItemDataQuantity(itemData, chosen);
+  }
+
+  dbg("place:_handleContainerSheetGmDeposit", "creating deposited item on destActor", {
+    itemName: itemData.name, destActorName: destActor.name,
+    chosen, sourceQty, hasSourceActor: !!droppedItem.actor
+  });
+  try {
+    await CONFIG.Item.documentClass.createDocuments([itemData], { parent: destActor, keepId: false });
+    // Decrement or delete the source only when it came from another actor's
+    // inventory (world items have no source actor; same-actor moves would be a
+    // no-op since we already excluded same-actor deposits upstream).
+    if (droppedItem.actor && droppedItem.actor.id !== destActor.id) {
+      if (chosen != null) {
+        await decrementOrDeleteItem(droppedItem, chosen);
+      } else {
+        // chosen == null means world item or qty=1 — full move, delete source.
+        await droppedItem.delete();
+      }
+    }
+    ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Notify.Deposited", { name: itemData.name }));
+  } catch (err) {
+    console.error("pick-up-stix | failed to deposit item on container sheet:", err);
   }
 }
 

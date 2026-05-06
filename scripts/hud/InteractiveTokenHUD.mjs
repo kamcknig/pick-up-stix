@@ -8,6 +8,7 @@ import { resolvePickupTarget } from "../utils/pickupFlow.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM, isPlayerView } from "../utils/playerView.mjs";
 import { hasLevels, getTokenLevelId, getViewedLevelId } from "../utils/levels.mjs";
+import { promptItemQuantity } from "../utils/quantityPrompt.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -138,12 +139,31 @@ function onRenderTokenHUD(app, html, context, options) {
       }
       const itemId = item.id;
       const itemName = item.name;
-      dbg("hud:pickup", "picking up item", { itemId, itemName, targetActorId: targetActor.id });
+
+      // Prompt for a partial-stack pickup when the embedded item has qty > 1.
+      // Skipped for containers (their top-level item is the backpack itself, qty 1).
+      let chosenQuantity = null;
+      const adapter = getAdapter();
+      const sourceQty = adapter.getItemQuantity(item);
+      if (sourceQty > 1 && !adapter.isContainerItem(item)) {
+        chosenQuantity = await promptItemQuantity({
+          itemName,
+          max: sourceQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+          actionFormatArgs: { target: targetActor.name }
+        });
+        if (chosenQuantity == null) {
+          dbg("hud:pickup", "quantity dialog cancelled, bail");
+          return;
+        }
+      }
+
+      dbg("hud:pickup", "picking up item", { itemId, itemName, targetActorId: targetActor.id, chosenQuantity });
 
       await dispatchGM(
         "pickupItem",
-        { sceneId, tokenId, itemId, targetActorId: targetActor.id },
-        async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
+        { sceneId, tokenId, itemId, targetActorId: targetActor.id, quantity: chosenQuantity },
+        async () => pickupItem(sceneId, tokenId, itemId, targetActor.id, chosenQuantity)
       );
       if (!game.user.isGM) notifyItemAction("PickedUp", itemName);
       canvas.tokens.hud.close();

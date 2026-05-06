@@ -598,10 +598,26 @@ function _injectContainerSheetRowControls({ actor, app, html }) {
           if (!tokenDoc) return;
           const sceneId = tokenDoc.parent.id;
           const tokenId = tokenDoc.id;
+
+          // Prompt for a partial-stack pickup when qty > 1 and the item is not
+          // a container type (containers are always single-quantity).
+          let chosen = null;
+          const rowAdapter = getAdapter();
+          const sourceQty = rowAdapter.getItemQuantity(currentItem);
+          if (sourceQty > 1 && !rowAdapter.isContainerItem(currentItem)) {
+            chosen = await promptItemQuantity({
+              itemName: currentItem.name,
+              max: sourceQty,
+              actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+              actionFormatArgs: { target: targetActor.name }
+            });
+            if (chosen == null) return;
+          }
+
           await dispatchGM(
             "pickupItem",
-            { sceneId, tokenId, itemId, targetActorId: targetActor.id },
-            async () => pickupItem(sceneId, tokenId, itemId, targetActor.id)
+            { sceneId, tokenId, itemId, targetActorId: targetActor.id, quantity: chosen },
+            async () => pickupItem(sceneId, tokenId, itemId, targetActor.id, chosen)
           );
           if (!game.user.isGM && item) notifyItemAction("PickedUp", item.name);
         }
@@ -1173,11 +1189,26 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
         if (!tokenDoc) return;
         const sceneId = tokenDoc.parent.id;
         const tokenId = tokenDoc.id;
-        dbg("contents:pickupRow", { itemName: item.name, itemId: item.id, sceneId, tokenId, targetActorId: targetActor.id });
+
+        // Prompt for a partial-stack pickup when qty > 1 and the item is not
+        // a container type (containers are always single-quantity).
+        let chosen = null;
+        const sourceQty = adapter.getItemQuantity(currentItem);
+        if (sourceQty > 1 && !adapter.isContainerItem(currentItem)) {
+          chosen = await promptItemQuantity({
+            itemName: currentItem.name,
+            max: sourceQty,
+            actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+            actionFormatArgs: { target: targetActor.name }
+          });
+          if (chosen == null) return;
+        }
+
+        dbg("contents:pickupRow", { itemName: item.name, itemId: item.id, sceneId, tokenId, targetActorId: targetActor.id, chosen });
         await dispatchGM(
           "pickupItem",
-          { sceneId, tokenId, itemId: item.id, targetActorId: targetActor.id },
-          async () => pickupItem(sceneId, tokenId, item.id, targetActor.id)
+          { sceneId, tokenId, itemId: item.id, targetActorId: targetActor.id, quantity: chosen },
+          async () => pickupItem(sceneId, tokenId, item.id, targetActor.id, chosen)
         );
         if (!game.user.isGM) notifyItemAction("PickedUp", item.name);
       }

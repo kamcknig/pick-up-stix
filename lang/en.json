@@ -167,6 +167,7 @@
       "QuantityActionPlace": "How many to place on the canvas?",
       "QuantityActionDeposit": "How many to deposit into {target}?",
       "QuantityActionGive": "How many to give to {target}?",
+      "QuantityActionPickup": "How many to pick up into {target}?",
       "QuantityLabel": "Quantity",
       "QuantityRange": "Choose a value between 1 and {max}.",
       "QuantityMin": "Min",

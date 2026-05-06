@@ -375,19 +375,28 @@ async function depositActorToTarget(droppedActor, targetToken) {
   }
 }
 
-async function depositCanvasTokenToTarget(tokenDoc, targetToken) {
+async function depositCanvasTokenToTarget(tokenDoc, targetToken, { quantity = null } = {}) {
   const sourceActor = tokenDoc.actor;
   const targetActor  = targetToken.actor;
   dbg("place:depositCanvasTokenToTarget", {
     sourceName: sourceActor?.name, sourceId: sourceActor?.id,
     targetName: targetActor.name, targetId: targetActor.id,
-    targetIsContainer: targetActor.system?.isContainer === true
+    targetIsContainer: targetActor.system?.isContainer === true,
+    quantity
   });
 
   if (!sourceActor) {
     dbg("place:depositCanvasTokenToTarget", "no actor on source token, bail");
     return;
   }
+
+  const adapter = getAdapter();
+  const embeddedItem = sourceActor.system?.topLevelItems?.[0] ?? null;
+  const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
+  const moveQty = quantity == null
+    ? sourceQty
+    : Math.max(1, Math.min(Math.floor(quantity), sourceQty));
+  const isPartial = moveQty < sourceQty;
 
   const itemData = buildInteractiveItemData(sourceActor);
   if (!itemData) {
@@ -396,15 +405,25 @@ async function depositCanvasTokenToTarget(tokenDoc, targetToken) {
     return;
   }
 
+  if (isPartial) adapter.setItemDataQuantity(itemData, moveQty);
+
   if (targetActor.system?.isContainer && targetActor.system.containerItem) {
     // Delegate container-parent field write to the adapter so the field path
     // is not hard-coded to dnd5e's `system.container`.
-    getAdapter().setItemContainerId(itemData, targetActor.system.containerItem.id);
+    adapter.setItemContainerId(itemData, targetActor.system.containerItem.id);
   }
 
-  dbg("place:depositCanvasTokenToTarget", "creating item on target, deleting source token");
+  dbg("place:depositCanvasTokenToTarget", "creating item on target", { moveQty, sourceQty, isPartial });
   await CONFIG.Item.documentClass.createDocuments([itemData], { parent: targetActor, keepId: false });
-  await tokenDoc.delete();
+
+  if (isPartial && embeddedItem) {
+    // Partial move — leave the token in place and decrement the embedded item.
+    // Skip decrementOrDeleteItem so we never accidentally delete the wrapped
+    // item out from under the actor; isPartial guarantees moveQty < sourceQty.
+    await embeddedItem.update({ "system.quantity": sourceQty - moveQty });
+  } else {
+    await tokenDoc.delete();
+  }
   notifyItemAction("Deposited", sourceActor.name);
 }
 
@@ -433,9 +452,31 @@ export async function _handleTokenMoveWithOverlap(tokenDoc, changes, overlapTarg
     await tokenDoc.update(changes, { interactiveItems: { bypassOverlapCheck: true } });
     return;
   }
-  // Deposit into the chosen target and delete the source token.
+  // Deposit into the chosen target. Prompt for a partial-stack quantity when
+  // the source token's embedded item has more than one. Skipped for container
+  // tokens (their embedded backpack is a single item, never a stack).
   dbg("place:tokenMove", "user chose deposit target", { targetName: result.actor.name });
-  await depositCanvasTokenToTarget(tokenDoc, result);
+  const adapter = getAdapter();
+  const sourceActor = tokenDoc.actor;
+  const embeddedItem = sourceActor?.system?.topLevelItems?.[0] ?? null;
+  const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
+  let chosen = null;
+  if (embeddedItem && !adapter.isContainerItem(embeddedItem) && sourceQty > 1) {
+    const isInteractiveContainerTarget = result.actor.system?.isContainer === true;
+    chosen = await promptItemQuantity({
+      itemName: sourceActor.name,
+      max: sourceQty,
+      actionKey: isInteractiveContainerTarget
+        ? "INTERACTIVE_ITEMS.Dialog.QuantityActionDeposit"
+        : "INTERACTIVE_ITEMS.Dialog.QuantityActionGive",
+      actionFormatArgs: { target: result.actor.name }
+    });
+    if (chosen == null) {
+      dbg("place:tokenMove", "quantity dialog cancelled, bail");
+      return;
+    }
+  }
+  await depositCanvasTokenToTarget(tokenDoc, result, { quantity: chosen });
 }
 
 async function _handleInteractiveActorDropWithOverlap(dropped, data, targets) {

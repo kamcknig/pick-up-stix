@@ -1034,6 +1034,11 @@ function _buildContainerContentsHeader({ isTokenActor = false } = {}) {
   name.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Name");
   header.append(name);
 
+  const qty = document.createElement("span");
+  qty.className = "ii-contents-quantity";
+  qty.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Quantity");
+  header.append(qty);
+
   const bulk = document.createElement("span");
   bulk.className = "ii-contents-bulk";
   bulk.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.Bulk");
@@ -1083,6 +1088,53 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
   name.className = "ii-contents-name";
   name.textContent = item.name;
   row.append(name);
+
+  const qty = document.createElement("span");
+  qty.className = "ii-contents-quantity";
+  const currentQty = adapter.getItemQuantity(item) ?? 1;
+  if (game.user.isGM) {
+    // Inline stepper for the GM: ±1 default, Shift+Click ±5, Ctrl+Click ±10.
+    // Subtraction clamps at 1 — deletion belongs on the trash icon, not here.
+    const stepDelta = (ev) => ev.ctrlKey ? 10 : ev.shiftKey ? 5 : 1;
+    const apply = async (signed) => {
+      const cur = adapter.getItemQuantity(item) ?? 1;
+      const next = signed < 0 ? Math.max(1, cur + signed) : cur + signed;
+      if (next === cur) return;
+      dbg("contents:qtyStep", { itemId: item.id, from: cur, to: next });
+      await item.update({ "system.quantity": next });
+    };
+
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.className = "ii-contents-qty-step";
+    minus.title = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.QuantityDecrease");
+    minus.innerHTML = `<i class="fa-solid fa-minus"></i>`;
+    minus.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await apply(-stepDelta(ev));
+    });
+
+    const value = document.createElement("span");
+    value.className = "ii-contents-qty-value";
+    value.textContent = String(currentQty);
+
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = "ii-contents-qty-step";
+    plus.title = game.i18n.localize("INTERACTIVE_ITEMS.Sheet.QuantityIncrease");
+    plus.innerHTML = `<i class="fa-solid fa-plus"></i>`;
+    plus.addEventListener("click", async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      await apply(stepDelta(ev));
+    });
+
+    qty.append(minus, value, plus);
+  } else {
+    qty.textContent = String(currentQty);
+  }
+  row.append(qty);
 
   const bulk = document.createElement("span");
   bulk.className = "ii-contents-bulk";
@@ -1971,17 +2023,19 @@ Hooks.on("deleteItem", (item) => {
   if (actor) _rerenderContainerViews(actor);
 });
 
-// Re-render container views when a deposited item's lock flag flips so the
-// Contents-tab row icon and tooltip refresh. Scoped narrowly: deposited items
-// (i.e. *not* the wrapping container's embedded backpack) on interactive
-// container actors. The main updateItem hook below handles identification
-// changes for the wrapped item.
+// Re-render container views when a deposited item's lock flag or stack
+// quantity changes so the Contents-tab row stays current. Scoped narrowly:
+// deposited items (i.e. *not* the wrapping container's embedded backpack)
+// on interactive container actors. The main updateItem hook below handles
+// identification changes for the wrapped item.
 Hooks.on("updateItem", (item, changes) => {
   const actor = item.parent;
   if (!isInteractiveActor(actor) || !actor.system?.isContainer) return;
   if (item.id === actor.system.embeddedItem?.id) return;
-  if (!foundry.utils.hasProperty(changes, "flags.pick-up-stix.tokenState.system.isLocked")) return;
-  dbg("hook:updateItem:lockRowRerender", { itemName: item.name, itemId: item.id });
+  const lockChanged = foundry.utils.hasProperty(changes, "flags.pick-up-stix.tokenState.system.isLocked");
+  const qtyChanged = foundry.utils.hasProperty(changes, "system.quantity");
+  if (!lockChanged && !qtyChanged) return;
+  dbg("hook:updateItem:rowRerender", { itemName: item.name, itemId: item.id, lockChanged, qtyChanged });
   _rerenderContainerViews(actor);
 });
 

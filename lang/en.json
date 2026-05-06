@@ -66,6 +66,8 @@
       "NameLabel": "Name",
       "Name": "Name",
       "Quantity": "Qty",
+      "QuantityIncrease": "Increase quantity (+1, Shift +5, Ctrl +10)",
+      "QuantityDecrease": "Decrease quantity (-1, Shift -5, Ctrl -10)",
       "Bulk": "Bulk",
       "NamePlaceholder": "Name for this object...",
       "UnidentifiedName": "Unidentified Name",
@@ -181,7 +183,8 @@
       "AppearsClosed": "It appears to be closed."
     },
     "Container": {
-      "ContentsHidden": "You are too far away to see the contents"
+      "ContentsHidden": "You are too far away to see the contents",
+      "Empty": "This container is empty."
     },
     "Model": {
       "FIELDS": {

@@ -3,6 +3,7 @@ import InteractiveItemModel from "./models/InteractiveItemModel.mjs";
 import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
 import { registerTokenHUD } from "./hud/InteractiveTokenHUD.mjs";
 import { registerPlacement, _handleTokenMoveWithOverlap } from "./canvas/placement.mjs";
+import { registerQtyBadge } from "./canvas/qtyBadge.mjs";
 import { registerSocket } from "./socket/SocketHandler.mjs";
 import { pickupItem, depositItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
 import { INTERACTIVE_TYPES } from "./constants.mjs";
@@ -257,6 +258,7 @@ Hooks.once("init", async () => {
 
   registerTokenHUD();
   registerPlacement();
+  registerQtyBadge();
 });
 
 /**

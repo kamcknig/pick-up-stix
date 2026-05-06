@@ -626,6 +626,19 @@ async function createInteractiveToken(item, x, y, { ephemeral = false, level = n
       }
     } else {
       dbg("place:createInteractiveToken", "reusing existing actor, skipping create");
+      // Templated reuse: align the base actor's embedded item quantity with
+      // moveQty so the token snapshot reflects the chosen stack size.
+      // Without this, a partial-stack drop onto a reused template would
+      // place a token showing the template's prior quantity.
+      if (!isContainer) {
+        const reusedItem = actor.system?.embeddedItem;
+        if (reusedItem && adapter.getItemQuantity(reusedItem) !== moveQty) {
+          dbg("place:createInteractiveToken", "syncing reused template quantity", {
+            actorId: actor.id, prevQty: adapter.getItemQuantity(reusedItem), moveQty
+          });
+          await reusedItem.update({ "system.quantity": moveQty });
+        }
+      }
     }
   } else {
     dbg("place:createInteractiveToken", "ephemeral mode — creating ephemeral actor", { itemName: item.name });

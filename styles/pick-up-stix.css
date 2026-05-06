@@ -397,3 +397,26 @@
   height: 2rem;
   cursor: pointer;
 }
+
+/* ===== Quantity Prompt ===== */
+.ii-quantity-dialog .ii-quantity-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.ii-quantity-dialog .ii-quantity-fields input[type="number"] {
+  flex: 1 1 auto;
+  text-align: center;
+  min-width: 4em;
+}
+
+.ii-quantity-dialog .ii-quantity-shortcut {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 0.25em 0.6em;
+}
+
+.ii-quantity-dialog .ii-quantity-action {
+  margin-bottom: 0.5em;
+}

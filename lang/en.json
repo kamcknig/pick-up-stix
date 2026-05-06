@@ -159,7 +159,18 @@
       "TokenMultiMoveHint": "The destination overlaps {count} tokens. Choose whether to move the token here or pick a recipient.",
       "DepositToActor": "Deposit to {name}",
       "ChooseRecipient": "Choose Recipient\u2026",
-      "MoveToPosition": "Move to Position"
+      "MoveToPosition": "Move to Position",
+      "QuantityTitle": "How many \"{name}\"?",
+      "QuantityActionMove": "How many of this stack should be moved?",
+      "QuantityActionPlace": "How many to place on the canvas?",
+      "QuantityActionDeposit": "How many to deposit into {target}?",
+      "QuantityActionGive": "How many to give to {target}?",
+      "QuantityLabel": "Quantity",
+      "QuantityRange": "Choose a value between 1 and {max}.",
+      "QuantityMin": "Min",
+      "QuantityMax": "Max",
+      "QuantityConfirm": "Confirm",
+      "QuantityCancel": "Cancel"
     },
     "Limited": {
       "DefaultContainerName": "A container of some sort",

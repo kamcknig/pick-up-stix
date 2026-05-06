@@ -67,6 +67,35 @@ export default class SystemAdapter {
    */
   isPhysicalItem(item) { _abstract("isPhysicalItem"); }
 
+  /**
+   * Read the current quantity (stack size) of a physical item. Returns 1
+   * for items that don't have a quantity field (e.g. spells, features).
+   *
+   * Both dnd5e and pf2e store the value at `system.quantity` as a plain
+   * number, so the default implementation works for both. Subclasses
+   * override only if their system uses a different path.
+   *
+   * @param {Item} item
+   * @returns {number}
+   */
+  getItemQuantity(item) {
+    const q = item?.system?.quantity;
+    return Number.isFinite(q) ? q : 1;
+  }
+
+  /**
+   * Write the quantity (stack size) onto raw item data prior to
+   * createDocuments. Mirrors `getItemQuantity` — the default writes to
+   * `system.quantity`, which both supported systems use.
+   *
+   * @param {object} itemData - Plain item data object (mutated in-place).
+   * @param {number} quantity
+   */
+  setItemDataQuantity(itemData, quantity) {
+    itemData.system = itemData.system ?? {};
+    itemData.system.quantity = quantity;
+  }
+
   // === Container parent reference ============================================
 
   /**

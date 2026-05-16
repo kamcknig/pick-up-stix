@@ -2,7 +2,7 @@ import { isInteractiveActor, getTokenActor } from "../utils/actorHelpers.mjs";
 import { getItemSourceActorId } from "../utils/itemFlags.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
-import { getPlayerCandidateTokens, depositItem, buildInteractiveItemData, assignContainerParent } from "../transfer/ItemTransfer.mjs";
+import { getPlayerCandidateTokens, depositItem, buildInteractiveItemData, assignContainerParent, buildGenericStubItem } from "../transfer/ItemTransfer.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { dragModifiersHeld } from "../utils/dragModifier.mjs";
 import { findCanvasDropTargets, promptDropChoice, PLACE_ON_CANVAS } from "../utils/canvasDropTargets.mjs";
@@ -23,6 +23,19 @@ function onDropCanvasData(canvas, data, event) {
     ctrlHeld: event.ctrlKey || event.metaKey,
     uuid: data.uuid
   });
+
+  // Synthetic payload emitted by GenericInteractiveContainerView when the GM
+  // drags a content row out of a container sheet onto the canvas. Removes the
+  // row from the container's contents flag array and places a new item-mode
+  // interactive token at the drop point.
+  if (data.type === "InteractiveContent") {
+    dbg("place:onDropCanvasData", "InteractiveContent drop detected", {
+      sourceActorUuid: data.sourceActorUuid, contentId: data.contentId
+    });
+    _handleInteractiveContentDrop(canvas, data)
+      .catch(err => console.error(`${MODULE_ID} | InteractiveContent drop failed:`, err));
+    return false;
+  }
 
   if (data.type === "Item") {
     if (!dragModifiersHeld(event)) {
@@ -61,6 +74,181 @@ function onDropCanvasData(canvas, data, event) {
   }
 
   dbg("place:onDropCanvasData", "non-Item/Actor type, let core handle", { type: data.type });
+}
+
+/**
+ * Handle a synthetic `"InteractiveContent"` drag payload emitted when the GM
+ * drags a row out of a `GenericInteractiveContainerView` onto the canvas.
+ *
+ * Removes the dragged content row from the source container's `contents[]`
+ * flag array, then creates a new item-mode interactive actor at the snapped
+ * drop point and places a token for it.
+ *
+ * @param {Canvas} canvas
+ * @param {object} data - Drag payload with `sourceActorUuid`, `contentId`, `itemData`, `x`, `y`.
+ * @returns {Promise<false>}
+ */
+async function _handleInteractiveContentDrop(canvas, data) {
+  const adapter = getAdapter();
+  const sourceActor = await fromUuid(data.sourceActorUuid);
+  if (!sourceActor) {
+    dbg("place:_handleInteractiveContentDrop", "source actor not found", { uuid: data.sourceActorUuid });
+    return false;
+  }
+
+  // Remove the dragged row from the container's contents array.
+  const sourceData = adapter.getInteractiveData(sourceActor);
+  const filtered = (sourceData.contents || []).filter(c => c.id !== data.contentId);
+  dbg("place:_handleInteractiveContentDrop", "removing content row from source", {
+    sourceActorName: sourceActor.name, contentId: data.contentId,
+    beforeCount: sourceData.contents?.length ?? 0, afterCount: filtered.length
+  });
+  await adapter.setInteractiveData(sourceActor, { contents: filtered });
+
+  // Create a new item-mode interactive actor at the drop point.
+  dbg("place:_handleInteractiveContentDrop", "placing new interactive token from content row", {
+    itemData: data.itemData, x: data.x, y: data.y
+  });
+  await createInteractiveTokenFromContentRow(canvas, data.itemData, data.x, data.y);
+  return false;
+}
+
+/**
+ * Create a new generic item-mode interactive actor and place a token on the
+ * canvas, populated entirely from a content-row payload (no source Item
+ * document — everything comes from the flag blob).
+ *
+ * The actor is always ephemeral: content rows have no persistent template and
+ * no inventory source to round-trip through. The flag blob holds the full
+ * display data (name, img, description, quantity).
+ *
+ * @param {Canvas} canvas
+ * @param {object} itemData - `{name, img, description, quantity}` from the row.
+ * @param {number} x - Canvas x coordinate of the drop.
+ * @param {number} y - Canvas y coordinate of the drop.
+ */
+async function createInteractiveTokenFromContentRow(canvas, itemData, x, y) {
+  const adapter = getAdapter();
+  const snapped = canvas.grid.getTopLeftPoint({ x, y });
+  const name = itemData.name || "Interactive Item";
+  const img = itemData.img || "icons/svg/item-bag.svg";
+
+  dbg("place:createInteractiveTokenFromContentRow", { name, img, x: snapped.x, y: snapped.y });
+
+  // Create an ephemeral actor of our sub-type. The generic adapter never touches
+  // actor.system, so the system field is an empty object — safe to omit.
+  const actor = await CONFIG.Actor.documentClass.create({
+    name,
+    type: "pick-up-stix.interactiveItem",
+    img,
+    prototypeToken: { name, texture: { src: img } },
+    flags: { "pick-up-stix": { ephemeral: true } }
+  });
+
+  if (!actor) {
+    dbg("place:createInteractiveTokenFromContentRow", "actor create returned null, bail");
+    return;
+  }
+
+  // Populate the flag blob so the generic sheets and pickup flow can read the data.
+  await adapter.setInteractiveData(actor, {
+    mode: "item",
+    name,
+    img,
+    itemData: {
+      name,
+      img,
+      description: itemData.description ?? "",
+      quantity: itemData.quantity ?? 1
+    }
+  });
+
+  const tokenData = foundry.utils.mergeObject(
+    actor.prototypeToken.toObject(),
+    {
+      x: snapped.x, y: snapped.y,
+      actorId: actor.id,
+      flags: { "pick-up-stix": { ephemeral: true } }
+    }
+  );
+
+  if (hasLevels()) {
+    tokenData.level = getViewedLevelId();
+    dbg("place:createInteractiveTokenFromContentRow", "v14 level assigned", { level: tokenData.level });
+  }
+
+  await canvas.scene.createEmbeddedDocuments("Token", [tokenData]);
+  dbg("place:createInteractiveTokenFromContentRow", "token placed", { actorId: actor.id, name });
+}
+
+/**
+ * Generic-mode actor factory used by `createInteractiveToken`. Creates an
+ * actor of sub-type `pick-up-stix.interactiveItem` with the dropped item's
+ * data snapshotted into `flags["pick-up-stix"].interactive` (no embedded
+ * `actor.items`, no `system.*` writes — neither path works on systems that
+ * replace `CONFIG.Actor.dataModels` or restrict item types).
+ *
+ * Containers aren't supported via this path because `adapter.isContainerItem`
+ * always returns false on generic (containers require a configured type that
+ * world items wouldn't normally match). World items dropped onto the canvas
+ * always become item-mode interactives.
+ *
+ * @param {Item} item
+ * @param {string} img
+ * @param {number} moveQty
+ * @param {boolean} ephemeral
+ * @returns {Promise<Actor>}
+ */
+async function _createGenericInteractiveActor(item, img, moveQty, ephemeral) {
+  const description = item.system?.description?.value
+    ?? item.system?.description
+    ?? "";
+
+  const interactiveData = {
+    mode: "item",
+    name: item.name,
+    img,
+    description,
+    itemData: {
+      name: item.name,
+      img,
+      description,
+      quantity: moveQty
+    }
+  };
+
+  // Honor the configured template-vs-ephemeral folder split so generic
+  // interactive actors live in the same place as their model-backed
+  // counterparts.
+  const folderId = ephemeral
+    ? (game.settings.get(MODULE_ID, "ephemeralFolder") || null)
+    : (game.settings.get(MODULE_ID, "actorFolder") || null);
+
+  const flags = {
+    [MODULE_ID]: {
+      interactive: interactiveData,
+      // Mark the actor as already kind-confirmed so the createActor hook's
+      // kind-picker path is skipped (we've populated mode + itemData here).
+      createKindConfirmed: true
+    }
+  };
+  if (ephemeral) flags[MODULE_ID].ephemeral = true;
+  // Track the source item's uuid for ephemeral-cleanup / future-reuse heuristics.
+  if (!item.actor) flags[MODULE_ID].sourceItemUuid = item.uuid;
+
+  const actorData = {
+    name: item.name,
+    type: "pick-up-stix.interactiveItem",
+    img,
+    prototypeToken: { name: item.name, texture: { src: img } },
+    flags
+  };
+  if (folderId) actorData.folder = folderId;
+
+  dbg("place:createInteractiveToken:generic", "creating generic actor", {
+    itemName: item.name, ephemeral, folderId, moveQty
+  });
+  return CONFIG.Actor.documentClass.create(actorData);
 }
 
 async function _handleItemDrop(data) {
@@ -288,9 +476,52 @@ async function depositItemToTarget(item, targetToken, { quantity = null } = {}) 
     itemName: item.name, itemUuid: item.uuid,
     targetName: targetActor.name, targetId: targetActor.id,
     tokenId, sceneId, isGM: game.user.isGM,
-    targetIsInteractiveContainer: targetActor.system?.isContainer === true,
+    targetIsInteractiveContainer: adapter.isInteractiveContainer(targetActor),
     sourceQty, moveQty
   });
+
+  // Generic interactive container target: writes go through flag.contents
+  // rather than createDocuments. Two sub-paths:
+  //   - GM + world item (no source actor to decrement): write the row directly.
+  //   - Everyone else (inventory source): route through depositItem so the
+  //     GM-side handler mutates the container actor's flags.
+  //     The GM-side depositItem has a matching generic-container branch.
+  if (adapter.constructor.SYSTEM_ID === "generic" && adapter.isInteractiveContainer(targetActor)) {
+    if (game.user.isGM && !item.actor) {
+      // GM world-item path: write directly (no source to decrement).
+      const row = {
+        id: foundry.utils.randomID(),
+        name: item.name,
+        img: item.img,
+        description: item.system?.description?.value ?? item.system?.description ?? "",
+        quantity: moveQty
+      };
+      const current = adapter.getInteractiveData(targetActor);
+      dbg("place:depositItemToTarget", "GM + world item: appending content row directly", { rowName: row.name, qty: moveQty });
+      await adapter.setInteractiveData(targetActor, {
+        contents: [...(current.contents ?? []), row]
+      });
+      notifyItemAction("Deposited", item.name);
+      return;
+    }
+    if (!item.actor) {
+      // Player + world item: not supported (no source to decrement on the
+      // player side, and players can't write the target's flags directly).
+      dbg("place:depositItemToTarget", "player + world item, bail");
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
+      return;
+    }
+    // Inventory source (GM or player): route through the socket relay. The
+    // GM-side depositItem will write to flag.contents and decrement source.
+    dbg("place:depositItemToTarget", "generic container + inventory source: dispatching to GM", { isGM: game.user.isGM });
+    await dispatchGM(
+      "depositItem",
+      { sourceActorId: item.actor.id, itemId: item.id, sceneId, tokenId, quantity: moveQty },
+      async () => depositItem(item.actor.id, item.id, sceneId, tokenId, moveQty)
+    );
+    notifyItemAction("Deposited", item.name);
+    return;
+  }
 
   // Players can't remove world items; depositItem requires a source actor.
   if (!game.user.isGM && !item.actor) {
@@ -339,18 +570,66 @@ async function depositItemToTarget(item, targetToken, { quantity = null } = {}) 
 
 async function depositActorToTarget(droppedActor, targetToken) {
   const targetActor = targetToken.actor;
+  const adapter = getAdapter();
+  const targetIsInteractiveContainer = adapter.isInteractiveContainer(targetActor);
   dbg("place:depositActorToTarget", {
     droppedName: droppedActor.name, droppedId: droppedActor.id,
     targetName: targetActor.name, targetId: targetActor.id,
-    targetIsContainer: targetActor.system?.isContainer === true
+    targetIsInteractiveContainer
   });
 
-  if (droppedActor.system.isContainer) {
+  if (adapter.isInteractiveContainer(droppedActor)) {
     dbg("place:depositActorToTarget", "dropped actor is container-mode, bail");
     ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.CannotGiveContainer"));
     return;
   }
 
+  if (!game.user.isGM) {
+    // Players can't see sidebar actors; no socket action exists for this path.
+    dbg("place:depositActorToTarget", "player path blocked (no socket action for actor→target)");
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
+    return;
+  }
+
+  // Generic source: build payload from flag data rather than embedded items.
+  if (adapter.constructor.SYSTEM_ID === "generic") {
+    const droppedData = adapter.getInteractiveData(droppedActor);
+    if (droppedData.mode !== "item") {
+      dbg("place:depositActorToTarget", "generic source not in item mode, bail");
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotInitialized"));
+      return;
+    }
+    // Prefer top-level fields (GM-edited) over itemData snapshot.
+    const name = droppedData.name || droppedData.itemData?.name || droppedActor.name;
+    const img = droppedData.img || droppedData.itemData?.img || droppedActor.img;
+    const description = droppedData.description || droppedData.itemData?.description || "";
+    const quantity = droppedData.itemData?.quantity ?? 1;
+
+    if (targetIsInteractiveContainer) {
+      // Generic container target: append a content row to its flag blob.
+      const row = { id: foundry.utils.randomID(), name, img, description, quantity };
+      const current = adapter.getInteractiveData(targetActor);
+      dbg("place:depositActorToTarget", "generic→generic-container: appending content row", { rowName: name });
+      await adapter.setInteractiveData(targetActor, {
+        contents: [...(current.contents ?? []), row]
+      });
+    } else {
+      // Non-container target (PC/NPC): create a stub item on the target.
+      const lootType = adapter.defaultLootItemType;
+      if (!lootType) {
+        dbg("place:depositActorToTarget", "generic source but no loot type configured, bail");
+        ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
+        return;
+      }
+      const stubData = buildGenericStubItem({ name, img, description, quantity, lootType });
+      dbg("place:depositActorToTarget", "generic→PC/NPC: creating stub item on target", { stubName: stubData.name });
+      await CONFIG.Item.documentClass.create(stubData, { parent: targetActor });
+    }
+    notifyItemAction("Deposited", droppedActor.name);
+    return;
+  }
+
+  // Model-backed source (dnd5e / pf2e) — existing path.
   const itemData = buildInteractiveItemData(droppedActor);
   if (!itemData) {
     dbg("place:depositActorToTarget", "buildInteractiveItemData returned null, bail");
@@ -361,27 +640,23 @@ async function depositActorToTarget(droppedActor, targetToken) {
   if (targetActor.system?.isContainer && targetActor.system.containerItem) {
     // Delegate container-parent field write to the adapter so the field path
     // is not hard-coded to dnd5e's `system.container`.
-    getAdapter().setItemContainerId(itemData, targetActor.system.containerItem.id);
+    adapter.setItemContainerId(itemData, targetActor.system.containerItem.id);
   }
 
-  if (game.user.isGM) {
-    dbg("place:depositActorToTarget", "GM path: createDocuments on target");
-    await CONFIG.Item.documentClass.createDocuments([itemData], { parent: targetActor, keepId: false });
-    notifyItemAction("Deposited", droppedActor.name);
-  } else {
-    // Players can't see sidebar actors; no socket action exists for this path.
-    dbg("place:depositActorToTarget", "player path blocked (no socket action for actor→target)");
-    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
-  }
+  dbg("place:depositActorToTarget", "GM path: createDocuments on target");
+  await CONFIG.Item.documentClass.createDocuments([itemData], { parent: targetActor, keepId: false });
+  notifyItemAction("Deposited", droppedActor.name);
 }
 
 async function depositCanvasTokenToTarget(tokenDoc, targetToken, { quantity = null } = {}) {
   const sourceActor = tokenDoc.actor;
   const targetActor  = targetToken.actor;
+  const adapter = getAdapter();
+  const targetIsInteractiveContainer = adapter.isInteractiveContainer(targetActor);
   dbg("place:depositCanvasTokenToTarget", {
     sourceName: sourceActor?.name, sourceId: sourceActor?.id,
     targetName: targetActor.name, targetId: targetActor.id,
-    targetIsContainer: targetActor.system?.isContainer === true,
+    targetIsInteractiveContainer,
     quantity
   });
 
@@ -390,7 +665,53 @@ async function depositCanvasTokenToTarget(tokenDoc, targetToken, { quantity = nu
     return;
   }
 
-  const adapter = getAdapter();
+  // Generic source: build payload from flag data. No embedded item to read
+  // quantity from, so the snapshot's quantity is the source-of-truth.
+  if (adapter.constructor.SYSTEM_ID === "generic") {
+    const sourceData = adapter.getInteractiveData(sourceActor);
+    if (sourceData.mode !== "item") {
+      dbg("place:depositCanvasTokenToTarget", "generic source not in item mode, bail");
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotInitialized"));
+      return;
+    }
+    const name = sourceData.name || sourceData.itemData?.name || sourceActor.name;
+    const img = sourceData.img || sourceData.itemData?.img || sourceActor.img;
+    const description = sourceData.description || sourceData.itemData?.description || "";
+    const flagQty = sourceData.itemData?.quantity ?? 1;
+    const moveQty = quantity == null ? flagQty : Math.max(1, Math.min(Math.floor(quantity), flagQty));
+    const isPartial = moveQty < flagQty;
+
+    if (targetIsInteractiveContainer) {
+      const row = { id: foundry.utils.randomID(), name, img, description, quantity: moveQty };
+      const current = adapter.getInteractiveData(targetActor);
+      dbg("place:depositCanvasTokenToTarget", "generic→generic-container: appending content row", { rowName: name, qty: moveQty });
+      await adapter.setInteractiveData(targetActor, {
+        contents: [...(current.contents ?? []), row]
+      });
+    } else {
+      const lootType = adapter.defaultLootItemType;
+      if (!lootType) {
+        ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
+        return;
+      }
+      const stubData = buildGenericStubItem({ name, img, description, quantity: moveQty, lootType });
+      dbg("place:depositCanvasTokenToTarget", "generic→PC/NPC: creating stub item on target", { stubName: stubData.name });
+      await CONFIG.Item.documentClass.create(stubData, { parent: targetActor });
+    }
+
+    if (isPartial) {
+      // Decrement the source actor's stored quantity.
+      await adapter.setInteractiveData(sourceActor, {
+        itemData: { ...(sourceData.itemData ?? {}), quantity: flagQty - moveQty }
+      });
+    } else {
+      await tokenDoc.delete({ pickUpStix: { suppressPrompt: true } });
+    }
+    notifyItemAction("Deposited", sourceActor.name);
+    return;
+  }
+
+  // Model-backed source (dnd5e / pf2e) — existing path.
   const embeddedItem = sourceActor.system?.topLevelItems?.[0] ?? null;
   const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
   const moveQty = quantity == null
@@ -545,7 +866,13 @@ async function createInteractiveToken(item, x, y, { ephemeral = false, level = n
 
   let actor;
 
-  if (!ephemeral) {
+  // Generic-mode short circuit: actor state lives entirely in
+  // flags["pick-up-stix"].interactive — no embedded items, no system fields.
+  // Falls through to the shared token-placement logic below once the actor is
+  // created.
+  if (adapter.constructor.SYSTEM_ID === "generic") {
+    actor = await _createGenericInteractiveActor(item, img, moveQty, ephemeral);
+  } else if (!ephemeral) {
     const sourceUuid = item.actor ? null : item.uuid;
     const sourceActorId = getItemSourceActorId(item);
     dbg("place:createInteractiveToken", "template mode", { sourceActorId, sourceUuid });

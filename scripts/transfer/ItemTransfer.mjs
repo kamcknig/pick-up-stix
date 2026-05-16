@@ -88,9 +88,13 @@ function getPlayerPositionOverride(tokenId) {
  * @param {number|null} [quantity=null] - Optional partial-stack quantity. When
  *   null/undefined the full stack is moved (existing behavior). Clamped to
  *   `[1, source quantity]` server-side.
+ * @param {string|null} [contentId=null] - (Generic mode only) When set, pick
+ *   up the specific row from the source container's `contents[]` flag array
+ *   rather than the whole token. Ignored by model-backed adapters which use
+ *   embedded Item documents instead.
  */
-export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quantity = null) {
-  dbg("xfer:pickupItem", { sceneId, tokenId, itemId, targetActorId, quantity });
+export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quantity = null, contentId = null) {
+  dbg("xfer:pickupItem", { sceneId, tokenId, itemId, targetActorId, quantity, contentId });
   const result = getTokenActor(sceneId, tokenId);
   const targetActor = game.actors.get(targetActorId);
 
@@ -101,6 +105,15 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quanti
   }
 
   const { actor: sourceActor, tokenDoc } = result;
+  const adapter = getAdapter();
+
+  // Generic path: actor state lives entirely in flags rather than actor.system
+  // and actor.items. Build a stub item from the flag blob and create it on the
+  // target — no embedded-item documents to read or delete.
+  if (adapter.constructor.SYSTEM_ID === "generic") {
+    return _pickupItemGeneric(sourceActor, tokenDoc, targetActor, quantity, { sceneId, tokenId, contentId });
+  }
+
   dbg("xfer:pickupItem", "resolved actors", {
     sourceActorName: sourceActor.name, sourceActorId: sourceActor.id, sourceActorImg: sourceActor.img,
     isContainer: sourceActor.system.isContainer, targetActorName: targetActor.name, targetActorId: targetActor.id
@@ -132,7 +145,6 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quanti
   const baseActorId = tokenDoc.actorId;
   const isEphemeralToken = !!tokenDoc.flags?.["pick-up-stix"]?.ephemeral;
 
-  const adapter = getAdapter();
   const sourceQty = adapter.getItemQuantity(item);
   // Clamp the requested quantity into [1, sourceQty]. null/undefined means
   // "move the full stack" (legacy behavior).
@@ -201,6 +213,213 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quanti
 }
 
 /**
+ * Build the stub-item data object for a generic pickup. Detects the active
+ * system's expected shape for `system.description` by inspecting the data
+ * model schema for the configured pickup item type:
+ *   - Object-shape (SchemaField): write `{ value: description }`.
+ *     This is the dnd5e/pf2e shape (`{value, chat, unidentified, ...}`).
+ *   - String/HTML-shape: write the description directly.
+ *     This is the Eventide / many other systems' shape.
+ *   - No description field declared: skip it entirely.
+ *
+ * Without this detection, writing the wrong shape into `system.description`
+ * causes the system's item sheet to render "[object Object]" (object shape
+ * written to a string field) or to drop the description silently (string
+ * written to an object field).
+ *
+ * @param {object} args
+ * @param {string} args.name
+ * @param {string} args.img
+ * @param {string} args.description
+ * @param {number} args.quantity
+ * @param {string} args.lootType
+ * @returns {object}
+ */
+export function buildGenericStubItem({ name, img, description, quantity, lootType }) {
+  const Model = CONFIG.Item.dataModels?.[lootType];
+  const descField = Model?.schema?.fields?.description;
+
+  const stubData = {
+    name,
+    img,
+    type: lootType,
+    system: { quantity }
+  };
+
+  if (descField instanceof foundry.data.fields.SchemaField) {
+    // Object shape: { value, chat, ... }. Write to .value.
+    stubData.system.description = { value: description ?? "" };
+  } else if (descField) {
+    // String / HTML field: write the description directly.
+    stubData.system.description = description ?? "";
+  }
+  // else: no description field declared on this item type — skip it.
+
+  return stubData;
+}
+
+/**
+ * Generic-mode pickup: reads the interactive flag blob from the source actor,
+ * builds a stub item of the configured `genericPickupItemType`, creates it on
+ * the target actor's inventory, then removes the source token from the scene.
+ *
+ * Generic actors have no embedded `actor.items` — all state lives in
+ * `flags["pick-up-stix"].interactive`. The `description.value` shape is used
+ * for the stub because most systems with HTML description fields follow it;
+ * on systems that use a different path the description simply lands unset,
+ * which is graceful degradation.
+ *
+ * @param {Actor} sourceActor
+ * @param {TokenDocument} tokenDoc
+ * @param {Actor} targetActor
+ * @param {number|null} quantity
+ * @param {object} ids
+ * @param {string} ids.sceneId
+ * @param {string} ids.tokenId
+ * @returns {Promise<boolean>}
+ */
+async function _pickupItemGeneric(sourceActor, tokenDoc, targetActor, quantity, { sceneId, tokenId, contentId = null }) {
+  const adapter = getAdapter();
+  const interactiveData = adapter.getInteractiveData(sourceActor);
+
+  dbg("xfer:_pickupItemGeneric", {
+    sourceActorName: sourceActor.name, mode: interactiveData.mode,
+    hasItemData: !!interactiveData.itemData,
+    targetActorName: targetActor.name, contentId
+  });
+
+  // Two pickup variants:
+  //  - contentId set → pulling a single row out of a container's contents[].
+  //    The source remains in place (container token persists, row removed).
+  //  - contentId null → whole-token item-mode pickup. Source token is removed.
+  if (contentId) {
+    return _pickupContentRow(sourceActor, targetActor, contentId, quantity);
+  }
+
+  if (interactiveData.mode !== "item" || !interactiveData.itemData) {
+    dbg("xfer:_pickupItemGeneric", "source actor is not an item-mode generic interactive, bail");
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoItems"));
+    return false;
+  }
+
+  // Prefer top-level interactive fields — those reflect the GM's current
+  // edits via the config sheet. interactiveData.itemData is the snapshot at
+  // drop time and goes stale after any rename / image change. Quantity is
+  // only stored in itemData.
+  const snapshot = interactiveData.itemData ?? {};
+  const name = interactiveData.name || snapshot.name || sourceActor.name;
+  const img = interactiveData.img || snapshot.img || sourceActor.img;
+  const description = interactiveData.description || snapshot.description || "";
+  const flagQty = snapshot.quantity ?? 1;
+  const lootType = adapter.defaultLootItemType;
+
+  if (!lootType) {
+    dbg("xfer:_pickupItemGeneric", "no loot item type configured, bail");
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
+    return false;
+  }
+
+  // Clamp the requested quantity into [1, flagQty].
+  const moveQty = quantity == null
+    ? flagQty
+    : Math.max(1, Math.min(Math.floor(quantity), flagQty));
+
+  const stubData = buildGenericStubItem({ name, img, description, quantity: moveQty, lootType });
+
+  dbg("xfer:_pickupItemGeneric", "creating stub item on target", {
+    stubName: stubData.name, lootType, moveQty, targetActorName: targetActor.name
+  });
+
+  await CONFIG.Item.documentClass.create(stubData, { parent: targetActor });
+
+  const isPartial = moveQty < flagQty;
+  if (isPartial) {
+    // Partial pickup: decrement the source actor's stored quantity and leave
+    // the token in place. The synthetic actor delta isn't relevant here —
+    // generic data lives in flags which inherit from base; writing through
+    // setInteractiveData on the (synthetic) actor updates the right blob.
+    dbg("xfer:_pickupItemGeneric", "partial pickup — decrementing source qty", { flagQty, moveQty, remaining: flagQty - moveQty });
+    await adapter.setInteractiveData(sourceActor, {
+      itemData: { ...(interactiveData.itemData ?? {}), quantity: flagQty - moveQty }
+    });
+  } else {
+    // Full pickup: remove the source token from the scene. The actor itself
+    // may persist as a template — mirrors the model-backed pickup behavior.
+    dbg("xfer:_pickupItemGeneric", "full pickup — deleting source token", { tokenId });
+    const scene = game.scenes.get(sceneId);
+    await scene.deleteEmbeddedDocuments("Token", [tokenId]);
+  }
+
+  notifyItemAction("PickedUp", stubData.name);
+  dbg("xfer:_pickupItemGeneric", "generic pickup complete");
+  return true;
+}
+
+/**
+ * Pull a single content row out of a generic container's `contents[]` flag
+ * array and create a stub item for it on the target actor. Source container
+ * token stays in place — only the row is removed.
+ *
+ * @param {Actor} sourceActor - The container actor (synthetic token actor).
+ * @param {Actor} targetActor - The destination character actor.
+ * @param {string} contentId  - id of the row to pick up.
+ * @param {number|null} quantity - Partial-stack quantity (null = full).
+ * @returns {Promise<boolean>}
+ */
+async function _pickupContentRow(sourceActor, targetActor, contentId, quantity) {
+  const adapter = getAdapter();
+  const interactiveData = adapter.getInteractiveData(sourceActor);
+  const row = (interactiveData.contents ?? []).find(c => c.id === contentId);
+
+  dbg("xfer:_pickupContentRow", {
+    sourceActorName: sourceActor.name, contentId,
+    rowFound: !!row, targetActorName: targetActor.name
+  });
+
+  if (!row) {
+    dbg("xfer:_pickupContentRow", "row not found in source contents, bail");
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoItems"));
+    return false;
+  }
+
+  const lootType = adapter.defaultLootItemType;
+  if (!lootType) {
+    dbg("xfer:_pickupContentRow", "no loot item type configured, bail");
+    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TransferError"));
+    return false;
+  }
+
+  const flagQty = row.quantity ?? 1;
+  const moveQty = quantity == null
+    ? flagQty
+    : Math.max(1, Math.min(Math.floor(quantity), flagQty));
+
+  const stubData = buildGenericStubItem({
+    name: row.name || "Item",
+    img: row.img,
+    description: row.description ?? "",
+    quantity: moveQty,
+    lootType
+  });
+
+  dbg("xfer:_pickupContentRow", "creating stub on target", { stubName: stubData.name, lootType, moveQty });
+  await CONFIG.Item.documentClass.create(stubData, { parent: targetActor });
+
+  // Remove the row from the container's contents[]. Partial pickups
+  // decrement quantity; full pickups drop the row entirely.
+  const newContents = (interactiveData.contents ?? [])
+    .map(c => c.id === contentId
+      ? (moveQty < flagQty ? { ...c, quantity: flagQty - moveQty } : null)
+      : c)
+    .filter(c => c != null);
+  await adapter.setInteractiveData(sourceActor, { contents: newContents });
+
+  notifyItemAction("PickedUp", stubData.name);
+  dbg("xfer:_pickupContentRow", "row pickup complete");
+  return true;
+}
+
+/**
  * @param {string} sourceActorId
  * @param {string} itemId
  * @param {string} sceneId
@@ -239,7 +458,9 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quant
   dbg("xfer:depositItem", "resolved item and actors", {
     itemName: item.name, itemId: item.id,
     sourceActorName: sourceActor.name, targetActorName: targetActor.name,
-    targetIsContainer: targetActor.system?.isContainer, targetIsLocked: targetActor.system?.isLocked, targetIsOpen: targetActor.system?.isOpen,
+    targetIsContainer: adapter.isInteractiveContainer(targetActor),
+    targetIsLocked: adapter.isInteractiveLocked(targetActor),
+    targetIsOpen: adapter.isInteractiveOpen(targetActor),
     sourceQty, moveQty
   });
 
@@ -248,6 +469,28 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quant
   if (!validateContainerAccess(targetActor, { checkOpen: true })) {
     dbg("xfer:depositItem", "validateContainerAccess failed");
     return false;
+  }
+
+  // Generic container target: append a content row to its flag blob rather
+  // than creating an embedded Item document (the target has no actor.items
+  // collection and the system would reject the create anyway). Source is
+  // still decremented on its real actor.
+  if (adapter.constructor.SYSTEM_ID === "generic" && adapter.isInteractiveContainer(targetActor)) {
+    const row = {
+      id: foundry.utils.randomID(),
+      name: item.name,
+      img: item.img,
+      description: item.system?.description?.value ?? item.system?.description ?? "",
+      quantity: moveQty
+    };
+    const current = adapter.getInteractiveData(targetActor);
+    dbg("xfer:depositItem", "generic container deposit: appending content row", { rowName: row.name, qty: moveQty });
+    await adapter.setInteractiveData(targetActor, {
+      contents: [...(current.contents ?? []), row]
+    });
+    await decrementOrDeleteItem(item, moveQty);
+    notifyItemAction("Deposited", item.name);
+    return true;
   }
 
   const toCreate = await adapter.flattenItemsForCreate([item]);
@@ -368,16 +611,17 @@ export function checkProximity(interactiveActor, { silent = false, range = "inte
 
 export async function updateContainerTokenImage(tokenDoc, isOpen) {
   const actor = tokenDoc.actor;
+  const adapter = getAdapter();
+  const openImage = adapter.getInteractiveOpenImage(actor);
   dbg("xfer:updateContainerTokenImage", {
     tokenId: tokenDoc.id, isOpen, actorName: actor?.name,
-    isContainer: actor?.system?.isContainer, openImage: actor?.system?.openImage,
+    isContainer: adapter.isInteractiveContainer(actor), openImage,
     currentSrc: tokenDoc.texture?.src, actorImg: actor?.img
   });
-  if (!actor?.system?.isContainer) {
+  if (!adapter.isInteractiveContainer(actor)) {
     dbg("xfer:updateContainerTokenImage", "not a container actor, bail");
     return;
   }
-  const openImage = actor.system.openImage;
   if (!openImage) {
     dbg("xfer:updateContainerTokenImage", "no openImage configured, bail");
     return;
@@ -393,10 +637,13 @@ export async function updateContainerTokenImage(tokenDoc, isOpen) {
 }
 
 export async function setContainerOpen(actor, newIsOpen, { silent = false } = {}) {
-  dbg("xfer:setContainerOpen", { actorName: actor.name, actorId: actor.id, currentIsOpen: actor.system.isOpen, newIsOpen, isLocked: actor.system.isLocked, isSynthetic: !!actor.token, isGM: game.user.isGM });
-  if (newIsOpen && actor.system.isLocked) {
+  const adapter = getAdapter();
+  const currentIsOpen = adapter.isInteractiveOpen(actor);
+  const currentIsLocked = adapter.isInteractiveLocked(actor);
+  dbg("xfer:setContainerOpen", { actorName: actor.name, actorId: actor.id, currentIsOpen, newIsOpen, isLocked: currentIsLocked, isSynthetic: !!actor.token, isGM: game.user.isGM });
+  if (newIsOpen && currentIsLocked) {
     dbg("xfer:setContainerOpen", "actor is locked, cannot open");
-    if (!silent) ui.notifications.warn(actor.system.lockedDisplayMessage);
+    if (!silent) ui.notifications.warn(adapter.getInteractiveLockedMessage(actor));
     return false;
   }
   const tokenDoc = actor.token;
@@ -409,7 +656,9 @@ export async function setContainerOpen(actor, newIsOpen, { silent = false } = {}
     "toggleOpen",
     { sceneId: tokenDoc?.parent.id, tokenId: tokenDoc?.id, isOpen: newIsOpen },
     async () => {
-      await actor.update({ "system.isOpen": newIsOpen });
+      // Route through the adapter: model-backed adapters write to
+      // `system.isOpen`; the generic adapter writes the equivalent flag.
+      await adapter.setInteractiveOpenState(actor, newIsOpen);
       if (tokenDoc) await updateContainerTokenImage(tokenDoc, newIsOpen);
     }
   );
@@ -417,13 +666,18 @@ export async function setContainerOpen(actor, newIsOpen, { silent = false } = {}
 }
 
 export async function toggleContainerLocked(actor) {
-  const sys = actor.system;
-  const wasOpen = !sys.isLocked && sys.isOpen;
-  dbg("xfer:toggleContainerLocked", { actorName: actor.name, actorId: actor.id, currentIsLocked: sys.isLocked, currentIsOpen: sys.isOpen, wasOpen, newIsLocked: !sys.isLocked });
-  const updates = { "system.isLocked": !sys.isLocked };
-  if (wasOpen) updates["system.isOpen"] = false;
-  dbg("xfer:toggleContainerLocked", "firing actor.update", { updates });
-  await actor.update(updates);
+  const adapter = getAdapter();
+  const currentIsLocked = adapter.isInteractiveLocked(actor);
+  const currentIsOpen = adapter.isInteractiveOpen(actor);
+  const wasOpen = !currentIsLocked && currentIsOpen;
+  dbg("xfer:toggleContainerLocked", { actorName: actor.name, actorId: actor.id, currentIsLocked, currentIsOpen, wasOpen, newIsLocked: !currentIsLocked });
+  // Flip the lock state, and if the container was open also close it so a
+  // newly-locked container is also closed (otherwise the open state would
+  // remain stuck on a locked container, which is nonsensical).
+  await adapter.setInteractiveLockedState(actor, !currentIsLocked);
+  if (wasOpen) {
+    await adapter.setInteractiveOpenState(actor, false);
+  }
   if (wasOpen && actor.token) {
     dbg("xfer:toggleContainerLocked", "container was open, updating token image to closed");
     await updateContainerTokenImage(actor.token, false);

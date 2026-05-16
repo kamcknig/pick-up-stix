@@ -147,6 +147,17 @@ Hooks.once("init", async () => {
     default: false
   });
 
+  // Item type used when creating a pickup stub in a player's inventory (generic
+  // mode only). Populated automatically by heuristic or via dialog on first launch.
+  game.settings.register(MODULE_ID, "genericPickupItemType", {
+    name: "INTERACTIVE_ITEMS.Settings.GenericPickupItemType.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.GenericPickupItemType.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    default: ""
+  });
+
   game.settings.register(MODULE_ID, "ephemeralFolder", {
     // Not shown in config UI — managed programmatically.
     scope: "world",
@@ -160,6 +171,15 @@ Hooks.once("init", async () => {
     config: false,
     type: Boolean,
     default: false
+  });
+
+  // Comma-separated list of system IDs that have already seen the generic-mode
+  // warning. Stored per client so each user gets their own first-launch notice.
+  game.settings.register(MODULE_ID, "genericModeNoticeSystems", {
+    scope: "client",
+    config: false,
+    type: String,
+    default: ""
   });
 
   getAdapter().registerItemContextMenu(_injectItemContextMenuEntries);
@@ -181,6 +201,68 @@ Hooks.once("init", async () => {
     installItemDropListener: _installContainerSheetItemDrop,
     injectItemRowControls: _injectContainerSheetRowControls,
     injectContentsTab: _injectContainerContentsTab,
+  });
+
+  // Generic-mode: dragging a container row onto a character sheet emits a
+  // synthetic "InteractiveContent" payload that no system sheet recognises
+  // (Eventide-class systems log it as an "Unhandled drop type"). Intercept
+  // before the system handler runs and route through the existing pickupItem
+  // socket flow — which already handles building the stub item on the target
+  // and removing the row from the source container.
+  Hooks.on("dropActorSheetData", (actor, sheet, data) => {
+    if (data?.type !== "InteractiveContent") return;
+    // Dropping a content row onto another interactive actor (container or
+    // item-mode wrapper) isn't part of the supported flow.
+    if (isInteractiveActor(actor)) return;
+
+    dbg("hook:dropActorSheetData:InteractiveContent", {
+      targetActorName: actor?.name, contentId: data?.contentId,
+      sourceActorUuid: data?.sourceActorUuid
+    });
+
+    // Fire async; the hook itself must return false synchronously.
+    fromUuid(data.sourceActorUuid).then(async (sourceActor) => {
+      if (!sourceActor) {
+        dbg("hook:dropActorSheetData:InteractiveContent", "source actor not found, bail");
+        return;
+      }
+      const tokenDoc = sourceActor.token;
+      if (!tokenDoc) {
+        // Sidebar template — pickup needs a placed token because the
+        // socket relay resolves by sceneId/tokenId.
+        dbg("hook:dropActorSheetData:InteractiveContent", "source actor has no token, bail");
+        return;
+      }
+      const sceneId = tokenDoc.parent.id;
+      const tokenId = tokenDoc.id;
+
+      // Partial-stack prompt mirroring the pickup HUD / row click handlers.
+      const adapter = getAdapter();
+      const sourceData = adapter.getInteractiveData(sourceActor);
+      const row = sourceData.contents?.find(c => c.id === data.contentId);
+      const rowQty = row?.quantity ?? 1;
+      let chosenQty = null;
+      if (rowQty > 1) {
+        chosenQty = await promptItemQuantity({
+          itemName: row?.name ?? "",
+          max: rowQty,
+          actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+          actionFormatArgs: { target: actor.name }
+        });
+        if (chosenQty == null) {
+          dbg("hook:dropActorSheetData:InteractiveContent", "quantity dialog cancelled, bail");
+          return;
+        }
+      }
+
+      await dispatchGM(
+        "pickupItem",
+        { sceneId, tokenId, itemId: null, targetActorId: actor.id, quantity: chosenQty, contentId: data.contentId },
+        async () => pickupItem(sceneId, tokenId, null, actor.id, chosenQty, data.contentId)
+      );
+    }).catch(err => console.error(`${MODULE_ID} | InteractiveContent sheet drop failed:`, err));
+
+    return false;
   });
 
   Hooks.on("dropActorSheetData", (actor, sheet, data) => {
@@ -327,7 +409,10 @@ function _injectActorInventoryIdentifyToggles(app, html) {
   if (!root) return;
 
   const adapter = getAdapter();
-  const skipIdentify = adapter.capabilities.hasNativeInventoryIdentify;
+  // Skip our wand toggle when the system handles it natively, or when the
+  // adapter declares no identification support (generic/unknown systems).
+  const skipIdentify = adapter.capabilities.hasNativeInventoryIdentify
+    || !adapter.capabilities.supportsIdentification;
 
   // Add an empty, label-less header cell to each items-section header so the
   // row's controls column has a matching slot in the header. dnd5e's inventory
@@ -510,30 +595,32 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
     }
   }));
 
-  if (nativeIdentifyBtn) {
-    // Relocate the system's button into our canonical position.
-    orderedNodes.push(nativeIdentifyBtn);
-  } else {
-    const identCfg = adapter.getIdentifyButtonConfig(sys.isIdentified);
-    orderedNodes.push(createAdapterHeaderButton({
-      adapter,
-      extraClass: "ii-identify-toggle-btn",
-      active: sys.isIdentified,
-      iconOn: identCfg.iconOn,
-      iconFamilyOn: identCfg.iconFamilyOn,
-      iconOff: identCfg.iconOff,
-      iconFamilyOff: identCfg.iconFamilyOff,
-      labelOnKey: identCfg.labelOnKey,
-      labelOffKey: identCfg.labelOffKey,
-      onClick: async (ev) => {
-        ev.preventDefault();
-        const embeddedItem = configActor.system.embeddedItem;
-        if (!embeddedItem) return;
-        // Route through the adapter — pf2e opens a DC dialog for unidentified
-        // items rather than flipping the flag directly.
-        await adapter.performIdentifyToggle(embeddedItem);
-      }
-    }));
+  if (adapter.capabilities.supportsIdentification) {
+    if (nativeIdentifyBtn) {
+      // Relocate the system's button into our canonical position.
+      orderedNodes.push(nativeIdentifyBtn);
+    } else {
+      const identCfg = adapter.getIdentifyButtonConfig(sys.isIdentified);
+      orderedNodes.push(createAdapterHeaderButton({
+        adapter,
+        extraClass: "ii-identify-toggle-btn",
+        active: sys.isIdentified,
+        iconOn: identCfg.iconOn,
+        iconFamilyOn: identCfg.iconFamilyOn,
+        iconOff: identCfg.iconOff,
+        iconFamilyOff: identCfg.iconFamilyOff,
+        labelOnKey: identCfg.labelOnKey,
+        labelOffKey: identCfg.labelOffKey,
+        onClick: async (ev) => {
+          ev.preventDefault();
+          const embeddedItem = configActor.system.embeddedItem;
+          if (!embeddedItem) return;
+          // Route through the adapter — pf2e opens a DC dialog for unidentified
+          // items rather than flipping the flag directly.
+          await adapter.performIdentifyToggle(embeddedItem);
+        }
+      }));
+    }
   }
 
   orderedNodes.push(createAdapterHeaderButton({
@@ -642,16 +729,18 @@ function _injectContainerSheetRowControls({ actor, app, html }) {
       // Interactive items round-trip via the cached identifiedData/unidentifiedData
       // payloads (toggleItemIdentification swaps name/img/description); plain
       // deposited items just flip the system's native identified flag through
-      // the adapter.
-      target.appendChild(createRowControl({
-        iconClass: "fa-solid fa-wand-sparkles",
-        titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
-        active: getAdapter().isItemIdentified(item),
-        onClick: async () => {
-          if (isInteractive) await toggleItemIdentification(item);
-          else await getAdapter().performIdentifyToggle(item);
-        }
-      }));
+      // the adapter. Only rendered when the adapter supports identification.
+      if (getAdapter().capabilities.supportsIdentification) {
+        target.appendChild(createRowControl({
+          iconClass: "fa-solid fa-wand-sparkles",
+          titleKey: "INTERACTIVE_ITEMS.Sheet.ToggleIdentified",
+          active: getAdapter().isItemIdentified(item),
+          onClick: async () => {
+            if (isInteractive) await toggleItemIdentification(item);
+            else await getAdapter().performIdentifyToggle(item);
+          }
+        }));
+      }
 
       target.appendChild(createRowControl({
         iconClass: "fa-solid fa-trash-can",
@@ -1231,25 +1320,28 @@ function _buildContainerContentRow(item, adapter, { isTokenActor = false } = {})
     }
   ));
 
-  const isIdentified = adapter.isItemIdentified(item);
-  const identCfg = adapter.getIdentifyButtonConfig(isIdentified);
-  const identIcon = isIdentified ? identCfg.iconOn : identCfg.iconOff;
-  const identFamily = isIdentified
-    ? (identCfg.iconFamilyOn ?? "fa-solid")
-    : (identCfg.iconFamilyOff ?? "fa-solid");
-  controls.append(_buildContentRowControl(
-    identIcon,
-    isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey,
-    identFamily,
-    async () => {
-      if (!game.user.isGM) return;
-      dbg("contents:identifyRow", { itemName: item.name, itemId: item.id, currentlyIdentified: isIdentified });
-      // Adapter routing handles pf2e's mystify-popup vs direct setIdentified
-      // distinction; the updateItem hook re-renders the container sheet so
-      // the row's icon and tooltip refresh with the new state.
-      await adapter.performIdentifyToggle(item);
-    }
-  ));
+  // Only render the identify control when the adapter supports identification.
+  if (adapter.capabilities.supportsIdentification) {
+    const isIdentified = adapter.isItemIdentified(item);
+    const identCfg = adapter.getIdentifyButtonConfig(isIdentified);
+    const identIcon = isIdentified ? identCfg.iconOn : identCfg.iconOff;
+    const identFamily = isIdentified
+      ? (identCfg.iconFamilyOn ?? "fa-solid")
+      : (identCfg.iconFamilyOff ?? "fa-solid");
+    controls.append(_buildContentRowControl(
+      identIcon,
+      isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey,
+      identFamily,
+      async () => {
+        if (!game.user.isGM) return;
+        dbg("contents:identifyRow", { itemName: item.name, itemId: item.id, currentlyIdentified: isIdentified });
+        // Adapter routing handles pf2e's mystify-popup vs direct setIdentified
+        // distinction; the updateItem hook re-renders the container sheet so
+        // the row's icon and tooltip refresh with the new state.
+        await adapter.performIdentifyToggle(item);
+      }
+    ));
+  }
 
   // Delete is the only currently-active control on contents rows. GM-only —
   // players see the icon but the click no-ops for them. The deleteItem hook
@@ -1556,8 +1648,13 @@ Hooks.on("preCreateToken", (tokenDoc, data, options, userId) => {
     dbg("hook:preCreateToken", "actorLink=true, bail");
     return;
   }
-  if (!actor.system.isContainer && actor.items.size === 0) {
-    dbg("hook:preCreateToken", "item-type actor with no items, blocking placement", { actorName: actor.name });
+  // Block placement of an item-mode actor that hasn't had a source item
+  // assigned yet. Routed through the adapter so generic mode (where the
+  // "has embedded item" answer comes from flag data rather than actor.items)
+  // works correctly.
+  const adapterForGate = getAdapter();
+  if (!adapterForGate.isInteractiveContainer(actor) && !adapterForGate.hasInteractiveEmbeddedItem(actor)) {
+    dbg("hook:preCreateToken", "item-type actor with no embedded item, blocking placement", { actorName: actor.name });
     ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotInitialized"));
     return false;
   }
@@ -1825,21 +1922,65 @@ Hooks.on("createActor", async (actor, options, userId) => {
     itemsSize: actor.items.size
   });
 
+  const adapter = getAdapter();
+  const isGeneric = adapter.constructor.SYSTEM_ID === "generic";
+
   if (actor.getFlag(MODULE_ID, "containerDefault")) {
-    if (!actor.items.some(i => getAdapter().isContainerItem(i))) {
+    if (isGeneric) {
+      // Generic path: write container flag data if not already present (first
+      // creation from the sidebar folder button), then return — no embedded
+      // item to create. On subsequent createActor fires (token copy, reload)
+      // the flag data is already there and setInteractiveData is a no-op.
+      const existing = adapter.getInteractiveData(actor);
+      if (!existing.mode) {
+        const closedImg = actor.img || game.settings.get(MODULE_ID, "defaultContainerImage") || CHEST_CLOSED;
+        const openImg = game.settings.get(MODULE_ID, "defaultContainerOpenImage") || CHEST_OPEN;
+        dbg("hook:createActor:containerDefault", "generic path — writing initial flag data", { actorId: actor.id });
+        await adapter.setInteractiveData(actor, {
+          mode: "container",
+          name: actor.name,
+          img: closedImg,
+          openImage: openImg,
+          contents: []
+        });
+      }
+      return;
+    }
+    if (!actor.items.some(i => adapter.isContainerItem(i))) {
       // Use the adapter for both item type and identification field so neither
       // is hard-coded to the dnd5e vocabulary or `system.identified` boolean.
-      const containerData = { name: actor.name, type: getAdapter().containerItemType, img: actor.img };
-      getAdapter().stampNewItemIdentified(containerData, true);
+      const containerData = { name: actor.name, type: adapter.containerItemType, img: actor.img };
+      adapter.stampNewItemIdentified(containerData, true);
       await actor.createEmbeddedDocuments("Item", [containerData]);
     }
     return;
   }
 
-  if (actor.items.size > 0) return;
+  if (!isGeneric && actor.items.size > 0) return;
   if (actor.getFlag(MODULE_ID, "ephemeral")) return;
-  if (actor.getFlag(MODULE_ID, "createKindConfirmed")) return;
-  if (actor.system.sourceItemUuid) return;
+
+  // Generic path: when the actor is created with createKindConfirmed pre-set
+  // (sidebar folder button "item" choice), write initial item flag data if not
+  // already present, then return — no picker needed.
+  if (actor.getFlag(MODULE_ID, "createKindConfirmed")) {
+    if (isGeneric) {
+      const existing = adapter.getInteractiveData(actor);
+      if (!existing.mode) {
+        // Initialise mode but leave itemData null — the config sheet shows
+        // a "drop an item to populate" prompt and the sheet's _onDrop
+        // populates the snapshot. Mirrors the dnd5e/pf2e empty-item UX.
+        dbg("hook:createActor:createKindConfirmed", "generic path — init mode=item, itemData stays null until drop", { actorId: actor.id });
+        await adapter.setInteractiveData(actor, {
+          mode: "item",
+          name: actor.name,
+          img: actor.img
+        });
+      }
+    }
+    return;
+  }
+
+  if (!isGeneric && actor.system.sourceItemUuid) return;
 
   // Foundry's Create Actor dialog auto-renders the sheet after create — suppress
   // while the picker is open to avoid the empty-sheet flash.
@@ -1859,17 +2000,42 @@ Hooks.on("createActor", async (actor, options, userId) => {
     await actor.update({
       img: closedImg,
       "prototypeToken.texture.src": closedImg,
-      "system.openImage": openImg,
       [`flags.${MODULE_ID}.containerDefault`]: true
     });
-    // Use the adapter for both item type and identification field so neither
-    // is hard-coded to the dnd5e vocabulary or `system.identified` boolean.
-    const containerData = { name: actor.name, type: getAdapter().containerItemType, img: closedImg };
-    getAdapter().stampNewItemIdentified(containerData, true);
-    await actor.createEmbeddedDocuments("Item", [containerData]);
+
+    if (isGeneric) {
+      // Generic path: write all container state into the flag blob.
+      dbg("hook:createActor:container", "generic path — writing flag data", { actorId: actor.id });
+      await adapter.setInteractiveData(actor, {
+        mode: "container",
+        name: actor.name,
+        img: closedImg,
+        openImage: openImg,
+        contents: []
+      });
+    } else {
+      // Model-backed path: set openImage on system and create the embedded item.
+      await actor.update({ "system.openImage": openImg });
+      // Use the adapter for both item type and identification field so neither
+      // is hard-coded to the dnd5e vocabulary or `system.identified` boolean.
+      const containerData = { name: actor.name, type: adapter.containerItemType, img: closedImg };
+      adapter.stampNewItemIdentified(containerData, true);
+      await actor.createEmbeddedDocuments("Item", [containerData]);
+    }
     actor.sheet?.render({ force: true });
   } else if (result === "item") {
     await actor.setFlag(MODULE_ID, "createKindConfirmed", true);
+    if (isGeneric) {
+      // Generic path: init mode=item but leave itemData null — the config
+      // sheet opens with a "drop an item" prompt and the sheet's _onDrop
+      // populates the snapshot. Mirrors the dnd5e/pf2e empty-item UX.
+      dbg("hook:createActor:item", "generic path — init mode=item, itemData stays null until drop", { actorId: actor.id });
+      await adapter.setInteractiveData(actor, {
+        mode: "item",
+        name: actor.name,
+        img: actor.img
+      });
+    }
     actor.sheet?.render({ force: true });
   } else {
     // Dialog closed without selection — remove the blank actor
@@ -2023,16 +2189,19 @@ Hooks.on("updateActor", async (actor, changes, options, userId) => {
       && !descriptionChanged && !unidentifiedDescriptionChanged) return;
 
   const system = actor.system;
+  const adapter = getAdapter();
 
   // Token nameplate sync is needed only when the *display name* changes.
+  // Routed through the adapter (model-backed default for dnd5e/pf2e,
+  // flag-backed override for generic) so generic-mode actors — whose
+  // `actor.system` is a plain object with no model methods — don't throw.
   if (nameChanged || unidentifiedNameChanged) {
-    const protoName = system.resolveTokenName();
+    const protoName = adapter.getInteractiveDisplayName(actor);
     await actor.update({ "prototypeToken.name": protoName }, { noHook: true });
     const tokens = canvas.scene?.tokens.filter(t => t.actorId === actor.id) ?? [];
     for (const token of tokens) {
-      const tokenSystem = token.actor?.system;
-      if (!tokenSystem) continue;
-      const tokenName = tokenSystem.resolveTokenName();
+      if (!token.actor) continue;
+      const tokenName = adapter.getInteractiveDisplayName(token.actor);
       await token.update({ name: tokenName });
     }
   }
@@ -2131,6 +2300,41 @@ Hooks.on("createItem", (item) => {
 Hooks.on("deleteItem", (item) => {
   const actor = item.parent;
   if (actor) _rerenderContainerViews(actor);
+});
+
+// Re-render open generic container/item view sheets when the actor's
+// `flags["pick-up-stix"].interactive` blob changes. This covers both the
+// container view (contents list, open/closed image, description) and the
+// item view (name, image, description, quantity) for generic-mode actors.
+// Scoped to generic-mode actors only: model-backed (dnd5e/pf2e) actors are
+// handled by their own system-sheet render hooks and the existing
+// isLocked/isOpen/isIdentified rerender above.
+Hooks.on("updateActor", (actor, changes) => {
+  if (!isInteractiveActor(actor)) return;
+  if (!foundry.utils.hasProperty(changes, "flags.pick-up-stix.interactive")) return;
+
+  dbg("hook:updateActor:genericRerender", { actorName: actor.name, actorId: actor.id });
+
+  // Walk both AppV1 (ui.windows) and AppV2 (foundry.applications.instances)
+  // registries to find the open generic view, if any.
+  for (const app of Object.values(ui.windows)) {
+    if (!app.rendered) continue;
+    if (app.document?.id !== actor.id) continue;
+    // Only re-render generic view sheets; let dnd5e/pf2e sheets handle
+    // themselves through their own hooks.
+    const className = app.constructor?.name ?? "";
+    if (className !== "GenericInteractiveContainerView" && className !== "GenericInteractiveItemView") continue;
+    dbg("hook:updateActor:genericRerender", "re-rendering AppV1 generic sheet", { className, actorName: actor.name });
+    app.render(true);
+  }
+  for (const app of foundry.applications.instances.values()) {
+    if (!app.rendered) continue;
+    if (app.document?.id !== actor.id) continue;
+    const className = app.constructor?.name ?? "";
+    if (className !== "GenericInteractiveContainerView" && className !== "GenericInteractiveItemView") continue;
+    dbg("hook:updateActor:genericRerender", "re-rendering AppV2 generic sheet", { className, actorName: actor.name });
+    app.render();
+  }
 });
 
 // Re-render container views when a deposited item's lock flag or stack
@@ -2670,6 +2874,32 @@ Hooks.once("ready", async () => {
     const parent = await _ensureActorFolder();
     _previousActorFolderId = parent?.id ?? null;
     await _ensureEphemeralFolder(parent);
+
+    // Notify GMs on the first launch for each unsupported system so they know
+    // generic mode is active and some system-specific features are unavailable.
+    const adapter = getAdapter();
+    if (adapter.constructor.SYSTEM_ID === "generic") {
+      const sysId = game.system.id;
+      const seen = (game.settings.get(MODULE_ID, "genericModeNoticeSystems") || "")
+        .split(",").map(s => s.trim()).filter(Boolean);
+      dbg("ready:genericModeNotice", { sysId, alreadySeen: seen.includes(sysId) });
+      if (!seen.includes(sysId)) {
+        ui.notifications.warn(
+          game.i18n.format("INTERACTIVE_ITEMS.Notify.GenericMode", { system: sysId }),
+          { permanent: false }
+        );
+        seen.push(sysId);
+        game.settings.set(MODULE_ID, "genericModeNoticeSystems", seen.join(","));
+      }
+
+      // Seed the pickup item type on first launch (or when the setting was cleared).
+      // The heuristic runs silently; when no keyword match is found a dialog asks
+      // the GM to pick a type. Either way the setting is persisted for subsequent loads.
+      if (!game.settings.get(MODULE_ID, "genericPickupItemType")) {
+        dbg("ready:genericMode", "genericPickupItemType not set, running seed heuristic");
+        await _seedGenericPickupItemType();
+      }
+    }
   }
 });
 
@@ -2750,13 +2980,89 @@ async function _ensureEphemeralFolder(parent) {
   return folder;
 }
 
+/**
+ * Keywords used to heuristically detect a suitable pickup item type from the
+ * system's declared item types. Types whose lowercased name includes any of
+ * these keywords are candidates; the first match wins.
+ */
+const _PICKUP_KEYWORDS = ["item", "loot", "gear", "equipment", "treasure", "consumable"];
+
+/**
+ * Detect or prompt for a suitable pickup item type for generic-mode worlds.
+ *
+ * First tries a keyword heuristic against the system's declared item types.
+ * If a match is found it is silently persisted. If no match is found a
+ * `DialogV2.prompt` asks the GM to pick one from a `<select>`.
+ *
+ * Skipped silently when the system declares no item types at all (a console
+ * warning is emitted instead so the problem is visible in the dev tools).
+ */
+async function _seedGenericPickupItemType() {
+  const itemTypes = game.system?.documentTypes?.Item
+    ? Object.keys(game.system.documentTypes.Item).filter(t => t !== "base")
+    : [];
+
+  if (itemTypes.length === 0) {
+    console.warn(`${MODULE_ID}: generic mode — system declares no item types; pickups will fail.`);
+    return;
+  }
+
+  const heuristic = itemTypes.find(t => {
+    const lower = t.toLowerCase();
+    return _PICKUP_KEYWORDS.some(k => lower.includes(k));
+  });
+
+  if (heuristic) {
+    dbg("ready:_seedGenericPickupItemType", "heuristic match found, setting silently", { heuristic });
+    await game.settings.set(MODULE_ID, "genericPickupItemType", heuristic);
+    return;
+  }
+
+  dbg("ready:_seedGenericPickupItemType", "no heuristic match, opening dialog", { itemTypes });
+  const options = itemTypes.map(t => `<option value="${t}">${t}</option>`).join("");
+  const choice = await foundry.applications.api.DialogV2.prompt({
+    window: { title: game.i18n.localize("INTERACTIVE_ITEMS.Dialog.PickPickupType.Title") },
+    content: `
+      <p>${game.i18n.format("INTERACTIVE_ITEMS.Dialog.PickPickupType.Body", { system: game.system.id })}</p>
+      <label>${game.i18n.localize("INTERACTIVE_ITEMS.Dialog.PickPickupType.Label")}
+        <select name="pickupType">${options}</select>
+      </label>`,
+    ok: {
+      label: game.i18n.localize("INTERACTIVE_ITEMS.Dialog.Confirm"),
+      callback: (event, button) => button.form.elements.pickupType.value
+    },
+    rejectClose: false
+  });
+
+  if (choice) {
+    dbg("ready:_seedGenericPickupItemType", "GM chose item type", { choice });
+    await game.settings.set(MODULE_ID, "genericPickupItemType", choice);
+  } else {
+    dbg("ready:_seedGenericPickupItemType", "dialog closed without selection, skipping");
+  }
+}
+
 function _onGMOverrideChanged() {
-  dbg("settings:gmOverrideChanged", { value: game.settings.get(MODULE_ID, "gmOverrideEnabled") });
+  const enabled = game.settings.get(MODULE_ID, "gmOverrideEnabled");
+  dbg("settings:gmOverrideChanged", { value: enabled });
   // reset:true forces #prepareControls() to re-run; plain render() skips it and leaves active stale.
   ui.controls?.render({ reset: true });
   foundry.applications.instances.get("settings-config")?.render();
   ui.actors?.render();
   if (canvas?.ready) {
+    // When the GM switches OFF the override, any interactive token they
+    // already had controlled needs to be released — _canControl now denies
+    // new control attempts in player view, but it doesn't retroactively
+    // un-control already-selected tokens, and a selected token still
+    // responds to keyboard movement.
+    if (!enabled) {
+      for (const token of canvas.tokens.controlled) {
+        if (isInteractiveActor(token.actor)) {
+          dbg("settings:gmOverrideChanged", "releasing controlled interactive token", { tokenId: token.id, actorName: token.actor?.name });
+          token.release();
+        }
+      }
+    }
     for (const token of canvas.tokens.placeables) token.renderFlags.set({ refreshState: true });
   }
   canvas?.hud?.token?.render();

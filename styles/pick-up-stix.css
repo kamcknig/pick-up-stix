@@ -41,6 +41,18 @@
   cursor: pointer;
 }
 
+/* Constrain the header portrait directly. dnd5e's own CSS sizes
+   `.document-image` via the --dnd5e-document-image-size variable, but on
+   systems without dnd5e's stylesheet the image renders at the source's
+   natural dimensions. Apply the same 96px target via a non-namespaced
+   selector so generic mode matches dnd5e. */
+.pick-up-stix.sheet .sheet-header .document-image {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
 .pick-up-stix.sheet .sheet-header .document-name {
   flex: 1;
   font-size: var(--font-size-32);

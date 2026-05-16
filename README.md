@@ -48,10 +48,29 @@ Interactive objects display through the active system's own item and container s
 - **Socket-based security** -- All player mutations (pickup, deposit, open/close, placement) route through sockets to the active GM client for processing.
 - **Round-trip placement** -- Items picked up from the canvas remember their source actor and token state. Dropping them back restores the original token appearance and reuses the original base actor.
 
+## Generic-system mode
+
+Pick-Up-Stix ships dedicated adapters for **dnd5e** (≥ 4.0.0) and **pf2e**
+(≥ 8.0.0). On any other system it falls back to a **generic adapter**
+that uses entirely module-owned data and UI. In generic mode:
+
+- All canvas placement, pickup, drop, and proximity flows work normally.
+- Interactive-object data is stored in module flags rather than the
+  system's actor / item types, so the module is independent of how the
+  active system structures its data.
+- Custom item-view, container-view, and config sheets are rendered
+  directly by the module — the system's own item sheets are not used.
+- **Item identification is disabled** — items are treated as permanently
+  identified and the identify UI is hidden.
+- On first launch the module auto-detects a "pickup item type" from
+  the system's declared item types, or prompts the GM to pick one via
+  dialog if no obvious match is found. You can change it later in
+  module settings.
+
 ## Requirements
 
 - Foundry VTT v13+
-- A supported game system (currently dnd5e 4.0.0+ or pf2e 8.0.0+)
+- A supported game system (dnd5e 4.0.0+ or pf2e 8.0.0+ with full support; any other system with generic-mode fallback)
 - [lib-wrapper](https://foundryvtt.com/packages/lib-wrapper) module
 
 ## Installation

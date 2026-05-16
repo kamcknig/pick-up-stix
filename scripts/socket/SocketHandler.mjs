@@ -22,7 +22,8 @@ export function registerSocket() {
           payload.data.tokenId,
           payload.data.itemId,
           payload.data.targetActorId,
-          payload.data.quantity ?? null  // optional partial-stack quantity
+          payload.data.quantity ?? null,  // optional partial-stack quantity
+          payload.data.contentId ?? null  // optional (generic) container-row id
         );
         break;
       case "depositItem":

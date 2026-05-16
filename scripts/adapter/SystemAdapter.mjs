@@ -36,7 +36,15 @@ export default class SystemAdapter {
     /** System exposes Item5e.createWithContents-style deep-create static. */
     hasNativeDeepCreate: false,
     /** System already renders identify/mystify controls on inventory rows (pf2e). */
-    hasNativeInventoryIdentify: false
+    hasNativeInventoryIdentify: false,
+    /**
+     * System has a native identification concept (identified/mystified items
+     * with separate display data). When false, core code suppresses all
+     * identify UI surfaces (HUD button, header toggle, row controls, context
+     * menu entries, config sheet identify-related fields) and treats every
+     * item as permanently identified.
+     */
+    supportsIdentification: false
   };
 
   // === Item type vocabulary ==================================================
@@ -286,6 +294,162 @@ export default class SystemAdapter {
    * @returns {Promise<object[]>}
    */
   async flattenItemsForCreate(items, options = {}) { _abstract("flattenItemsForCreate"); }
+
+  // === Dispatcher data accessors ============================================
+  // Default implementations read from `actor.system` (the model-backed path
+  // used by dnd5e and pf2e). The generic adapter overrides all five to read
+  // from `flags["pick-up-stix"].interactive` instead.
+
+  /**
+   * True if the actor is in container mode.
+   *
+   * Model-backed adapters (dnd5e, pf2e) rely on the `InteractiveItemModel`
+   * getter `actor.system.isContainer`; flag-backed adapters (generic) read
+   * the equivalent flag. The default therefore covers both existing adapters
+   * with no override required.
+   *
+   * @param {Actor} actor
+   * @returns {boolean}
+   */
+  isInteractiveContainer(actor) {
+    return !!actor?.system?.isContainer;
+  }
+
+  /**
+   * True if the actor has an embedded item available to render.
+   *
+   * Model-backed adapters check `actor.items.size > 0` (the embedded-items
+   * collection); flag-backed adapters check whether
+   * `flags["pick-up-stix"].interactive` contains populated item data (or, for
+   * containers, whether the flag array is present at all since containers
+   * always render the container view).
+   *
+   * @param {Actor} actor
+   * @returns {boolean}
+   */
+  hasInteractiveEmbeddedItem(actor) {
+    return actor?.items?.size > 0;
+  }
+
+  /**
+   * Human-readable display name for an interactive actor, identification-aware.
+   *
+   * Model-backed adapters delegate to `system.resolveTokenName()` which handles
+   * the identified/unidentified name swap. Flag-backed adapters read the name
+   * directly from `flags["pick-up-stix"].interactive`.
+   *
+   * @param {Actor} actor
+   * @returns {string}
+   */
+  getInteractiveDisplayName(actor) {
+    return actor?.system?.resolveTokenName?.() ?? actor?.name ?? "";
+  }
+
+  /**
+   * Title used for the out-of-range limited-view dialog.
+   *
+   * Model-backed adapters read `actor.system.limitedDisplayName` (a model
+   * field that falls back to `actor.name`). Flag-backed adapters read the
+   * equivalent flag. dnd5e and pf2e require no override.
+   *
+   * @param {Actor} actor
+   * @returns {string}
+   */
+  getInteractiveLimitedName(actor) {
+    return actor?.system?.limitedDisplayName ?? actor?.name ?? "";
+  }
+
+  /**
+   * Body HTML used for the out-of-range limited-view dialog.
+   *
+   * Model-backed adapters read `actor.system.limitedDisplayDescription` (a
+   * model HTML field). Flag-backed adapters read the equivalent flag. dnd5e
+   * and pf2e require no override.
+   *
+   * @param {Actor} actor
+   * @returns {string}
+   */
+  getInteractiveLimitedDescription(actor) {
+    return actor?.system?.limitedDisplayDescription ?? "";
+  }
+
+  /**
+   * Current open/closed state of an interactive container actor. Model-backed
+   * adapters read `actor.system.isOpen`; flag-backed adapters read the
+   * equivalent flag. Defaults to `false` for non-container actors.
+   *
+   * @param {Actor} actor
+   * @returns {boolean}
+   */
+  isInteractiveOpen(actor) {
+    return !!actor?.system?.isOpen;
+  }
+
+  /**
+   * Current locked state of an interactive actor. Model-backed adapters read
+   * `actor.system.isLocked`; flag-backed adapters read the equivalent flag.
+   *
+   * @param {Actor} actor
+   * @returns {boolean}
+   */
+  isInteractiveLocked(actor) {
+    return !!actor?.system?.isLocked;
+  }
+
+  /**
+   * Persist a new open/closed state on a container actor. Model-backed
+   * adapters write to `actor.system.isOpen` directly; flag-backed adapters
+   * update the equivalent flag via setInteractiveData (or equivalent).
+   *
+   * @param {Actor} actor
+   * @param {boolean} isOpen
+   * @returns {Promise<void>}
+   */
+  async setInteractiveOpenState(actor, isOpen) {
+    await actor.update({ "system.isOpen": !!isOpen });
+  }
+
+  /**
+   * Persist a new locked state on an actor. Model-backed adapters write to
+   * `actor.system.isLocked` directly; flag-backed adapters update the
+   * equivalent flag. When unlocking an already-open container, callers are
+   * responsible for any related open-state side effects — this method only
+   * touches the locked field.
+   *
+   * @param {Actor} actor
+   * @param {boolean} isLocked
+   * @returns {Promise<void>}
+   */
+  async setInteractiveLockedState(actor, isLocked) {
+    await actor.update({ "system.isLocked": !!isLocked });
+  }
+
+  /**
+   * Resolve the user-facing "locked" message for an actor. Model-backed
+   * adapters delegate to `actor.system.lockedDisplayMessage` (a model getter
+   * that falls back to a localized default). Flag-backed adapters read the
+   * configured message from flags, falling back to the same localized default.
+   *
+   * @param {Actor} actor
+   * @returns {string}
+   */
+  getInteractiveLockedMessage(actor) {
+    return actor?.system?.lockedDisplayMessage
+      ?? game.i18n.localize("INTERACTIVE_ITEMS.Notify.Locked");
+  }
+
+  /**
+   * Optional alternate image used when a container actor is in the open
+   * state. Model-backed adapters read `actor.system.openImage`; flag-backed
+   * adapters read the equivalent flag. Returns null when no open image is
+   * configured (in which case callers fall back to the actor's default img).
+   *
+   * @param {Actor} actor
+   * @returns {string|null}
+   */
+  getInteractiveOpenImage(actor) {
+    return actor?.system?.openImage ?? null;
+  }
 
   // === Sheet delegation ======================================================
 

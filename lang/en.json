@@ -35,6 +35,10 @@
       "GMOverrideEnabled": {
         "Name": "GM Override Enabled",
         "Hint": "When enabled, GMs see and interact with everything regardless of player gating (proximity, identification, lock state, etc.). Disable to preview the module as a player would experience it. Per-client; does not affect other GMs."
+      },
+      "GenericPickupItemType": {
+        "Name": "Generic Mode — Pickup Item Type",
+        "Hint": "(Generic mode only) The item type used when a player picks up an interactive object. Set automatically on first launch when a likely candidate is detected; otherwise prompted via dialog. Change here if detection picked the wrong type."
       }
     },
     "FolderToggle": {
@@ -51,6 +55,7 @@
         "Contents": "Contents"
       },
       "NeedsItem": "Drop an item from the Items sidebar onto this sheet to initialize this interactive object.",
+      "NeedsModeGeneric": "This interactive object has no mode set. Close this dialog and re-create the actor to pick item or container mode.",
       "Contents": "Contents",
       "Empty": "Empty",
       "Closed": "This container is closed.",
@@ -120,7 +125,8 @@
       "NoToken": "No token found on the canvas for this character.",
       "NoContainerInContainer": "Containers cannot be placed inside other containers.",
       "CannotGiveContainer": "Container-type interactive objects cannot be placed in a player's inventory.",
-      "NoSceneActors": "No eligible actors found on this scene."
+      "NoSceneActors": "No eligible actors found on this scene.",
+      "GenericMode": "Pick-Up-Stix is running in generic mode for system '{system}'. Some system-specific features (e.g. native identification) are disabled. The pickup item type used for inventory transfers is configurable in module settings."
     },
     "Context": {
       "DropItem": "Drop Item",
@@ -179,7 +185,13 @@
       "QuantityMin": "Min",
       "QuantityMax": "Max",
       "QuantityConfirm": "Confirm",
-      "QuantityCancel": "Cancel"
+      "QuantityCancel": "Cancel",
+      "Confirm": "Confirm",
+      "PickPickupType": {
+        "Title": "Pick-Up-Stix — Pick Pickup Item Type",
+        "Body": "No item type matching 'item', 'loot', 'gear', 'equipment', 'treasure', or 'consumable' was found in system '{system}'. Pick which item type the module should use when players pick up interactive objects. You can change this later in module settings.",
+        "Label": "Pickup item type:"
+      }
     },
     "Limited": {
       "DefaultContainerName": "A container of some sort",

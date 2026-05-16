@@ -38,15 +38,15 @@ export default class InteractiveItemSheet extends ActorSheetV2 {
    * before opening the new one.
    */
   static async showLimitedDialog(actor) {
-    dbg("sheet:showLimitedDialog", { actorName: actor.name, actorUuid: actor.uuid, isContainer: actor.system.isContainer });
+    dbg("sheet:showLimitedDialog", { actorName: actor.name, actorUuid: actor.uuid, isContainer: getAdapter().isInteractiveContainer(actor) });
     const key = actor.uuid;
     const existing = InteractiveItemSheet.limitedDialogs.get(key);
     if (existing) await existing.close();
 
-    const system = actor.system;
-    const title = system.limitedDisplayName;
+    const adapter = getAdapter();
+    const title = adapter.getInteractiveLimitedName(actor);
     const body = await foundry.applications.ux.TextEditor.implementation.enrichHTML(
-      system.limitedDisplayDescription,
+      adapter.getInteractiveLimitedDescription(actor),
       { async: true }
     );
 
@@ -80,13 +80,14 @@ export default class InteractiveItemSheet extends ActorSheetV2 {
     const dialog = InteractiveItemSheet.limitedDialogs.get(actor.uuid);
     if (!dialog?.element) return;
 
+    const adapter = getAdapter();
     const titleEl = dialog.element.querySelector(".window-title");
-    if (titleEl) titleEl.textContent = actor.system.limitedDisplayName;
+    if (titleEl) titleEl.textContent = adapter.getInteractiveLimitedName(actor);
 
     const contentEl = dialog.element.querySelector(".limited-view");
     if (contentEl) {
       contentEl.innerHTML = await foundry.applications.ux.TextEditor.implementation.enrichHTML(
-        actor.system.limitedDisplayDescription,
+        adapter.getInteractiveLimitedDescription(actor),
         { async: true }
       );
     }
@@ -165,7 +166,7 @@ export default class InteractiveItemSheet extends ActorSheetV2 {
       configMode: this.#configMode,
       tokenDocId: this._tokenDoc?.id,
       isGM: isModuleGM(),
-      isContainer: this.actor?.system?.isContainer,
+      isContainer: getAdapter().isInteractiveContainer(this.actor),
       pendingPicker: InteractiveItemSheet.pendingPicker.has(this.actor?.id)
     });
     if (InteractiveItemSheet.pendingPicker.has(this.actor.id)) {
@@ -193,17 +194,14 @@ export default class InteractiveItemSheet extends ActorSheetV2 {
       return this;
     }
 
-    const system = this.actor.system;
-
-    if (system.isContainer) {
+    if (adapter.isInteractiveContainer(this.actor)) {
       if (isPlayerView() && !checkProximity(this.actor, { silent: true, range: "inspection" })) {
         dbg("sheet:render", "container: player out of inspection range → showLimitedDialog");
         InteractiveItemSheet.showLimitedDialog(this.actor);
         return this;
       }
-      const item = system.containerItem;
-      if (item) {
-        dbg("sheet:render", "container: delegating to adapter.renderContainerView", { itemId: item.id, itemName: item.name });
+      if (adapter.hasInteractiveEmbeddedItem(this.actor)) {
+        dbg("sheet:render", "container: delegating to adapter.renderContainerView");
         await adapter.renderContainerView(this.actor, options);
         return this;
       }
@@ -213,9 +211,8 @@ export default class InteractiveItemSheet extends ActorSheetV2 {
         InteractiveItemSheet.showLimitedDialog(this.actor);
         return this;
       }
-      const item = this.actor.items.contents[0];
-      if (item) {
-        dbg("sheet:render", "item: delegating to adapter.renderItemView", { itemId: item.id, itemName: item.name });
+      if (adapter.hasInteractiveEmbeddedItem(this.actor)) {
+        dbg("sheet:render", "item: delegating to adapter.renderItemView");
         await adapter.renderItemView(this.actor, options);
         return this;
       }

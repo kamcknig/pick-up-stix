@@ -1,0 +1,41 @@
+<section class="pick-up-stix generic-container-view">
+  <header class="sheet-header">
+    <img class="document-image" src="{{img}}" alt="{{name}}" />
+    <h1>{{name}}</h1>
+  </header>
+  <div class="description">{{{descriptionHTML}}}</div>
+
+  {{#if showContents}}
+    <ol class="ii-contents-list">
+      {{#each contents}}
+        <li class="ii-contents-row" data-content-id="{{id}}" draggable="true">
+          {{!-- draggable="false" on the inner image so clicks on it bubble
+                up to the row instead of triggering the browser's own image
+                drag, which would put the image URL in dataTransfer instead
+                of our InteractiveContent payload. --}}
+          <img class="ii-contents-img" src="{{img}}" alt="{{name}}" draggable="false" />
+          <span class="ii-contents-name">{{name}}</span>
+          {{#if showQuantity}}<span class="ii-contents-quantity">×{{quantity}}</span>{{/if}}
+          {{#if ../isTokenActor}}
+            <button type="button" class="ii-row-control ii-pickup-btn"
+                    data-content-id="{{id}}"
+                    title="{{localize 'INTERACTIVE_ITEMS.HUD.PickUp'}}">
+              <i class="fa-solid fa-hand"></i>
+            </button>
+          {{/if}}
+          {{#if ../isGM}}
+            <button type="button" class="ii-row-control ii-delete"
+                    data-action="deleteContent" data-content-id="{{id}}"
+                    title="{{localize 'INTERACTIVE_ITEMS.Sheet.DeleteItem'}}">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          {{/if}}
+        </li>
+      {{else}}
+        <li class="ii-contents-empty">{{localize "INTERACTIVE_ITEMS.Container.Empty"}}</li>
+      {{/each}}
+    </ol>
+  {{else}}
+    <div class="pick-up-stix-contents-hidden">{{hiddenMessage}}</div>
+  {{/if}}
+</section>

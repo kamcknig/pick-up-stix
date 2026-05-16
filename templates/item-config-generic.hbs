@@ -1,0 +1,142 @@
+<section class="item-config generic">
+  {{#if needsMode}}
+    <div class="needs-mode-prompt">
+      <p>{{localize "INTERACTIVE_ITEMS.Sheet.NeedsModeGeneric"}}</p>
+    </div>
+  {{else if needsItem}}
+    <div class="needs-item-prompt">
+      <i class="fa-solid fa-arrow-down"></i>
+      <p>{{localize "INTERACTIVE_ITEMS.Sheet.NeedsItem"}}</p>
+      <img class="needs-item-icon" src="modules/pick-up-stix/icons/interactive-item-icon.svg" alt="" />
+    </div>
+  {{else}}
+    <header class="sheet-header">
+      <img class="document-image ii-clickable-image" src="{{img}}" alt="{{name}}"
+           data-action="editActorImage" />
+      <input type="text" name="data.name" value="{{name}}"
+             placeholder="{{localize 'INTERACTIVE_ITEMS.Sheet.Name'}}" />
+    </header>
+
+    {{!-- Quick-open button: switches to the player-facing item/container view
+          (the sheet players see when they click the placed token). --}}
+    {{#if isContainer}}
+      <button type="button" data-action="openContainerSheet">
+        <i class="fa-solid fa-up-right-from-square"></i>
+        {{localize "INTERACTIVE_ITEMS.Sheet.ViewContainerSheet"}}
+      </button>
+    {{else}}
+      <button type="button" data-action="openItemSheet">
+        <i class="fa-solid fa-up-right-from-square"></i>
+        {{localize "INTERACTIVE_ITEMS.Sheet.ViewItemSheet"}}
+      </button>
+    {{/if}}
+
+    <fieldset>
+      <legend>{{localize "INTERACTIVE_ITEMS.Sheet.ConfigLegend"}}</legend>
+
+      {{!-- Description: collapsible card; swaps to a compact prose-mirror
+            in place when the user clicks the feather. On save, the editor's
+            save event clears the editing target and the card returns. --}}
+      <div class="item-descriptions">
+        {{#if editingDescription}}
+          <div class="card description editing">
+            <div class="header"><span>{{localize "INTERACTIVE_ITEMS.Sheet.Description"}}</span></div>
+            <prose-mirror name="data.description" value="{{description}}"
+                          class="sized" compact></prose-mirror>
+          </div>
+        {{else}}
+          <div class="card description collapsible{{#unless descriptionEnriched}} empty{{/unless}}{{#unless (lookup expanded 'data.description')}} collapsed{{/unless}}"
+               data-action="toggleCollapsed" data-expand-id="data.description" data-target="data.description">
+            <div class="header">
+              <span>{{localize "INTERACTIVE_ITEMS.Sheet.Description"}}</span>
+              {{#if isEditable}}
+              <button type="button" class="unbutton control-button always-interactive" data-action="editDescription"
+                      aria-label="{{localize 'INTERACTIVE_ITEMS.Sheet.Description'}}" data-target="data.description">
+                <i class="fas fa-feather" inert></i>
+              </button>
+              {{/if}}
+            </div>
+            <div class="details collapsible-content">
+              <div class="editor editor-content wrapper">{{{description}}}</div>
+            </div>
+          </div>
+        {{/if}}
+      </div>
+
+      {{#if isContainer}}
+        <div class="form-group">
+          <label>{{localize "INTERACTIVE_ITEMS.Sheet.OpenImage"}}</label>
+          <div class="form-fields">
+            <file-picker name="data.openImage" type="image" value="{{openImage}}"></file-picker>
+          </div>
+        </div>
+      {{else}}
+        <div class="form-group">
+          <label>{{localize "INTERACTIVE_ITEMS.Sheet.Quantity"}}</label>
+          <div class="form-fields">
+            <input type="number" name="data.itemData.quantity"
+                   min="1" step="1" value="{{itemData.quantity}}" />
+          </div>
+        </div>
+      {{/if}}
+
+      <div class="form-group">
+        <label>{{localize "INTERACTIVE_ITEMS.Sheet.LockedMessage"}}</label>
+        <div class="form-fields">
+          <input type="text" name="data.lockedMessage" value="{{lockedMessage}}" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>{{localize "INTERACTIVE_ITEMS.Sheet.LimitedName"}}</label>
+        <div class="form-fields">
+          <input type="text" name="data.limitedName" value="{{limitedName}}" />
+        </div>
+      </div>
+
+      {{!-- Limited-view description: same per-card switch as the main
+            description above so the editor appears in place when clicked. --}}
+      <div class="item-descriptions">
+        {{#if editingLimitedDescription}}
+          <div class="card description editing">
+            <div class="header"><span>{{localize "INTERACTIVE_ITEMS.Sheet.LimitedDescription"}}</span></div>
+            <prose-mirror name="data.limitedDescription" value="{{limitedDescription}}"
+                          class="sized" compact></prose-mirror>
+          </div>
+        {{else}}
+          <div class="card description collapsible{{#unless limitedDescriptionEnriched}} empty{{/unless}}{{#unless (lookup expanded 'data.limitedDescription')}} collapsed{{/unless}}"
+               data-action="toggleCollapsed" data-expand-id="data.limitedDescription" data-target="data.limitedDescription">
+            <div class="header">
+              <span>{{localize "INTERACTIVE_ITEMS.Sheet.LimitedDescription"}}</span>
+              {{#if isEditable}}
+              <button type="button" class="unbutton control-button always-interactive" data-action="editDescription"
+                      aria-label="{{localize 'INTERACTIVE_ITEMS.Sheet.LimitedDescription'}}" data-target="data.limitedDescription">
+                <i class="fas fa-feather" inert></i>
+              </button>
+              {{/if}}
+            </div>
+            <div class="details collapsible-content">
+              <div class="editor editor-content wrapper">{{{limitedDescription}}}</div>
+            </div>
+          </div>
+        {{/if}}
+      </div>
+
+      <div class="form-group">
+        <label>{{localize "INTERACTIVE_ITEMS.Sheet.InteractionRange"}}</label>
+        <div class="form-fields">
+          <input type="number" name="data.interactionRange"
+                 min="0" step="0.5" value="{{interactionRange}}" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>{{localize "INTERACTIVE_ITEMS.Sheet.InspectionRange"}}</label>
+        <div class="form-fields">
+          <input type="number" name="data.inspectionRange"
+                 min="0" step="0.5" value="{{inspectionRange}}" />
+        </div>
+      </div>
+    </fieldset>
+  {{/if}}
+</section>

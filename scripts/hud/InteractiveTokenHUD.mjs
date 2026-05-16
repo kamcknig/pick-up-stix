@@ -18,6 +18,32 @@ export function registerTokenHUD() {
   _patchCanHUD();
   _patchRefreshState();
   _patchClickRight();
+  _patchCanControl();
+}
+
+/**
+ * Prevent selection / keyboard control of interactive tokens when the viewer
+ * is in player-view mode (true players AND GMs with the override disabled).
+ *
+ * Without this wrapper, Foundry's core left-click flow runs `_canControl`,
+ * which returns true for any actor the user owns. For a GM that owns every
+ * actor, an interactive token would be selected even though `_refreshState`
+ * is hiding the selection outline — and the selected token responds to
+ * keyboard movement keys. By denying `_canControl` in player view, the
+ * token stays unselectable for both real players and the GM testing with
+ * override off.
+ *
+ * GM with override on keeps full control (e.g. to relocate a placed
+ * interactive token).
+ */
+function _patchCanControl() {
+  libWrapper.register(MODULE_ID, "foundry.canvas.placeables.Token.prototype._canControl", function(wrapped, user, event) {
+    if (isInteractiveActor(this.actor) && isPlayerView()) {
+      dbg("hud:_canControl", "denying control on interactive token in player view", { actorName: this.actor?.name });
+      return false;
+    }
+    return wrapped(user, event);
+  }, "MIXED");
 }
 
 function _patchCanHUD() {
@@ -113,12 +139,18 @@ function onRenderTokenHUD(app, html, context, options) {
   );
   col.appendChild(inspectBtn);
 
-  if (!system.isContainer) {
+  // Pickup button: available on all non-container item-mode interactives.
+  // Model-backed adapters (dnd5e/pf2e) read from system.topLevelItems;
+  // the generic adapter reads from the flag blob and creates a stub item.
+  const pickupAdapter = getAdapter();
+  const isGenericPickup = pickupAdapter.constructor.SYSTEM_ID === "generic";
+  const pickupSupported = !pickupAdapter.isInteractiveContainer(actor);
+  if (pickupSupported) {
   const pickupBtn = createHUDButton(
     "fa-hand",
     game.i18n.localize("INTERACTIVE_ITEMS.HUD.PickUp"),
     async () => {
-      dbg("hud:pickup", { actorName: actor.name, isGM });
+      dbg("hud:pickup", { actorName: actor.name, isGM, isGenericPickup });
       // Check proximity before lock state — distance is more actionable than
       // "locked" (players can't tell something is locked from too far away).
       if (!checkProximity(actor)) {
@@ -132,6 +164,41 @@ function onRenderTokenHUD(app, html, context, options) {
       dbg("hud:pickup", "resolved target actor", { targetActorName: targetActor?.name });
       if (!targetActor) return;
 
+      // Generic path: flag blob holds the item data; no embedded item document.
+      // Pass itemId as null so the socket payload and GM handler both route to
+      // _pickupItemGeneric inside pickupItem.
+      if (isGenericPickup) {
+        // Partial-stack prompt — same UX as the model-backed path below, but
+        // the source qty comes from the flag itemData rather than an embedded
+        // Item document.
+        const interactiveData = pickupAdapter.getInteractiveData(actor);
+        const genericQty = interactiveData.itemData?.quantity ?? 1;
+        let genericChosenQty = null;
+        if (genericQty > 1) {
+          genericChosenQty = await promptItemQuantity({
+            itemName: interactiveData.name || actor.name,
+            max: genericQty,
+            actionKey: "INTERACTIVE_ITEMS.Dialog.QuantityActionPickup",
+            actionFormatArgs: { target: targetActor.name }
+          });
+          if (genericChosenQty == null) {
+            dbg("hud:pickup", "generic quantity dialog cancelled, bail");
+            return;
+          }
+        }
+
+        dbg("hud:pickup", "generic path — dispatching pickupItem", { quantity: genericChosenQty });
+        await dispatchGM(
+          "pickupItem",
+          { sceneId, tokenId, itemId: null, targetActorId: targetActor.id, quantity: genericChosenQty },
+          async () => pickupItem(sceneId, tokenId, null, targetActor.id, genericChosenQty)
+        );
+        if (!game.user.isGM) notifyItemAction("PickedUp", actor.name);
+        canvas.tokens.hud.close();
+        return;
+      }
+
+      // Model-backed path: read the embedded item from the actor's data model.
       const item = system.topLevelItems[0];
       if (!item) {
         dbg("hud:pickup", "no top-level items found");
@@ -175,8 +242,14 @@ function onRenderTokenHUD(app, html, context, options) {
   }
 
   // GM-only "Split stack" button: visible on non-container stacked tokens (qty > 1).
-  if (isGM && !system.isContainer) {
-    const adapter = getAdapter();
+  // Model-backed only — split operates on the embedded Item document via the
+  // system's quantity field. Generic mode stores quantity in a flag and would
+  // need its own split flow; for now the button is hidden there.
+  const splitAdapter = getAdapter();
+  const splitSupported = splitAdapter.constructor.SYSTEM_ID !== "generic"
+    && !splitAdapter.isInteractiveContainer(actor);
+  if (isGM && splitSupported) {
+    const adapter = splitAdapter;
     const embeddedItem = system.topLevelItems[0];
     const sourceQty = embeddedItem ? adapter.getItemQuantity(embeddedItem) : 1;
     if (embeddedItem && sourceQty > 1 && !adapter.isContainerItem(embeddedItem)) {
@@ -207,8 +280,9 @@ function onRenderTokenHUD(app, html, context, options) {
     }
   }
 
-  if (system.isContainer) {
-    const isOpen = system.isOpen;
+  const containerAdapter = getAdapter();
+  if (containerAdapter.isInteractiveContainer(actor)) {
+    const isOpen = containerAdapter.isInteractiveOpen(actor);
     const openBtn = createHUDButton(
       isOpen ? "fa-box-open" : "fa-box",
       game.i18n.localize(isOpen
@@ -229,11 +303,15 @@ function onRenderTokenHUD(app, html, context, options) {
           actor.sheet.render(true);
         } else {
           // Wait for the GM-driven update to propagate before rendering,
-          // so the sheet's isOpen gate sees the new value.
+          // so the sheet's isOpen gate sees the new value. Watch for either
+          // the system.isOpen field (model-backed) or the flag-blob path
+          // (generic) depending on which adapter is active.
           const targetUuid = actor.uuid;
           const hookId = Hooks.on("updateActor", (updatedActor, changes) => {
             if (updatedActor.uuid !== targetUuid) return;
-            if (foundry.utils.getProperty(changes, "system.isOpen") !== true) return;
+            const systemOpenChanged = foundry.utils.getProperty(changes, "system.isOpen") === true;
+            const flagOpenChanged = foundry.utils.getProperty(changes, "flags.pick-up-stix.interactive.isOpen") === true;
+            if (!systemOpenChanged && !flagOpenChanged) return;
             Hooks.off("updateActor", hookId);
             clearTimeout(timeoutId);
             actor.sheet.render(true);
@@ -247,7 +325,7 @@ function onRenderTokenHUD(app, html, context, options) {
   }
 
   if (isGM) {
-    const isLocked = system.isLocked;
+    const isLocked = containerAdapter.isInteractiveLocked(actor);
     const lockBtn = createHUDButton(
       isLocked ? "fa-lock" : "fa-lock-open",
       game.i18n.localize(isLocked
@@ -262,7 +340,7 @@ function onRenderTokenHUD(app, html, context, options) {
     col.appendChild(lockBtn);
   }
 
-  if (isGM) {
+  if (isGM && getAdapter().capabilities.supportsIdentification) {
     const identified = system.isIdentified;
     const adapter = getAdapter();
     const identCfg = adapter.getIdentifyButtonConfig(identified);

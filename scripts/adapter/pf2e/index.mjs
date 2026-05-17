@@ -68,7 +68,9 @@ export default class Pf2eAdapter extends SystemAdapter {
     /** pf2e has no createWithContents equivalent; the adapter walks manually. */
     hasNativeDeepCreate: false,
     /** pf2e renders toggle-identified controls natively on every inventory row. */
-    hasNativeInventoryIdentify: true
+    hasNativeInventoryIdentify: true,
+    /** pf2e supports identified/unidentified item states. */
+    supportsIdentification: true
   };
 
   /**

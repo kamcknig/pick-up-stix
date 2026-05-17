@@ -229,6 +229,17 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
     const icon = system.isIdentified ? identCfg.iconOn : identCfg.iconOff;
     const labelKey = system.isIdentified ? identCfg.labelOnKey : identCfg.labelOffKey;
     updateToggle(".ii-toggle-identify", `${family} ${icon}`, game.i18n.localize(labelKey));
+
+    // Light toggle — icon is always fa-lightbulb; tooltip reflects configured state.
+    const emitted = system.emittedLight;
+    const hasLight = (emitted?.dim ?? 0) > 0 || (emitted?.bright ?? 0) > 0;
+    updateToggle(
+      ".ii-toggle-light",
+      "fas fa-lightbulb",
+      game.i18n.localize(hasLight
+        ? "INTERACTIVE_ITEMS.Light.ConfigureActive"
+        : "INTERACTIVE_ITEMS.Light.ConfigureInactive")
+    );
   }
 
   /**
@@ -252,6 +263,26 @@ export default class Pf2eInteractiveItemConfigSheet extends foundry.appv1.sheets
     if (!this.isEditable) return buttons;
 
     const system = this.actor.system;
+
+    // Light (will end up at position 3 — between identify and system buttons).
+    // The unshift order is reversed relative to the desired final order:
+    //   unshift light → unshift identify → unshift lock → unshift open (if container)
+    //   final: [open?, lock, identify, light, ...super]
+    const emitted = system.emittedLight;
+    const hasLight = (emitted?.dim ?? 0) > 0 || (emitted?.bright ?? 0) > 0;
+    const actor = this.actor;
+    buttons.unshift({
+      label: "",
+      tooltip: game.i18n.localize(hasLight
+        ? "INTERACTIVE_ITEMS.Light.ConfigureActive"
+        : "INTERACTIVE_ITEMS.Light.ConfigureInactive"),
+      class: "ii-toggle-light",
+      icon: "fas fa-lightbulb",
+      onclick: async () => {
+        const { default: InteractiveLightConfig } = await import("../../sheets/InteractiveLightConfig.mjs");
+        InteractiveLightConfig.forActor(actor).render({ force: true });
+      }
+    });
 
     // Identify (will end up at position 2 — third from left)
     const identCfg = getAdapter().getIdentifyButtonConfig(system.isIdentified);

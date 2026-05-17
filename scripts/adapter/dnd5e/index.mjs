@@ -33,7 +33,9 @@ export default class Dnd5eAdapter extends SystemAdapter {
     /** dnd5e ships a full window-style ContainerSheet application. */
     hasNativeContainerWindow: true,
     /** dnd5e exposes `Item5e.createWithContents` for deep-creating containers. */
-    hasNativeDeepCreate: true
+    hasNativeDeepCreate: true,
+    /** dnd5e supports identified/unidentified item states. */
+    supportsIdentification: true
   };
 
   /**

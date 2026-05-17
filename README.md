@@ -41,6 +41,13 @@ Interactive objects display through the active system's own item and container s
 - **Drag items from container contents** -- Items in a container's contents listing can be dragged out to the canvas (placed as an interactive token) or onto another character/container sheet (transfers ownership).
 - **Configurable defaults** -- Module settings for default container images (open and closed), default interaction and inspection ranges, actor folder organization, and folder color.
 
+### Light-emitting Items
+
+- **Per-item light configuration** -- Configure dim/bright radius, color, animation, and advanced lighting options for any interactive item via a lightbulb button in the sheet header (matches Foundry's standard Token Light tab).
+- **Carry-on-pickup** -- When a player picks up a lit item (torch, lantern, etc.), the carrier token emits the item's light additively to its own token-light; the carrier's own light is never overwritten. Movement updates the light position smoothly.
+- **Container gating** -- Items inside an interactive container emit light only while the container is open; closing suppresses the emission.
+- **On/off toggle** -- A lightbulb HUD button on canvas tokens (GM) and a row icon in inventories / container contents (GM or item owner) toggle emission without losing the configured radii.
+
 ### Architecture Highlights
 
 - **System adapter** -- All system-specific surfaces are isolated behind a `SystemAdapter` contract; one concrete adapter per supported system. Core code never branches on `game.system.id`, which keeps adding a new system to a single module under `scripts/adapter/`.
@@ -48,10 +55,29 @@ Interactive objects display through the active system's own item and container s
 - **Socket-based security** -- All player mutations (pickup, deposit, open/close, placement) route through sockets to the active GM client for processing.
 - **Round-trip placement** -- Items picked up from the canvas remember their source actor and token state. Dropping them back restores the original token appearance and reuses the original base actor.
 
+## Generic-system mode
+
+Pick-Up-Stix ships dedicated adapters for **dnd5e** (≥ 4.0.0) and **pf2e**
+(≥ 8.0.0). On any other system it falls back to a **generic adapter**
+that uses entirely module-owned data and UI. In generic mode:
+
+- All canvas placement, pickup, drop, and proximity flows work normally.
+- Interactive-object data is stored in module flags rather than the
+  system's actor / item types, so the module is independent of how the
+  active system structures its data.
+- Custom item-view, container-view, and config sheets are rendered
+  directly by the module — the system's own item sheets are not used.
+- **Item identification is disabled** — items are treated as permanently
+  identified and the identify UI is hidden.
+- On first launch the module auto-detects a "pickup item type" from
+  the system's declared item types, or prompts the GM to pick one via
+  dialog if no obvious match is found. You can change it later in
+  module settings.
+
 ## Requirements
 
 - Foundry VTT v13+
-- A supported game system (currently dnd5e 4.0.0+ or pf2e 8.0.0+)
+- A supported game system (dnd5e 4.0.0+ or pf2e 8.0.0+ with full support; any other system with generic-mode fallback)
 - [lib-wrapper](https://foundryvtt.com/packages/lib-wrapper) module
 
 ## Installation

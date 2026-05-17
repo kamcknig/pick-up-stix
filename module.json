@@ -2,7 +2,7 @@
   "id": "pick-up-stix",
   "title": "Pick-Up-Stix",
   "description": "Place interactive items and containers on the map for players to inspect, pick up, and interact with.",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "compatibility": {
     "minimum": "13",
     "verified": "14"
@@ -16,23 +16,6 @@
         "compatibility": {
           "minimum": "1.12.0",
           "verified": "1.13.4"
-        }
-      }
-    ],
-    "systems": [
-      {
-        "id": "dnd5e",
-        "type": "system",
-        "compatibility": {
-          "minimum": "4.0.0"
-        }
-      },
-      {
-        "id": "pf2e",
-        "type": "system",
-        "compatibility": {
-          "minimum": "8.0.0",
-          "verified": "8.1.0"
         }
       }
     ]
@@ -70,5 +53,5 @@
     }
   ],
   "socket": true,
-  "download": "https://github.com/kamcknig/pick-up-stix/releases/download/v2.0.0/module.zip"
+  "download": "https://github.com/kamcknig/pick-up-stix/releases/download/v3.0.0/module.zip"
 }

@@ -1,0 +1,12 @@
+<section class="pick-up-stix generic-item-view">
+  <header class="sheet-header">
+    <img class="document-image" src="{{itemData.img}}" alt="{{itemData.name}}" />
+    <div class="title">
+      <h1>{{itemData.name}}</h1>
+      {{#if showQuantity}}
+        <span class="quantity">{{localize "INTERACTIVE_ITEMS.Sheet.Quantity"}}: {{itemData.quantity}}</span>
+      {{/if}}
+    </div>
+  </header>
+  <div class="description">{{{descriptionHTML}}}</div>
+</section>

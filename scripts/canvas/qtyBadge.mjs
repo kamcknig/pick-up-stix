@@ -6,19 +6,37 @@ import { dbg } from "../utils/debugLog.mjs";
 const PROP = "pickUpStixQty";
 
 /**
- * Resolve the embedded item the badge should track, or null when the
- * token is not an eligible interactive item. Containers and base actors
- * (no token) are excluded — containers always carry a single backpack
- * item and should never show the badge.
+ * True if the badge should be drawn on this token. Excludes non-interactive
+ * actors, container-mode interactive actors (they carry a single backpack
+ * item and shouldn't show a count), and tokens whose actor failed to resolve.
  *
- * @param {Token} token - The PIXI Token placeable.
- * @returns {Item|null}
+ * @param {Token} token
+ * @returns {boolean}
  */
-function getInteractiveItem(token) {
+function isEligibleToken(token) {
   const actor = token.actor;
-  if (!isInteractiveActor(actor)) return null;
-  if (actor.system?.isContainer) return null;
-  return actor.system?.embeddedItem ?? null;
+  if (!isInteractiveActor(actor)) return false;
+  return !getAdapter().isInteractiveContainer(actor);
+}
+
+/**
+ * Resolve the current stack quantity to display on the token. Works for
+ * both model-backed adapters (read from the embedded item via the adapter)
+ * and the generic adapter (read from `flags["pick-up-stix"].interactive
+ * .itemData.quantity`).
+ *
+ * @param {Token} token
+ * @returns {number}
+ */
+function getDisplayQuantity(token) {
+  const actor = token.actor;
+  if (!actor) return 1;
+  const adapter = getAdapter();
+  if (adapter.constructor.SYSTEM_ID === "generic") {
+    return adapter.getInteractiveData(actor).itemData?.quantity ?? 1;
+  }
+  const item = actor.system?.embeddedItem;
+  return item ? adapter.getItemQuantity(item) : 1;
 }
 
 /**
@@ -61,8 +79,7 @@ function position(token) {
 function updateText(token) {
   const badge = token[PROP];
   if (!badge) return;
-  const item = getInteractiveItem(token);
-  const qty = item ? getAdapter().getItemQuantity(item) : 1;
+  const qty = getDisplayQuantity(token);
   const visible = qty > 1 && !token.document.isSecret;
   badge.text = String(qty);
   badge.visible = visible;
@@ -81,7 +98,7 @@ function updateText(token) {
  */
 export function registerQtyBadge() {
   Hooks.on("drawToken", (token) => {
-    if (!getInteractiveItem(token)) return;
+    if (!isEligibleToken(token)) return;
     dbg("badge:drawToken", { tokenId: token.id });
     const PreciseText = foundry.canvas.containers.PreciseText;
     const badge = new PreciseText("", buildStyle());
@@ -100,21 +117,24 @@ export function registerQtyBadge() {
     if (flags?.refreshState) updateText(token);
   });
 
+  // Model-backed: quantity lives on the embedded item; refresh when it changes.
   Hooks.on("updateItem", (item, changes) => {
     if (!foundry.utils.hasProperty(changes ?? {}, "system.quantity")) return;
     dbg("badge:updateItem", { itemId: item.id, qty: changes.system.quantity });
     for (const token of canvas.tokens?.placeables ?? []) {
-      const embedded = getInteractiveItem(token);
+      const embedded = token.actor?.system?.embeddedItem;
       if (embedded?.id === item.id) updateText(token);
     }
   });
 
-  // Identification flips can change what the badge should show on systems
-  // that mask the count when unidentified. Refresh on the wrapping actor's
-  // identification change as a forward-compatible hook.
+  // Refresh on actor updates that could affect the displayed quantity or
+  // visibility: model-backed identification flips, and generic-mode flag
+  // changes (which is where the qty lives when there's no embedded item).
   Hooks.on("updateActor", (actor, changes) => {
     if (!isInteractiveActor(actor)) return;
-    if (!foundry.utils.hasProperty(changes ?? {}, "system.isIdentified")) return;
+    const idChanged = foundry.utils.hasProperty(changes ?? {}, "system.isIdentified");
+    const flagChanged = foundry.utils.hasProperty(changes ?? {}, "flags.pick-up-stix.interactive");
+    if (!idChanged && !flagChanged) return;
     for (const token of canvas.tokens?.placeables ?? []) {
       if (token.actor?.id === actor.id) updateText(token);
     }

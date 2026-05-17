@@ -11,9 +11,13 @@ let _adapter = null;
  * `./adapter/<systemId>/index.mjs`, so only the active system's code is
  * fetched over the network.
  *
+ * If no system-specific adapter exists, the generic adapter
+ * (`./generic/index.mjs`) is loaded as a fallback and a console warning is
+ * emitted. The generic adapter stores all state in actor flags rather than
+ * relying on system-specific data models.
+ *
  * @returns {Promise<import("./SystemAdapter.mjs").default>}
- * @throws {Error} If `game.system` is not available at module-entry time, or
- *   if no adapter exists for the active system.
+ * @throws {Error} If `game.system` is not available at module-entry time.
  */
 export async function loadAdapter() {
   if (_adapter) return _adapter;
@@ -26,9 +30,9 @@ export async function loadAdapter() {
   let mod;
   try {
     mod = await import(`./${systemId}/index.mjs`);
-  } catch (err) {
-    console.error(`pick-up-stix: no adapter for system "${systemId}"`, err);
-    throw err;
+  } catch {
+    console.warn(`pick-up-stix: no dedicated adapter for system "${systemId}", loading generic adapter`);
+    mod = await import("./generic/index.mjs");
   }
 
   _adapter = new mod.default();

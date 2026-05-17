@@ -21,6 +21,7 @@ import { promptItemQuantity, promptItemQuantitiesBatch, decrementOrDeleteItem } 
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
+import { registerInstallTrackerSetting, maybeSendInstallRecord } from "./utils/installTracker.mjs";
 
 const MODULE_ID = "pick-up-stix";
 const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
@@ -182,6 +183,10 @@ Hooks.once("init", async () => {
     type: String,
     default: ""
   });
+
+  // Hidden world setting that persists the install-tracker state (sent flag,
+  // version, attempt count, last error). Managed entirely by installTracker.mjs.
+  registerInstallTrackerSetting();
 
   getAdapter().registerItemContextMenu(_injectItemContextMenuEntries);
 
@@ -3144,6 +3149,10 @@ Hooks.once("ready", async () => {
       }
     }
   }
+
+  // Post a one-time install record to the tracker endpoint. The call is
+  // internally guarded by isActiveGM so it is safe to invoke unconditionally.
+  await maybeSendInstallRecord();
 });
 
 const DEFAULT_FOLDER_NAME = "Interactive Objects";

@@ -17,6 +17,7 @@ import { dbg } from "./utils/debugLog.mjs";
 import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
+import { registerInstallTrackerSetting, maybeSendInstallRecord } from "./utils/installTracker.mjs";
 
 const MODULE_ID = "pick-up-stix";
 const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
@@ -150,6 +151,10 @@ Hooks.once("init", () => {
     type: Boolean,
     default: false
   });
+
+  // Hidden world setting that persists the install-tracker state (sent flag,
+  // version, attempt count, last error). Managed entirely by installTracker.mjs.
+  registerInstallTrackerSetting();
 
   Hooks.on("dnd5e.getItemContextOptions", (item, menuItems) => {
     if (!item.actor) return;
@@ -1523,6 +1528,10 @@ Hooks.once("ready", async () => {
     _previousActorFolderId = parent?.id ?? null;
     await _ensureEphemeralFolder(parent);
   }
+
+  // Post a one-time install record to the tracker endpoint. The call is
+  // internally guarded by isActiveGM so it is safe to invoke unconditionally.
+  await maybeSendInstallRecord();
 });
 
 const DEFAULT_FOLDER_NAME = "Interactive Objects";

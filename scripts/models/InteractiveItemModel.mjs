@@ -50,7 +50,20 @@ export default class InteractiveItemModel extends InteractiveModelMixin(TypeData
       unidentifiedName: new fields.StringField({ required: false, initial: "" }),
       unidentifiedDescription: new fields.HTMLField({ required: false, initial: "" }),
       limitedName: new fields.StringField({ required: false, initial: "" }),
-      limitedDescription: new fields.HTMLField({ required: false, initial: "" })
+      limitedDescription: new fields.HTMLField({ required: false, initial: "" }),
+      /**
+       * Full Foundry LightData configuration for this interactive item's
+       * emission. Defaults to a zeroed-out, non-emitting light so existing
+       * worlds that pre-date this field deserialise safely as "no light".
+       */
+      emittedLight: new fields.EmbeddedDataField(foundry.data.LightData),
+      /**
+       * Whether the configured light emission is currently active. Default true
+       * so that newly-configured items (radii set via InteractiveLightConfig)
+       * start emitting immediately without requiring a separate row-icon click.
+       * Players still toggle this via the row lightbulb in inventories.
+       */
+      lightActive: new fields.BooleanField({ initial: true })
     };
   }
 

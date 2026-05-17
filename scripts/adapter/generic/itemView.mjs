@@ -118,6 +118,11 @@ export default class GenericInteractiveItemView
     if (header) this.#injectHeaderToggles(header);
   }
 
+  /**
+   * Inject Lock, Light, and Configure toggles into the GM-only window header.
+   * Open/Close is omitted (items have no open state). Identify is omitted —
+   * generic mode has supportsIdentification:false.
+   */
   #injectHeaderToggles(header) {
     header.querySelectorAll(".ii-itemview-toggle").forEach(el => el.remove());
 
@@ -136,6 +141,23 @@ export default class GenericInteractiveItemView
       onClick: (ev) => {
         ev.preventDefault();
         toggleContainerLocked(actor);
+      }
+    }));
+
+    // Light-emission config button — active state reflects configured radius.
+    const { light } = adapter.getInteractiveLightData(actor);
+    const hasLight = (light?.dim ?? 0) > 0 || (light?.bright ?? 0) > 0;
+    buttons.push(createStateToggleButton({
+      extraClass: "ii-itemview-toggle",
+      active: hasLight,
+      iconOn: "fa-lightbulb",
+      iconOff: "fa-lightbulb",
+      labelOnKey: "INTERACTIVE_ITEMS.Light.ConfigureActive",
+      labelOffKey: "INTERACTIVE_ITEMS.Light.ConfigureInactive",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        const { default: InteractiveLightConfig } = await import("../../sheets/InteractiveLightConfig.mjs");
+        InteractiveLightConfig.forActor(actor).render({ force: true });
       }
     }));
 

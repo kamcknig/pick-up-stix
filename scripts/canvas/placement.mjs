@@ -204,6 +204,16 @@ async function _createGenericInteractiveActor(item, img, moveQty, ephemeral) {
     ?? item.system?.description
     ?? "";
 
+  // Re-placement round-trip: when an item carrying a tokenState snapshot is
+  // dropped back to the canvas (PC inventory drag-out or container row drag),
+  // pull the snapshotted light data into the new actor's flag blob so the
+  // preCreateToken hook can bake it back into tokenDoc.light. Without this,
+  // light configuration is lost on the generic path because the new actor's
+  // flags would start blank.
+  const snapshotSys = item.flags?.["pick-up-stix"]?.tokenState?.system;
+  const snapshotEmittedLight = snapshotSys?.emittedLight ?? null;
+  const snapshotLightActive = snapshotSys?.lightActive;
+
   const interactiveData = {
     mode: "item",
     name: item.name,
@@ -214,7 +224,9 @@ async function _createGenericInteractiveActor(item, img, moveQty, ephemeral) {
       img,
       description,
       quantity: moveQty
-    }
+    },
+    emittedLight: snapshotEmittedLight,
+    lightActive: snapshotLightActive ?? true
   };
 
   // Honor the configured template-vs-ephemeral folder split so generic
@@ -607,9 +619,19 @@ async function depositActorToTarget(droppedActor, targetToken) {
 
     if (targetIsInteractiveContainer) {
       // Generic container target: append a content row to its flag blob.
-      const row = { id: foundry.utils.randomID(), name, img, description, quantity };
+      // Carry the source actor's emittedLight/lightActive into the row so the
+      // carried-lights pipeline and the row lightbulb toggle read the right values.
+      const row = {
+        id: foundry.utils.randomID(),
+        name,
+        img,
+        description,
+        quantity,
+        emittedLight: droppedData.emittedLight ?? null,
+        lightActive: !!droppedData.lightActive
+      };
       const current = adapter.getInteractiveData(targetActor);
-      dbg("place:depositActorToTarget", "generic→generic-container: appending content row", { rowName: name });
+      dbg("place:depositActorToTarget", "generic→generic-container: appending content row", { rowName: name, lightActive: row.lightActive });
       await adapter.setInteractiveData(targetActor, {
         contents: [...(current.contents ?? []), row]
       });
@@ -682,9 +704,19 @@ async function depositCanvasTokenToTarget(tokenDoc, targetToken, { quantity = nu
     const isPartial = moveQty < flagQty;
 
     if (targetIsInteractiveContainer) {
-      const row = { id: foundry.utils.randomID(), name, img, description, quantity: moveQty };
+      // Carry the source actor's emittedLight/lightActive into the row so the
+      // carried-lights pipeline and the row lightbulb toggle read the right values.
+      const row = {
+        id: foundry.utils.randomID(),
+        name,
+        img,
+        description,
+        quantity: moveQty,
+        emittedLight: sourceData.emittedLight ?? null,
+        lightActive: !!sourceData.lightActive
+      };
       const current = adapter.getInteractiveData(targetActor);
-      dbg("place:depositCanvasTokenToTarget", "generic→generic-container: appending content row", { rowName: name, qty: moveQty });
+      dbg("place:depositCanvasTokenToTarget", "generic→generic-container: appending content row", { rowName: name, qty: moveQty, lightActive: row.lightActive });
       await adapter.setInteractiveData(targetActor, {
         contents: [...(current.contents ?? []), row]
       });

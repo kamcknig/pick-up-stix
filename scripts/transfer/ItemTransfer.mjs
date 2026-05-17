@@ -235,7 +235,7 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quanti
  * @param {string} args.lootType
  * @returns {object}
  */
-export function buildGenericStubItem({ name, img, description, quantity, lootType }) {
+export function buildGenericStubItem({ name, img, description, quantity, lootType, emittedLight = null, lightActive = false }) {
   const Model = CONFIG.Item.dataModels?.[lootType];
   const descField = Model?.schema?.fields?.description;
 
@@ -254,6 +254,24 @@ export function buildGenericStubItem({ name, img, description, quantity, lootTyp
     stubData.system.description = description ?? "";
   }
   // else: no description field declared on this item type — skip it.
+
+  // Persist carried-light data so the inventory-row lightbulb (Phase 4) can
+  // read it back via adapter.getItemCarriedLightData(). The shape mirrors the
+  // tokenState payload that model-backed pickups produce via stampInteractiveIdentity,
+  // keeping the row decorator system-agnostic.
+  const hasLight = emittedLight
+    && ((emittedLight.dim ?? 0) > 0 || (emittedLight.bright ?? 0) > 0);
+  if (hasLight) {
+    stubData.flags = stubData.flags ?? {};
+    stubData.flags["pick-up-stix"] = {
+      tokenState: {
+        system: {
+          emittedLight,
+          lightActive: !!lightActive
+        }
+      }
+    };
+  }
 
   return stubData;
 }
@@ -324,10 +342,17 @@ async function _pickupItemGeneric(sourceActor, tokenDoc, targetActor, quantity, 
     ? flagQty
     : Math.max(1, Math.min(Math.floor(quantity), flagQty));
 
-  const stubData = buildGenericStubItem({ name, img, description, quantity: moveQty, lootType });
+  const stubData = buildGenericStubItem({
+    name, img, description, quantity: moveQty, lootType,
+    // Propagate the source actor's configured light emission so the inventory-row
+    // lightbulb appears for stacked / picked-up torches and the carrier emits in Phase 6.
+    emittedLight: interactiveData.emittedLight,
+    lightActive: interactiveData.lightActive
+  });
 
   dbg("xfer:_pickupItemGeneric", "creating stub item on target", {
-    stubName: stubData.name, lootType, moveQty, targetActorName: targetActor.name
+    stubName: stubData.name, lootType, moveQty, targetActorName: targetActor.name,
+    hasLight: !!stubData.flags?.["pick-up-stix"]?.tokenState?.system?.emittedLight
   });
 
   await CONFIG.Item.documentClass.create(stubData, { parent: targetActor });
@@ -399,7 +424,11 @@ async function _pickupContentRow(sourceActor, targetActor, contentId, quantity) 
     img: row.img,
     description: row.description ?? "",
     quantity: moveQty,
-    lootType
+    lootType,
+    // Container content rows carry their own light data when deposited via
+    // Phase 6's deposit pipeline; default to no light when absent.
+    emittedLight: row.emittedLight,
+    lightActive: row.lightActive
   });
 
   dbg("xfer:_pickupContentRow", "creating stub on target", { stubName: stubData.name, lootType, moveQty });
@@ -476,15 +505,21 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quant
   // collection and the system would reject the create anyway). Source is
   // still decremented on its real actor.
   if (adapter.constructor.SYSTEM_ID === "generic" && adapter.isInteractiveContainer(targetActor)) {
+    // Pull carried-light snapshot from the item's tokenState flag payload so
+    // the content row remembers the light configuration for the carried-lights
+    // pipeline (carriedLights.mjs) and the row lightbulb toggle (Phase 4).
+    const tokenSys = item?.flags?.["pick-up-stix"]?.tokenState?.system ?? {};
     const row = {
       id: foundry.utils.randomID(),
       name: item.name,
       img: item.img,
       description: item.system?.description?.value ?? item.system?.description ?? "",
-      quantity: moveQty
+      quantity: moveQty,
+      emittedLight: tokenSys.emittedLight ?? null,
+      lightActive: !!tokenSys.lightActive
     };
     const current = adapter.getInteractiveData(targetActor);
-    dbg("xfer:depositItem", "generic container deposit: appending content row", { rowName: row.name, qty: moveQty });
+    dbg("xfer:depositItem", "generic container deposit: appending content row", { rowName: row.name, qty: moveQty, lightActive: row.lightActive });
     await adapter.setInteractiveData(targetActor, {
       contents: [...(current.contents ?? []), row]
     });

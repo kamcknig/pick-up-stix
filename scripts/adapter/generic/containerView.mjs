@@ -118,10 +118,20 @@ export default class GenericInteractiveContainerView
     // template doesn't correspond to anything in the world.
     context.isTokenActor = !!this.actor.token;
 
-    context.contents = (data.contents ?? []).map(c => ({
-      ...c,
-      showQuantity: (c.quantity ?? 1) > 1
-    }));
+    context.contents = (data.contents ?? []).map(c => {
+      // A content row has configured light when its own `emittedLight` record
+      // has a non-zero radius. Phase 4 deposits don't include light data yet
+      // (that arrives in Phase 6), so this will be false for all existing rows
+      // until a future phase writes emittedLight into the deposit payload.
+      const emitted = c.emittedLight;
+      const lightConfigured = !!emitted && ((emitted.dim ?? 0) > 0 || (emitted.bright ?? 0) > 0);
+      return {
+        ...c,
+        showQuantity: (c.quantity ?? 1) > 1,
+        lightConfigured,
+        lightActive: !!c.lightActive
+      };
+    });
 
     // Contents-visibility gate — same logic as the dnd5e/pf2e contents-hide
     // decorators, but evaluated inline since this sheet owns its own rendering.
@@ -184,12 +194,19 @@ export default class GenericInteractiveContainerView
     this.element.querySelectorAll(".ii-pickup-btn").forEach(btn => {
       btn.addEventListener("click", (event) => this.#onPickupClick(event, btn));
     });
+
+    // Wire lightbulb toggle buttons on content rows that have a configured
+    // emission. These only appear when the row's `lightConfigured` flag is true
+    // (set in _prepareContext from the row's own `emittedLight` data).
+    this.element.querySelectorAll(".ii-light-toggle-row").forEach(btn => {
+      btn.addEventListener("click", (event) => this.#onLightToggleClick(event, btn));
+    });
   }
 
   /**
-   * Inject Open/Close + Lock + Configure window-header toggles. Matches the
-   * dnd5e/pf2e shared decorator's order. Identify is intentionally omitted
-   * (generic mode has supportsIdentification:false).
+   * Inject Open/Close + Lock + Light + Configure window-header toggles.
+   * Matches the dnd5e/pf2e shared decorator's order. Identify is
+   * intentionally omitted (generic mode has supportsIdentification:false).
    */
   #injectHeaderToggles(header) {
     header.querySelectorAll(".ii-containerview-toggle").forEach(el => el.remove());
@@ -223,6 +240,23 @@ export default class GenericInteractiveContainerView
       onClick: (ev) => {
         ev.preventDefault();
         toggleContainerLocked(actor);
+      }
+    }));
+
+    // Light-emission config button — active state reflects configured radius.
+    const { light } = adapter.getInteractiveLightData(actor);
+    const hasLight = (light?.dim ?? 0) > 0 || (light?.bright ?? 0) > 0;
+    buttons.push(createStateToggleButton({
+      extraClass: "ii-containerview-toggle",
+      active: hasLight,
+      iconOn: "fa-lightbulb",
+      iconOff: "fa-lightbulb",
+      labelOnKey: "INTERACTIVE_ITEMS.Light.ConfigureActive",
+      labelOffKey: "INTERACTIVE_ITEMS.Light.ConfigureInactive",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        const { default: InteractiveLightConfig } = await import("../../sheets/InteractiveLightConfig.mjs");
+        InteractiveLightConfig.forActor(actor).render({ force: true });
       }
     }));
 
@@ -474,6 +508,40 @@ export default class GenericInteractiveContainerView
       { sceneId, tokenId, itemId: null, targetActorId: targetActor.id, quantity: chosenQty, contentId },
       async () => pickupItem(sceneId, tokenId, null, targetActor.id, chosenQty, contentId)
     );
+  }
+
+  /**
+   * Toggle the `lightActive` flag on the content row identified by
+   * `data-content-id`. Permitted for GMs and owners of the actor. The row's
+   * `emittedLight` and `lightActive` fields live directly on the content record
+   * in the flag blob (not on an Item document), so we toggle them by rewriting
+   * the `contents` array via `adapter.setInteractiveData`.
+   *
+   * @param {MouseEvent} event
+   * @param {HTMLElement} btn - Button carrying `data-content-id`.
+   */
+  async #onLightToggleClick(event, btn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const allowed = game.user.isGM || this.actor?.isOwner;
+    if (!allowed) return;
+    const contentId = btn?.dataset?.contentId;
+    if (!contentId) return;
+    const adapter = getAdapter();
+    const data = adapter.getInteractiveData(this.actor);
+    const rowIndex = (data.contents ?? []).findIndex(c => c.id === contentId);
+    if (rowIndex < 0) {
+      dbg("generic-container-view:onLightToggleClick", "content row not found", { contentId });
+      return;
+    }
+    const row = data.contents[rowIndex];
+    const next = !row.lightActive;
+    dbg("generic-container-view:onLightToggleClick", { contentId, from: row.lightActive, to: next });
+    const newContents = data.contents.map((c, i) =>
+      i === rowIndex ? { ...c, lightActive: next } : c
+    );
+    await adapter.setInteractiveData(this.actor, { contents: newContents });
+    this.render();
   }
 
   /**

@@ -451,6 +451,80 @@ export default class SystemAdapter {
     return actor?.system?.openImage ?? null;
   }
 
+  // === Light emission =========================================================
+
+  /**
+   * Read the configured emitted-light data and on/off state for an interactive
+   * actor. Model-backed adapters (dnd5e, pf2e) read from `actor.system.emittedLight`
+   * and `actor.system.lightActive`. The flag-backed generic adapter overrides this
+   * to read from the equivalent flag blob.
+   *
+   * `light` may be a zeroed-out default object when nothing has been configured;
+   * callers should treat `(dim ?? 0) <= 0 && (bright ?? 0) <= 0` as "no emission".
+   *
+   * @param {Actor} actor
+   * @returns {{ light: object, active: boolean }}
+   */
+  getInteractiveLightData(actor) {
+    return {
+      light: actor?.system?.emittedLight?.toObject?.() ?? actor?.system?.emittedLight ?? {},
+      active: !!actor?.system?.lightActive
+    };
+  }
+
+  /**
+   * Persist a partial update to the actor's emitted-light data and/or active
+   * flag. Model-backed adapters write to `actor.system.emittedLight` /
+   * `actor.system.lightActive`; the generic adapter overrides this to write
+   * the equivalent flag blob.
+   *
+   * @param {Actor} actor
+   * @param {object} partial
+   * @param {object}  [partial.light]  - Partial LightData-shape object; merged into existing emittedLight.
+   * @param {boolean} [partial.active] - New on/off state.
+   * @returns {Promise<Actor>}
+   */
+  async setInteractiveLightData(actor, partial) {
+    const update = {};
+    if (partial.light !== undefined) update["system.emittedLight"] = partial.light;
+    if (partial.active !== undefined) update["system.lightActive"] = !!partial.active;
+    return actor.update(update);
+  }
+
+  /**
+   * Read the carried-light data persisted onto an inventory item's flag payload
+   * (`flags["pick-up-stix"].tokenState.system.emittedLight` / `.lightActive`).
+   * Used by the carried-lights pipeline to decide whether a token should emit
+   * an additional synthetic source for this item.
+   *
+   * The default implementation is system-agnostic — every adapter stores
+   * `tokenState` identically, so no subclass override is needed.
+   *
+   * @param {Item} item
+   * @returns {{ light: object|null, active: boolean }}
+   */
+  getItemCarriedLightData(item) {
+    const sys = item?.flags?.["pick-up-stix"]?.tokenState?.system;
+    return {
+      light: sys?.emittedLight ?? null,
+      active: !!sys?.lightActive
+    };
+  }
+
+  /**
+   * Toggle the carried-light active flag on an inventory item. The change
+   * propagates to the carried-lights pipeline via the `updateItem` hook.
+   * No adapter override is needed — the `tokenState` flag path is uniform
+   * across all systems.
+   *
+   * @param {Item} item
+   * @param {boolean} active
+   * @returns {Promise<Item>}
+   */
+  async setItemCarriedLightActive(item, active) {
+    return item.update({ "flags.pick-up-stix.tokenState.system.lightActive": !!active });
+  }
+
   // === Sheet delegation ======================================================
 
   /**

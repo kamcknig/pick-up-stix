@@ -90,14 +90,24 @@
  * dnd5e renders the items-section header and each row as sibling flex
  * containers; column widths come from per-cell class selectors. Adding a
  * matched class to a header cell and a row cell keeps them aligned.
+ *
+ * Use an explicit fixed `width` with `border-box` so the empty header cell
+ * and the icon-filled data cell occupy exactly the same horizontal slot —
+ * `min-width` would let the data cell grow past the header (icons total
+ * ~22px × N + 4px gap), which pushes price/weight/quantity columns out of
+ * alignment with their headers. The width chosen fits the typical GM control
+ * set (light + lock + identify + trash = 4 icons) plus the 8px right padding
+ * that keeps the trash off the row boundary.
  */
 .dnd5e2 .items-section .items-header .ii-row-controls-cell,
 .dnd5e2 .items-section .item .ii-row-controls-cell {
-  width: 78px;
+  width: 120px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   gap: 4px;
+  padding-right: 8px;
 }
 
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
@@ -123,6 +133,31 @@
 .pick-up-stix-identify-toggle:hover {
   opacity: 1;
   color: var(--item-control-active-color, var(--color-text-hyperlink));
+}
+
+/* ===== Light Toggle (injected into inventory rows with configured emission) ===== */
+
+.pick-up-stix-light-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  font-size: 0.9em;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.pick-up-stix-light-toggle.active {
+  color: #ffaa00;
+  opacity: 1;
+}
+
+.pick-up-stix-light-toggle:hover {
+  opacity: 1;
+  color: #ffaa00;
 }
 
 /* ===== Folder Trash Button ===== */
@@ -311,6 +346,12 @@
 }
 
 .ii-contents-control:hover {
+  opacity: 1;
+}
+
+/* Active state for the light-toggle icon inside the pf2e Contents-tab rows. */
+.ii-contents-control.active {
+  color: #ffaa00;
   opacity: 1;
 }
 

@@ -16,8 +16,16 @@ export const GenericHooks = {
   registerContainerViewHooks(_handlers) {
     dbg("generic-hooks:registerContainerViewHooks", "no-op — generic mode uses its own container view sheet");
   },
-  registerActorInventoryHooks(_callback) {
-    dbg("generic-hooks:registerActorInventoryHooks", "no-op — identify UI is hidden in generic mode");
+  registerActorInventoryHooks(callback) {
+    // Subscribe to the base Foundry render hook so PC/NPC inventories on
+    // unknown systems get decorated when their markup happens to expose
+    // [data-item-id] rows (the heuristic used by the shared row decorator).
+    // Identify controls are still suppressed by supportsIdentification:false
+    // inside the callback; what the callback DOES inject in generic mode is
+    // the light-toggle row icon for items carrying a non-zero light radius.
+    // Graceful no-op when the active system's sheet uses different markup.
+    dbg("generic-hooks:registerActorInventoryHooks", "subscribing to renderActorSheet for light-row decoration");
+    Hooks.on("renderActorSheet", callback);
   },
   registerContainerDropGate(_callback) {
     dbg("generic-hooks:registerContainerDropGate", "no-op — generic container sheet handles its own drops");

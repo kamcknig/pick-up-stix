@@ -23,6 +23,17 @@
               <i class="fa-solid fa-hand"></i>
             </button>
           {{/if}}
+          {{!-- Light toggle: only rendered for rows with a configured non-zero
+                emission radius. The active class is toggled server-side so the
+                rendered state always reflects the live flag value. --}}
+          {{#if lightConfigured}}
+            <button type="button"
+                    class="ii-row-control ii-light-toggle-row pick-up-stix-light-toggle{{#if lightActive}} active{{/if}}"
+                    data-content-id="{{id}}"
+                    title="{{#if lightActive}}{{localize 'INTERACTIVE_ITEMS.Light.RowTooltipActive'}}{{else}}{{localize 'INTERACTIVE_ITEMS.Light.RowTooltipInactive'}}{{/if}}">
+              <i class="fa-solid fa-lightbulb"></i>
+            </button>
+          {{/if}}
           {{#if ../isGM}}
             <button type="button" class="ii-row-control ii-delete"
                     data-action="deleteContent" data-content-id="{{id}}"

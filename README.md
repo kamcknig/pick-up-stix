@@ -41,6 +41,13 @@ Interactive objects display through the active system's own item and container s
 - **Drag items from container contents** -- Items in a container's contents listing can be dragged out to the canvas (placed as an interactive token) or onto another character/container sheet (transfers ownership).
 - **Configurable defaults** -- Module settings for default container images (open and closed), default interaction and inspection ranges, actor folder organization, and folder color.
 
+### Light-emitting Items
+
+- **Per-item light configuration** -- Configure dim/bright radius, color, animation, and advanced lighting options for any interactive item via a lightbulb button in the sheet header (matches Foundry's standard Token Light tab).
+- **Carry-on-pickup** -- When a player picks up a lit item (torch, lantern, etc.), the carrier token emits the item's light additively to its own token-light; the carrier's own light is never overwritten. Movement updates the light position smoothly.
+- **Container gating** -- Items inside an interactive container emit light only while the container is open; closing suppresses the emission.
+- **On/off toggle** -- A lightbulb HUD button on canvas tokens (GM) and a row icon in inventories / container contents (GM or item owner) toggle emission without losing the configured radii.
+
 ### Architecture Highlights
 
 - **System adapter** -- All system-specific surfaces are isolated behind a `SystemAdapter` contract; one concrete adapter per supported system. Core code never branches on `game.system.id`, which keeps adding a new system to a single module under `scripts/adapter/`.

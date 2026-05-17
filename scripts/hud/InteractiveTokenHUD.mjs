@@ -369,6 +369,33 @@ function onRenderTokenHUD(app, html, context, options) {
     col.appendChild(identifyBtn);
   }
 
+  // GM-only light toggle. Visible only when the actor has a non-zero radius
+  // configured — turning a light "on" with no radii would do nothing visible,
+  // and the GM can always configure radii via the lightbulb header button on
+  // any of the actor's sheets. Active state mirrors `lightActive`; click
+  // flips it via the adapter, which propagates to the canvas via the Phase 5
+  // updateActor → _syncPlacedTokensLight pipeline.
+  if (isGM) {
+    const lightAdapter = getAdapter();
+    const { light: emittedLight, active: lightActive } = lightAdapter.getInteractiveLightData(actor);
+    const hasRadii = !!emittedLight
+      && ((emittedLight.dim ?? 0) > 0 || (emittedLight.bright ?? 0) > 0);
+    if (hasRadii) {
+      const lightBtn = createHUDButton(
+        "fa-lightbulb",
+        game.i18n.localize(lightActive
+          ? "INTERACTIVE_ITEMS.Light.ToggleOff"
+          : "INTERACTIVE_ITEMS.Light.ToggleOn"),
+        async () => {
+          dbg("hud:lightToggle", { actorName: actor.name, from: lightActive, to: !lightActive });
+          await lightAdapter.setInteractiveLightData(actor, { active: !lightActive });
+        }
+      );
+      if (lightActive) lightBtn.classList.add("ii-hud-active");
+      col.appendChild(lightBtn);
+    }
+  }
+
   if (isGM) {
     const configBtn = createHUDButton(
       "fa-gear",

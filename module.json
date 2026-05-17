@@ -2,7 +2,7 @@
   "id": "pick-up-stix",
   "title": "Pick-Up-Stix",
   "description": "Place interactive items and containers on the map for players to inspect, pick up, and interact with.",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "compatibility": {
     "minimum": "13",
     "verified": "14"

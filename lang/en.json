@@ -193,6 +193,15 @@
         "Label": "Pickup item type:"
       }
     },
+    "Light": {
+      "Title": "Light Emission",
+      "ConfigureActive": "Light Emission (Configured)",
+      "ConfigureInactive": "Light Emission",
+      "ToggleOn": "Turn Light On",
+      "ToggleOff": "Turn Light Off",
+      "RowTooltipActive": "Light On (click to turn off)",
+      "RowTooltipInactive": "Light Off (click to turn on)"
+    },
     "Limited": {
       "DefaultContainerName": "A container of some sort",
       "DefaultItemName": "A {type} of some sort",

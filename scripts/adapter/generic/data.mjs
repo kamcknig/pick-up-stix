@@ -23,7 +23,15 @@ export function makeDefaultInteractiveData() {
     interactionRange: 1,
     inspectionRange: 4,
     itemData: null,   // mode="item":      {name, img, description, quantity}
-    contents: []      // mode="container": Array<{id, name, img, description, quantity}>
+    contents: [],     // mode="container": Array<{id, name, img, description, quantity}>
+    /** LightData-shaped object for this actor's configured emission; null = unconfigured. */
+    emittedLight: null,
+    /**
+     * Whether the configured light emission is currently active. Default true
+     * so newly-configured items start emitting immediately; players toggle
+     * via the row lightbulb in inventories / container contents.
+     */
+    lightActive: true
   };
 }
 
@@ -148,5 +156,31 @@ export const GenericData = {
   /** Read openImage from the flag blob — actor.system has no such field on generic. */
   getInteractiveOpenImage(actor) {
     return this.getInteractiveData(actor).openImage ?? null;
+  },
+
+  /**
+   * Read light emission config from the flag blob.
+   * Falls back to an empty object (no emission) when not yet configured.
+   *
+   * @param {Actor} actor
+   * @returns {{ light: object, active: boolean }}
+   */
+  getInteractiveLightData(actor) {
+    const data = this.getInteractiveData(actor);
+    return { light: data.emittedLight ?? {}, active: !!data.lightActive };
+  },
+
+  /**
+   * Persist partial light-emission data into the flag blob.
+   *
+   * @param {Actor} actor
+   * @param {{ light?: object, active?: boolean }} partial
+   * @returns {Promise<Actor>}
+   */
+  async setInteractiveLightData(actor, partial) {
+    const patch = {};
+    if (partial.light !== undefined) patch.emittedLight = partial.light;
+    if (partial.active !== undefined) patch.lightActive = !!partial.active;
+    return this.setInteractiveData(actor, patch);
   }
 };

@@ -263,11 +263,11 @@ export default class Dnd5eInteractiveItemConfigSheet extends HandlebarsApplicati
   }
 
   /**
-   * Inject Open/Close (containers only), Lock, and Identify toggles into the
-   * config window's own header. Buttons are removed and re-added on every
-   * render so their on/off state stays in sync with `system.isOpen`/`isLocked`/
-   * `isIdentified`. Inserted immediately after `.window-title` so they sit
-   * left of dnd5e/V2's right-aligned system controls (ellipsis, close).
+   * Inject Open/Close (containers only), Lock, Identify, and Light toggles
+   * into the config window's own header. Buttons are removed and re-added on
+   * every render so their on/off state stays in sync with `system.isOpen` /
+   * `isLocked` / `isIdentified` / emittedLight. Inserted immediately after
+   * `.window-title` so they sit left of dnd5e/V2's right-aligned controls.
    */
   #injectHeaderToggles(header) {
     header.querySelectorAll(".ii-config-toggle").forEach(el => el.remove());
@@ -308,6 +308,25 @@ export default class Dnd5eInteractiveItemConfigSheet extends HandlebarsApplicati
       labelOnKey: identCfg.labelOnKey,
       labelOffKey: identCfg.labelOffKey,
       action: "toggleIdentified"
+    }));
+
+    // Light-emission config button — active state reflects whether any radius
+    // is configured (dim > 0 || bright > 0), not the lightActive on/off flag.
+    const emitted = system.emittedLight;
+    const hasLight = (emitted?.dim ?? 0) > 0 || (emitted?.bright ?? 0) > 0;
+    const actor = this.actor;
+    buttons.push(createStateToggleButton({
+      extraClass: "ii-config-toggle",
+      active: hasLight,
+      iconOn: "fa-lightbulb",
+      iconOff: "fa-lightbulb",
+      labelOnKey: "INTERACTIVE_ITEMS.Light.ConfigureActive",
+      labelOffKey: "INTERACTIVE_ITEMS.Light.ConfigureInactive",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        const { default: InteractiveLightConfig } = await import("../../sheets/InteractiveLightConfig.mjs");
+        InteractiveLightConfig.forActor(actor).render({ force: true });
+      }
     }));
 
     const title = header.querySelector(".window-title");

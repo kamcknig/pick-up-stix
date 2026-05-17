@@ -20,7 +20,13 @@ export const Dnd5eSheets = {
   async renderContainerView(actor, options = {}) {
     const item = actor.system.containerItem;
     if (!item) return null;
-    return item.sheet.render({ force: true, ...options });
+    // dnd5e's ItemSheet5e (and therefore ContainerSheet) defaults to
+    // window.resizable=false. Interactive container sheets need to be
+    // resizable so GMs can grow the window to see the full contents
+    // list. Patch the cached sheet instance's options before rendering.
+    const sheet = item.sheet;
+    if (sheet?.options?.window) sheet.options.window.resizable = true;
+    return sheet.render({ force: true, ...options });
   },
 
   /**

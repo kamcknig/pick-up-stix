@@ -137,8 +137,8 @@ export default class GenericInteractiveItemConfigSheet
   }
 
   /**
-   * Inject Lock and (containers only) Open/Close toggles into the config
-   * window's own header. Mirrors the dnd5e config sheet's
+   * Inject Lock, (containers only) Open/Close, and Light toggles into the
+   * config window's own header. Mirrors the dnd5e config sheet's
    * `#injectHeaderToggles` but reads state via the adapter so the buttons
    * reflect the flag-backed values rather than `actor.system.*`. Identify
    * is intentionally omitted — generic mode has supportsIdentification:false.
@@ -150,6 +150,7 @@ export default class GenericInteractiveItemConfigSheet
     const isContainer = adapter.isInteractiveContainer(this.actor);
     const isOpen = adapter.isInteractiveOpen(this.actor);
     const isLocked = adapter.isInteractiveLocked(this.actor);
+    const actor = this.actor;
     const buttons = [];
 
     if (isContainer) {
@@ -172,6 +173,23 @@ export default class GenericInteractiveItemConfigSheet
       labelOnKey: "INTERACTIVE_ITEMS.Sheet.StateLocked",
       labelOffKey: "INTERACTIVE_ITEMS.Sheet.StateUnlocked",
       action: "toggleLock"
+    }));
+
+    // Light-emission config button — active state reflects configured radius.
+    const { light } = adapter.getInteractiveLightData(actor);
+    const hasLight = (light?.dim ?? 0) > 0 || (light?.bright ?? 0) > 0;
+    buttons.push(createStateToggleButton({
+      extraClass: "ii-config-toggle",
+      active: hasLight,
+      iconOn: "fa-lightbulb",
+      iconOff: "fa-lightbulb",
+      labelOnKey: "INTERACTIVE_ITEMS.Light.ConfigureActive",
+      labelOffKey: "INTERACTIVE_ITEMS.Light.ConfigureInactive",
+      onClick: async (ev) => {
+        ev.preventDefault();
+        const { default: InteractiveLightConfig } = await import("../../sheets/InteractiveLightConfig.mjs");
+        InteractiveLightConfig.forActor(actor).render({ force: true });
+      }
     }));
 
     const title = header.querySelector(".window-title");

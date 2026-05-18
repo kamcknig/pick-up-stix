@@ -53,5 +53,6 @@
     }
   ],
   "socket": true,
+  "manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/refs/heads/master/module.json",
   "download": "https://github.com/kamcknig/pick-up-stix/releases/download/v3.0.1/module.zip"
 }

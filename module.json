@@ -2,7 +2,7 @@
   "id": "pick-up-stix",
   "title": "Pick-Up-Stix",
   "description": "Place interactive items and containers on the map for players to inspect, pick up, and interact with.",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "compatibility": {
     "minimum": "13",
     "verified": "14"
@@ -54,5 +54,5 @@
   ],
   "socket": true,
   "manifest": "https://raw.githubusercontent.com/kamcknig/pick-up-stix/refs/heads/master/module.json",
-  "download": "https://github.com/kamcknig/pick-up-stix/releases/download/v3.0.3/module.zip"
+  "download": "https://github.com/kamcknig/pick-up-stix/releases/download/v3.0.4/module.zip"
 }

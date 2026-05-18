@@ -174,6 +174,23 @@ export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quanti
         dbg("xfer:pickupItem", "post-stamp item data", { name: itemData.name, img: itemData.img, sourceActorId: itemData.flags?.["pick-up-stix"]?.sourceActorId });
       } else {
         dbg("xfer:pickupItem", "skipping identity stamp (container item or ephemeral)", { isContainer: sourceActor.system.isContainer, isEphemeral });
+        // Even when identity isn't stamped, the carried-light snapshot must
+        // travel with the item so the carrier emits and the inventory-row
+        // lightbulb shows. Both read from tokenState.system.{emittedLight,
+        // lightActive} via adapter.getItemCarriedLightData().
+        if (isEphemeral && !sourceActor.system.isContainer) {
+          const { light, active } = adapter.getInteractiveLightData(sourceActor);
+          const hasEmission = !!light && ((light.dim ?? 0) > 0 || (light.bright ?? 0) > 0);
+          if (hasEmission) {
+            dbg("xfer:pickupItem", "stamping carried-light snapshot onto ephemeral pickup", { dim: light.dim, bright: light.bright, active });
+            itemData.flags = itemData.flags ?? {};
+            itemData.flags["pick-up-stix"] = foundry.utils.mergeObject(
+              itemData.flags["pick-up-stix"] ?? {},
+              { tokenState: { system: { emittedLight: light, lightActive: !!active } } },
+              { inplace: false }
+            );
+          }
+        }
       }
       return itemData;
     }

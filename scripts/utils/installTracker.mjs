@@ -139,6 +139,7 @@ function _shouldSendInstallRecord(state, currentVersion) {
  */
 function _buildPayload(moduleVersion) {
   return {
+    moduleId: MODULE_ID,
     system: game.system.id,
     systemVersion: game.system.version,
     foundryVersion: game.version,

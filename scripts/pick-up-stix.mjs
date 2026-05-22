@@ -374,7 +374,6 @@ function _injectItemContextMenuEntries(item, menuItems) {
   if (!game.user.isGM) return;
   const iiFlags = getItemIIFlags(item);
   if (!iiFlags?.sourceActorId) return;
-  const sourceActorId = getItemSourceActorId(item);
 
   const isIdentified = isItemIdentified(item);
   menuItems.push({
@@ -386,14 +385,11 @@ function _injectItemContextMenuEntries(item, menuItems) {
     callback: () => toggleItemIdentification(item)
   });
 
-  // Override dnd5e's "Edit" to open our config sheet instead.
-  const editEntry = menuItems.find(e => e.name === "DND5E.ContextMenuActionEdit");
-  if (editEntry) {
-    editEntry.callback = () => {
-      const sourceActor = game.actors.get(sourceActorId);
-      if (sourceActor?.sheet?.renderConfig) sourceActor.sheet.renderConfig();
-    };
-  }
+  // Leave the system's default "Edit" entry alone so right-click → Edit on a
+  // picked-up item opens the item's own native sheet. That sheet receives the
+  // module's header injection (open/lock/identify/light/configure) and the
+  // lightbulb there routes at the item's per-item snapshot. Editing the
+  // source-actor template is still reachable from the Actors directory.
 }
 
 /**
@@ -578,19 +574,38 @@ function _resolveSheetRoot(app, html) {
 }
 
 /**
- * Build a lightbulb header button bound to an actor. Active state reflects
- * whether any light radius is configured (dim > 0 || bright > 0), independent
- * of the lightActive on/off toggle (which lives on inventory row icons).
- * Clicking opens the InteractiveLightConfig dialog for the actor.
+ * Build a lightbulb header button bound to a light target (an Actor for
+ * template editing, or an Item for per-item snapshot editing). Active state
+ * reflects whether any light radius is configured (dim > 0 || bright > 0),
+ * independent of the lightActive on/off toggle (which lives on inventory row
+ * icons). Clicking opens the InteractiveLightConfig dialog for the target.
  *
  * @param {object} args
  * @param {SystemAdapter} args.adapter
- * @param {Actor} args.actor
+ * @param {Actor|Item} args.target  - Source actor template, or inventory item snapshot.
  * @returns {HTMLElement}
  */
-function _createInteractiveLightButton({ adapter, actor }) {
-  const { light } = adapter.getInteractiveLightData(actor);
+function _createInteractiveLightButton({ adapter, target }) {
+  // `documentName` is a static field on every Foundry Document subclass; using
+  // it keeps the item-vs-actor branch system-agnostic (works for Item5e,
+  // ItemPF2e, generic Item, etc. without depending on CONFIG.Item.documentClass
+  // identity).
+  const docName = target?.documentName ?? target?.constructor?.documentName;
+  const isItemTarget = docName === "Item";
+  const { light } = isItemTarget
+    ? adapter.getItemCarriedLightData(target)
+    : adapter.getInteractiveLightData(target);
   const hasLight = (light?.dim ?? 0) > 0 || (light?.bright ?? 0) > 0;
+  dbg("lightBtn:create", {
+    targetUuid: target?.uuid,
+    targetName: target?.name,
+    docName,
+    isItemTarget,
+    lightColor: light?.color,
+    lightDim: light?.dim,
+    lightBright: light?.bright,
+    hasLight
+  });
 
   return createAdapterHeaderButton({
     adapter,
@@ -603,7 +618,7 @@ function _createInteractiveLightButton({ adapter, actor }) {
     onClick: async (ev) => {
       ev.preventDefault();
       const { default: InteractiveLightConfig } = await import("./sheets/InteractiveLightConfig.mjs");
-      InteractiveLightConfig.forActor(actor).render({ force: true });
+      InteractiveLightConfig.forTarget(target).render({ force: true });
     }
   });
 }
@@ -727,7 +742,29 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   }
 
   // Light-emission config button — always present regardless of identification support.
-  orderedNodes.push(_createInteractiveLightButton({ adapter, actor: configActor }));
+  //
+  // When the rendered item carries its own pick-up-stix tokenState snapshot
+  // (every picked-up item and deposited container content stamps one at
+  // pickup/deposit), route the lightbulb at the item so edits land on that
+  // independent snapshot rather than the source-actor template. Otherwise
+  // (source actor's own embedded item sheet, with no snapshot) fall back to
+  // the interactive actor for template editing. Matches the "items are
+  // unlinked snapshots once picked up" convention.
+  const sheetItem = app?.item;
+  const sheetItemFlags = sheetItem?.flags?.["pick-up-stix"];
+  const itemHasSnapshot = !!sheetItemFlags?.tokenState;
+  const lightTarget = itemHasSnapshot ? sheetItem : configActor;
+  dbg("inject:lightTarget", {
+    sheetItemUuid: sheetItem?.uuid,
+    sheetItemName: sheetItem?.name,
+    hasFlags: !!sheetItemFlags,
+    hasSourceActorId: !!sheetItemFlags?.sourceActorId,
+    hasTokenState: !!sheetItemFlags?.tokenState,
+    tokenStateEmittedLightColor: sheetItemFlags?.tokenState?.system?.emittedLight?.color,
+    routedTo: itemHasSnapshot ? "item" : "actor",
+    configActorName: configActor?.name
+  });
+  orderedNodes.push(_createInteractiveLightButton({ adapter, target: lightTarget }));
 
   orderedNodes.push(createAdapterHeaderButton({
     adapter,

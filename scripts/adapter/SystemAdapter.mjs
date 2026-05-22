@@ -525,6 +525,29 @@ export default class SystemAdapter {
     return item.update({ "flags.pick-up-stix.tokenState.system.lightActive": !!active });
   }
 
+  /**
+   * Persist a partial update to an inventory item's carried-light snapshot
+   * (`flags["pick-up-stix"].tokenState.system.{emittedLight,lightActive}`).
+   * Mirrors `setInteractiveLightData` but writes to the item-level snapshot
+   * rather than the actor template, so editing one carrier's light does not
+   * touch the source actor template or any other picked-up copy.
+   *
+   * The `tokenState` flag path is uniform across all systems, so no adapter
+   * override is required.
+   *
+   * @param {Item} item
+   * @param {object} partial
+   * @param {object}  [partial.light]  - Partial LightData-shape object; replaces emittedLight.
+   * @param {boolean} [partial.active] - New lightActive state.
+   * @returns {Promise<Item>}
+   */
+  async setItemCarriedLightData(item, partial) {
+    const update = {};
+    if (partial.light !== undefined) update["flags.pick-up-stix.tokenState.system.emittedLight"] = partial.light;
+    if (partial.active !== undefined) update["flags.pick-up-stix.tokenState.system.lightActive"] = !!partial.active;
+    return item.update(update);
+  }
+
   // === Sheet delegation ======================================================
 
   /**

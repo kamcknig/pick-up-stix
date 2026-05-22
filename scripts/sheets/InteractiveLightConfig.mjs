@@ -1,14 +1,16 @@
 /**
- * InteractiveLightConfig — ApplicationV2 form for editing an interactive actor's
- * emitted-light data. Reuses Foundry's stock `templates/scene/token/light.hbs`
- * template so the UI matches the Token Light tab across v13 and v14. The template
- * already exposes dim/bright/color/animation/advanced fields via `lightFields`
- * (a `foundry.data.LightData` schema slice) and `source.light.*` bindings, giving
+ * InteractiveLightConfig — ApplicationV2 form for editing emitted-light data.
+ * Accepts either an interactive Actor (template editing — source actor's
+ * `system.emittedLight`) or an inventory Item (per-item snapshot editing —
+ * `flags["pick-up-stix"].tokenState.system.emittedLight`). Reuses Foundry's
+ * stock `templates/scene/token/light.hbs` template so the UI matches the
+ * Token Light tab across v13 and v14. The template already exposes
+ * dim/bright/color/animation/advanced fields via `lightFields` (a
+ * `foundry.data.LightData` schema slice) and `source.light.*` bindings, giving
  * us v14's `priority` field automatically without any version-gating.
  *
- * The form auto-submits on every change (`submitOnChange: true`) so the GM sees
- * live feedback on the actor. Per-actor singleton cache mirrors the pattern used by
- * `Dnd5eInteractiveItemConfigSheet.forActor`.
+ * The form auto-submits on every change (`submitOnChange: true`) so the GM
+ * sees live feedback. Per-target singleton cache keyed by document UUID.
  */
 
 import { getAdapter } from "../adapter/index.mjs";
@@ -17,42 +19,98 @@ import { dbg } from "../utils/debugLog.mjs";
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
 /**
- * GM-only light-emission editor for a `pick-up-stix.interactiveItem` actor.
+ * GM-only light-emission editor.
  *
- * Opens via the lightbulb header button (Phase 3). Persists changes through
- * `adapter.setInteractiveLightData` so dnd5e, pf2e, and generic actors are all
- * covered without branching.
+ * Persists changes through `adapter.setInteractiveLightData` for an actor
+ * target, or `adapter.setItemCarriedLightData` for an item target — so dnd5e,
+ * pf2e, and generic actors are all covered without branching, and inventory
+ * items get their own independent snapshot updated rather than the source
+ * actor template.
  */
 export default class InteractiveLightConfig extends HandlebarsApplicationMixin(ApplicationV2) {
 
-  /** @type {Map<string, InteractiveLightConfig>} Per-actor singleton cache keyed by actor UUID. */
+  /** @type {Map<string, InteractiveLightConfig>} Per-target singleton cache keyed by document UUID. */
   static #instances = new Map();
 
   /**
-   * Resolve the light-config sheet for a given actor, creating a new instance on
-   * first call and returning the cached instance on subsequent calls.
+   * Resolve the light-config sheet for a given target document (Actor or Item),
+   * creating a new instance on first call and returning the cached instance on
+   * subsequent calls.
    *
-   * @param {Actor} actor
+   * @param {Actor|Item} target
    * @returns {InteractiveLightConfig}
    */
-  static forActor(actor) {
-    const key = actor.uuid;
+  static forTarget(target) {
+    const key = target.uuid;
     let sheet = InteractiveLightConfig.#instances.get(key);
     if (!sheet) {
-      sheet = new InteractiveLightConfig({ actor });
+      sheet = new InteractiveLightConfig({ target });
       InteractiveLightConfig.#instances.set(key, sheet);
     }
     return sheet;
   }
 
   /**
+   * Back-compat factory used by the actor-template editing entry points
+   * (source actor config sheets, container views). Equivalent to
+   * `forTarget(actor)`.
+   *
+   * @param {Actor} actor
+   * @returns {InteractiveLightConfig}
+   */
+  static forActor(actor) {
+    return InteractiveLightConfig.forTarget(actor);
+  }
+
+  /**
    * @param {object} options
-   * @param {Actor} options.actor - The interactive actor whose light this form edits.
+   * @param {Actor|Item} [options.target] - The interactive actor or inventory item whose light this form edits.
+   * @param {Actor}      [options.actor]  - Back-compat alias for `target` when the caller is the actor-only path.
    */
   constructor(options = {}) {
     super(options);
-    /** @type {Actor} */
-    this.actor = options.actor;
+    /** @type {Actor|Item} */
+    this.target = options.target ?? options.actor;
+  }
+
+  /**
+   * True when this form is editing an Item's per-item snapshot rather than an
+   * Actor template. Uses `documentName` (a static field exposed on every
+   * Foundry Document subclass) so detection is system-agnostic — any system's
+   * Item subclass returns "Item" without depending on CONFIG.Item.documentClass
+   * identity.
+   */
+  get isItemTarget() {
+    return (this.target?.documentName ?? this.target?.constructor?.documentName) === "Item";
+  }
+
+  /**
+   * Read the current light data from the appropriate location based on
+   * target type. Coerces a null/undefined snapshot into `{}` so the form
+   * template binds cleanly on items that were picked up before light data
+   * was first configured.
+   *
+   * @returns {{ light: object, active: boolean }}
+   */
+  #readLight() {
+    const adapter = getAdapter();
+    const data = this.isItemTarget
+      ? adapter.getItemCarriedLightData(this.target)
+      : adapter.getInteractiveLightData(this.target);
+    return { light: data.light ?? {}, active: !!data.active };
+  }
+
+  /**
+   * Persist a partial light update to the correct location for the target
+   * type — actor `system.emittedLight` (template) or item flag snapshot.
+   *
+   * @param {{ light?: object, active?: boolean }} partial
+   */
+  #writeLight(partial) {
+    const adapter = getAdapter();
+    return this.isItemTarget
+      ? adapter.setItemCarriedLightData(this.target, partial)
+      : adapter.setInteractiveLightData(this.target, partial);
   }
 
   static DEFAULT_OPTIONS = {
@@ -82,14 +140,23 @@ export default class InteractiveLightConfig extends HandlebarsApplicationMixin(A
 
   /** @override */
   get title() {
-    return `${game.i18n.localize("INTERACTIVE_ITEMS.Light.Title")}: ${this.actor.name}`;
+    return `${game.i18n.localize("INTERACTIVE_ITEMS.Light.Title")}: ${this.target.name}`;
   }
 
   /** @override */
   async _prepareContext(options) {
     const ctx = await super._prepareContext(options);
-    const adapter = getAdapter();
-    const { light } = adapter.getInteractiveLightData(this.actor);
+    const { light } = this.#readLight();
+    dbg("light-config:prepareContext", {
+      targetUuid: this.target?.uuid,
+      targetName: this.target?.name,
+      targetDocName: this.target?.documentName ?? this.target?.constructor?.documentName,
+      isItemTarget: this.isItemTarget,
+      lightKeys: light ? Object.keys(light) : null,
+      lightColor: light?.color,
+      lightDim: light?.dim,
+      lightBright: light?.bright
+    });
 
     // The token light.hbs template references source.light.* and lightFields.*.
     // Crucially, lightFields MUST come from TokenDocument's embedded copy (where
@@ -133,10 +200,9 @@ export default class InteractiveLightConfig extends HandlebarsApplicationMixin(A
    * @this {InteractiveLightConfig}
    */
   static async #onSubmit(event, form, formData) {
-    const adapter = getAdapter();
     const expanded = foundry.utils.expandObject(formData.object);
     const newLight = expanded.light ?? {};
-    const { light: oldLight } = adapter.getInteractiveLightData(this.actor);
+    const { light: oldLight } = this.#readLight();
 
     const oldHasRadii = !!oldLight
       && ((oldLight.dim ?? 0) > 0 || (oldLight.bright ?? 0) > 0);
@@ -154,19 +220,20 @@ export default class InteractiveLightConfig extends HandlebarsApplicationMixin(A
     else if (!newHasRadii && oldHasRadii) partial.active = false;
 
     dbg("light-config:submit", {
-      actorId: this.actor.id,
+      targetUuid: this.target.uuid,
+      isItemTarget: this.isItemTarget,
       lightKeys: Object.keys(newLight),
       oldHasRadii, newHasRadii,
       activeChange: partial.active
     });
 
-    await adapter.setInteractiveLightData(this.actor, partial);
+    await this.#writeLight(partial);
   }
 
   /** @override */
   async close(options = {}) {
-    dbg("light-config:close", { actorId: this.actor?.id });
-    InteractiveLightConfig.#instances.delete(this.actor?.uuid);
+    dbg("light-config:close", { targetUuid: this.target?.uuid });
+    InteractiveLightConfig.#instances.delete(this.target?.uuid);
     return super.close(options);
   }
 }

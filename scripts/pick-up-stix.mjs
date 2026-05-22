@@ -374,7 +374,6 @@ function _injectItemContextMenuEntries(item, menuItems) {
   if (!game.user.isGM) return;
   const iiFlags = getItemIIFlags(item);
   if (!iiFlags?.sourceActorId) return;
-  const sourceActorId = getItemSourceActorId(item);
 
   const isIdentified = isItemIdentified(item);
   menuItems.push({
@@ -386,14 +385,11 @@ function _injectItemContextMenuEntries(item, menuItems) {
     callback: () => toggleItemIdentification(item)
   });
 
-  // Override dnd5e's "Edit" to open our config sheet instead.
-  const editEntry = menuItems.find(e => e.name === "DND5E.ContextMenuActionEdit");
-  if (editEntry) {
-    editEntry.callback = () => {
-      const sourceActor = game.actors.get(sourceActorId);
-      if (sourceActor?.sheet?.renderConfig) sourceActor.sheet.renderConfig();
-    };
-  }
+  // Leave the system's default "Edit" entry alone so right-click → Edit on a
+  // picked-up item opens the item's own native sheet. That sheet receives the
+  // module's header injection (open/lock/identify/light/configure) and the
+  // lightbulb there routes at the item's per-item snapshot. Editing the
+  // source-actor template is still reachable from the Actors directory.
 }
 
 /**
@@ -578,19 +574,38 @@ function _resolveSheetRoot(app, html) {
 }
 
 /**
- * Build a lightbulb header button bound to an actor. Active state reflects
- * whether any light radius is configured (dim > 0 || bright > 0), independent
- * of the lightActive on/off toggle (which lives on inventory row icons).
- * Clicking opens the InteractiveLightConfig dialog for the actor.
+ * Build a lightbulb header button bound to a light target (an Actor for
+ * template editing, or an Item for per-item snapshot editing). Active state
+ * reflects whether any light radius is configured (dim > 0 || bright > 0),
+ * independent of the lightActive on/off toggle (which lives on inventory row
+ * icons). Clicking opens the InteractiveLightConfig dialog for the target.
  *
  * @param {object} args
  * @param {SystemAdapter} args.adapter
- * @param {Actor} args.actor
+ * @param {Actor|Item} args.target  - Source actor template, or inventory item snapshot.
  * @returns {HTMLElement}
  */
-function _createInteractiveLightButton({ adapter, actor }) {
-  const { light } = adapter.getInteractiveLightData(actor);
+function _createInteractiveLightButton({ adapter, target }) {
+  // `documentName` is a static field on every Foundry Document subclass; using
+  // it keeps the item-vs-actor branch system-agnostic (works for Item5e,
+  // ItemPF2e, generic Item, etc. without depending on CONFIG.Item.documentClass
+  // identity).
+  const docName = target?.documentName ?? target?.constructor?.documentName;
+  const isItemTarget = docName === "Item";
+  const { light } = isItemTarget
+    ? adapter.getItemCarriedLightData(target)
+    : adapter.getInteractiveLightData(target);
   const hasLight = (light?.dim ?? 0) > 0 || (light?.bright ?? 0) > 0;
+  dbg("lightBtn:create", {
+    targetUuid: target?.uuid,
+    targetName: target?.name,
+    docName,
+    isItemTarget,
+    lightColor: light?.color,
+    lightDim: light?.dim,
+    lightBright: light?.bright,
+    hasLight
+  });
 
   return createAdapterHeaderButton({
     adapter,
@@ -603,7 +618,7 @@ function _createInteractiveLightButton({ adapter, actor }) {
     onClick: async (ev) => {
       ev.preventDefault();
       const { default: InteractiveLightConfig } = await import("./sheets/InteractiveLightConfig.mjs");
-      InteractiveLightConfig.forActor(actor).render({ force: true });
+      InteractiveLightConfig.forTarget(target).render({ force: true });
     }
   });
 }
@@ -727,7 +742,29 @@ function _injectInteractiveSheetHeaderControls({ actor, app, html }) {
   }
 
   // Light-emission config button — always present regardless of identification support.
-  orderedNodes.push(_createInteractiveLightButton({ adapter, actor: configActor }));
+  //
+  // When the rendered item carries its own pick-up-stix tokenState snapshot
+  // (every picked-up item and deposited container content stamps one at
+  // pickup/deposit), route the lightbulb at the item so edits land on that
+  // independent snapshot rather than the source-actor template. Otherwise
+  // (source actor's own embedded item sheet, with no snapshot) fall back to
+  // the interactive actor for template editing. Matches the "items are
+  // unlinked snapshots once picked up" convention.
+  const sheetItem = app?.item;
+  const sheetItemFlags = sheetItem?.flags?.["pick-up-stix"];
+  const itemHasSnapshot = !!sheetItemFlags?.tokenState;
+  const lightTarget = itemHasSnapshot ? sheetItem : configActor;
+  dbg("inject:lightTarget", {
+    sheetItemUuid: sheetItem?.uuid,
+    sheetItemName: sheetItem?.name,
+    hasFlags: !!sheetItemFlags,
+    hasSourceActorId: !!sheetItemFlags?.sourceActorId,
+    hasTokenState: !!sheetItemFlags?.tokenState,
+    tokenStateEmittedLightColor: sheetItemFlags?.tokenState?.system?.emittedLight?.color,
+    routedTo: itemHasSnapshot ? "item" : "actor",
+    configActorName: configActor?.name
+  });
+  orderedNodes.push(_createInteractiveLightButton({ adapter, target: lightTarget }));
 
   orderedNodes.push(createAdapterHeaderButton({
     adapter,
@@ -1800,6 +1837,56 @@ Hooks.on("renderSettingsConfig", (app, html) => {
   }
 });
 
+// Captures the source token's synthetic-actor state at paste time so
+// preCreateToken can rebuild the new token's delta from the source's
+// runtime state instead of re-snapshotting from the base actor. This is
+// what makes copy/paste of a container preserve its deposited items, and
+// of an identified/locked/open token preserve those states on the copy.
+Hooks.on("pasteToken", (sourceTokens, data, options) => {
+  dbg("hook:pasteToken", "begin", { count: sourceTokens.length, cut: !!options?.cut });
+  for (let i = 0; i < sourceTokens.length; i++) {
+    const sourceToken = sourceTokens[i];
+    const entry = data[i];
+    if (!entry) continue;
+    const baseActor = game.actors.get(entry.actorId);
+    if (!isInteractiveActor(baseActor)) {
+      dbg("hook:pasteToken", "skip non-interactive", { actorId: entry.actorId });
+      continue;
+    }
+    if (entry.actorLink) {
+      dbg("hook:pasteToken", "skip actorLink=true", { actorId: entry.actorId });
+      continue;
+    }
+    const synthetic = sourceToken?.document?.actor;
+    if (!synthetic) {
+      dbg("hook:pasteToken", "skip missing synthetic actor (orphaned clipboard ref?)", {
+        sourceTokenId: sourceToken?.document?.id
+      });
+      continue;
+    }
+    const pasteSnapshot = {
+      name: synthetic.name,
+      img: synthetic.img,
+      system: synthetic.toObject().system,
+      items: synthetic.items.map(item => item.toObject()),
+      // isIdentified is a getter (derives from the embedded item via adapter)
+      // and does NOT survive toObject(); capture the resolved boolean.
+      isIdentified: synthetic.system.isIdentified
+    };
+    entry.flags ??= {};
+    entry.flags["pick-up-stix"] = foundry.utils.mergeObject(
+      entry.flags["pick-up-stix"] ?? {},
+      { pasteSnapshot }
+    );
+    dbg("hook:pasteToken", "captured paste snapshot", {
+      sourceTokenId: sourceToken.document.id,
+      actorName: synthetic.name,
+      itemCount: pasteSnapshot.items.length,
+      isIdentified: pasteSnapshot.isIdentified
+    });
+  }
+});
+
 Hooks.on("preCreateToken", (tokenDoc, data, options, userId) => {
   dbg("hook:preCreateToken", { actorId: data.actorId, actorLink: data.actorLink });
   const actor = game.actors.get(data.actorId);
@@ -1811,82 +1898,124 @@ Hooks.on("preCreateToken", (tokenDoc, data, options, userId) => {
     dbg("hook:preCreateToken", "actorLink=true, bail");
     return;
   }
-  // Block placement of an item-mode actor that hasn't had a source item
-  // assigned yet. Routed through the adapter so generic mode (where the
-  // "has embedded item" answer comes from flag data rather than actor.items)
-  // works correctly.
-  const adapterForGate = getAdapter();
-  if (!adapterForGate.isInteractiveContainer(actor) && !adapterForGate.hasInteractiveEmbeddedItem(actor)) {
-    dbg("hook:preCreateToken", "item-type actor with no embedded item, blocking placement", { actorName: actor.name });
-    ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotInitialized"));
-    return false;
-  }
+
+  const pasteSnapshot = data.flags?.["pick-up-stix"]?.pasteSnapshot;
   const savedState = data.flags?.["pick-up-stix"]?.savedState;
+
+  // Block placement of an item-mode actor that hasn't had a source item
+  // assigned yet. Paste bypasses this gate: the source token already passed
+  // it at its own placement time and its pasteSnapshot carries the embedded
+  // item explicitly. Routed through the adapter so generic mode works correctly.
+  if (!pasteSnapshot) {
+    const adapterForGate = getAdapter();
+    if (!adapterForGate.isInteractiveContainer(actor) && !adapterForGate.hasInteractiveEmbeddedItem(actor)) {
+      dbg("hook:preCreateToken", "item-type actor with no embedded item, blocking placement", { actorName: actor.name });
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotInitialized"));
+      return false;
+    }
+  }
+
+  // Source data priority: pasteSnapshot (Ctrl+V copy) > savedState
+  // (inventory drop carrying tokenState) > base actor (fresh placement).
+  let sourceName, sourceImg, sourceSystem, sourceItems, sourceItemIds, sourceIsIdentified;
+  if (pasteSnapshot) {
+    sourceName = pasteSnapshot.name;
+    sourceImg = pasteSnapshot.img;
+    sourceSystem = pasteSnapshot.system;
+    sourceItems = pasteSnapshot.items;
+    sourceItemIds = pasteSnapshot.items.map(i => i._id);
+    sourceIsIdentified = !!pasteSnapshot.isIdentified;
+  } else if (savedState) {
+    sourceName = savedState.name;
+    sourceImg = savedState.img;
+    sourceSystem = savedState.system;
+    sourceItems = actor.items.map(i => i.toObject());
+    sourceItemIds = Array.from(actor.items.keys());
+    sourceIsIdentified = actor.system.isIdentified;
+  } else {
+    sourceName = actor.name;
+    sourceImg = actor.img;
+    sourceSystem = actor.toObject().system;
+    sourceItems = actor.items.map(i => i.toObject());
+    sourceItemIds = Array.from(actor.items.keys());
+    sourceIsIdentified = actor.system.isIdentified;
+  }
+
   dbg("hook:preCreateToken", {
     actorName: actor.name,
     actorId: actor.id,
     isContainer: actor.system.isContainer,
+    hasPasteSnapshot: !!pasteSnapshot,
     hasSavedState: !!savedState,
-    itemCount: actor.items.size,
-    actorImg: actor.img
+    itemCount: sourceItems.length,
+    sourceIsIdentified
   });
-  const source = savedState ?? { name: actor.name, img: actor.img, system: actor.toObject().system };
-  const delta = {
-    name: source.name,
-    img: source.img,
-    system: source.system
-  };
-  if (actor.items.size > 0) {
-    delta.items = actor.items.map(i => i.toObject());
+
+  const delta = { name: sourceName, img: sourceImg, system: sourceSystem };
+  if (sourceItems.length > 0) {
+    delta.items = sourceItems;
   }
   const updates = {
     delta,
     flags: {
       "pick-up-stix": {
-        snapshotItemIds: Array.from(actor.items.keys())
+        snapshotItemIds: sourceItemIds
       }
     }
   };
-  if (savedState) {
-    updates.name = source.name;
+  if (pasteSnapshot || savedState) {
+    updates.name = sourceName;
   }
-  const system = source.system;
   const isContainer = actor.system.isContainer;
-  if (isContainer && system.isOpen && system.openImage) {
-    updates.texture = { src: system.openImage };
+  if (isContainer && sourceSystem.isOpen && sourceSystem.openImage) {
+    updates.texture = { src: sourceSystem.openImage };
   }
-  // actor.system.isIdentified is a getter — not present on toObject()'s plain object.
-  if (!isContainer && !actor.system.isIdentified && system.unidentifiedImage) {
-    updates.texture = { src: system.unidentifiedImage };
+  // sourceIsIdentified captures the getter value; safe for all three source paths.
+  if (!isContainer && !sourceIsIdentified && sourceSystem.unidentifiedImage) {
+    updates.texture = { src: sourceSystem.unidentifiedImage };
   }
   // When the actor has an active light emission configured, bake it into the
   // token's light field at creation time. EmbeddedDataField(LightData) normalises
   // the plain object on the server so we can pass it verbatim.
   //
-  // Prefer the snapshot's light data over the base actor's. When an item is
-  // re-placed from a player's inventory (or a container's contents) it carries
-  // tokenState.system.{emittedLight,lightActive} from the time of pickup —
-  // but `actor` here is the BASE actor, whose light may differ from the
-  // synthetic the item was picked up from. Falling back to the base actor's
-  // light covers fresh placements (no savedState) and generic actors whose
-  // _createGenericInteractiveActor already mirrors the source's light into
-  // the new actor's flag blob.
-  const savedSystem = savedState?.system;
-  const emittedLight = savedSystem?.emittedLight
-    ?? getAdapter().getInteractiveLightData(actor).light;
-  const lightActive = savedSystem
-    ? !!savedSystem.lightActive
+  // Prefer the paste snapshot's or saved state's light data over the base actor's.
+  // When an item is re-placed from a player's inventory (or a container's contents)
+  // it carries tokenState.system.{emittedLight,lightActive} from the time of
+  // pickup — but `actor` here is the BASE actor, whose light may differ from the
+  // synthetic the item was picked up from. Falling back to the base actor's light
+  // covers fresh placements (no savedState/pasteSnapshot) and generic actors whose
+  // _createGenericInteractiveActor already mirrors the source's light into the new
+  // actor's flag blob.
+  const lightSourceSystem = pasteSnapshot?.system ?? savedState?.system;
+  const emittedLight = lightSourceSystem?.emittedLight ?? getAdapter().getInteractiveLightData(actor).light;
+  const lightActive = lightSourceSystem
+    ? !!lightSourceSystem.lightActive
     : getAdapter().getInteractiveLightData(actor).active;
   const hasEmission = !!emittedLight && ((emittedLight.dim ?? 0) > 0 || (emittedLight.bright ?? 0) > 0);
   if (lightActive && hasEmission) {
     dbg("hook:preCreateToken", "baking emittedLight into token.light", {
       dim: emittedLight.dim, bright: emittedLight.bright,
-      fromSavedState: !!savedSystem?.emittedLight
+      fromPasteSnapshot: !!pasteSnapshot?.system?.emittedLight,
+      fromSavedState: !!savedState?.system?.emittedLight
     });
     updates.light = emittedLight;
   }
   updates.sort = -1;
+
+  // Clear the transient paste snapshot so it doesn't persist on the pasted
+  // token. mergeObject in updateSource honors "-=key" markers.
+  if (pasteSnapshot) {
+    updates.flags["pick-up-stix"]["-=pasteSnapshot"] = null;
+  }
+
   tokenDoc.updateSource(updates);
+
+  // Defensive fallback: if Foundry's updateSource ever stops processing
+  // "-=" markers, drop the key directly from _source. Harmless when
+  // updateSource already removed it.
+  if (pasteSnapshot && tokenDoc._source?.flags?.["pick-up-stix"]?.pasteSnapshot) {
+    delete tokenDoc._source.flags["pick-up-stix"].pasteSnapshot;
+  }
 });
 
 Hooks.on("preUpdateToken", (tokenDoc, changes, options, userId) => {

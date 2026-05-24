@@ -1,6 +1,7 @@
 import { getTokenActor, isInteractiveActor } from "../utils/actorHelpers.mjs";
 import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
+import { emitSocketEvent, closeTokenHudIfMatching } from "../socket/SocketHandler.mjs";
 import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
 import { dbg } from "../utils/debugLog.mjs";
@@ -91,6 +92,12 @@ function getPlayerPositionOverride(tokenId) {
  */
 export async function pickupItem(sceneId, tokenId, itemId, targetActorId, quantity = null) {
   dbg("xfer:pickupItem", { sceneId, tokenId, itemId, targetActorId, quantity });
+  // Dismiss any open Token HUD bound to this token on every client — pickup
+  // mutates or deletes the source so a stale HUD would lie. The emitter does
+  // not receive its own broadcast echo, so close locally as well (matters when
+  // a player triggers pickup and the GM has the same HUD open).
+  emitSocketEvent("closeTokenHud", { sceneId, tokenId });
+  closeTokenHudIfMatching(sceneId, tokenId);
   const result = getTokenActor(sceneId, tokenId);
   const targetActor = game.actors.get(targetActorId);
 

@@ -7,6 +7,7 @@ import { dbg } from "../utils/debugLog.mjs";
 import { dragModifiersHeld } from "../utils/dragModifier.mjs";
 import { findCanvasDropTargets, promptDropChoice, PLACE_ON_CANVAS } from "../utils/canvasDropTargets.mjs";
 import { hasLevels, getViewedLevelId, getTokenLevelId } from "../utils/levels.mjs";
+import { isModuleGM } from "../utils/playerView.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -131,20 +132,25 @@ async function _handleItemDrop(data) {
     dbg("place:_handleItemDrop", "user chose PLACE_ON_CANVAS, fall through to placement");
   }
 
-  if (game.user.isGM) {
-    dbg("place:_handleItemDrop", "GM path — createInteractiveToken", {
-      x: data.x, y: data.y, ephemeral, level: data.level ?? null
-    });
-    await createInteractiveToken(item, data.x, data.y, { ephemeral, level: data.level ?? null });
-    if (item.actor) await item.delete({ deleteContents: true });
-  } else {
+  // Placement target. Full-GM users drop freeform at the cursor. Real players,
+  // and GMs in preview-as-player mode (GM Override disabled) dragging from an
+  // actor inventory, land the token on the dragging actor's own token. GMs in
+  // preview mode dropping a world item (no `item.actor`) still drop freeform —
+  // there's no inventory to anchor to.
+  const treatAsGM = isModuleGM() || !item.actor;
+
+  let targetX = data.x;
+  let targetY = data.y;
+  let targetLevel = data.level ?? null;
+
+  if (!treatAsGM) {
     // Prefer the owner's canvas token so the item lands at the dragger's position,
     // not the first controlled token.
     const ownerToken = item.actor
       ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
       : null;
     const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
-    dbg("place:_handleItemDrop", "player path", {
+    dbg("place:_handleItemDrop", "non-GM placement target", {
       ownerTokenId: ownerToken?.document?.id, playerTokenId: playerToken?.document?.id, ephemeral
     });
     if (!playerToken) {
@@ -152,22 +158,30 @@ async function _handleItemDrop(data) {
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoCharacter"));
       return;
     }
-    const x = playerToken.document.x;
-    const y = playerToken.document.y;
-    // Player drops always target the player's character's level, even if the GM
-    // is currently viewing a different level.
-    const playerLevel = getTokenLevelId(playerToken.document);
+    targetX = playerToken.document.x;
+    targetY = playerToken.document.y;
+    // Always target the player's character's level, even if a GM in preview
+    // mode is currently viewing a different level.
+    targetLevel = getTokenLevelId(playerToken.document);
+  }
 
-    dbg("place:_handleItemDrop", "routing placeItem via socket",
-      { x, y, level: playerLevel, ephemeral, itemUuid: data.uuid });
+  if (game.user.isGM) {
+    dbg("place:_handleItemDrop", "GM-user path — createInteractiveToken", {
+      x: targetX, y: targetY, ephemeral, level: targetLevel, treatAsGM
+    });
+    await createInteractiveToken(item, targetX, targetY, { ephemeral, level: targetLevel });
+    if (item.actor) await item.delete({ deleteContents: true });
+  } else {
+    dbg("place:_handleItemDrop", "player path — routing placeItem via socket",
+      { x: targetX, y: targetY, level: targetLevel, ephemeral, itemUuid: data.uuid });
     dispatchGM(
       "placeItem",
       {
         itemUuid: data.uuid,
         sourceActorId: item.actor?.id ?? null,
         itemId: item.id,
-        x, y,
-        level: playerLevel,
+        x: targetX, y: targetY,
+        level: targetLevel,
         ephemeral
       },
       () => {} // unreachable — game.user.isGM is false in this branch

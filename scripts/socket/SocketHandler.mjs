@@ -3,6 +3,7 @@ import { createInteractiveToken, splitInteractiveToken } from "../canvas/placeme
 import { getTokenActor } from "../utils/actorHelpers.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
+import { setInitiator, clearInitiator } from "../utils/notify.mjs";
 
 const SOCKET_NAME = "module.pick-up-stix";
 
@@ -22,6 +23,18 @@ export function registerSocket() {
       return;
     }
 
+    // Stamp the initiating user for downstream notifyItemAction calls so the
+    // GM's notifications include the player's name.
+    setInitiator(payload.data?._initiatorUserId ?? null);
+    try {
+      await _dispatch(payload);
+    } finally {
+      clearInitiator();
+    }
+  });
+}
+
+async function _dispatch(payload) {
     switch (payload.action) {
       case "pickupItem":
         await pickupItem(
@@ -81,7 +94,6 @@ export function registerSocket() {
         );
         break;
     }
-  });
 }
 
 export function emitSocketEvent(action, data) {

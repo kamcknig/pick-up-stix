@@ -9,6 +9,8 @@ export async function dispatchGM(action, data, gmFn) {
     return true;
   }
   dbg("gmDispatch:dispatchGM", "routing via socket (player)");
-  emitSocketEvent(action, data);
+  // Inject the initiating user's id so the GM-side handler can attribute the
+  // resulting notification to the player who triggered the action.
+  emitSocketEvent(action, { ...data, _initiatorUserId: game.user.id });
   return true;
 }

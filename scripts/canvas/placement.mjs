@@ -9,6 +9,7 @@ import { findCanvasDropTargets, promptDropChoice, PLACE_ON_CANVAS } from "../uti
 import { hasLevels, getViewedLevelId, getTokenLevelId } from "../utils/levels.mjs";
 import { getAdapter } from "../adapter/index.mjs";
 import { promptItemQuantity, decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
+import { isModuleGM } from "../utils/playerView.mjs";
 
 const MODULE_ID = "pick-up-stix";
 
@@ -180,11 +181,44 @@ async function _handleItemDrop(data) {
   }
   // ---------- End quantity prompt (canvas placement branch) ----------
 
-  if (game.user.isGM) {
-    dbg("place:_handleItemDrop", "GM path — createInteractiveToken", {
-      x: data.x, y: data.y, ephemeral, level: data.level ?? null, chosenQuantity
+  // Placement target. Full-GM users drop freeform at the cursor. Real players,
+  // and GMs in preview-as-player mode (GM Override disabled) dragging from an
+  // actor inventory, land the token on the dragging actor's own token. GMs in
+  // preview mode dropping a world item (no `item.actor`) still drop freeform —
+  // there's no inventory to anchor to.
+  const treatAsGM = isModuleGM() || !item.actor;
+
+  let targetX = data.x;
+  let targetY = data.y;
+  let targetLevel = data.level ?? null;
+
+  if (!treatAsGM) {
+    // Prefer the owner's canvas token so the item lands at the dragger's position,
+    // not the first controlled token.
+    const ownerToken = item.actor
+      ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
+      : null;
+    const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
+    dbg("place:_handleItemDrop", "non-GM placement target", {
+      ownerTokenId: ownerToken?.document?.id, playerTokenId: playerToken?.document?.id, ephemeral
     });
-    await createInteractiveToken(item, data.x, data.y, { ephemeral, level: data.level ?? null, quantity: chosenQuantity });
+    if (!playerToken) {
+      dbg("place:_handleItemDrop", "no player token found, bail");
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoCharacter"));
+      return;
+    }
+    targetX = playerToken.document.x;
+    targetY = playerToken.document.y;
+    // Always target the player's character's level, even if a GM in preview
+    // mode is currently viewing a different level.
+    targetLevel = getTokenLevelId(playerToken.document);
+  }
+
+  if (game.user.isGM) {
+    dbg("place:_handleItemDrop", "GM-user path — createInteractiveToken", {
+      x: targetX, y: targetY, ephemeral, level: targetLevel, chosenQuantity, treatAsGM
+    });
+    await createInteractiveToken(item, targetX, targetY, { ephemeral, level: targetLevel, quantity: chosenQuantity });
     // Decrement or delete the source based on how much was placed.
     // World items (no actor) are not decremented — there is no source to split.
     if (item.actor) {
@@ -195,36 +229,16 @@ async function _handleItemDrop(data) {
       }
     }
   } else {
-    // Prefer the owner's canvas token so the item lands at the dragger's position,
-    // not the first controlled token.
-    const ownerToken = item.actor
-      ? canvas.tokens.placeables.find(t => t.actor?.id === item.actor.id) ?? null
-      : null;
-    const playerToken = ownerToken ?? getPlayerCandidateTokens()[0] ?? null;
-    dbg("place:_handleItemDrop", "player path", {
-      ownerTokenId: ownerToken?.document?.id, playerTokenId: playerToken?.document?.id, ephemeral
-    });
-    if (!playerToken) {
-      dbg("place:_handleItemDrop", "no player token found, bail");
-      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoCharacter"));
-      return;
-    }
-    const x = playerToken.document.x;
-    const y = playerToken.document.y;
-    // Player drops always target the player's character's level, even if the GM
-    // is currently viewing a different level.
-    const playerLevel = getTokenLevelId(playerToken.document);
-
-    dbg("place:_handleItemDrop", "routing placeItem via socket",
-      { x, y, level: playerLevel, ephemeral, itemUuid: data.uuid, chosenQuantity });
+    dbg("place:_handleItemDrop", "player path — routing placeItem via socket",
+      { x: targetX, y: targetY, level: targetLevel, ephemeral, itemUuid: data.uuid, chosenQuantity });
     dispatchGM(
       "placeItem",
       {
         itemUuid: data.uuid,
         sourceActorId: item.actor?.id ?? null,
         itemId: item.id,
-        x, y,
-        level: playerLevel,
+        x: targetX, y: targetY,
+        level: targetLevel,
         ephemeral,
         quantity: chosenQuantity   // forwarded to GM-side handler
       },

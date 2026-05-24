@@ -9,7 +9,14 @@ const SOCKET_NAME = "module.pick-up-stix";
 export function registerSocket() {
   game.socket.on(SOCKET_NAME, async (payload) => {
     dbg("socket:received", { action: payload.action, data: payload.data, isGM: game.user.isGM });
-    // Only the active GM processes socket requests
+
+    // Broadcast actions handled by every client (not just the GM).
+    if (payload.action === "closeTokenHud") {
+      closeTokenHudIfMatching(payload.data?.sceneId, payload.data?.tokenId);
+      return;
+    }
+
+    // Only the active GM processes the remaining socket requests
     if (!game.user.isGM) {
       dbg("socket:received", "not GM, ignoring socket event");
       return;
@@ -79,4 +86,16 @@ export function registerSocket() {
 export function emitSocketEvent(action, data) {
   dbg("socket:emit", { action, data });
   game.socket.emit(SOCKET_NAME, { action, data });
+}
+
+// Close the Token HUD on this client if it's currently bound to the given
+// scene/token. `game.socket.emit` does not echo to the sender, so the emitter
+// must also invoke this directly when it wants its own HUD dismissed.
+export function closeTokenHudIfMatching(sceneId, tokenId) {
+  const hud = canvas?.tokens?.hud;
+  const hudToken = hud?.object;
+  if (hud?.rendered && hudToken?.document?.id === tokenId && hudToken?.scene?.id === sceneId) {
+    dbg("socket:closeTokenHud", "closing HUD on this client", { sceneId, tokenId });
+    hud.clear();
+  }
 }

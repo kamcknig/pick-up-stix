@@ -66,8 +66,9 @@ export async function maybeSendInstallRecord() {
   // Version differs from the stored version → reset attempt counter so an
   // upgrade always gets a fresh 3 tries regardless of prior failure history.
   const attemptsForThisVersion = state.version === currentVersion ? state.attempts : 0;
+  const isUpgrade = state.version !== null && state.version !== currentVersion;
 
-  const payload = _buildPayload(currentVersion);
+  const payload = _buildPayload(currentVersion, isUpgrade);
   dbg("install:maybeSend", "posting install record", {
     endpoint: ENDPOINT, payload, attempt: attemptsForThisVersion + 1
   });
@@ -135,11 +136,13 @@ function _shouldSendInstallRecord(state, currentVersion) {
  * Build the JSON payload sent to the install-tracker endpoint.
  *
  * @param {string} moduleVersion - Current module version string.
+ * @param {boolean} updated - True when the module version changed since the last recorded send.
  * @returns {object}
  */
-function _buildPayload(moduleVersion) {
+function _buildPayload(moduleVersion, updated = false) {
   return {
     moduleId: MODULE_ID,
+    updated,
     system: game.system.id,
     systemVersion: game.system.version,
     foundryVersion: game.version,

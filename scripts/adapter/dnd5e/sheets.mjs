@@ -1,3 +1,5 @@
+import { dbg } from "../../utils/debugLog.mjs";
+
 /**
  * dnd5e sheet-delegation methods for the SystemAdapter contract.
  * dnd5e ships a window-style ContainerSheet and ItemSheet5e; this adapter
@@ -75,5 +77,22 @@ export const Dnd5eSheets = {
     const sheet = Dnd5eInteractiveItemConfigSheet.forActor(actor);
     await sheet.render({ force: true, ...options });
     return sheet;
+  },
+
+  /**
+   * Register Dnd5eVendorSheet as the default sheet for `pick-up-stix.vendor`.
+   * Called once from init via the adapter. dnd5e has no closed actor registry,
+   * so registering the sheet is sufficient.
+   *
+   * @returns {Promise<void>}
+   */
+  async registerVendorSheet() {
+    const { default: Dnd5eVendorSheet } = await import("./vendorSheet.mjs");
+    dbg("dnd5e-sheets:registerVendorSheet", "registering vendor sheet for pick-up-stix.vendor");
+    foundry.documents.collections.Actors.registerSheet("pick-up-stix", Dnd5eVendorSheet, {
+      types: ["pick-up-stix.vendor"],
+      makeDefault: true,
+      label: "Vendor Sheet"
+    });
   }
 };

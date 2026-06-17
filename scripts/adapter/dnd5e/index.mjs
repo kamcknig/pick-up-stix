@@ -3,6 +3,8 @@ import { Dnd5eIdentification } from "./identification.mjs";
 import { Dnd5eContainer } from "./container.mjs";
 import { Dnd5eSheets } from "./sheets.mjs";
 import { Dnd5eHooks } from "./hooks.mjs";
+import { Dnd5ePurchase } from "./purchase.mjs";
+import Dnd5eVendorModel from "./vendorModel.mjs";
 
 /**
  * Concrete SystemAdapter implementation for the dnd5e game system.
@@ -22,6 +24,13 @@ export default class Dnd5eAdapter extends SystemAdapter {
 
   /** @type {string} */
   static SYSTEM_ID = "dnd5e";
+
+  constructor() {
+    super();
+    // Vendor uses dnd5e's NPC data model so the reused inventory tab has the
+    // currency + encumbrance fields it reads.
+    CONFIG.Actor.dataModels["pick-up-stix.vendor"] = Dnd5eVendorModel;
+  }
 
   capabilities = {
     /** dnd5e has no unidentified-image field on items. */
@@ -60,3 +69,4 @@ Object.assign(Dnd5eAdapter.prototype, Dnd5eIdentification);
 Object.assign(Dnd5eAdapter.prototype, Dnd5eContainer);
 Object.assign(Dnd5eAdapter.prototype, Dnd5eSheets);
 Object.assign(Dnd5eAdapter.prototype, Dnd5eHooks);
+Object.assign(Dnd5eAdapter.prototype, Dnd5ePurchase);

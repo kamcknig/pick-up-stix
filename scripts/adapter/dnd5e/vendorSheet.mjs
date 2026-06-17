@@ -4,6 +4,7 @@ import { dispatchGM } from "../../utils/gmDispatch.mjs";
 import { notifyPurchase } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
 import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
+import { createRowControl } from "../../utils/domButtons.mjs";
 
 const NPCActorSheet = dnd5e.applications.actor.NPCActorSheet;
 
@@ -123,6 +124,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       this.#refreshWareRow(row);
     }
     this.#refreshSubtitleTooltips();
+    this.#injectInventoryShopToggles();
     if (this.#currencyHookId === null) {       // register the live-update hooks once
       this.#currencyHookId = Hooks.on("updateActor", this.#onBuyerCurrencyChange.bind(this));
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
@@ -183,6 +185,49 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       if ( sub.scrollWidth > sub.clientWidth ) sub.dataset.tooltip = sub.textContent;
       else delete sub.dataset.tooltip;
     }
+  }
+
+  /**
+   * Inject a shop-visibility toggle into each Inventory-tab item row (GM only).
+   * Appends a matching empty header spacer and a `.ii-row-controls-cell
+   * pus-shop-toggle-cell` div containing the toggle to every `[data-item-id]` row.
+   * Uses the same `.ii-row-controls-cell` class as `_injectActorInventoryIdentifyToggles`
+   * so that function's idempotency guard (`:scope > .ii-row-controls-cell`) skips vendor
+   * rows — the vendor gets only this toggle, not the interactive lock/identify/trash.
+   * Called from `_onRender` which runs before the generic `renderNPCActorSheet` hook,
+   * so our cell always wins the idempotency race.
+   */
+  #injectInventoryShopToggles() {
+    if ( !game.user.isGM ) return;
+    const root = this.element;
+    // Append an empty header spacer for column alignment (idempotent).
+    root.querySelectorAll(".items-section .items-header.header").forEach(header => {
+      if ( header.querySelector(".ii-row-controls-cell") ) return;
+      const cell = document.createElement("div");
+      cell.className = "item-header ii-row-controls-cell pus-shop-toggle-cell";
+      header.appendChild(cell);
+    });
+    // Append the toggle to each item row (idempotent via the same guard).
+    root.querySelectorAll("[data-item-id]").forEach(el => {
+      const item = this.actor.items.get(el.dataset.itemId);
+      const itemRow = el.querySelector(".item-row");
+      if ( !item || !itemRow || itemRow.querySelector(":scope > .ii-row-controls-cell") ) return;
+      const visible = item.getFlag("pick-up-stix", "shopVisible") !== false;
+      dbg("vendorSheet:injectInventoryShopToggles", { item: item.id, name: item.name, visible });
+      const cell = document.createElement("div");
+      cell.className = "item-detail ii-row-controls-cell pus-shop-toggle-cell";
+      cell.appendChild(createRowControl({
+        iconClass: "fa-solid fa-box-arrow-down-arrow-up",
+        titleKey: "INTERACTIVE_ITEMS.Vendor.ToggleShopVisible",
+        extraClass: "pick-up-stix-shop-toggle",
+        active: visible,
+        onClick: async () => {
+          dbg("vendorSheet:shopToggleClick", { item: item.id, name: item.name, from: visible, to: !visible });
+          await item.setFlag("pick-up-stix", "shopVisible", !visible);
+        }
+      }));
+      itemRow.appendChild(cell);
+    });
   }
 
   async close(options = {}) {

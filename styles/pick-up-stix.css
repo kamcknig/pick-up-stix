@@ -110,6 +110,10 @@
   padding-right: 8px;
 }
 
+/* Vendor Inventory toggle cell — one icon only, so narrower than the 4-icon default. */
+.dnd5e2 .items-section .items-header .pus-shop-toggle-cell,
+.dnd5e2 .items-section .item .pus-shop-toggle-cell { width: 40px; }
+
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
 
 .pick-up-stix-identify-toggle {

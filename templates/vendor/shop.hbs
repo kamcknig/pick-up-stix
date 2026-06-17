@@ -1,22 +1,36 @@
-{{!-- Wrapped in dnd5e's tab root so it shows only when the Shop tab is active
-      (the GM's full NPC sheet has many tabs; tab.cssClass = "active" toggles it). --}}
+{{!-- Wrapped in dnd5e's tab root so it shows only when the Shop tab is active. --}}
 <section class="tab {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
-  <section class="vendor-shop">
-    <ul class="vendor-shop-list">
-      {{#each wares}}
-      <li class="vendor-ware" data-item-id="{{this.id}}">
-        <img class="vendor-ware-img" src="{{this.img}}" alt="{{this.name}}" />
-        <span class="vendor-ware-name">{{this.name}}</span>
-        <span class="vendor-ware-qty">×{{this.quantity}}</span>
-        <span class="vendor-ware-price">{{this.price.value}} {{this.price.denomination}}</span>
-        {{!-- Disabled by default; _onRender enables it when the buyer can afford this ware. --}}
+  <section class="vendor-shop" style="--shop-cols: {{ shop.columnTemplate }};">
+    {{#each shop.groups}}
+    <div class="shop-group" data-group-key="{{ this.key }}">
+      <div class="shop-group-header">
+        <span class="shop-group-title">{{ this.title }}</span>
+        {{#each ../shop.headers}}
+        <span class="shop-col-header shop-align-{{ this.align }}">{{ localize this.label }}</span>
+        {{/each}}
+        <span class="shop-col-header"></span>{{!-- Buy column: no header --}}
+      </div>
+      {{#each this.wares}}
+      <div class="shop-ware" data-item-id="{{ this.id }}">
+        <div class="shop-ware-main">
+          <img class="shop-ware-img" src="{{ this.img }}" alt="{{ this.name }}" />
+          <div class="shop-ware-text">
+            <span class="shop-ware-name">{{ this.name }}</span>
+            {{#if this.subtitle}}<span class="shop-ware-sub">{{ this.subtitle }}</span>{{/if}}
+          </div>
+        </div>
+        {{#each this.cells}}
+        <span class="shop-cell shop-align-{{ this.align }} {{ this.classes }}"
+              {{#if this.tooltip}}data-tooltip="{{ this.tooltip }}"{{/if}}>{{ this.text }}</span>
+        {{/each}}
         <button type="button" class="vendor-buy" data-action="buyWare" disabled>
-          {{localize "INTERACTIVE_ITEMS.Vendor.Buy"}}
+          {{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}
         </button>
-      </li>
-      {{else}}
-      <li class="vendor-ware-empty">{{localize "INTERACTIVE_ITEMS.Vendor.Empty"}}</li>
+      </div>
       {{/each}}
-    </ul>
+    </div>
+    {{else}}
+    <p class="vendor-ware-empty">{{ localize "INTERACTIVE_ITEMS.Vendor.Empty" }}</p>
+    {{/each}}
   </section>
 </section>

@@ -1,4 +1,5 @@
 import { dbg } from "../../utils/debugLog.mjs";
+import { isVendorActor } from "../../utils/actorHelpers.mjs";
 
 /**
  * dnd5e sheet-delegation methods for the SystemAdapter contract.
@@ -93,6 +94,17 @@ export const Dnd5eSheets = {
       types: ["pick-up-stix.vendor"],
       makeDefault: true,
       label: "Vendor Sheet"
+    });
+
+    // dnd5e auto-equips physical items created on creature actors (NPCData.preCreateEquipped
+    // sets `equipped = actor.system.isNPC`, dnd5e.mjs:13928). Our NPC-backed vendor is a shop,
+    // not a combatant — its stock must never be equipped. Force `equipped: false` on items
+    // created on a vendor. (preCreateEquipped runs first; this hook overrides its result.)
+    Hooks.on("preCreateItem", (item, _data, _options, _userId) => {
+      if (!isVendorActor(item.parent)) return;
+      if (item.system?.equipped !== true) return;   // skip non-equippables / already unequipped
+      dbg("dnd5e-sheets:vendorNoEquip", "unequipping vendor stock item", { item: item.name, actor: item.parent?.name });
+      item.updateSource({ "system.equipped": false });
     });
   }
 };

@@ -270,7 +270,9 @@
       "Description": "Description",
       "Buy": "Buy",
       "Empty": "This vendor has nothing for sale.",
-      "ShopTab": "Shop"
+      "ShopTab": "Shop",
+      "Col": { "Rarity": "Rarity", "Stock": "Stock", "Price": "Price" },
+      "Group": { "Type": "Type" }
     }
   },
   "TYPES": {

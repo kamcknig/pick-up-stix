@@ -3,6 +3,7 @@ import { getPlayerCandidateTokens, purchaseItem } from "../../transfer/ItemTrans
 import { dispatchGM } from "../../utils/gmDispatch.mjs";
 import { notifyPurchase } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
+import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
 
 const NPCActorSheet = dnd5e.applications.actor.NPCActorSheet;
 
@@ -23,6 +24,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   #currencyHookId = null;
   #controlHookId = null;
+  #groupingId = DEFAULT_GROUPING;
 
   constructor(options) {
     super(options);
@@ -111,10 +113,33 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       const item = itemId ? this.actor.items.get(itemId) : null;
       button.disabled = !(item && buyer && adapter.canAfford(buyer, item, 1));
     }
+    this.#refreshSubtitleTooltips();
     if (this.#currencyHookId === null) {       // register the live-update hooks once
       this.#currencyHookId = Hooks.on("updateActor", this.#onBuyerCurrencyChange.bind(this));
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
       this.#controlHookId = Hooks.on("controlToken", () => { if (this.rendered) this.render(); });
+    }
+  }
+
+  /**
+   * Re-evaluate subtitle truncation when a tab is shown. The GM's Shop tab is hidden
+   * at first render (they land on an NPC tab), so the `_onRender` pass sees a zero-size
+   * element and can't detect clipping; rerun once Shop becomes the active tab.
+   */
+  changeTab(tab, group, options) {
+    super.changeTab(tab, group, options);
+    if ( tab === "shop" ) this.#refreshSubtitleTooltips();
+  }
+
+  /**
+   * Tooltip the full subtitle on any `.shop-ware-sub` that's visually clipped. Needs the
+   * shop content visible (a hidden tab has no layout box → scrollWidth/clientWidth are 0),
+   * so it's called from `_onRender` (player / re-render while on Shop) and `changeTab`.
+   */
+  #refreshSubtitleTooltips() {
+    for ( const sub of this.element.querySelectorAll(".shop-ware-sub") ) {
+      if ( sub.scrollWidth > sub.clientWidth ) sub.dataset.tooltip = sub.textContent;
+      else delete sub.dataset.tooltip;
     }
   }
 
@@ -135,28 +160,23 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   async _preparePartContext(partId, context, options) {
     context = await super._preparePartContext(partId, context, options);
-    if ( partId === "shop" ) context.wares = this.#prepareWares();
+    if ( partId === "shop" ) context.shop = this.#prepareShop();
     return context;
   }
 
   /**
-   * Build a flat ware list from the vendor's physical items for the shop view.
-   * Reads only adapter-abstracted accessors so dnd5e assumptions stay in the
-   * adapter rather than here.
+   * Build the grouped shop structure from the vendor's physical items.
+   * Delegates bucketing, column cell building, and sort order to the
+   * grouping framework in shopGrouping.mjs — all dnd5e display logic
+   * stays in that adapter-local module.
    *
-   * @returns {{ id: string, name: string, img: string, quantity: number, price: object }[]}
+   * @returns {{ groupingId, columnTemplate, headers, groups }}
    */
-  #prepareWares() {
+  #prepareShop() {
     const adapter = getAdapter();
-    return this.actor.items
-      .filter(i => adapter.isPhysicalItem(i))
-      .map(i => ({
-        id: i.id,
-        name: i.name,
-        img: i.img,
-        quantity: adapter.getItemQuantity(i),
-        price: adapter.getItemPrice(i)
-      }));
+    // Only physical items that are actually in stock — a 0-quantity ware isn't for sale.
+    const items = this.actor.items.filter(i => adapter.isPhysicalItem(i) && adapter.getItemQuantity(i) > 0);
+    return buildShop(items, this.#groupingId);
   }
 
   static async #onBuyWare(event, target) {

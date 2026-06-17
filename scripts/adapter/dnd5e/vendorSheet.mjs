@@ -36,7 +36,10 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   static DEFAULT_OPTIONS = {
     classes: ["pick-up-stix", "vendor-sheet"],
-    actions: { buyWare: Dnd5eVendorSheet.#onBuyWare }
+    actions: {
+      buyWare: Dnd5eVendorSheet.#onBuyWare,
+      wareQtyStep: Dnd5eVendorSheet.#onWareQtyStep
+    }
   };
 
   // Full NPC parts + our Shop tab body (same container the other tab bodies use,
@@ -106,12 +109,17 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   async _onRender(context, options) {
     await super._onRender(context, options);   // let core _toggleDisabled run first
-    const adapter = getAdapter();
-    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
-    for ( const button of this.element.querySelectorAll(".vendor-buy") ) {
-      const itemId = button.closest("[data-item-id]")?.dataset.itemId;
-      const item = itemId ? this.actor.items.get(itemId) : null;
-      button.disabled = !(item && buyer && adapter.canAfford(buyer, item, 1));
+    // Re-enable shop controls (core disables all form controls on the non-owner sheet).
+    this.element.querySelectorAll(".vendor-buy, .shop-qty-step, .shop-qty-input")
+      .forEach(el => { el.disabled = false; });
+    for ( const row of this.element.querySelectorAll(".shop-ware") ) {
+      const input = row.querySelector(".shop-qty-input");
+      if ( input && !input.dataset.bound ) {
+        input.dataset.bound = "1";
+        input.addEventListener("input", () => this.#refreshWareRow(row));
+        input.addEventListener("change", () => this.#refreshWareRow(row));
+      }
+      this.#refreshWareRow(row);
     }
     this.#refreshSubtitleTooltips();
     if (this.#currencyHookId === null) {       // register the live-update hooks once
@@ -119,6 +127,39 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
       this.#controlHookId = Hooks.on("controlToken", () => { if (this.rendered) this.render(); });
     }
+  }
+
+  /** Clamp a row's qty to [0, stock] and gate its stepper buttons + Buy on affordability. */
+  #refreshWareRow(row) {
+    const adapter = getAdapter();
+    const item = this.actor.items.get(row.dataset.itemId);
+    if ( !item ) return;
+    const stock = adapter.getItemQuantity(item);
+    const input = row.querySelector(".shop-qty-input");
+    let qty = Math.floor(Number(input.value));
+    if ( !Number.isFinite(qty) ) qty = 0;
+    qty = Math.max(0, Math.min(qty, stock));
+    if ( String(qty) !== input.value ) input.value = String(qty);
+    input.max = String(stock);
+
+    const dec = row.querySelector('.shop-qty-step[data-delta="-1"]');
+    const inc = row.querySelector('.shop-qty-step[data-delta="1"]');
+    if ( dec ) dec.disabled = qty <= 0;
+    if ( inc ) inc.disabled = qty >= stock;
+
+    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
+    const buy = row.querySelector(".vendor-buy");
+    buy.disabled = !(qty >= 1 && buyer && adapter.canAfford(buyer, item, qty));
+  }
+
+  static #onWareQtyStep(event, target) {
+    const row = target.closest(".shop-ware");
+    const input = row?.querySelector(".shop-qty-input");
+    if ( !input ) return;
+    const delta = Number(target.dataset.delta) || 0;
+    dbg("vendorSheet:onWareQtyStep", { delta, current: input.value });
+    input.value = String((Math.floor(Number(input.value)) || 0) + delta);  // #refreshWareRow clamps
+    this.#refreshWareRow(row);
   }
 
   /**
@@ -180,38 +221,39 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   static async #onBuyWare(event, target) {
-    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    const row = target.closest(".shop-ware");
+    const itemId = row?.dataset.itemId;
     const item = this.actor.items.get(itemId);
-    if (!item) {
-      dbg("vendorSheet:onBuyWare", "no item for row, bail", { itemId });
-      return;
-    }
+    if ( !item ) { dbg("vendorSheet:onBuyWare", "no item for row, bail", { itemId }); return; }
+
+    const qty = Math.max(0, Math.floor(Number(row.querySelector(".shop-qty-input")?.value) || 0));
+    if ( qty < 1 ) { dbg("vendorSheet:onBuyWare", "qty < 1, bail", { itemId, qty }); return; }
 
     // Buyer = first pickup candidate (controlled non-interactive token, else the
     // assigned character's token on this scene) — the same resolution the pickup
     // flow uses, so players and GMs behave identically.
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
-    if (!buyer) {
+    if ( !buyer ) {
       dbg("vendorSheet:onBuyWare", "no buyer (no controlled token / scene character), bail");
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
       return;
     }
 
     const adapter = getAdapter();
-    if (!adapter.canAfford(buyer, item, 1)) {
-      dbg("vendorSheet:onBuyWare", "buyer cannot afford, bail", { item: item.id, buyer: buyer.id });
+    if ( !adapter.canAfford(buyer, item, qty) ) {
+      dbg("vendorSheet:onBuyWare", "buyer cannot afford qty, bail", { item: item.id, buyer: buyer.id, qty });
       ui.notifications.warn(game.i18n.format("INTERACTIVE_ITEMS.Notify.NotEnoughCoin", { name: item.name }));
       return;
     }
 
     dbg("vendorSheet:onBuyWare", "dispatching purchase", {
-      vendor: this.actor.id, item: item.id, buyer: buyer.id
+      vendor: this.actor.id, item: item.id, buyer: buyer.id, qty
     });
     await dispatchGM(
       "purchaseItem",
-      { vendorActorId: this.actor.id, itemId: item.id, buyerActorId: buyer.id, quantity: 1 },
-      async () => purchaseItem(this.actor.id, item.id, buyer.id, 1)
+      { vendorActorId: this.actor.id, itemId: item.id, buyerActorId: buyer.id, quantity: qty },
+      async () => purchaseItem(this.actor.id, item.id, buyer.id, qty)
     );
-    if (!game.user.isGM) notifyPurchase(item.name, this.actor.name);  // buyer self-notifies
+    if ( !game.user.isGM ) notifyPurchase(item.name, this.actor.name);  // buyer self-notifies
   }
 }

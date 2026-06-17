@@ -624,6 +624,16 @@
 .vendor-buy { flex: 0 0 auto; width: auto; padding: 2px 10px; }
 .vendor-ware-empty { padding: 8px; opacity: 0.6; font-style: italic; }
 
+/* Qty stepper inside each ware row */
+.shop-qty { display: inline-flex; align-items: center; gap: 2px; }
+.shop-qty-step { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; line-height: 1; }
+.shop-qty-input {
+  width: 40px; height: 20px; text-align: center; padding: 0 2px;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.shop-qty-input::-webkit-outer-spin-button,
+.shop-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
 /* Vendor header banner — replace dnd5e's NPC banner with our vendor tile.
    We set background-image directly on the `.npc::before` (NOT the
    --dnd5e-npc-header-image variable): a url() inside a custom property resolves

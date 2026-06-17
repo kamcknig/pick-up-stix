@@ -2,7 +2,7 @@ import { getTokenActor, isInteractiveActor } from "../utils/actorHelpers.mjs";
 import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { emitSocketEvent, closeTokenHudIfMatching } from "../socket/SocketHandler.mjs";
-import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
+import { notifyItemAction, notifyTransferError, notifyPurchase } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
@@ -574,6 +574,63 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quant
 
   dbg("xfer:depositItem", "deposit complete", { moveQty, sourceQty });
   notifyItemAction("Deposited", item.name);
+  return true;
+}
+
+/**
+ * GM-side: buyer purchases `quantity` units of vendor item `itemId`.
+ * Currency math is adapter-owned; this orchestrates resolve → pay → move → notify.
+ *
+ * @param {string} vendorActorId
+ * @param {string} itemId
+ * @param {string} buyerActorId
+ * @param {number} [quantity=1]
+ * @returns {Promise<boolean>}
+ */
+export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity = 1) {
+  dbg("xfer:purchaseItem", "entry", { vendorActorId, itemId, buyerActorId, quantity });
+  const adapter = getAdapter();
+  const vendor = game.actors.get(vendorActorId);
+  const buyer = game.actors.get(buyerActorId);
+  if (!vendor || !buyer) {
+    dbg("xfer:purchaseItem", "missing vendor/buyer, bail", { vendor: !!vendor, buyer: !!buyer });
+    notifyTransferError();
+    return false;
+  }
+  const item = vendor.items.get(itemId);
+  if (!item) {
+    dbg("xfer:purchaseItem", "vendor item gone, bail", { itemId });
+    notifyTransferError();
+    return false;
+  }
+
+  const qty = Math.max(1, Number(quantity) || 1);
+
+  // Re-validate affordability GM-side (defends against a stale client / race).
+  if (!adapter.canAfford(buyer, item, qty)) {
+    dbg("xfer:purchaseItem", "GM-side affordability failed, bail", { itemId, buyer: buyer.id });
+    return false;
+  }
+
+  // Currency transfer (adapter). Abort the whole purchase if payment fails.
+  const paid = await adapter.applyPurchaseCurrency(buyer, vendor, item, qty);
+  if (!paid) {
+    dbg("xfer:purchaseItem", "payment failed, no item moved", { itemId, buyer: buyer.id });
+    return false;
+  }
+
+  // Copy one stack of `qty` to the buyer as a plain inventory item.
+  const data = item.toObject();
+  delete data._id;
+  stripEquipmentState(data);
+  adapter.setItemDataQuantity(data, qty);
+  dbg("xfer:purchaseItem", "creating item on buyer", { name: data.name, qty, buyer: buyer.id });
+  await CONFIG.Item.documentClass.createDocuments([data], { parent: buyer });
+
+  // Decrement vendor stock (deletes the row when qty empties it).
+  await decrementOrDeleteItem(item, qty);
+
+  notifyPurchase(item.name, vendor.name);
   return true;
 }
 

@@ -36,6 +36,11 @@
             "IMAGE"
           ]
         }
+      },
+      "vendor": {
+        "htmlFields": [
+          "description"
+        ]
       }
     }
   },

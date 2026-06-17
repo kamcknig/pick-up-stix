@@ -104,6 +104,45 @@ export default class SystemAdapter {
     itemData.system.quantity = quantity;
   }
 
+  /**
+   * The price of an item as { value:Number, denomination:String }.
+   * Default reads system.price; subclasses normalise denomination.
+   *
+   * @param {Item} item
+   * @returns {{ value: number, denomination: string }}
+   */
+  getItemPrice(item) {
+    const price = item?.system?.price ?? {};
+    return { value: Number(price.value) || 0, denomination: price.denomination ?? "" };
+  }
+
+  /**
+   * Whether `buyer` can afford `quantity` of `item`.
+   * Default: always true (no currency model in base).
+   *
+   * @param {Actor} _buyer
+   * @param {Item} _item
+   * @param {number} [_quantity=1]
+   * @returns {boolean}
+   */
+  canAfford(_buyer, _item, _quantity = 1) {
+    return true;
+  }
+
+  /**
+   * Move price * quantity from buyer to vendor (system currency). GM-side.
+   * Default: no-op success (systems without a currency model transfer for free).
+   *
+   * @param {Actor} _buyer
+   * @param {Actor} _vendor
+   * @param {Item} _item
+   * @param {number} [_quantity=1]
+   * @returns {Promise<boolean>} false if the buyer could not pay (no transfer should occur).
+   */
+  async applyPurchaseCurrency(_buyer, _vendor, _item, _quantity = 1) {
+    return true;
+  }
+
   // === Container parent reference ============================================
 
   /**
@@ -586,6 +625,16 @@ export default class SystemAdapter {
    * @returns {Promise<Application|null>}
    */
   async renderConfigSheet(actor, options) { _abstract("renderConfigSheet"); }
+
+  /**
+   * Register the system-specific actor sheet for the `pick-up-stix.vendor`
+   * sub-type. Called once from init. The base implementation is a no-op so
+   * systems without vendor support (pf2e, generic) fall back to Foundry's
+   * default sheet. dnd5e overrides this to register Dnd5eVendorSheet.
+   *
+   * @returns {void|Promise<void>}
+   */
+  registerVendorSheet() {}
 
   // === Hook registration =====================================================
   // Each `register*` is a one-shot called from init. Inside, the adapter

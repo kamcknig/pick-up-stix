@@ -119,6 +119,10 @@
       "PickedUpByPlayer": "{player} picked up {name}.",
       "DepositedByPlayer": "{player} deposited {name}.",
       "SplitByPlayer": "{player} split {name} off the stack.",
+      "Purchased": "You purchased {name} from {vendor}.",
+      "PurchasedByPlayer": "{player} purchased {name} from {vendor}.",
+      "NotEnoughCoin": "You can't afford {name}.",
+      "NoBuyer": "Select a token or assign a character to make a purchase.",
       "TransferError": "Failed to transfer item.",
       "NoCharacter": "No character assigned. Set your character in User Configuration.",
       "NoItems": "No items to pick up.",
@@ -261,11 +265,18 @@
           "hint": "Custom message shown when a player attempts to interact with this locked object"
         }
       }
+    },
+    "Vendor": {
+      "Description": "Description",
+      "Buy": "Buy",
+      "Empty": "This vendor has nothing for sale.",
+      "ShopTab": "Shop"
     }
   },
   "TYPES": {
     "Actor": {
-      "pick-up-stix.interactiveItem": "Interactive Object"
+      "pick-up-stix.interactiveItem": "Interactive Object",
+      "pick-up-stix.vendor": "Vendor"
     }
   }
 }

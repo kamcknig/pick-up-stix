@@ -1,4 +1,4 @@
-import { pickupItem, depositItem, setContainerOpen } from "../transfer/ItemTransfer.mjs";
+import { pickupItem, depositItem, setContainerOpen, purchaseItem } from "../transfer/ItemTransfer.mjs";
 import { createInteractiveToken, splitInteractiveToken } from "../canvas/placement.mjs";
 import { getTokenActor } from "../utils/actorHelpers.mjs";
 import { dbg } from "../utils/debugLog.mjs";
@@ -93,6 +93,12 @@ async function _dispatch(payload) {
           payload.data.splitQty
         );
         break;
+      case "purchaseItem": {
+        if (!game.user.isActiveGM) break;       // currency safety: single processor for sockets
+        const { vendorActorId, itemId, buyerActorId, quantity } = payload.data ?? {};
+        await purchaseItem(vendorActorId, itemId, buyerActorId, quantity ?? 1);
+        break;
+      }
     }
 }
 

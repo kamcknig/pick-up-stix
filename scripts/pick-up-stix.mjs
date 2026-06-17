@@ -1,5 +1,6 @@
 import { loadAdapter, getAdapter } from "./adapter/index.mjs";
 import InteractiveItemModel from "./models/InteractiveItemModel.mjs";
+import VendorModel from "./models/VendorModel.mjs";
 import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
 import { registerTokenHUD } from "./hud/InteractiveTokenHUD.mjs";
 import { registerPlacement, _handleTokenMoveWithOverlap } from "./canvas/placement.mjs";
@@ -7,9 +8,9 @@ import { registerQtyBadge } from "./canvas/qtyBadge.mjs";
 import { registerCarriedLights } from "./canvas/carriedLights.mjs";
 import { registerSocket } from "./socket/SocketHandler.mjs";
 import { pickupItem, depositItem, setPlayerPositionOverride, toggleItemIdentification, buildInteractiveItemData, checkProximity, assignContainerParent, setContainerOpen, toggleContainerLocked, getPlayerCandidateTokens } from "./transfer/ItemTransfer.mjs";
-import { INTERACTIVE_TYPES } from "./constants.mjs";
-export { INTERACTIVE_TYPES } from "./constants.mjs";
-import { isInteractiveActor, isInteractiveContainer } from "./utils/actorHelpers.mjs";
+import { INTERACTIVE_TYPES, VENDOR_TYPE } from "./constants.mjs";
+export { INTERACTIVE_TYPES, VENDOR_TYPE } from "./constants.mjs";
+import { isInteractiveActor, isInteractiveContainer, isVendorActor } from "./utils/actorHelpers.mjs";
 import { getItemIIFlags, getItemSourceActorId, isItemLocked, isItemIdentified } from "./utils/itemFlags.mjs";
 import { dispatchGM } from "./utils/gmDispatch.mjs";
 import { notifyItemAction } from "./utils/notify.mjs";
@@ -34,7 +35,8 @@ Hooks.once("init", async () => {
   // specific subclass (e.g. Pf2eInteractiveItemModel for pf2e) during its
   // constructor, which runs synchronously inside loadAdapter().
   Object.assign(CONFIG.Actor.dataModels, {
-    "pick-up-stix.interactiveItem": InteractiveItemModel
+    "pick-up-stix.interactiveItem": InteractiveItemModel,
+    [VENDOR_TYPE]: VendorModel
   });
 
   // game.system is available from this point on; dynamically import only the
@@ -59,6 +61,10 @@ Hooks.once("init", async () => {
     makeDefault: true,
     label: "Interactive Object Sheet"
   });
+
+  // Vendor sheet is system-specific; the adapter registers it (no-op on systems
+  // without vendor support yet).
+  await getAdapter().registerVendorSheet();
 
   foundry.applications.handlebars.loadTemplates({
     "pick-up-stix.config-fields": "modules/pick-up-stix/templates/partials/config-fields.hbs",
@@ -2199,6 +2205,29 @@ Hooks.on("preCreateActor", (actor, data, options, userId) => {
     updates["system.interactionRange"] = finalInspection;
   }
 
+  actor.updateSource(updates);
+});
+
+Hooks.on("preCreateActor", (actor, data, options, userId) => {
+  dbg("hook:preCreateActor:vendor", { name: data.name, type: data.type, userId });
+  if (!isVendorActor(actor)) {
+    dbg("hook:preCreateActor:vendor", "not a vendor actor, bail");
+    return;
+  }
+  dbg("hook:preCreateActor:vendor", "applying vendor defaults", {
+    existingActorLink: foundry.utils.getProperty(data, "prototypeToken.actorLink"),
+    existingOwnership: foundry.utils.getProperty(data, "ownership.default")
+  });
+  // - actorLink: true so a vendor's inventory is consistent across every placed
+  //   token (the intentional deviation from interactive objects, which force
+  //   actorLink: false).
+  // - ownership.default: LIMITED so players get the limited sheet view by
+  //   default. Only seed it when the creator didn't specify one, so an explicit
+  //   choice isn't clobbered.
+  const updates = { "prototypeToken.actorLink": true };
+  if (foundry.utils.getProperty(data, "ownership.default") === undefined) {
+    updates["ownership.default"] = CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED;
+  }
   actor.updateSource(updates);
 });
 

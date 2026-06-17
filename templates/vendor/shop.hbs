@@ -1,0 +1,22 @@
+{{!-- Wrapped in dnd5e's tab root so it shows only when the Shop tab is active
+      (the GM's full NPC sheet has many tabs; tab.cssClass = "active" toggles it). --}}
+<section class="tab {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
+  <section class="vendor-shop">
+    <ul class="vendor-shop-list">
+      {{#each wares}}
+      <li class="vendor-ware" data-item-id="{{this.id}}">
+        <img class="vendor-ware-img" src="{{this.img}}" alt="{{this.name}}" />
+        <span class="vendor-ware-name">{{this.name}}</span>
+        <span class="vendor-ware-qty">×{{this.quantity}}</span>
+        <span class="vendor-ware-price">{{this.price.value}} {{this.price.denomination}}</span>
+        {{!-- Disabled by default; _onRender enables it when the buyer can afford this ware. --}}
+        <button type="button" class="vendor-buy" data-action="buyWare" disabled>
+          {{localize "INTERACTIVE_ITEMS.Vendor.Buy"}}
+        </button>
+      </li>
+      {{else}}
+      <li class="vendor-ware-empty">{{localize "INTERACTIVE_ITEMS.Vendor.Empty"}}</li>
+      {{/each}}
+    </ul>
+  </section>
+</section>

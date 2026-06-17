@@ -33,6 +33,23 @@ export function notifyItemAction(key, itemName) {
   );
 }
 
+/** Buyer sees "You purchased …"; the processing GM sees "{player} purchased …". */
+export function notifyPurchase(itemName, vendorName) {
+  if (game.user.isGM && _currentInitiatorUserId && _currentInitiatorUserId !== game.user.id) {
+    const initiator = game.users.get(_currentInitiatorUserId);
+    if (initiator) {
+      ui.notifications.info(game.i18n.format(
+        "INTERACTIVE_ITEMS.Notify.PurchasedByPlayer",
+        { player: initiator.name, name: itemName, vendor: vendorName }
+      ));
+      return;
+    }
+  }
+  ui.notifications.info(game.i18n.format(
+    "INTERACTIVE_ITEMS.Notify.Purchased", { name: itemName, vendor: vendorName }
+  ));
+}
+
 export function notifyTooFar() {
   ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TooFar"));
 }

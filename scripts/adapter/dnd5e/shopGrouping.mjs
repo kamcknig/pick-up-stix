@@ -141,8 +141,9 @@ export function buildShop(items, groupingId = DEFAULT_GROUPING) {
 
   return {
     groupingId: grouping.id,
-    // name (flex) + one track per grouping column + qty stepper + Buy
-    columnTemplate: `minmax(0, 1fr) ${columns.map(() => "max-content").join(" ")} max-content max-content`,
+    // name (flex) + one track per grouping column + GM visibility toggle
+    // (qty stepper + Buy now live in a 2nd subgrid row, so their tracks are dropped here)
+    columnTemplate: `minmax(0, 1fr) ${columns.map(() => "max-content").join(" ")} max-content`,
     headers: columns.map(c => ({ id: c.id, label: c.header, align: c.align })),
     groups
   };
@@ -156,6 +157,7 @@ function buildWareRow(item, columns) {
     img: item.img,
     subtitle: description || typeSubtitle(item),
     stock: getAdapter().getItemQuantity(item),
+    shopVisible: item.getFlag("pick-up-stix", "shopVisible") !== false,
     cells: columns.map(c => ({ align: c.align, ...c.cell(item) }))
   };
 }

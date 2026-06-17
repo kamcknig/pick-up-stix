@@ -8,8 +8,7 @@
         {{#each ../shop.headers}}
         <span class="shop-col-header shop-align-{{ this.align }}">{{ localize this.label }}</span>
         {{/each}}
-        <span class="shop-col-header"></span>{{!-- qty column: no header --}}
-        <span class="shop-col-header"></span>{{!-- Buy column: no header --}}
+        <span class="shop-col-header"></span>{{!-- toggle column: no header --}}
       </div>
       {{#each this.wares}}
       <div class="shop-ware" data-item-id="{{ this.id }}">
@@ -24,17 +23,28 @@
         <span class="shop-cell shop-align-{{ this.align }} {{ this.classes }}"
               {{#if this.tooltip}}data-tooltip="{{ this.tooltip }}"{{/if}}>{{ this.text }}</span>
         {{/each}}
-        <div class="shop-qty" role="group">
-          <button type="button" class="shop-qty-step" data-action="wareQtyStep" data-delta="-1"
-                  aria-label="{{ localize "INTERACTIVE_ITEMS.Vendor.QtyDecrease" }}">&minus;</button>
-          <input type="number" class="shop-qty-input" value="1" min="0" max="{{ this.stock }}"
-                 step="1" inputmode="numeric" aria-label="{{ localize "INTERACTIVE_ITEMS.Vendor.QtyToBuy" }}" />
-          <button type="button" class="shop-qty-step" data-action="wareQtyStep" data-delta="1"
-                  aria-label="{{ localize "INTERACTIVE_ITEMS.Vendor.QtyIncrease" }}">+</button>
+        {{#if @root.isGM}}
+        <a class="ii-row-control shop-toggle {{#if this.shopVisible}}active{{/if}}"
+           data-action="toggleShopVisible"
+           data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.ToggleShopVisible" }}">
+          <i class="fa-solid fa-box-arrow-down-arrow-up"></i>
+        </a>
+        {{else}}
+        <span class="shop-toggle-empty"></span>
+        {{/if}}
+        <div class="shop-ware-actions">
+          <div class="shop-qty" role="group">
+            <button type="button" class="shop-qty-step" data-action="wareQtyStep" data-delta="-1"
+                    aria-label="{{ localize "INTERACTIVE_ITEMS.Vendor.QtyDecrease" }}">&minus;</button>
+            <input type="number" class="shop-qty-input" value="1" min="0" max="{{ this.stock }}"
+                   step="1" inputmode="numeric" aria-label="{{ localize "INTERACTIVE_ITEMS.Vendor.QtyToBuy" }}" />
+            <button type="button" class="shop-qty-step" data-action="wareQtyStep" data-delta="1"
+                    aria-label="{{ localize "INTERACTIVE_ITEMS.Vendor.QtyIncrease" }}">+</button>
+          </div>
+          <button type="button" class="vendor-buy" data-action="buyWare" disabled>
+            {{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}
+          </button>
         </div>
-        <button type="button" class="vendor-buy" data-action="buyWare" disabled>
-          {{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}
-        </button>
       </div>
       {{/each}}
     </div>

@@ -100,11 +100,17 @@ export const Dnd5eSheets = {
     // sets `equipped = actor.system.isNPC`, dnd5e.mjs:13928). Our NPC-backed vendor is a shop,
     // not a combatant — its stock must never be equipped. Force `equipped: false` on items
     // created on a vendor. (preCreateEquipped runs first; this hook overrides its result.)
+    // Also default new vendor stock to shopVisible = true so it appears in the Shop tab.
     Hooks.on("preCreateItem", (item, _data, _options, _userId) => {
       if (!isVendorActor(item.parent)) return;
-      if (item.system?.equipped !== true) return;   // skip non-equippables / already unequipped
-      dbg("dnd5e-sheets:vendorNoEquip", "unequipping vendor stock item", { item: item.name, actor: item.parent?.name });
-      item.updateSource({ "system.equipped": false });
+      const updates = {};
+      if (item.system?.equipped === true) updates["system.equipped"] = false;   // never equip vendor stock
+      if (item.getFlag("pick-up-stix", "shopVisible") === undefined) {
+        updates["flags.pick-up-stix.shopVisible"] = true;                        // default active
+      }
+      if (foundry.utils.isEmpty(updates)) return;
+      dbg("dnd5e-sheets:vendorItemDefaults", "applying vendor item defaults", { item: item.name, updates });
+      item.updateSource(updates);
     });
   }
 };

@@ -586,8 +586,26 @@
   text-transform: uppercase;
   opacity: 0.7;
 }
-.shop-ware { padding: 4px 8px; border-radius: 4px; }
+.shop-ware {
+  padding: 4px 8px;
+  border-radius: 4px;
+  grid-template-rows: auto auto; /* row 1: data + toggle · row 2: qty + Buy */
+  row-gap: 2px;
+}
 .shop-ware:hover { background: var(--dnd5e-background-5, rgba(0, 0, 0, 0.05)); }
+.shop-ware > .shop-ware-main,
+.shop-ware > .shop-cell,
+.shop-ware > .shop-toggle,
+.shop-ware > .shop-toggle-empty { grid-row: 1; }
+.shop-toggle { justify-self: center; }
+.shop-ware-actions {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 /* Left cell: icon + bold name + subtitle */
 .shop-ware-main { display: flex; align-items: center; gap: 8px; min-width: 0; }

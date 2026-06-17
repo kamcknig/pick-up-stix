@@ -38,7 +38,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     classes: ["pick-up-stix", "vendor-sheet"],
     actions: {
       buyWare: Dnd5eVendorSheet.#onBuyWare,
-      wareQtyStep: Dnd5eVendorSheet.#onWareQtyStep
+      wareQtyStep: Dnd5eVendorSheet.#onWareQtyStep,
+      toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
     }
   };
 
@@ -201,7 +202,10 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   async _preparePartContext(partId, context, options) {
     context = await super._preparePartContext(partId, context, options);
-    if ( partId === "shop" ) context.shop = this.#prepareShop();
+    if ( partId === "shop" ) {
+      context.shop = this.#prepareShop();
+      context.isGM = game.user.isGM;
+    }
     return context;
   }
 
@@ -215,8 +219,13 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   #prepareShop() {
     const adapter = getAdapter();
-    // Only physical items that are actually in stock — a 0-quantity ware isn't for sale.
-    const items = this.actor.items.filter(i => adapter.isPhysicalItem(i) && adapter.getItemQuantity(i) > 0);
+    // Only physical items that are in stock AND not hidden by the GM (shopVisible !== false).
+    // Absent flag (pre-existing items) is treated as visible.
+    const items = this.actor.items.filter(i =>
+      adapter.isPhysicalItem(i)
+      && adapter.getItemQuantity(i) > 0
+      && i.getFlag("pick-up-stix", "shopVisible") !== false
+    );
     return buildShop(items, this.#groupingId);
   }
 
@@ -255,5 +264,25 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       async () => purchaseItem(this.actor.id, item.id, buyer.id, qty)
     );
     if ( !game.user.isGM ) notifyPurchase(item.name, this.actor.name);  // buyer self-notifies
+  }
+
+  /**
+   * Toggle an item's shopVisible flag. Active (true) → hidden (false) and vice-versa.
+   * Triggering a flag update causes ApplicationV2 to re-render, which re-runs
+   * #prepareShop → hidden items disappear from the list.
+   *
+   * @param {PointerEvent} event
+   * @param {HTMLElement} target
+   */
+  static async #onToggleShopVisible(event, target) {
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if ( !item ) {
+      dbg("vendorSheet:onToggleShopVisible", "no item for target, bail", { itemId });
+      return;
+    }
+    const visible = item.getFlag("pick-up-stix", "shopVisible") !== false;
+    dbg("vendorSheet:onToggleShopVisible", { item: item.id, name: item.name, from: visible, to: !visible });
+    await item.setFlag("pick-up-stix", "shopVisible", !visible);   // → re-render → #prepareShop refilters
   }
 }

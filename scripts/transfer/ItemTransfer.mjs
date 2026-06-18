@@ -2,7 +2,7 @@ import { getTokenActor, isInteractiveActor } from "../utils/actorHelpers.mjs";
 import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { emitSocketEvent, closeTokenHudIfMatching } from "../socket/SocketHandler.mjs";
-import { notifyItemAction, notifyTransferError, notifyPurchase } from "../utils/notify.mjs";
+import { notifyItemAction, notifyTransferError, notifyPurchase, notifyPurchaseCart } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
@@ -612,25 +612,112 @@ export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity
     return false;
   }
 
-  // Currency transfer (adapter). Abort the whole purchase if payment fails.
-  const paid = await adapter.applyPurchaseCurrency(buyer, vendor, item, qty);
-  if (!paid) {
-    dbg("xfer:purchaseItem", "payment failed, no item moved", { itemId, buyer: buyer.id });
+  const totalCp = adapter.getItemChargeCp(item, qty);
+
+  // Debit the buyer first (also the affordability gate). No re-render — the single vendor
+  // credit at the end is the one write that renders, so the shop updates once (no flicker).
+  if (!(await adapter.debitBuyerCp(buyer, totalCp))) {
+    dbg("xfer:purchaseItem", "debit failed, no item moved", { itemId, buyer: buyer.id });
     return false;
   }
 
-  // Copy one stack of `qty` to the buyer as a plain inventory item.
+  // Add the stack to the buyer — this create renders the buyer's OWN sheet once, reflecting the
+  // already-debited gold + the new item (so an open character sheet stays current). It does not
+  // touch the vendor sheet. The vendor stock decrement is render-suppressed; the vendor credit
+  // below is the vendor sheet's single render.
   const data = item.toObject();
   delete data._id;
   stripEquipmentState(data);
   adapter.setItemDataQuantity(data, qty);
   dbg("xfer:purchaseItem", "creating item on buyer", { name: data.name, qty, buyer: buyer.id });
   await CONFIG.Item.documentClass.createDocuments([data], { parent: buyer });
+  await decrementOrDeleteItem(item, qty, { render: false });
 
-  // Decrement vendor stock (deletes the row when qty empties it).
-  await decrementOrDeleteItem(item, qty);
+  // Credit the vendor LAST and let it render → exactly one re-render on every client.
+  await adapter.creditVendorCp(vendor, totalCp);
 
   notifyPurchase(item.name, vendor.name);
+  return true;
+}
+
+/**
+ * GM-side: buyer purchases all items in `itemIds` from vendor in a single transaction.
+ * One currency deduction for the whole cart total, then each item is copied to the buyer
+ * and vendor stock is decremented — avoids the "messy change" of looping single purchases.
+ *
+ * @param {string} vendorActorId
+ * @param {string[]} itemIds
+ * @param {string} buyerActorId
+ * @returns {Promise<boolean>}
+ */
+export async function purchaseCart(vendorActorId, itemIds, buyerActorId) {
+  dbg("xfer:purchaseCart", "entry", { vendorActorId, count: itemIds?.length, buyerActorId });
+  const adapter = getAdapter();
+  const vendor = game.actors.get(vendorActorId);
+  const buyer = game.actors.get(buyerActorId);
+  if ( !vendor || !buyer ) {
+    dbg("xfer:purchaseCart", "missing vendor/buyer, bail", { vendor: !!vendor, buyer: !!buyer });
+    notifyTransferError();
+    return false;
+  }
+
+  // Resolve items and filter to those still in stock (race condition defence).
+  const items = (itemIds ?? []).map(id => vendor.items.get(id))
+    .filter(i => i && adapter.getItemQuantity(i) > 0);
+  if ( !items.length ) {
+    dbg("xfer:purchaseCart", "no in-stock items remain, bail");
+    return false;
+  }
+
+  // Total the cart in copper.
+  const totalCp = items.reduce((sum, i) => sum + adapter.getItemChargeCp(i, 1), 0);
+  dbg("xfer:purchaseCart", "cart totalled", { totalCp, itemCount: items.length });
+
+  // GM-side wealth re-check (defends against stale client state / race).
+  if ( adapter.getActorWealthCp(buyer) < totalCp ) {
+    dbg("xfer:purchaseCart", "buyer cannot afford cart total, bail", { totalCp, buyer: buyer.id });
+    return false;
+  }
+
+  // Debit the buyer first (also the affordability gate). No re-render here — the single
+  // vendor-credit write at the very end is the one that renders, so the shop updates once.
+  if ( !(await adapter.debitBuyerCp(buyer, totalCp)) ) {
+    dbg("xfer:purchaseCart", "debit failed, no items moved");
+    return false;
+  }
+
+  // Build one batched set of moves. The buyer create renders the buyer's OWN sheet once
+  // (reflecting the already-debited gold + new items); the vendor stock update/delete are
+  // render-suppressed, and the vendor credit below is the vendor sheet's single render.
+  const toCreate = [];
+  const toUpdate = [];
+  const toDelete = [];
+  for ( const item of items ) {
+    const data = item.toObject();
+    delete data._id;
+    stripEquipmentState(data);
+    adapter.setItemDataQuantity(data, 1);
+    toCreate.push(data);
+
+    const stock = adapter.getItemQuantity(item);
+    if ( stock > 1 ) {
+      const upd = { _id: item.id, system: {} };
+      adapter.setItemDataQuantity(upd, stock - 1);   // decrement the source stack by one
+      toUpdate.push(upd);
+    } else {
+      toDelete.push(item.id);                        // last unit → remove the row
+    }
+  }
+  dbg("xfer:purchaseCart", "batched ops", { create: toCreate.length, update: toUpdate.length, delete: toDelete.length });
+  if ( toCreate.length ) await CONFIG.Item.documentClass.createDocuments(toCreate, { parent: buyer });
+  if ( toUpdate.length ) await vendor.updateEmbeddedDocuments("Item", toUpdate, { render: false });
+  if ( toDelete.length ) await vendor.deleteEmbeddedDocuments("Item", toDelete, { deleteContents: true, render: false });
+
+  // Credit the vendor LAST and let it render → exactly one re-render on every client.
+  await adapter.creditVendorCp(vendor, totalCp);
+
+  notifyPurchaseCart(items.length, vendor.name);
+  dbg("xfer:purchaseCart", "cart purchase complete", { count: items.length });
   return true;
 }
 

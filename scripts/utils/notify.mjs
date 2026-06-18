@@ -33,6 +33,23 @@ export function notifyItemAction(key, itemName) {
   );
 }
 
+/** Buyer sees "You purchased N items from …"; the processing GM sees "{player} purchased N items from …". */
+export function notifyPurchaseCart(count, vendorName) {
+  if (game.user.isGM && _currentInitiatorUserId && _currentInitiatorUserId !== game.user.id) {
+    const initiator = game.users.get(_currentInitiatorUserId);
+    if (initiator) {
+      ui.notifications.info(game.i18n.format(
+        "INTERACTIVE_ITEMS.Notify.PurchasedCartByPlayer",
+        { player: initiator.name, count, vendor: vendorName }
+      ));
+      return;
+    }
+  }
+  ui.notifications.info(game.i18n.format(
+    "INTERACTIVE_ITEMS.Notify.PurchasedCart", { count, vendor: vendorName }
+  ));
+}
+
 /** Buyer sees "You purchased …"; the processing GM sees "{player} purchased …". */
 export function notifyPurchase(itemName, vendorName) {
   if (game.user.isGM && _currentInitiatorUserId && _currentInitiatorUserId !== game.user.id) {

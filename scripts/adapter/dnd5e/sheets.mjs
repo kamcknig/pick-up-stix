@@ -1,4 +1,5 @@
 import { dbg } from "../../utils/debugLog.mjs";
+import { isVendorActor } from "../../utils/actorHelpers.mjs";
 
 /**
  * dnd5e sheet-delegation methods for the SystemAdapter contract.
@@ -93,6 +94,23 @@ export const Dnd5eSheets = {
       types: ["pick-up-stix.vendor"],
       makeDefault: true,
       label: "Vendor Sheet"
+    });
+
+    // dnd5e auto-equips physical items created on creature actors (NPCData.preCreateEquipped
+    // sets `equipped = actor.system.isNPC`, dnd5e.mjs:13928). Our NPC-backed vendor is a shop,
+    // not a combatant — its stock must never be equipped. Force `equipped: false` on items
+    // created on a vendor. (preCreateEquipped runs first; this hook overrides its result.)
+    // Also default new vendor stock to shopVisible = true so it appears in the Shop tab.
+    Hooks.on("preCreateItem", (item, _data, _options, _userId) => {
+      if (!isVendorActor(item.parent)) return;
+      const updates = {};
+      if (item.system?.equipped === true) updates["system.equipped"] = false;   // never equip vendor stock
+      if (item.getFlag("pick-up-stix", "shopVisible") === undefined) {
+        updates["flags.pick-up-stix.shopVisible"] = true;                        // default active
+      }
+      if (foundry.utils.isEmpty(updates)) return;
+      dbg("dnd5e-sheets:vendorItemDefaults", "applying vendor item defaults", { item: item.name, updates });
+      item.updateSource(updates);
     });
   }
 };

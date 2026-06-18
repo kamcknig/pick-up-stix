@@ -110,6 +110,10 @@
   padding-right: 8px;
 }
 
+/* Vendor Inventory toggle cell — one icon only, so narrower than the 4-icon default. */
+.dnd5e2 .items-section .items-header .pus-shop-toggle-cell,
+.dnd5e2 .items-section .item .pus-shop-toggle-cell { width: 40px; }
+
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
 
 .pick-up-stix-identify-toggle {
@@ -553,59 +557,225 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Vendor limited (player) shop view — compact ware list. Uses our own classes
-   rather than dnd5e's .item/.items-list grid, which expects a different row DOM. */
+/* Vendor shop — grouped, column-aligned ware list. One grid spans the whole list
+   (via display:contents groups) so columns line up across every group; each header
+   and ware row is a subgrid row inheriting those tracks. */
 .vendor-shop {
-  padding: 8px 16px;
+  display: grid;
+  grid-template-columns: var(--shop-cols, minmax(0, 1fr) repeat(3, max-content) max-content);
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 4px;
+  padding: 8px 12px;
 }
-.vendor-shop-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.shop-group { display: contents; }
+.shop-group-header,
+.shop-ware {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+.shop-group-header {
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--dnd5e-color-maroon, #741b2b) 28%, transparent);
+}
+.shop-group:first-child .shop-group-header { margin-top: 0; }
+.shop-group-title { font-weight: 700; }
+.shop-col-header {
+  font-size: var(--font-size-11, 11px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.shop-ware {
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.shop-ware:hover { background: var(--dnd5e-background-5, rgba(0, 0, 0, 0.05)); }
+.shop-toggle { justify-self: center; }
+
+/* Left cell: icon + bold name + subtitle */
+.shop-ware-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.shop-ware-img { flex: 0 0 32px; width: 32px; height: 32px; object-fit: contain; border: none; }
+.shop-ware-text { display: flex; flex-direction: column; min-width: 0; }
+.shop-ware-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-ware-sub {
+  font-size: var(--font-size-11, 11px);
+  opacity: 0.65;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Column cells */
+.shop-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.shop-align-start  { justify-self: start;  text-align: left; }
+.shop-align-center { justify-self: center; text-align: center; }
+.shop-align-end    { justify-self: end;    text-align: right; }
+
+/* Rarity pill — dnd5e ships no rarity colors, so define our own palette. */
+.pus-rarity {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 1px 8px; border-radius: 10px;
+  border: 1px solid var(--pus-rarity-color, #888);
+  font-size: var(--font-size-11, 11px); line-height: 1.4; white-space: nowrap;
+}
+.pus-rarity::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--pus-rarity-color, #888); }
+.pus-rarity-common    { --pus-rarity-color: #8a8a8a; }
+.pus-rarity-uncommon  { --pus-rarity-color: #1eaa5b; }
+.pus-rarity-rare      { --pus-rarity-color: #4a90d9; }
+.pus-rarity-veryRare  { --pus-rarity-color: #a335ee; }
+.pus-rarity-legendary { --pus-rarity-color: #ff8000; }
+.pus-rarity-artifact  { --pus-rarity-color: #e6cc80; }
+
+.shop-cart-toggle {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border-radius: 4px; cursor: pointer;
+  color: var(--color-text-secondary, #888); background: none; border: 1px solid transparent;
+}
+.shop-cart-toggle:hover:not(:disabled) { color: var(--color-text-primary, #ddd); border-color: currentColor; }
+.shop-cart-toggle.active { color: var(--color-warm-1, #c9a238); border-color: currentColor; }
+.shop-cart-toggle:disabled { opacity: 0.35; cursor: default; }
+
+.shop-cart-footer {
+  position: sticky; bottom: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; margin-top: 4px;
+  background: color-mix(in srgb, var(--dnd5e-color-maroon, #741b2b) 40%, #000);
+  border-top: 1px solid var(--color-border-dark, rgba(0,0,0,0.4));
+  border-radius: 4px 4px 0 0;
+  transform: translateY(100%); opacity: 0; pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.shop-cart-footer.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.cart-total { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.vendor-buy,
+.cart-checkout {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  border-radius: 4px; cursor: pointer;
+  color: var(--color-text-secondary, #888);
+  background: none; border: 1px solid transparent;
+}
+.vendor-buy:hover:not(:disabled),
+.cart-checkout:hover:not(:disabled) { color: var(--color-text-primary, #ddd); border-color: currentColor; }
+.vendor-buy:active:not(:disabled),
+.cart-checkout:active:not(:disabled) { transform: translateY(1px); }
+.vendor-buy:disabled,
+.cart-checkout:disabled { opacity: 0.35; cursor: default; }
+.vendor-ware-empty { padding: 8px; opacity: 0.6; font-style: italic; }
+
+/* Vendor header banner — replace dnd5e's NPC banner with our vendor tile.
+   We set background-image directly on the `.npc::before` (NOT the
+   --dnd5e-npc-header-image variable): a url() inside a custom property resolves
+   relative to the *consuming* stylesheet (systems/dnd5e/dnd5e.css), so it would
+   look under systems/. Declaring the url() here keeps "../assets/..." resolving
+   under modules/pick-up-stix/ (and stays route-prefix safe). The extra
+   .vendor-sheet class out-specifies dnd5e's own ::before rule. We override dnd5e's
+   faint `opacity: 0.05` (-> full) and its `no-repeat / cover`: the asset is a 2x
+   tile (498x200), so we render it at half size (249x100) and repeat it instead of
+   stretching. The mask fade is delayed to start at 70% (solid until then, then
+   fades to transparent at the bottom). */
+.dnd5e2.sheet.actor.npc.vendor-sheet:not(.minimized)::before {
+  background-image: url("../assets/vendor-bg-tile-498x200-2x.png");
+  background-repeat: repeat;
+  background-size: 249px 100px;
+  opacity: 1;
+  mask-image: linear-gradient(to bottom, black 70%, transparent);
+}
+
+/* ============================================================================
+   Vendor portrait "break-out". A rounded-rectangle gold frame; the vendor figure
+   leans UP + LEFT out of the frame AND the window, masked flush at the frame's
+   right + bottom edges. Scoped to .vendor-sheet. Escaping the window overrides
+   Foundry core's overflow:hidden on .application / .window-content — safe here:
+   the sheet's scroll lives on .sheet-body (a separate flex child), and the window
+   corners/shadow/resize are unaffected by overflow.
+
+   Masking is done by a CLIP BOX (.pus-portrait-clip, overflow:hidden) anchored to
+   the frame's bottom-right and extended far up + left: everything right/below the
+   frame is clipped, only the up/left bleed shows. Wrapping the media in that box
+   also stops dnd5e's `.portrait > img` rule matching (no longer a direct child),
+   so no specificity fight. The player shop-header ships the box in markup; the GM
+   npc-header gets it injected in `#injectPortraitClip` — both end up as
+   `.portrait > .pus-portrait-clip > img`. (Exact px are a visual starting point.)
+   ============================================================================ */
+.vendor-sheet.application { overflow: visible; }
+.vendor-sheet .window-content { overflow: visible; }
+.vendor-sheet .sheet-header { overflow: visible; position: relative; }
+.vendor-sheet .sheet-header .portrait { overflow: visible; }
+
+/* Rounded-rectangle gold frame, ~75% of the prior 270 (-> 200), kept in flow so it
+   reserves header space and is the figure's positioning context. */
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .portrait {
+  position: relative;
+  flex: 0 0 200px;
+  width: 200px;
+  height: 200px;
+  border: 5px solid var(--dnd5e-color-gold);
+  border-radius: 18px;
+  box-shadow: 0 0 6px var(--dnd5e-color-black);
+  background: rgba(0, 0, 0, 0.25);
+}
+/* GM npc-header: match its left column to the frame so it fits in flow. */
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header > .left { flex: 0 0 200px; }
+
+/* Clip box: anchored to the frame's inner bottom-right, extended far up + left.
+   overflow:hidden masks everything right/below the frame; click-through so the
+   bleed never intercepts canvas / other-window clicks. */
+.vendor-sheet .sheet-header .portrait .pus-portrait-clip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1500px;
+  height: 1500px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+/* GM npc-header only (its portrait sits inside .left): lift the mask up so the lower part
+   of the frame shows below the figure. The player shop-header (portrait is a direct child
+   of .sheet-header) keeps bottom:0. Tune the px to taste. */
+.vendor-sheet .sheet-header .left .portrait .pus-portrait-clip { bottom: 40px; }
+/* The figure: anchored to the clip box's bottom-right (= frame's bottom-right),
+   sized larger than the frame so it bleeds up + left. */
+.vendor-sheet .sheet-header .portrait .pus-portrait-clip > img,
+.vendor-sheet .sheet-header .portrait .pus-portrait-clip > video {
+  position: absolute;
+  right: -20px;     /* nudge the figure right; the clip box still masks at the frame's right edge */
+  bottom: -40px;    /* nudge the figure down; the clip box still masks at the frame's bottom edge */
+  max-width: 260px;            /* cap width at 260, keep aspect ratio (no upscaling/stretch) */
+  max-height: 420px;           /* and cap height at 420 — figure scales to fit within 260x420 */
+  width: auto;
+  height: auto;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;            /* override dnd5e's .document-image solid fill (player view) */
+}
+
+/* Player storefront header: stack the name + public description, vertically centered as a
+   group and left-aligned with the name. (Only the player shop-header has .header-details;
+   the GM npc-header uses dnd5e's own name layout, untouched.) */
+.vendor-sheet .sheet-header .header-details {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  justify-content: center;     /* keep name + description centered vertically in the header */
+  align-items: flex-start;     /* left-align both */
+  gap: 6px;
+  min-width: 0;
 }
-.vendor-ware {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: 4px;
-  background: var(--dnd5e-background-5, rgba(0, 0, 0, 0.05));
+.vendor-sheet .sheet-header .header-details .vendor-description {
+  max-width: 42ch;
+  text-align: left;
+  font-family: var(--dnd5e-font-roboto, sans-serif);
+  font-size: var(--font-size-13, 0.8125rem);
+  line-height: 1.4;
+  color: var(--color-text-secondary, #c9c7c1);
 }
-.vendor-ware-img {
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  border: none;
-  border-radius: 3px;
-}
-.vendor-ware-name {
-  flex: 1 1 auto;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.vendor-ware-qty {
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
-}
-.vendor-ware-price {
-  min-width: 64px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.vendor-ware .vendor-buy {
-  flex: 0 0 auto;
-  width: auto;
-  padding: 2px 10px;
-}
-.vendor-ware-empty {
-  list-style: none;
-  padding: 8px;
-  opacity: 0.6;
-  font-style: italic;
-}
+.vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol) { margin: 0 0 0.4em; }
+.vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol):last-child { margin-bottom: 0; }
+

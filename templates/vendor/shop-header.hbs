@@ -1,6 +1,13 @@
 <header class="sheet-header">
-  <img class="document-image" src="{{actor.img}}" alt="{{actor.name}}" />
+  <div class="portrait">
+    <div class="pus-portrait-clip">
+      <img class="document-image" src="{{actor.img}}" alt="{{actor.name}}" />
+    </div>
+  </div>
   <div class="header-details">
-    <h1 class="actor-name">{{actor.name}}</h1>
+    <div class="document-name">{{actor.name}}</div>
+    {{#if publicBio}}
+    <div class="vendor-description">{{{publicBio}}}</div>
+    {{/if}}
   </div>
 </header>

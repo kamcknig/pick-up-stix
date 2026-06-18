@@ -1,8 +1,10 @@
 import { getAdapter } from "../index.mjs";
-import { getPlayerCandidateTokens, purchaseItem } from "../../transfer/ItemTransfer.mjs";
+import { getPlayerCandidateTokens, purchaseItem, purchaseCart } from "../../transfer/ItemTransfer.mjs";
 import { dispatchGM } from "../../utils/gmDispatch.mjs";
-import { notifyPurchase } from "../../utils/notify.mjs";
+import { notifyPurchase, notifyPurchaseCart } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
+import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
+import { createRowControl } from "../../utils/domButtons.mjs";
 
 const NPCActorSheet = dnd5e.applications.actor.NPCActorSheet;
 
@@ -23,6 +25,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   #currencyHookId = null;
   #controlHookId = null;
+  #groupingId = DEFAULT_GROUPING;
+  #cart = new Set();
+  #renderTimer = null;
 
   constructor(options) {
     super(options);
@@ -34,7 +39,12 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   static DEFAULT_OPTIONS = {
     classes: ["pick-up-stix", "vendor-sheet"],
-    actions: { buyWare: Dnd5eVendorSheet.#onBuyWare }
+    actions: {
+      buyWare: Dnd5eVendorSheet.#onBuyWare,
+      toggleCart: Dnd5eVendorSheet.#onToggleCart,
+      checkoutCart: Dnd5eVendorSheet.#onCheckoutCart,
+      toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
+    }
   };
 
   // Full NPC parts + our Shop tab body (same container the other tab bodies use,
@@ -94,6 +104,23 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   /**
+   * Coalesce bursts of re-renders into one. A cart checkout fires several document
+   * updates in quick succession (currency debit, stock update, stock delete) — on the
+   * buyer's client when the GM buys inline, or as they propagate from the GM when a
+   * player buys — and each would otherwise re-render the sheet and flicker the shop
+   * icons. Debounce non-forced renders so the burst settles into a single render. Cart
+   * toggles use `#refreshCart` (direct DOM, no render) so they stay instant; forced
+   * renders (e.g. the initial open) pass through immediately.
+   */
+  render(...args) {
+    const force = args[0] === true || args[0]?.force === true;
+    if ( force ) return super.render(...args);
+    if ( this.#renderTimer ) clearTimeout(this.#renderTimer);
+    this.#renderTimer = setTimeout(() => { this.#renderTimer = null; super.render(); }, 150);
+    return Promise.resolve(this);
+  }
+
+  /**
    * Own the shop's Buy-button enabled state. Core `DocumentSheetV2#_toggleDisabled`
    * force-disables every `.window-content` form control on a non-editable (non-owner)
    * sheet from its async `_onRender` (identical in Foundry v13 + v14), so this state
@@ -104,13 +131,13 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   async _onRender(context, options) {
     await super._onRender(context, options);   // let core _toggleDisabled run first
-    const adapter = getAdapter();
-    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
-    for ( const button of this.element.querySelectorAll(".vendor-buy") ) {
-      const itemId = button.closest("[data-item-id]")?.dataset.itemId;
-      const item = itemId ? this.actor.items.get(itemId) : null;
-      button.disabled = !(item && buyer && adapter.canAfford(buyer, item, 1));
-    }
+    this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
+    this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
+    // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
+    // #refreshCart owns the disabled state for both basket toggles and buy buttons.
+    this.#refreshCart();
+    this.#refreshSubtitleTooltips();
+    this.#injectInventoryShopToggles();
     if (this.#currencyHookId === null) {       // register the live-update hooks once
       this.#currencyHookId = Hooks.on("updateActor", this.#onBuyerCurrencyChange.bind(this));
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
@@ -118,14 +145,114 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }
   }
 
+  /**
+   * Wrap the portrait media in a `.pus-portrait-clip` box so the break-out figure is masked
+   * flush at the frame's right + bottom (overflow:hidden on a box anchored there) while
+   * bleeding up + left. The player shop-header ships this box in markup (no-op here); the GM
+   * npc-header re-renders a bare `.portrait > img` each render, so we idempotently re-wrap it.
+   * (Foundry v13 + v14.)
+   */
+  #injectPortraitClip() {
+    const portrait = this.element.querySelector(".sheet-header .portrait");
+    if ( !portrait || portrait.querySelector(":scope > .pus-portrait-clip") ) return;
+    const media = portrait.querySelector(":scope > img, :scope > video");
+    if ( !media ) return;
+    dbg("vendorSheet:injectPortraitClip", "wrapping portrait media in clip box");
+    const clip = document.createElement("div");
+    clip.className = "pus-portrait-clip";
+    portrait.insertBefore(clip, media);
+    clip.appendChild(media);
+  }
+
+  /**
+   * Move dnd5e's edit-mode toggle (the `.mode-slider` it prepends to the window header)
+   * to sit immediately left of the XP badge (`.cr-xp`, inside `.header-elements`).
+   * Idempotent and re-checked each render since dnd5e re-asserts the toggle on
+   * ownership / mode changes. (Foundry v13 + v14, dnd5e NPC window header.)
+   */
+  #repositionEditToggle() {
+    const slider = this.element.querySelector(".window-header .mode-slider");
+    const crXp = this.element.querySelector(".window-header .cr-xp");
+    if ( !slider || !crXp || crXp.previousElementSibling === slider ) return;
+    dbg("vendorSheet:repositionEditToggle", "moving edit toggle left of the XP badge");
+    crXp.before(slider);
+  }
+
+  /**
+   * Re-evaluate subtitle truncation when a tab is shown. The GM's Shop tab is hidden
+   * at first render (they land on an NPC tab), so the `_onRender` pass sees a zero-size
+   * element and can't detect clipping; rerun once Shop becomes the active tab.
+   */
+  changeTab(tab, group, options) {
+    super.changeTab(tab, group, options);
+    if ( tab === "shop" ) this.#refreshSubtitleTooltips();
+  }
+
+  /**
+   * Tooltip the full subtitle on any `.shop-ware-sub` that's visually clipped. Needs the
+   * shop content visible (a hidden tab has no layout box → scrollWidth/clientWidth are 0),
+   * so it's called from `_onRender` (player / re-render while on Shop) and `changeTab`.
+   */
+  #refreshSubtitleTooltips() {
+    for ( const sub of this.element.querySelectorAll(".shop-ware-sub") ) {
+      if ( sub.scrollWidth > sub.clientWidth ) sub.dataset.tooltip = sub.textContent;
+      else delete sub.dataset.tooltip;
+    }
+  }
+
+  /**
+   * Inject a shop-visibility toggle into each Inventory-tab item row (GM only).
+   * Appends a matching empty header spacer and a `.ii-row-controls-cell
+   * pus-shop-toggle-cell` div containing the toggle to every `[data-item-id]` row.
+   * Uses the same `.ii-row-controls-cell` class as `_injectActorInventoryIdentifyToggles`
+   * so that function's idempotency guard (`:scope > .ii-row-controls-cell`) skips vendor
+   * rows — the vendor gets only this toggle, not the interactive lock/identify/trash.
+   * Called from `_onRender` which runs before the generic `renderNPCActorSheet` hook,
+   * so our cell always wins the idempotency race.
+   */
+  #injectInventoryShopToggles() {
+    if ( !game.user.isGM ) return;
+    const root = this.element;
+    // Append an empty header spacer for column alignment (idempotent).
+    root.querySelectorAll(".items-section .items-header.header").forEach(header => {
+      if ( header.querySelector(".ii-row-controls-cell") ) return;
+      const cell = document.createElement("div");
+      cell.className = "item-header ii-row-controls-cell pus-shop-toggle-cell";
+      header.appendChild(cell);
+    });
+    // Append the toggle to each item row (idempotent via the same guard).
+    root.querySelectorAll("[data-item-id]").forEach(el => {
+      const item = this.actor.items.get(el.dataset.itemId);
+      const itemRow = el.querySelector(".item-row");
+      if ( !item || !itemRow || itemRow.querySelector(":scope > .ii-row-controls-cell") ) return;
+      const visible = item.getFlag("pick-up-stix", "shopVisible") !== false;
+      dbg("vendorSheet:injectInventoryShopToggles", { item: item.id, name: item.name, visible });
+      const cell = document.createElement("div");
+      cell.className = "item-detail ii-row-controls-cell pus-shop-toggle-cell";
+      cell.appendChild(createRowControl({
+        iconClass: "fa-solid fa-box-arrow-down-arrow-up",
+        titleKey: "INTERACTIVE_ITEMS.Vendor.ToggleShopVisible",
+        extraClass: "pick-up-stix-shop-toggle",
+        active: visible,
+        onClick: async () => {
+          dbg("vendorSheet:shopToggleClick", { item: item.id, name: item.name, from: visible, to: !visible });
+          await item.setFlag("pick-up-stix", "shopVisible", !visible);
+        }
+      }));
+      itemRow.appendChild(cell);
+    });
+  }
+
   async close(options = {}) {
     if (this.#currencyHookId !== null) { Hooks.off("updateActor", this.#currencyHookId); this.#currencyHookId = null; }
     if (this.#controlHookId !== null) { Hooks.off("controlToken", this.#controlHookId); this.#controlHookId = null; }
+    if (this.#renderTimer) { clearTimeout(this.#renderTimer); this.#renderTimer = null; }
     return super.close(options);
   }
 
-  #onBuyerCurrencyChange(actor, changes) {
+  #onBuyerCurrencyChange(actor, changes, options) {
     if (!this.rendered) return;
+    if (options?.pickUpStix?.suppressVendorRender) return;   // our own checkout debit — skip
     if (!foundry.utils.hasProperty(changes, "system.currency")) return;
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
     if (!buyer || buyer.id !== actor.id) return;
@@ -135,63 +262,178 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   async _preparePartContext(partId, context, options) {
     context = await super._preparePartContext(partId, context, options);
-    if ( partId === "shop" ) context.wares = this.#prepareWares();
+    if ( partId === "shop" ) {
+      context.shop = this.#prepareShop();
+      context.isGM = game.user.isGM;
+    }
+    if ( partId === "header" ) {
+      // Player storefront header shows the actor's public biography below the name, enriched
+      // so links/rolls render. Reactive: editing it (GM bio tab) re-renders the sheet.
+      const TE = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
+      context.publicBio = await TE.enrichHTML(this.actor.system?.details?.biography?.public ?? "",
+        { secrets: false, relativeTo: this.actor });
+    }
     return context;
   }
 
   /**
-   * Build a flat ware list from the vendor's physical items for the shop view.
-   * Reads only adapter-abstracted accessors so dnd5e assumptions stay in the
-   * adapter rather than here.
+   * Build the grouped shop structure from the vendor's physical items.
+   * Delegates bucketing, column cell building, and sort order to the
+   * grouping framework in shopGrouping.mjs — all dnd5e display logic
+   * stays in that adapter-local module.
    *
-   * @returns {{ id: string, name: string, img: string, quantity: number, price: object }[]}
+   * @returns {{ groupingId, columnTemplate, headers, groups }}
    */
-  #prepareWares() {
+  #prepareShop() {
     const adapter = getAdapter();
-    return this.actor.items
-      .filter(i => adapter.isPhysicalItem(i))
-      .map(i => ({
-        id: i.id,
-        name: i.name,
-        img: i.img,
-        quantity: adapter.getItemQuantity(i),
-        price: adapter.getItemPrice(i)
-      }));
+    // Only physical items that are in stock AND not hidden by the GM (shopVisible !== false).
+    // Absent flag (pre-existing items) is treated as visible.
+    const items = this.actor.items.filter(i =>
+      adapter.isPhysicalItem(i)
+      && adapter.getItemQuantity(i) > 0
+      && i.getFlag("pick-up-stix", "shopVisible") !== false
+    );
+    return buildShop(items, this.#groupingId);
+  }
+
+  static #onToggleCart(event, target) {
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    if ( !itemId ) return;
+    if ( this.#cart.has(itemId) ) this.#cart.delete(itemId);
+    else this.#cart.add(itemId);
+    dbg("vendorSheet:onToggleCart", { itemId, inCart: this.#cart.has(itemId), size: this.#cart.size });
+    this.#refreshCart();
+  }
+
+  static async #onCheckoutCart(event, target) {
+    const itemIds = [...this.#cart];
+    if ( !itemIds.length ) return;
+    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
+    if ( !buyer ) {
+      dbg("vendorSheet:onCheckoutCart", "no buyer, bail");
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
+      return;
+    }
+    dbg("vendorSheet:onCheckoutCart", { count: itemIds.length, buyer: buyer.id, vendor: this.actor.id });
+    // Empty the cart and hide its footer immediately via direct DOM (no re-render). The single
+    // vendor-credit write at the end of the purchase is what re-renders the shop, exactly once.
+    this.#cart.clear();
+    this.#refreshCart();
+    await dispatchGM(
+      "purchaseCart",
+      { vendorActorId: this.actor.id, itemIds, buyerActorId: buyer.id },
+      async () => purchaseCart(this.actor.id, itemIds, buyer.id)
+    );
+    if ( !game.user.isGM ) notifyPurchaseCart(itemIds.length, this.actor.name);
+  }
+
+  /**
+   * Single live-update pass for cart state, basket toggle active/disabled states,
+   * per-row buy button disabled states, and the footer visibility + total.
+   * Called from `_onRender` (after `await super._onRender` so it overrides core
+   * _toggleDisabled) and directly from `#onToggleCart` (avoids a full re-render).
+   * The `#cart` Set survives re-renders so toggled state persists across currency
+   * updates and selection changes.
+   */
+  #refreshCart() {
+    const adapter = getAdapter();
+    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
+    const wealthCp = buyer ? adapter.getActorWealthCp(buyer) : 0;
+
+    // Prune cart ids no longer present (sold out / hidden) and total the rest.
+    let cartCp = 0;
+    for ( const id of [...this.#cart] ) {
+      const item = this.actor.items.get(id);
+      if ( !item ) { this.#cart.delete(id); continue; }
+      cartCp += adapter.getItemChargeCp(item, 1);
+    }
+    const hasCart = this.#cart.size > 0;
+
+    for ( const row of this.element.querySelectorAll(".shop-ware") ) {
+      const item = this.actor.items.get(row.dataset.itemId);
+      if ( !item ) continue;
+      const inCart = this.#cart.has(row.dataset.itemId);
+      const chargeCp = adapter.getItemChargeCp(item, 1);
+
+      const basket = row.querySelector(".shop-cart-toggle");
+      if ( basket ) {
+        basket.classList.toggle("active", inCart);
+        // Removable when in cart; addable only if it still fits the buyer's purse.
+        basket.disabled = !inCart && (!buyer || (cartCp + chargeCp) > wealthCp);
+      }
+      const buy = row.querySelector(".vendor-buy");
+      if ( buy ) buy.disabled = hasCart || !(buyer && adapter.canAfford(buyer, item, 1));
+    }
+
+    // Footer: total, visibility animation, and checkout button enable/disable.
+    const footer = this.element.querySelector(".shop-cart-footer");
+    if ( footer ) {
+      footer.classList.toggle("active", hasCart);
+      const totalEl = footer.querySelector(".cart-total");
+      if ( totalEl ) totalEl.textContent = this.#formatCp(cartCp);
+      const checkout = footer.querySelector(".cart-checkout");
+      if ( checkout ) checkout.disabled = !(hasCart && buyer && cartCp <= wealthCp);
+    }
+  }
+
+  /** Format a copper amount as a short coin string, e.g. 3060 → "30 gp 6 sp". */
+  #formatCp(cp) {
+    const gp = Math.floor(cp / 100), sp = Math.floor((cp % 100) / 10), c = cp % 10;
+    return [gp && `${gp} gp`, sp && `${sp} sp`, c && `${c} cp`].filter(Boolean).join(" ") || "0 gp";
   }
 
   static async #onBuyWare(event, target) {
     const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const item = this.actor.items.get(itemId);
-    if (!item) {
-      dbg("vendorSheet:onBuyWare", "no item for row, bail", { itemId });
-      return;
-    }
+    if ( !item ) { dbg("vendorSheet:onBuyWare", "no item for row, bail", { itemId }); return; }
+
+    const qty = 1;   // vendors sell one unit per Buy click
 
     // Buyer = first pickup candidate (controlled non-interactive token, else the
     // assigned character's token on this scene) — the same resolution the pickup
     // flow uses, so players and GMs behave identically.
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
-    if (!buyer) {
+    if ( !buyer ) {
       dbg("vendorSheet:onBuyWare", "no buyer (no controlled token / scene character), bail");
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
       return;
     }
 
     const adapter = getAdapter();
-    if (!adapter.canAfford(buyer, item, 1)) {
-      dbg("vendorSheet:onBuyWare", "buyer cannot afford, bail", { item: item.id, buyer: buyer.id });
+    if ( !adapter.canAfford(buyer, item, qty) ) {
+      dbg("vendorSheet:onBuyWare", "buyer cannot afford qty, bail", { item: item.id, buyer: buyer.id, qty });
       ui.notifications.warn(game.i18n.format("INTERACTIVE_ITEMS.Notify.NotEnoughCoin", { name: item.name }));
       return;
     }
 
     dbg("vendorSheet:onBuyWare", "dispatching purchase", {
-      vendor: this.actor.id, item: item.id, buyer: buyer.id
+      vendor: this.actor.id, item: item.id, buyer: buyer.id, qty
     });
     await dispatchGM(
       "purchaseItem",
-      { vendorActorId: this.actor.id, itemId: item.id, buyerActorId: buyer.id, quantity: 1 },
-      async () => purchaseItem(this.actor.id, item.id, buyer.id, 1)
+      { vendorActorId: this.actor.id, itemId: item.id, buyerActorId: buyer.id, quantity: qty },
+      async () => purchaseItem(this.actor.id, item.id, buyer.id, qty)
     );
-    if (!game.user.isGM) notifyPurchase(item.name, this.actor.name);  // buyer self-notifies
+    if ( !game.user.isGM ) notifyPurchase(item.name, this.actor.name);  // buyer self-notifies
+  }
+
+  /**
+   * Toggle an item's shopVisible flag. Active (true) → hidden (false) and vice-versa.
+   * Triggering a flag update causes ApplicationV2 to re-render, which re-runs
+   * #prepareShop → hidden items disappear from the list.
+   *
+   * @param {PointerEvent} event
+   * @param {HTMLElement} target
+   */
+  static async #onToggleShopVisible(event, target) {
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    const item = this.actor.items.get(itemId);
+    if ( !item ) {
+      dbg("vendorSheet:onToggleShopVisible", "no item for target, bail", { itemId });
+      return;
+    }
+    const visible = item.getFlag("pick-up-stix", "shopVisible") !== false;
+    dbg("vendorSheet:onToggleShopVisible", { item: item.id, name: item.name, from: visible, to: !visible });
+    await item.setFlag("pick-up-stix", "shopVisible", !visible);   // → re-render → #prepareShop refilters
   }
 }

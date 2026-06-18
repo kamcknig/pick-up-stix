@@ -5,6 +5,8 @@ import { notifyPurchase, notifyPurchaseCart } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
 import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
 import { createRowControl } from "../../utils/domButtons.mjs";
+import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
+import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
 
 const NPCActorSheet = dnd5e.applications.actor.NPCActorSheet;
 
@@ -27,6 +29,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   #controlHookId = null;
   #deleteItemHookId = null;
   #updateItemHookId = null;
+  #queueHookId = null;
   #groupingId = DEFAULT_GROUPING;
   #cart = new Map();   // itemId -> quantity to buy
   #renderTimer = null;
@@ -161,6 +164,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     await super._onRender(context, options);   // let core _toggleDisabled run first
     this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
     this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
+    this.#repositionInitiativeDie();            // move initiative d20 above the vendor name (GM only)
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
@@ -176,6 +180,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       // Fires on this and every other client with the sheet open.
       this.#deleteItemHookId = Hooks.on("deleteItem", this.#onVendorCartItemChanged.bind(this));
       this.#updateItemHookId = Hooks.on("updateItem", this.#onVendorCartItemChanged.bind(this));
+      // Re-render when the shopping queue changes (strip + gating follow the flag).
+      this.#queueHookId = Hooks.on("updateActor", this.#onQueueChange.bind(this));
       // Cart quantity inputs (multi-stock wares). One delegated change listener on the root,
       // which survives shop-part re-renders and is torn down with the element on close.
       this.element.addEventListener("change", this.#onCartQtyChange.bind(this));
@@ -213,6 +219,21 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( !slider || !crXp || crXp.previousElementSibling === slider ) return;
     dbg("vendorSheet:repositionEditToggle", "moving edit toggle left of the XP badge");
     crXp.before(slider);
+  }
+
+  /** Move dnd5e's initiative d20 from its portrait overlay to above the vendor name (GM only). */
+  #repositionInitiativeDie() {
+    if ( !this.actor.isOwner ) return;
+    // Name lives in .sheet-header .right.stats > .top > .left (in edit mode it's an input).
+    const nameContainer = this.element.querySelector(".sheet-header .right.stats .top .left");
+    if ( !nameContainer ) return;
+    const name = nameContainer.querySelector(".document-name");
+    if ( !name ) return;
+    if ( name.previousElementSibling?.classList.contains("initiative-wrapper") ) return; // already moved
+    const wrapper = this.element.querySelector(".sheet-header .portrait .initiative-wrapper");
+    if ( !wrapper ) return;
+    dbg("vendorSheet:repositionInitiativeDie", "moving initiative die above vendor name");
+    name.before(wrapper);
   }
 
   /**
@@ -325,11 +346,80 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     list.parentElement.insertBefore(row, list);
   }
 
+  /**
+   * Enqueue this user on open/maximize. If they're already in another vendor's queue, confirm the
+   * switch first (single button; the X dismisses → stay put). The GM is never queued. Called
+   * fire-and-forget from the lifecycle callbacks so the dialog never blocks render finalization.
+   */
+  async #requestJoin() {
+    if ( game.user.isGM ) return;
+    const myActor = getPlayerCandidateTokens()[0]?.actor ?? game.user.character;
+    if ( !myActor ) { dbg("vendorSheet:requestJoin", "no candidate actor, skipping join"); return; }
+    const others = findUserVendorQueues(myActor.id).filter(a => a.id !== this.actor.id);
+    if ( !others.length ) { this.#joinQueue(myActor); return; }   // not queued elsewhere → join now
+    dbg("vendorSheet:requestJoin", "queued elsewhere, confirming switch", { others: others.map(a => a.id) });
+    const confirmed = await promptVendorQueueSwitch(this.actor.name, others[0].name);
+    if ( confirmed ) this.#joinQueue(myActor);                     // GM-side join displaces the prior queue(s)
+    else dbg("vendorSheet:requestJoin", "switch declined — staying in prior queue, not joining this one");
+  }
+
+  /** Emit a join request to the active GM (GM is never queued). */
+  #joinQueue(myActor) {
+    if ( game.user.isGM ) return;
+    dbg("vendorSheet:joinQueue", { vendor: this.actor.id, actor: myActor.id });
+    emitSocketEvent("vendorQueueJoin", { vendorActorId: this.actor.id, actorId: myActor.id });
+  }
+
+  /** A player minimized/closed this vendor sheet — dequeue them and drop their cart. */
+  #leaveQueue() {
+    if ( game.user.isGM ) return;
+    const myActor = getPlayerCandidateTokens()[0]?.actor ?? game.user.character;
+    if ( !myActor ) return;
+    this.#cart.clear();                 // leaving clears my basket so nothing carries over
+    dbg("vendorSheet:leaveQueue", { vendor: this.actor.id, actor: myActor.id });
+    emitSocketEvent("vendorQueueLeave", { vendorActorId: this.actor.id, actorId: myActor.id });
+  }
+
+  /** The queue flag on THIS vendor changed — re-render so the strip + gating follow. */
+  #onQueueChange(actor, changes) {
+    if ( !this.rendered || actor.id !== this.actor.id ) return;
+    if ( !foundry.utils.hasProperty(changes, "flags.pick-up-stix.shoppingQueue") ) return;
+    dbg("vendorSheet:onQueueChange", { vendor: actor.id, queue: getVendorQueue(actor) });
+    this.render();
+  }
+
+  /** Join (gated) once, when the sheet is first opened. */
+  async _onFirstRender(context, options) {
+    await super._onFirstRender(context, options);
+    this.#requestJoin();                // fire-and-forget; may pop the switch dialog
+  }
+
+  /** Leave the queue when the window is minimized (only on a real transition). */
+  async minimize() {
+    const wasMinimized = this.minimized;
+    await super.minimize();
+    if ( !wasMinimized && this.minimized ) this.#leaveQueue();
+  }
+
+  /** Rejoin (gated) when the window is restored from minimized. */
+  async maximize() {
+    const wasMinimized = this.minimized;
+    await super.maximize();
+    if ( wasMinimized && !this.minimized ) this.#requestJoin();
+  }
+
+  /** Leave the queue on close (fires for the X button and programmatic close). */
+  _onClose(options) {
+    super._onClose(options);
+    this.#leaveQueue();
+  }
+
   async close(options = {}) {
     if (this.#currencyHookId !== null) { Hooks.off("updateActor", this.#currencyHookId); this.#currencyHookId = null; }
     if (this.#controlHookId !== null) { Hooks.off("controlToken", this.#controlHookId); this.#controlHookId = null; }
     if (this.#deleteItemHookId !== null) { Hooks.off("deleteItem", this.#deleteItemHookId); this.#deleteItemHookId = null; }
     if (this.#updateItemHookId !== null) { Hooks.off("updateItem", this.#updateItemHookId); this.#updateItemHookId = null; }
+    if (this.#queueHookId !== null) { Hooks.off("updateActor", this.#queueHookId); this.#queueHookId = null; }
     if (this.#renderTimer) { clearTimeout(this.#renderTimer); this.#renderTimer = null; }
     return super.close(options);
   }
@@ -360,11 +450,40 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#refreshCart();
   }
 
+  /** The GM always shops; a player shops only when their actor is at the front of the queue. */
+  #canShop() {
+    if ( game.user.isGM ) return true;
+    const myActor = getPlayerCandidateTokens()[0]?.actor ?? game.user.character;
+    if ( !myActor ) return false;
+    return getVendorQueue(this.actor)[0] === myActor.id;
+  }
+
+  /** Map the queue actorIds to display rows for the strip (active = index 0). */
+  #prepareQueue() {
+    return getVendorQueue(this.actor).reduce((rows, actorId, i) => {
+      // Find the user who owns this actor as their character.
+      const user = game.users.find(u => u.character?.id === actorId);
+      const character = user?.character ?? game.actors.get(actorId) ?? null;
+      if ( !character ) return rows;           // actor deleted or no matching user — skip
+      rows.push({
+        actorId,
+        name: character.name,
+        img: character.img ?? "icons/svg/mystery-man.svg",
+        color: user?.color?.css ?? (typeof user?.color === "string" ? user?.color : null),
+        active: i === 0,
+        isSelf: user?.id === game.user.id
+      });
+      return rows;
+    }, []);
+  }
+
   async _preparePartContext(partId, context, options) {
     context = await super._preparePartContext(partId, context, options);
     if ( partId === "shop" ) {
       context.shop = this.#prepareShop();
       context.isGM = game.user.isGM;
+      context.queue = this.#prepareQueue();
+      context.canShop = this.#canShop();
     }
     if ( partId === "header" ) {
       // Player storefront header shows the actor's public biography below the name, enriched
@@ -372,6 +491,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       const TE = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
       context.publicBio = await TE.enrichHTML(this.actor.system?.details?.biography?.public ?? "",
         { secrets: false, relativeTo: this.actor });
+      context.queue = this.#prepareQueue();
     }
     return context;
   }
@@ -442,6 +562,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    * updates and selection changes.
    */
   #refreshCart() {
+    if ( !this.#canShop() ) { this.#cart.clear(); return; }   // waiting player: controls not rendered
     const adapter = getAdapter();
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
     const wealthCp = buyer ? adapter.getActorWealthCp(buyer) : 0;

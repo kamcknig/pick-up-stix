@@ -1,5 +1,22 @@
 {{!-- Wrapped in dnd5e's tab root so it shows only when the Shop tab is active. --}}
 <section class="tab {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
+  {{!-- GM sees the queue at the top of the Shop tab; players get it in the storefront header. --}}
+  {{#if isGM}}
+  {{#if queue.length}}
+  <div class="vendor-queue pus-gm-queue">
+    {{#each queue}}
+    <div class="vendor-queue-shopper {{#if this.active}}active{{/if}} {{#if this.isSelf}}self{{/if}}"
+         data-actor-id="{{ this.actorId }}"
+         data-tooltip="{{#if this.active}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Active' }}{{else}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Waiting' }}{{/if}}">
+      <div class="vendor-queue-portrait" {{#if this.color}}style="--shopper-color: {{ this.color }};"{{/if}}>
+        <img src="{{ this.img }}" alt="{{ this.name }}" />
+      </div>
+      <span class="vendor-queue-name">{{ this.name }}</span>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+  {{/if}}
   <section class="vendor-shop" style="--shop-cols: {{ shop.columnTemplate }};">
     {{#each shop.groups}}
     <div class="shop-group" data-group-key="{{ this.key }}">
@@ -34,6 +51,7 @@
         {{else}}
         <span class="shop-toggle-empty"></span>
         {{/if}}
+        {{#if @root.canShop}}
         <button type="button" class="shop-cart-toggle" data-action="toggleCart"
                 data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.AddToCart" }}" disabled>
           <i class="fa-solid fa-basket-shopping"></i>
@@ -55,6 +73,7 @@
           </button>
         </div>
         {{/if}}
+        {{/if}}
       </div>
       {{/each}}
     </div>
@@ -62,6 +81,7 @@
     <p class="vendor-ware-empty">{{ localize "INTERACTIVE_ITEMS.Vendor.Empty" }}</p>
     {{/each}}
   </section>
+  {{#if canShop}}
   <footer class="shop-cart-footer">
     <span class="cart-count-badge" data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.CartCount" }}">
       <i class="fa-solid fa-box"></i> &times;<span class="cart-count">0</span>
@@ -74,4 +94,5 @@
       <i class="fa-solid fa-coins"></i>
     </button>
   </footer>
+  {{/if}}
 </section>

@@ -824,16 +824,32 @@
   cursor: pointer;
 }
 
-/* Player storefront header: stack the name + public description, vertically centered as a
-   group and left-aligned with the name. (Only the player shop-header has .header-details;
-   the GM npc-header uses dnd5e's own name layout, untouched.) */
+/* Player storefront header: flex column, vertically centered by default; top-aligned when a
+   queue strip is present (.has-queue). Only the player shop-header has .header-details;
+   the GM npc-header uses dnd5e's own name layout, untouched. */
 .vendor-sheet .sheet-header .header-details {
   display: flex;
   flex-direction: column;
-  justify-content: center;     /* keep name + description centered vertically in the header */
-  align-items: flex-start;     /* left-align both */
-  gap: 6px;
+  justify-content: center;      /* default: vertically center name + description */
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
+}
+/* Zero out any dnd5e-inherited margin/padding on the name heading so description sits flush. */
+.vendor-sheet .sheet-header .header-details .document-name {
+  margin: 0;
+  padding: 0;
+  line-height: 1.1;
+}
+.vendor-sheet .sheet-header .header-details.has-queue {
+  justify-content: flex-start;  /* top-align when queue strip is present */
+  padding-top: 8px;
+}
+/* Queue strip inside the header sits flush at the bottom of the header-details column. */
+.vendor-sheet .sheet-header .header-details .vendor-queue {
+  margin-top: auto;
+  padding: 4px 0 0;
+  border-bottom: none;
 }
 .vendor-sheet .sheet-header .header-details .vendor-description {
   max-width: 42ch;
@@ -846,3 +862,71 @@
 .vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol) { margin: 0 0 0.4em; }
 .vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol):last-child { margin-bottom: 0; }
 
+/* Shopping queue — horizontal strip; active shopper first and larger. */
+.vendor-queue {
+  display: flex;
+  align-items: flex-end;          /* bottoms align so larger active sits flush */
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-dark, rgba(0, 0, 0, 0.3));
+}
+.vendor-queue-shopper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 52px;
+}
+.vendor-queue-portrait {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid var(--shopper-color, var(--dnd5e-color-gold, #c9a238));
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.25);
+}
+.vendor-queue-portrait img { width: 100%; height: 100%; object-fit: cover; border: none; }
+.vendor-queue-name {
+  max-width: 52px;
+  font-size: var(--font-size-11, 11px);
+  text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Active shopper: slightly bigger frame + bolder name. */
+.vendor-queue-shopper.active { width: 64px; }
+.vendor-queue-shopper.active .vendor-queue-portrait { width: 60px; height: 60px; border-width: 3px; }
+.vendor-queue-shopper.active .vendor-queue-name { max-width: 64px; font-weight: 700; }
+.vendor-queue-shopper.self .vendor-queue-name { color: var(--dnd5e-color-gold, #c9a238); }
+
+/* GM NPC view: initiative d20 is moved by JS (#repositionInitiativeDie) from inside .portrait to
+   .right.stats > .top > .left, before .document-name. dnd5e scopes its initiative styles to
+   .portrait descendants, so we re-declare them here after the DOM move. */
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .right.stats .top .left .initiative-wrapper {
+  position: relative;
+  inset: unset;
+  transform: none;
+  align-self: flex-start;
+  margin-bottom: 4px;
+}
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .right.stats .top .left .initiative {
+  width: 44px;
+  height: 44px;
+  background: var(--dnd5e-color-gold) url("../../../icons/svg/d20-black.svg") center / contain;
+  display: grid;
+  place-content: center;
+  font-weight: bold;
+  font-family: var(--dnd5e-font-roboto);
+  font-size: var(--font-size-18);
+  text-shadow: 0 0 4px var(--dnd5e-color-gold);
+  cursor: var(--cursor-pointer);
+  border-radius: 100%;
+  color: var(--color-text-light-0);
+  border: 2px solid var(--dnd5e-color-gold);
+  clip-path: polygon(48.5% 0, 91% 25%, 92% 75%, 49% 100%, 6% 75%, 7% 25%);
+}
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .right.stats .top .left .initiative .config-button {
+  color: inherit;
+  font-size: inherit;
+}

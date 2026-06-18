@@ -281,7 +281,14 @@
       "CartCount": "Items in cart",
       "CartQty": "Quantity to buy",
       "AllShop": "All",
-      "ToggleAllShop": "Add all to / remove all from shop"
+      "ToggleAllShop": "Add all to / remove all from shop",
+      "Queue": {
+        "SwitchTitle": "Switch shops?",
+        "SwitchPrompt": "You're already in line at {from}. Joining {to} will leave {from}'s queue.",
+        "SwitchConfirm": "Join this queue",
+        "Active": "Shopping now",
+        "Waiting": "Waiting in line"
+      }
     }
   },
   "TYPES": {

@@ -4,6 +4,7 @@ import { getTokenActor } from "../utils/actorHelpers.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
 import { setInitiator, clearInitiator } from "../utils/notify.mjs";
+import { joinVendorQueue, leaveVendorQueue } from "../utils/vendorQueue.mjs";
 
 const SOCKET_NAME = "module.pick-up-stix";
 
@@ -103,6 +104,18 @@ async function _dispatch(payload) {
         if (!game.user.isActiveGM) break;       // currency safety: single processor for sockets
         const { vendorActorId, cartItems, buyerActorId } = payload.data ?? {};
         await purchaseCart(vendorActorId, cartItems, buyerActorId);
+        break;
+      }
+      case "vendorQueueJoin": {
+        if (!game.user.isActiveGM) break;
+        const { vendorActorId, actorId } = payload.data ?? {};
+        await joinVendorQueue(vendorActorId, actorId);
+        break;
+      }
+      case "vendorQueueLeave": {
+        if (!game.user.isActiveGM) break;
+        const { vendorActorId, actorId } = payload.data ?? {};
+        await leaveVendorQueue(vendorActorId, actorId);
         break;
       }
     }

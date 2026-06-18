@@ -23,6 +23,7 @@ import { findCanvasDropTargets } from "./utils/canvasDropTargets.mjs";
 import { isModuleGM, isPlayerView } from "./utils/playerView.mjs";
 import { hasLevels, getTokenLevelId } from "./utils/levels.mjs";
 import { registerInstallTrackerSetting, maybeSendInstallRecord } from "./utils/installTracker.mjs";
+import { registerVendorQueueHooks } from "./utils/vendorQueue.mjs";
 
 const MODULE_ID = "pick-up-stix";
 const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
@@ -358,6 +359,7 @@ Hooks.once("init", async () => {
   registerPlacement();
   registerQtyBadge();
   registerCarriedLights();
+  registerVendorQueueHooks();
 });
 
 /**

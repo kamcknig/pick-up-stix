@@ -277,7 +277,9 @@
       "Group": { "Type": "Type" },
       "ToggleShopVisible": "Show / hide in shop",
       "AddToCart": "Add to / remove from cart",
-      "CartTotal": "Cart total"
+      "CartTotal": "Cart total",
+      "CartCount": "Items in cart",
+      "CartQty": "Quantity to buy"
     }
   },
   "TYPES": {

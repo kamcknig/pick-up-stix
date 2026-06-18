@@ -42,6 +42,19 @@
                 data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}" disabled>
           <i class="fa-solid fa-coins"></i>
         </button>
+        {{#if this.multiStock}}
+        <div class="shop-ware-qty">
+          <button type="button" class="qty-step" data-action="stepCartQty" data-step="-1" tabindex="-1" data-tooltip="-1">
+            <i class="fa-solid fa-minus"></i>
+          </button>
+          <input type="number" class="qty-val" min="1" max="{{ this.stock }}" value="1" step="1"
+                 data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.CartQty" }}"
+                 aria-label="{{ localize "INTERACTIVE_ITEMS.Vendor.CartQty" }}" />
+          <button type="button" class="qty-step" data-action="stepCartQty" data-step="1" tabindex="-1" data-tooltip="+1">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+        {{/if}}
       </div>
       {{/each}}
     </div>
@@ -50,6 +63,9 @@
     {{/each}}
   </section>
   <footer class="shop-cart-footer">
+    <span class="cart-count-badge" data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.CartCount" }}">
+      <i class="fa-solid fa-box"></i> &times;<span class="cart-count">0</span>
+    </span>
     <span class="cart-summary">
       {{ localize "INTERACTIVE_ITEMS.Vendor.CartTotal" }}: <span class="cart-total">0 gp</span>
     </span>

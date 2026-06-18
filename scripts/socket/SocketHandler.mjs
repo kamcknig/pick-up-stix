@@ -101,8 +101,8 @@ async function _dispatch(payload) {
       }
       case "purchaseCart": {
         if (!game.user.isActiveGM) break;       // currency safety: single processor for sockets
-        const { vendorActorId, itemIds, buyerActorId } = payload.data ?? {};
-        await purchaseCart(vendorActorId, itemIds, buyerActorId);
+        const { vendorActorId, cartItems, buyerActorId } = payload.data ?? {};
+        await purchaseCart(vendorActorId, cartItems, buyerActorId);
         break;
       }
     }

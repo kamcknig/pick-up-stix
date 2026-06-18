@@ -150,12 +150,14 @@ export function buildShop(items, groupingId = DEFAULT_GROUPING) {
 
 function buildWareRow(item, columns) {
   const description = descriptionSubtitle(item);
+  const stock = getAdapter().getItemQuantity(item);
   return {
     id: item.id,
     name: item.name,
     img: item.img,
     subtitle: description || typeSubtitle(item),
-    stock: getAdapter().getItemQuantity(item),
+    stock,
+    multiStock: stock > 1,
     shopVisible: item.getFlag("pick-up-stix", "shopVisible") !== false,
     cells: columns.map(c => ({ align: c.align, ...c.cell(item) }))
   };

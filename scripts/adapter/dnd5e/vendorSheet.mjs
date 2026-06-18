@@ -26,7 +26,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   #currencyHookId = null;
   #controlHookId = null;
   #groupingId = DEFAULT_GROUPING;
-  #cart = new Set();
+  #cart = new Map();   // itemId -> quantity to buy
   #renderTimer = null;
 
   constructor(options) {
@@ -43,6 +43,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       buyWare: Dnd5eVendorSheet.#onBuyWare,
       toggleCart: Dnd5eVendorSheet.#onToggleCart,
       checkoutCart: Dnd5eVendorSheet.#onCheckoutCart,
+      stepCartQty: Dnd5eVendorSheet.#onStepCartQty,
       toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
     }
   };
@@ -142,6 +143,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       this.#currencyHookId = Hooks.on("updateActor", this.#onBuyerCurrencyChange.bind(this));
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
       this.#controlHookId = Hooks.on("controlToken", () => { if (this.rendered) this.render(); });
+      // Cart quantity inputs (multi-stock wares). One delegated change listener on the root,
+      // which survives shop-part re-renders and is torn down with the element on close.
+      this.element.addEventListener("change", this.#onCartQtyChange.bind(this));
     }
   }
 
@@ -300,31 +304,32 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     if ( !itemId ) return;
     if ( this.#cart.has(itemId) ) this.#cart.delete(itemId);
-    else this.#cart.add(itemId);
+    else this.#cart.set(itemId, 1);
     dbg("vendorSheet:onToggleCart", { itemId, inCart: this.#cart.has(itemId), size: this.#cart.size });
     this.#refreshCart();
   }
 
   static async #onCheckoutCart(event, target) {
-    const itemIds = [...this.#cart];
-    if ( !itemIds.length ) return;
+    const cartItems = [...this.#cart.entries()];   // [[itemId, qty], ...]
+    if ( !cartItems.length ) return;
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
     if ( !buyer ) {
       dbg("vendorSheet:onCheckoutCart", "no buyer, bail");
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
       return;
     }
-    dbg("vendorSheet:onCheckoutCart", { count: itemIds.length, buyer: buyer.id, vendor: this.actor.id });
+    const totalUnits = cartItems.reduce((sum, [, qty]) => sum + qty, 0);
+    dbg("vendorSheet:onCheckoutCart", { items: cartItems.length, units: totalUnits, buyer: buyer.id, vendor: this.actor.id });
     // Empty the cart and hide its footer immediately via direct DOM (no re-render). The single
     // vendor-credit write at the end of the purchase is what re-renders the shop, exactly once.
     this.#cart.clear();
     this.#refreshCart();
     await dispatchGM(
       "purchaseCart",
-      { vendorActorId: this.actor.id, itemIds, buyerActorId: buyer.id },
-      async () => purchaseCart(this.actor.id, itemIds, buyer.id)
+      { vendorActorId: this.actor.id, cartItems, buyerActorId: buyer.id },
+      async () => purchaseCart(this.actor.id, cartItems, buyer.id)
     );
-    if ( !game.user.isGM ) notifyPurchaseCart(itemIds.length, this.actor.name);
+    if ( !game.user.isGM ) notifyPurchaseCart(totalUnits, this.actor.name);
   }
 
   /**
@@ -340,40 +345,107 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
     const wealthCp = buyer ? adapter.getActorWealthCp(buyer) : 0;
 
-    // Prune cart ids no longer present (sold out / hidden) and total the rest.
-    let cartCp = 0;
-    for ( const id of [...this.#cart] ) {
+    // Prune cart ids no longer present (sold out / hidden); total the rest at each item's
+    // cart quantity, and count the total units being purchased.
+    let cartCp = 0, cartUnits = 0;
+    for ( const [id, qty] of [...this.#cart] ) {
       const item = this.actor.items.get(id);
       if ( !item ) { this.#cart.delete(id); continue; }
-      cartCp += adapter.getItemChargeCp(item, 1);
+      cartCp += adapter.getItemChargeCp(item, qty);
+      cartUnits += qty;
     }
     const hasCart = this.#cart.size > 0;
 
     for ( const row of this.element.querySelectorAll(".shop-ware") ) {
-      const item = this.actor.items.get(row.dataset.itemId);
+      const id = row.dataset.itemId;
+      const item = this.actor.items.get(id);
       if ( !item ) continue;
-      const inCart = this.#cart.has(row.dataset.itemId);
-      const chargeCp = adapter.getItemChargeCp(item, 1);
+      const inCart = this.#cart.has(id);
+      const unitCp = adapter.getItemChargeCp(item, 1);
+      const stock = adapter.getItemQuantity(item);
 
       const basket = row.querySelector(".shop-cart-toggle");
       if ( basket ) {
         basket.classList.toggle("active", inCart);
-        // Removable when in cart; addable only if it still fits the buyer's purse.
-        basket.disabled = !inCart && (!buyer || (cartCp + chargeCp) > wealthCp);
+        // Removable when in cart; addable (one unit) only if it still fits the buyer's purse.
+        basket.disabled = !inCart && (!buyer || (cartCp + unitCp) > wealthCp);
       }
       const buy = row.querySelector(".vendor-buy");
       if ( buy ) buy.disabled = hasCart || !(buyer && adapter.canAfford(buyer, item, 1));
+
+      // Quantity input (multi-stock wares): visible only while the item is in the cart;
+      // value mirrors the cart quantity, max tracks the live stock.
+      const qtyWrap = row.querySelector(".shop-ware-qty");
+      if ( qtyWrap ) {
+        qtyWrap.classList.toggle("active", inCart);
+        const qtyVal = qtyWrap.querySelector(".qty-val");
+        if ( qtyVal ) {
+          qtyVal.disabled = !inCart;   // re-enable for non-owners (core _toggleDisabled disabled it)
+          qtyVal.max = String(stock);
+          if ( inCart ) qtyVal.value = String(this.#cart.get(id));
+        }
+        for ( const step of qtyWrap.querySelectorAll(".qty-step") ) step.disabled = !inCart;
+      }
     }
 
-    // Footer: total, visibility animation, and checkout button enable/disable.
+    // Footer: total + unit count, visibility animation, and checkout enable/disable.
     const footer = this.element.querySelector(".shop-cart-footer");
     if ( footer ) {
       footer.classList.toggle("active", hasCart);
       const totalEl = footer.querySelector(".cart-total");
       if ( totalEl ) totalEl.textContent = this.#formatCp(cartCp);
+      const countEl = footer.querySelector(".cart-count");
+      if ( countEl ) countEl.textContent = String(cartUnits);
       const checkout = footer.querySelector(".cart-checkout");
       if ( checkout ) checkout.disabled = !(hasCart && buyer && cartCp <= wealthCp);
     }
+  }
+
+  /** Cart quantity input change (multi-stock wares) — route the typed value through #setCartQty. */
+  #onCartQtyChange(event) {
+    const input = event.target?.closest?.(".shop-ware-qty .qty-val");
+    if ( !input ) return;
+    const id = input.closest("[data-item-id]")?.dataset.itemId;
+    if ( !id ) return;
+    this.#setCartQty(id, Math.round(Number(input.value) || 1));
+  }
+
+  /**
+   * Clamp `requested` to [1, stock], then down further if the new cart total would exceed the
+   * buyer's treasure (the unaffordable update is not allowed), set the cart, and re-run
+   * #refreshCart so the input value + footer total/count follow.
+   */
+  #setCartQty(id, requested) {
+    if ( !this.#cart.has(id) ) return;
+    const item = this.actor.items.get(id);
+    if ( !item ) return;
+    const adapter = getAdapter();
+    const stock = adapter.getItemQuantity(item);
+    let qty = Math.max(1, Math.min(stock, Math.round(Number(requested) || 1)));
+
+    // Affordability: sum the OTHER cart items, then clamp this item's qty down until the whole
+    // cart fits the buyer's treasure. (qty >= 1 always fits — adding it was already gated.)
+    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
+    const wealthCp = buyer ? adapter.getActorWealthCp(buyer) : 0;
+    let otherCp = 0;
+    for ( const [otherId, otherQty] of this.#cart ) {
+      if ( otherId === id ) continue;
+      const it = this.actor.items.get(otherId);
+      if ( it ) otherCp += adapter.getItemChargeCp(it, otherQty);
+    }
+    while ( qty > 1 && otherCp + adapter.getItemChargeCp(item, qty) > wealthCp ) qty--;
+
+    dbg("vendorSheet:setCartQty", { id, requested, qty, stock });
+    this.#cart.set(id, qty);
+    this.#refreshCart();
+  }
+
+  /** A −/+ stepper button: adjust the in-cart quantity by its data-step. */
+  static #onStepCartQty(event, target) {
+    const id = target.closest("[data-item-id]")?.dataset.itemId;
+    if ( !id || !this.#cart.has(id) ) return;
+    const step = Number(target.dataset.step) || 0;
+    this.#setCartQty(id, (this.#cart.get(id) ?? 1) + step);
   }
 
   /** Format a copper amount as a short coin string, e.g. 3060 → "30 gp 6 sp". */

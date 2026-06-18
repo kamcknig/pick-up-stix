@@ -1,4 +1,4 @@
-import { getTokenActor, isInteractiveActor } from "../utils/actorHelpers.mjs";
+import { getTokenActor, isInteractiveActor, isVendorActor } from "../utils/actorHelpers.mjs";
 import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { emitSocketEvent, closeTokenHudIfMatching } from "../socket/SocketHandler.mjs";
@@ -641,17 +641,17 @@ export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity
 }
 
 /**
- * GM-side: buyer purchases all items in `itemIds` from vendor in a single transaction.
- * One currency deduction for the whole cart total, then each item is copied to the buyer
- * and vendor stock is decremented — avoids the "messy change" of looping single purchases.
+ * GM-side: buyer purchases the cart from vendor in a single transaction. One currency
+ * deduction for the whole cart total, then each item is copied to the buyer at its chosen
+ * quantity and vendor stock is decremented — avoids the "messy change" of looping purchases.
  *
  * @param {string} vendorActorId
- * @param {string[]} itemIds
+ * @param {Array<[string, number]>} cartItems  - `[itemId, quantity]` pairs.
  * @param {string} buyerActorId
  * @returns {Promise<boolean>}
  */
-export async function purchaseCart(vendorActorId, itemIds, buyerActorId) {
-  dbg("xfer:purchaseCart", "entry", { vendorActorId, count: itemIds?.length, buyerActorId });
+export async function purchaseCart(vendorActorId, cartItems, buyerActorId) {
+  dbg("xfer:purchaseCart", "entry", { vendorActorId, count: cartItems?.length, buyerActorId });
   const adapter = getAdapter();
   const vendor = game.actors.get(vendorActorId);
   const buyer = game.actors.get(buyerActorId);
@@ -661,17 +661,25 @@ export async function purchaseCart(vendorActorId, itemIds, buyerActorId) {
     return false;
   }
 
-  // Resolve items and filter to those still in stock (race condition defence).
-  const items = (itemIds ?? []).map(id => vendor.items.get(id))
-    .filter(i => i && adapter.getItemQuantity(i) > 0);
-  if ( !items.length ) {
+  // Resolve cart entries → { item, qty }, dropping gone/out-of-stock items and clamping each
+  // quantity to the live stock (race-condition defence against stale client state).
+  const resolved = (cartItems ?? []).map(entry => {
+    const [id, rawQty] = Array.isArray(entry) ? entry : [entry?.id, entry?.qty];
+    const item = vendor.items.get(id);
+    if ( !item ) return null;
+    const stock = adapter.getItemQuantity(item);
+    if ( stock <= 0 ) return null;
+    return { item, qty: Math.max(1, Math.min(stock, Math.round(Number(rawQty) || 1))) };
+  }).filter(Boolean);
+  if ( !resolved.length ) {
     dbg("xfer:purchaseCart", "no in-stock items remain, bail");
     return false;
   }
 
-  // Total the cart in copper.
-  const totalCp = items.reduce((sum, i) => sum + adapter.getItemChargeCp(i, 1), 0);
-  dbg("xfer:purchaseCart", "cart totalled", { totalCp, itemCount: items.length });
+  // Total the cart in copper (each item charged for its chosen quantity) + total units.
+  const totalCp = resolved.reduce((sum, { item, qty }) => sum + adapter.getItemChargeCp(item, qty), 0);
+  const totalUnits = resolved.reduce((sum, { qty }) => sum + qty, 0);
+  dbg("xfer:purchaseCart", "cart totalled", { totalCp, items: resolved.length, units: totalUnits });
 
   // GM-side wealth re-check (defends against stale client state / race).
   if ( adapter.getActorWealthCp(buyer) < totalCp ) {
@@ -692,20 +700,20 @@ export async function purchaseCart(vendorActorId, itemIds, buyerActorId) {
   const toCreate = [];
   const toUpdate = [];
   const toDelete = [];
-  for ( const item of items ) {
+  for ( const { item, qty } of resolved ) {
     const data = item.toObject();
     delete data._id;
     stripEquipmentState(data);
-    adapter.setItemDataQuantity(data, 1);
+    adapter.setItemDataQuantity(data, qty);
     toCreate.push(data);
 
     const stock = adapter.getItemQuantity(item);
-    if ( stock > 1 ) {
-      const upd = { _id: item.id, system: {} };
-      adapter.setItemDataQuantity(upd, stock - 1);   // decrement the source stack by one
-      toUpdate.push(upd);
+    if ( qty >= stock ) {
+      toDelete.push(item.id);                          // bought the whole stack → remove the row
     } else {
-      toDelete.push(item.id);                        // last unit → remove the row
+      const upd = { _id: item.id, system: {} };
+      adapter.setItemDataQuantity(upd, stock - qty);   // decrement the source stack by qty
+      toUpdate.push(upd);
     }
   }
   dbg("xfer:purchaseCart", "batched ops", { create: toCreate.length, update: toUpdate.length, delete: toDelete.length });
@@ -716,8 +724,8 @@ export async function purchaseCart(vendorActorId, itemIds, buyerActorId) {
   // Credit the vendor LAST and let it render → exactly one re-render on every client.
   await adapter.creditVendorCp(vendor, totalCp);
 
-  notifyPurchaseCart(items.length, vendor.name);
-  dbg("xfer:purchaseCart", "cart purchase complete", { count: items.length });
+  notifyPurchaseCart(totalUnits, vendor.name);
+  dbg("xfer:purchaseCart", "cart purchase complete", { units: totalUnits });
   return true;
 }
 
@@ -988,7 +996,7 @@ export function getPlayerCharacter() {
   if (game.user.character) return game.user.character;
 
   const controlled = canvas.tokens?.controlled?.[0];
-  if (controlled?.actor && !isInteractiveActor(controlled.actor)) {
+  if (controlled?.actor && !isInteractiveActor(controlled.actor) && !isVendorActor(controlled.actor)) {
     return controlled.actor;
   }
 
@@ -997,7 +1005,7 @@ export function getPlayerCharacter() {
 
 export function getPlayerCandidateTokens() {
   const controlled = (canvas.tokens?.controlled ?? [])
-    .filter(t => t.actor && !isInteractiveActor(t.actor));
+    .filter(t => t.actor && !isInteractiveActor(t.actor) && !isVendorActor(t.actor));
   if (controlled.length) return controlled;
 
   const character = game.user.character;
@@ -1037,7 +1045,7 @@ export async function promptGMPickupTarget(candidates = null) {
     actors = [];
     for (const t of tokens) {
       const a = t.actor;
-      if (!a || isInteractiveActor(a) || seen.has(a.id)) continue;
+      if (!a || isInteractiveActor(a) || isVendorActor(a) || seen.has(a.id)) continue;
       seen.add(a.id);
       actors.push(a);
     }

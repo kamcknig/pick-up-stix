@@ -793,6 +793,13 @@
   box-shadow: none;
   background: none;            /* override dnd5e's .document-image solid fill (player view) */
 }
+/* In edit mode dnd5e tags the portrait img with data-edit (its file-picker hook); make it
+   clickable then so the GM can change the vendor image. The figure is otherwise
+   pointer-events:none (set on the clip box) so it stays click-through over the canvas. */
+.vendor-sheet .sheet-header .portrait .pus-portrait-clip > img[data-edit] {
+  pointer-events: auto;
+  cursor: pointer;
+}
 
 /* Player storefront header: stack the name + public description, vertically centered as a
    group and left-aligned with the name. (Only the player shop-header has .header-details;

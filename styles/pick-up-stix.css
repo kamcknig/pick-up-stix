@@ -629,7 +629,43 @@
 .pus-rarity-legendary { --pus-rarity-color: #ff8000; }
 .pus-rarity-artifact  { --pus-rarity-color: #e6cc80; }
 
-.vendor-buy { flex: 0 0 auto; width: auto; padding: 2px 10px; }
+.shop-cart-toggle {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border-radius: 4px; cursor: pointer;
+  color: var(--color-text-secondary, #888); background: none; border: 1px solid transparent;
+}
+.shop-cart-toggle:hover:not(:disabled) { color: var(--color-text-primary, #ddd); border-color: currentColor; }
+.shop-cart-toggle.active { color: var(--color-warm-1, #c9a238); border-color: currentColor; }
+.shop-cart-toggle:disabled { opacity: 0.35; cursor: default; }
+
+.shop-cart-footer {
+  position: sticky; bottom: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 12px; margin-top: 4px;
+  background: color-mix(in srgb, var(--dnd5e-color-maroon, #741b2b) 40%, #000);
+  border-top: 1px solid var(--color-border-dark, rgba(0,0,0,0.4));
+  border-radius: 4px 4px 0 0;
+  transform: translateY(100%); opacity: 0; pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.shop-cart-footer.active { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.cart-total { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+.vendor-buy,
+.cart-checkout {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  border-radius: 4px; cursor: pointer;
+  color: var(--color-text-secondary, #888);
+  background: none; border: 1px solid transparent;
+}
+.vendor-buy:hover:not(:disabled),
+.cart-checkout:hover:not(:disabled) { color: var(--color-text-primary, #ddd); border-color: currentColor; }
+.vendor-buy:active:not(:disabled),
+.cart-checkout:active:not(:disabled) { transform: translateY(1px); }
+.vendor-buy:disabled,
+.cart-checkout:disabled { opacity: 0.35; cursor: default; }
 .vendor-ware-empty { padding: 8px; opacity: 0.6; font-style: italic; }
 
 /* Vendor header banner — replace dnd5e's NPC banner with our vendor tile.

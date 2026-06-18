@@ -65,6 +65,19 @@ export const Dnd5ePurchase = {
     return !remainder;
   },
 
+  getItemChargeCp(item, quantity = 1) {
+    return chargeAmount(this.getItemPrice(item), quantity).cp;
+  },
+
+  getActorWealthCp(actor) {
+    const currency = actor?.system?.currency ?? {};
+    let cp = 0;
+    for ( const [denom, { conversion }] of Object.entries(CONFIG.DND5E.currencies) ) {
+      cp += (currency[denom] ?? 0) * (100 / conversion);   // cp-per-coin = 100 / coins-per-gp
+    }
+    return cp;
+  },
+
   async applyPurchaseCurrency(buyer, vendor, item, quantity = 1) {
     const { amount, denomination, cp } = chargeAmount(this.getItemPrice(item), quantity);
     if (amount <= 0) return true;                     // free item, nothing to move

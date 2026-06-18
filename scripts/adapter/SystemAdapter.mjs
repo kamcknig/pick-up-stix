@@ -130,6 +130,25 @@ export default class SystemAdapter {
   }
 
   /**
+   * Exact charge for `quantity` of `item`, in copper pieces. Returns 0 when
+   * no price model exists (base stub — systems without currency support are free).
+   *
+   * @param {Item} _item
+   * @param {number} [_quantity=1]
+   * @returns {number}
+   */
+  getItemChargeCp(_item, _quantity = 1) { return 0; }
+
+  /**
+   * The actor's total wealth expressed in copper pieces. Returns Infinity when
+   * there is no currency model (so affordability checks never block).
+   *
+   * @param {Actor} _actor
+   * @returns {number}
+   */
+  getActorWealthCp(_actor) { return Infinity; }
+
+  /**
    * Move price * quantity from buyer to vendor (system currency). GM-side.
    * Default: no-op success (systems without a currency model transfer for free).
    *

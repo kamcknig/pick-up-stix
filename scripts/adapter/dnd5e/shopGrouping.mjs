@@ -141,8 +141,8 @@ export function buildShop(items, groupingId = DEFAULT_GROUPING) {
 
   return {
     groupingId: grouping.id,
-    // name (flex) + one track per grouping column + GM visibility toggle + Buy
-    columnTemplate: `minmax(0, 1fr) ${columns.map(() => "max-content").join(" ")} max-content max-content`,
+    // name (flex) + one track per grouping column + GM visibility toggle + basket + Buy
+    columnTemplate: `minmax(0, 1fr) ${columns.map(() => "max-content").join(" ")} max-content max-content max-content`,
     headers: columns.map(c => ({ id: c.id, label: c.header, align: c.align })),
     groups
   };

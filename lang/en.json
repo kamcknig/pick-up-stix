@@ -273,7 +273,9 @@
       "ShopTab": "Shop",
       "Col": { "Rarity": "Rarity", "Stock": "Stock", "Price": "Price" },
       "Group": { "Type": "Type" },
-      "ToggleShopVisible": "Show / hide in shop"
+      "ToggleShopVisible": "Show / hide in shop",
+      "AddToCart": "Add to / remove from cart",
+      "CartTotal": "Cart total"
     }
   },
   "TYPES": {

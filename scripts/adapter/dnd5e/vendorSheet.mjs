@@ -26,6 +26,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   #currencyHookId = null;
   #controlHookId = null;
   #groupingId = DEFAULT_GROUPING;
+  #cart = new Set();
 
   constructor(options) {
     super(options);
@@ -39,6 +40,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     classes: ["pick-up-stix", "vendor-sheet"],
     actions: {
       buyWare: Dnd5eVendorSheet.#onBuyWare,
+      toggleCart: Dnd5eVendorSheet.#onToggleCart,
       toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
     }
   };
@@ -110,15 +112,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   async _onRender(context, options) {
     await super._onRender(context, options);   // let core _toggleDisabled run first
-    // Re-enable each Buy button (core disables form controls on the non-owner sheet) and gate
-    // it on whether the buyer can afford one unit — vendors sell one item per click.
-    const adapter = getAdapter();
-    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
-    for ( const button of this.element.querySelectorAll(".vendor-buy") ) {
-      const itemId = button.closest("[data-item-id]")?.dataset.itemId;
-      const item = itemId ? this.actor.items.get(itemId) : null;
-      button.disabled = !(item && buyer && adapter.canAfford(buyer, item, 1));
-    }
+    // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
+    // #refreshCart owns the disabled state for both basket toggles and buy buttons.
+    this.#refreshCart();
     this.#refreshSubtitleTooltips();
     this.#injectInventoryShopToggles();
     if (this.#currencyHookId === null) {       // register the live-update hooks once
@@ -235,6 +231,68 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       && i.getFlag("pick-up-stix", "shopVisible") !== false
     );
     return buildShop(items, this.#groupingId);
+  }
+
+  static #onToggleCart(event, target) {
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
+    if ( !itemId ) return;
+    if ( this.#cart.has(itemId) ) this.#cart.delete(itemId);
+    else this.#cart.add(itemId);
+    dbg("vendorSheet:onToggleCart", { itemId, inCart: this.#cart.has(itemId), size: this.#cart.size });
+    this.#refreshCart();
+  }
+
+  /**
+   * Single live-update pass for cart state, basket toggle active/disabled states,
+   * per-row buy button disabled states, and the footer visibility + total.
+   * Called from `_onRender` (after `await super._onRender` so it overrides core
+   * _toggleDisabled) and directly from `#onToggleCart` (avoids a full re-render).
+   * The `#cart` Set survives re-renders so toggled state persists across currency
+   * updates and selection changes.
+   */
+  #refreshCart() {
+    const adapter = getAdapter();
+    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
+    const wealthCp = buyer ? adapter.getActorWealthCp(buyer) : 0;
+
+    // Prune cart ids no longer present (sold out / hidden) and total the rest.
+    let cartCp = 0;
+    for ( const id of [...this.#cart] ) {
+      const item = this.actor.items.get(id);
+      if ( !item ) { this.#cart.delete(id); continue; }
+      cartCp += adapter.getItemChargeCp(item, 1);
+    }
+    const hasCart = this.#cart.size > 0;
+
+    for ( const row of this.element.querySelectorAll(".shop-ware") ) {
+      const item = this.actor.items.get(row.dataset.itemId);
+      if ( !item ) continue;
+      const inCart = this.#cart.has(row.dataset.itemId);
+      const chargeCp = adapter.getItemChargeCp(item, 1);
+
+      const basket = row.querySelector(".shop-cart-toggle");
+      if ( basket ) {
+        basket.classList.toggle("active", inCart);
+        // Removable when in cart; addable only if it still fits the buyer's purse.
+        basket.disabled = !inCart && (!buyer || (cartCp + chargeCp) > wealthCp);
+      }
+      const buy = row.querySelector(".vendor-buy");
+      if ( buy ) buy.disabled = hasCart || !(buyer && adapter.canAfford(buyer, item, 1));
+    }
+
+    // Footer: total + visibility animation (Phase 2 = display only; Phase 3 enables checkout).
+    const footer = this.element.querySelector(".shop-cart-footer");
+    if ( footer ) {
+      footer.classList.toggle("active", hasCart);
+      const totalEl = footer.querySelector(".cart-total");
+      if ( totalEl ) totalEl.textContent = this.#formatCp(cartCp);
+    }
+  }
+
+  /** Format a copper amount as a short coin string, e.g. 3060 → "30 gp 6 sp". */
+  #formatCp(cp) {
+    const gp = Math.floor(cp / 100), sp = Math.floor((cp % 100) / 10), c = cp % 10;
+    return [gp && `${gp} gp`, sp && `${sp} sp`, c && `${c} cp`].filter(Boolean).join(" ") || "0 gp";
   }
 
   static async #onBuyWare(event, target) {

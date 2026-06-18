@@ -9,6 +9,7 @@
         <span class="shop-col-header shop-align-{{ this.align }}">{{ localize this.label }}</span>
         {{/each}}
         <span class="shop-col-header"></span>{{!-- toggle column: no header --}}
+        <span class="shop-col-header"></span>{{!-- basket column: no header --}}
         <span class="shop-col-header"></span>{{!-- Buy column: no header --}}
       </div>
       {{#each this.wares}}
@@ -33,8 +34,13 @@
         {{else}}
         <span class="shop-toggle-empty"></span>
         {{/if}}
-        <button type="button" class="vendor-buy" data-action="buyWare" disabled>
-          {{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}
+        <button type="button" class="shop-cart-toggle" data-action="toggleCart"
+                data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.AddToCart" }}">
+          <i class="fa-solid fa-basket-shopping"></i>
+        </button>
+        <button type="button" class="vendor-buy" data-action="buyWare"
+                data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}" disabled>
+          <i class="fa-solid fa-coins"></i>
         </button>
       </div>
       {{/each}}
@@ -43,4 +49,13 @@
     <p class="vendor-ware-empty">{{ localize "INTERACTIVE_ITEMS.Vendor.Empty" }}</p>
     {{/each}}
   </section>
+  <footer class="shop-cart-footer">
+    <span class="cart-summary">
+      {{ localize "INTERACTIVE_ITEMS.Vendor.CartTotal" }}: <span class="cart-total">0 gp</span>
+    </span>
+    <button type="button" class="cart-checkout" data-action="checkoutCart"
+            data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}" disabled>
+      <i class="fa-solid fa-coins"></i>
+    </button>
+  </footer>
 </section>

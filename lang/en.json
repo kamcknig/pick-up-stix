@@ -279,7 +279,9 @@
       "AddToCart": "Add to / remove from cart",
       "CartTotal": "Cart total",
       "CartCount": "Items in cart",
-      "CartQty": "Quantity to buy"
+      "CartQty": "Quantity to buy",
+      "AllShop": "All",
+      "ToggleAllShop": "Add all to / remove all from shop"
     }
   },
   "TYPES": {

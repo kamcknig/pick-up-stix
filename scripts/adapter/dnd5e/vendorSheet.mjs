@@ -164,6 +164,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#refreshCart();
     this.#refreshSubtitleTooltips();
     this.#injectInventoryShopToggles();
+    this.#injectInventoryShopAllToggle();
     if (this.#currencyHookId === null) {       // register the live-update hooks once
       this.#currencyHookId = Hooks.on("updateActor", this.#onBuyerCurrencyChange.bind(this));
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
@@ -270,6 +271,51 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       }));
       itemRow.appendChild(cell);
     });
+  }
+
+  /**
+   * GM-only master shop toggle, injected between the inventory's currency row and the items list.
+   * "All" + a box icon that adds every physical item to the shop — or removes them all if they're
+   * already all in. The box sits in a 40px right-aligned cell so it column-aligns with the
+   * per-row toggles.
+   */
+  #injectInventoryShopAllToggle() {
+    if ( !game.user.isGM ) return;
+    if ( this.element.querySelector(".pus-shop-all-row") ) return;   // idempotent
+    // Scope to the Inventory tab/part — the NPC sheet ALSO renders a <dnd5e-inventory> in the
+    // Features tab, so an unscoped ".inventory-element .items-list" grabs that one (DOM order),
+    // and _onRender fires while Features is the active tab. Insert before the inventory items list.
+    const invPart = this.element.querySelector('[data-application-part="inventory"]')
+      || this.element.querySelector('.tab[data-tab="inventory"]');
+    const list = invPart?.querySelector(".items-list");
+    if ( !list ) return;
+    const adapter = getAdapter();
+    const physical = this.actor.items.filter(i => adapter.isPhysicalItem(i));
+    const allVisible = physical.length > 0
+      && physical.every(i => i.getFlag("pick-up-stix", "shopVisible") !== false);
+    dbg("vendorSheet:injectInventoryShopAllToggle", { physical: physical.length, allVisible });
+
+    const row = document.createElement("div");
+    row.className = "pus-shop-all-row";
+    const label = document.createElement("span");
+    label.className = "pus-shop-all-label";
+    label.textContent = game.i18n.localize("INTERACTIVE_ITEMS.Vendor.AllShop");
+    const cell = document.createElement("div");
+    cell.className = "ii-row-controls-cell pus-shop-toggle-cell";
+    cell.appendChild(createRowControl({
+      iconClass: "fa-solid fa-box-arrow-down-arrow-up",
+      titleKey: "INTERACTIVE_ITEMS.Vendor.ToggleAllShop",
+      extraClass: "pick-up-stix-shop-toggle",
+      active: allVisible,
+      onClick: async () => {
+        const next = !allVisible;
+        dbg("vendorSheet:shopAllToggleClick", { from: allVisible, to: next, count: physical.length });
+        const updates = physical.map(i => ({ _id: i.id, "flags.pick-up-stix.shopVisible": next }));
+        if ( updates.length ) await this.actor.updateEmbeddedDocuments("Item", updates);
+      }
+    }));
+    row.append(label, cell);
+    list.parentElement.insertBefore(row, list);
   }
 
   async close(options = {}) {

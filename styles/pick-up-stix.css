@@ -114,6 +114,29 @@
 .dnd5e2 .items-section .items-header .pus-shop-toggle-cell,
 .dnd5e2 .items-section .item .pus-shop-toggle-cell { width: 40px; }
 
+/* GM master "All" shop toggle — a row between the inventory currency row and the items list.
+   The box sits in a 40px right-aligned cell so it column-aligns with the per-row box toggles. */
+.pus-shop-all-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 2px 0;
+}
+.pus-shop-all-row .pus-shop-all-label {
+  font-size: var(--font-size-12, 12px);
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.pus-shop-all-row .pus-shop-toggle-cell {
+  flex: 0 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
 
 .pick-up-stix-identify-toggle {

@@ -105,6 +105,31 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   /**
+   * Stocking the vendor MOVES items rather than copying them. After dnd5e processes the drop
+   * (creating/merging the item on the vendor), delete the drag source when it came from another
+   * actor's inventory — a real transfer. Drags from the world/compendium have no actor parent and
+   * are left untouched; reordering within the vendor (same actor) is a no-op. GM-only in practice
+   * (players never see the inventory tab). (Foundry v13 + v14, dnd5e.)
+   */
+  async _onDrop(event) {
+    let source = null;
+    try {
+      const data = JSON.parse(event.dataTransfer?.getData?.("text/plain") ?? "null");
+      if ( data?.type === "Item" && data.uuid ) source = await fromUuid(data.uuid);
+    } catch (_e) { source = null; }
+
+    const before = this.actor.items.size;
+    const result = await super._onDrop(event);
+    const stocked = this.actor.items.size > before
+      || (Array.isArray(result) ? result.length > 0 : !!result);
+    if ( stocked && source?.parent?.documentName === "Actor" && source.parent.id !== this.actor.id ) {
+      dbg("vendorSheet:onDrop", "stocking moves the item — deleting source", { source: source.id, from: source.parent?.id });
+      await source.delete();
+    }
+    return result;
+  }
+
+  /**
    * Coalesce bursts of re-renders into one. A cart checkout fires several document
    * updates in quick succession (currency debit, stock update, stock delete) — on the
    * buyer's client when the GM buys inline, or as they propagate from the GM when a

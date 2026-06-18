@@ -273,9 +273,6 @@
       "ShopTab": "Shop",
       "Col": { "Rarity": "Rarity", "Stock": "Stock", "Price": "Price" },
       "Group": { "Type": "Type" },
-      "QtyToBuy": "Quantity to buy",
-      "QtyIncrease": "Increase quantity",
-      "QtyDecrease": "Decrease quantity",
       "ToggleShopVisible": "Show / hide in shop"
     }
   },

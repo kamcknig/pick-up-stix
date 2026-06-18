@@ -39,7 +39,6 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     classes: ["pick-up-stix", "vendor-sheet"],
     actions: {
       buyWare: Dnd5eVendorSheet.#onBuyWare,
-      wareQtyStep: Dnd5eVendorSheet.#onWareQtyStep,
       toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
     }
   };
@@ -111,17 +110,14 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   async _onRender(context, options) {
     await super._onRender(context, options);   // let core _toggleDisabled run first
-    // Re-enable shop controls (core disables all form controls on the non-owner sheet).
-    this.element.querySelectorAll(".vendor-buy, .shop-qty-step, .shop-qty-input")
-      .forEach(el => { el.disabled = false; });
-    for ( const row of this.element.querySelectorAll(".shop-ware") ) {
-      const input = row.querySelector(".shop-qty-input");
-      if ( input && !input.dataset.bound ) {
-        input.dataset.bound = "1";
-        input.addEventListener("input", () => this.#refreshWareRow(row));
-        input.addEventListener("change", () => this.#refreshWareRow(row));
-      }
-      this.#refreshWareRow(row);
+    // Re-enable each Buy button (core disables form controls on the non-owner sheet) and gate
+    // it on whether the buyer can afford one unit — vendors sell one item per click.
+    const adapter = getAdapter();
+    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
+    for ( const button of this.element.querySelectorAll(".vendor-buy") ) {
+      const itemId = button.closest("[data-item-id]")?.dataset.itemId;
+      const item = itemId ? this.actor.items.get(itemId) : null;
+      button.disabled = !(item && buyer && adapter.canAfford(buyer, item, 1));
     }
     this.#refreshSubtitleTooltips();
     this.#injectInventoryShopToggles();
@@ -130,39 +126,6 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
       this.#controlHookId = Hooks.on("controlToken", () => { if (this.rendered) this.render(); });
     }
-  }
-
-  /** Clamp a row's qty to [0, stock] and gate its stepper buttons + Buy on affordability. */
-  #refreshWareRow(row) {
-    const adapter = getAdapter();
-    const item = this.actor.items.get(row.dataset.itemId);
-    if ( !item ) return;
-    const stock = adapter.getItemQuantity(item);
-    const input = row.querySelector(".shop-qty-input");
-    let qty = Math.floor(Number(input.value));
-    if ( !Number.isFinite(qty) ) qty = 0;
-    qty = Math.max(0, Math.min(qty, stock));
-    if ( String(qty) !== input.value ) input.value = String(qty);
-    input.max = String(stock);
-
-    const dec = row.querySelector('.shop-qty-step[data-delta="-1"]');
-    const inc = row.querySelector('.shop-qty-step[data-delta="1"]');
-    if ( dec ) dec.disabled = qty <= 0;
-    if ( inc ) inc.disabled = qty >= stock;
-
-    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
-    const buy = row.querySelector(".vendor-buy");
-    buy.disabled = !(qty >= 1 && buyer && adapter.canAfford(buyer, item, qty));
-  }
-
-  static #onWareQtyStep(event, target) {
-    const row = target.closest(".shop-ware");
-    const input = row?.querySelector(".shop-qty-input");
-    if ( !input ) return;
-    const delta = Number(target.dataset.delta) || 0;
-    dbg("vendorSheet:onWareQtyStep", { delta, current: input.value });
-    input.value = String((Math.floor(Number(input.value)) || 0) + delta);  // #refreshWareRow clamps
-    this.#refreshWareRow(row);
   }
 
   /**
@@ -275,13 +238,11 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   static async #onBuyWare(event, target) {
-    const row = target.closest(".shop-ware");
-    const itemId = row?.dataset.itemId;
+    const itemId = target.closest("[data-item-id]")?.dataset.itemId;
     const item = this.actor.items.get(itemId);
     if ( !item ) { dbg("vendorSheet:onBuyWare", "no item for row, bail", { itemId }); return; }
 
-    const qty = Math.max(0, Math.floor(Number(row.querySelector(".shop-qty-input")?.value) || 0));
-    if ( qty < 1 ) { dbg("vendorSheet:onBuyWare", "qty < 1, bail", { itemId, qty }); return; }
+    const qty = 1;   // vendors sell one unit per Buy click
 
     // Buyer = first pickup candidate (controlled non-interactive token, else the
     // assigned character's token on this scene) — the same resolution the pickup

@@ -25,6 +25,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   #currencyHookId = null;
   #controlHookId = null;
+  #deleteItemHookId = null;
+  #updateItemHookId = null;
   #groupingId = DEFAULT_GROUPING;
   #cart = new Map();   // itemId -> quantity to buy
   #renderTimer = null;
@@ -169,6 +171,11 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       this.#currencyHookId = Hooks.on("updateActor", this.#onBuyerCurrencyChange.bind(this));
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
       this.#controlHookId = Hooks.on("controlToken", () => { if (this.rendered) this.render(); });
+      // Keep the cart in sync with stock: purge an entry when its item leaves the shop (deleted,
+      // GM-hidden, or sold out) and rebalance it down when stock drops below the cart quantity.
+      // Fires on this and every other client with the sheet open.
+      this.#deleteItemHookId = Hooks.on("deleteItem", this.#onVendorCartItemChanged.bind(this));
+      this.#updateItemHookId = Hooks.on("updateItem", this.#onVendorCartItemChanged.bind(this));
       // Cart quantity inputs (multi-stock wares). One delegated change listener on the root,
       // which survives shop-part re-renders and is torn down with the element on close.
       this.element.addEventListener("change", this.#onCartQtyChange.bind(this));
@@ -321,6 +328,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   async close(options = {}) {
     if (this.#currencyHookId !== null) { Hooks.off("updateActor", this.#currencyHookId); this.#currencyHookId = null; }
     if (this.#controlHookId !== null) { Hooks.off("controlToken", this.#controlHookId); this.#controlHookId = null; }
+    if (this.#deleteItemHookId !== null) { Hooks.off("deleteItem", this.#deleteItemHookId); this.#deleteItemHookId = null; }
+    if (this.#updateItemHookId !== null) { Hooks.off("updateItem", this.#updateItemHookId); this.#updateItemHookId = null; }
     if (this.#renderTimer) { clearTimeout(this.#renderTimer); this.#renderTimer = null; }
     return super.close(options);
   }
@@ -333,6 +342,22 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if (!buyer || buyer.id !== actor.id) return;
     dbg("vendorSheet:buyerCurrencyChange", "re-rendering wares", { actor: actor.id });
     this.render();                             // re-runs _onRender → recomputes affordability
+  }
+
+  /**
+   * An item on this vendor changed or was deleted — keep the cart honest. If it's in the cart,
+   * re-run #refreshCart, whose prune drops the entry when the item has left the shop (deleted,
+   * GM-hidden, or sold out) and clamps it down when stock fell below the cart quantity. The prune
+   * tests the live item collection, so deletion (item gone) and hide/quantity changes (item present)
+   * are both handled. Fires on every client with the sheet open, so a GM editing stock corrects each
+   * player's cart too. #refreshCart only touches the DOM (no re-render), so this stays flicker-free.
+   */
+  #onVendorCartItemChanged(item) {
+    if ( !this.rendered ) return;
+    if ( !item || !this.#cart.has(item.id) ) return;                  // only in-cart items matter
+    if ( item.parent && item.parent.id !== this.actor.id ) return;    // not this vendor's (when known)
+    dbg("vendorSheet:cartItemChanged", { item: item.id, name: item.name });
+    this.#refreshCart();
   }
 
   async _preparePartContext(partId, context, options) {
@@ -352,6 +377,18 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   /**
+   * Shop-listing predicate: physical, in stock, and not GM-hidden (absent flag = visible). Shared
+   * by #prepareShop (what the storefront lists) and the cart prune (#refreshCart), so an item that's
+   * deleted, hidden, or sold out is dropped from the cart in lockstep with leaving the storefront.
+   */
+  #isShopEligible(item) {
+    const adapter = getAdapter();
+    return adapter.isPhysicalItem(item)
+      && adapter.getItemQuantity(item) > 0
+      && item.getFlag("pick-up-stix", "shopVisible") !== false;
+  }
+
+  /**
    * Build the grouped shop structure from the vendor's physical items.
    * Delegates bucketing, column cell building, and sort order to the
    * grouping framework in shopGrouping.mjs — all dnd5e display logic
@@ -360,14 +397,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    * @returns {{ groupingId, columnTemplate, headers, groups }}
    */
   #prepareShop() {
-    const adapter = getAdapter();
-    // Only physical items that are in stock AND not hidden by the GM (shopVisible !== false).
-    // Absent flag (pre-existing items) is treated as visible.
-    const items = this.actor.items.filter(i =>
-      adapter.isPhysicalItem(i)
-      && adapter.getItemQuantity(i) > 0
-      && i.getFlag("pick-up-stix", "shopVisible") !== false
-    );
+    const items = this.actor.items.filter(i => this.#isShopEligible(i));
     return buildShop(items, this.#groupingId);
   }
 
@@ -416,14 +446,18 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
     const wealthCp = buyer ? adapter.getActorWealthCp(buyer) : 0;
 
-    // Prune cart ids no longer present (sold out / hidden); total the rest at each item's
-    // cart quantity, and count the total units being purchased.
+    // Keep the cart honest against live stock: drop ids that have left the shop (deleted, hidden,
+    // or sold out) and clamp any survivor down to its current stock (a stock drop below the cart
+    // quantity must rebalance). Then total the rest and count the units being purchased.
     let cartCp = 0, cartUnits = 0;
     for ( const [id, qty] of [...this.#cart] ) {
       const item = this.actor.items.get(id);
-      if ( !item ) { this.#cart.delete(id); continue; }
-      cartCp += adapter.getItemChargeCp(item, qty);
-      cartUnits += qty;
+      if ( !item || !this.#isShopEligible(item) ) { this.#cart.delete(id); continue; }
+      const stock = adapter.getItemQuantity(item);
+      const q = Math.min(qty, stock);            // balance to available stock
+      if ( q !== qty ) this.#cart.set(id, q);
+      cartCp += adapter.getItemChargeCp(item, q);
+      cartUnits += q;
     }
     const hasCart = this.#cart.size > 0;
 

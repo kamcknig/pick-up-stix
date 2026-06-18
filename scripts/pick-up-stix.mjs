@@ -28,6 +28,7 @@ const MODULE_ID = "pick-up-stix";
 const DEFAULT_ICON = `modules/${MODULE_ID}/icons/interactive-item-icon.svg`;
 const CHEST_CLOSED = `modules/${MODULE_ID}/icons/treasure-chest-closed.png`;
 const CHEST_OPEN = `modules/${MODULE_ID}/icons/treasure-chest-open.png`;
+const WARES_VENDOR = `modules/${MODULE_ID}/assets/wares-vendor.png`;
 
 Hooks.once("init", async () => {
   // Register the base data model first so it is in place before loadAdapter()
@@ -46,6 +47,9 @@ Hooks.once("init", async () => {
 
   const originalGetDefaultArtwork = CONFIG.Actor.documentClass.getDefaultArtwork;
   CONFIG.Actor.documentClass.getDefaultArtwork = function(actorData) {
+    if (actorData?.type === VENDOR_TYPE) {
+      return { img: WARES_VENDOR, texture: { src: WARES_VENDOR } };
+    }
     if (isInteractiveActor(actorData)) {
       if (actorData?.flags?.[MODULE_ID]?.containerDefault) {
         const icon = game.settings.get?.(MODULE_ID, "defaultContainerImage") || CHEST_CLOSED;

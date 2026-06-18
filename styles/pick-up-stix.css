@@ -687,3 +687,95 @@
   mask-image: linear-gradient(to bottom, black 70%, transparent);
 }
 
+/* ============================================================================
+   Vendor portrait "break-out". A rounded-rectangle gold frame; the vendor figure
+   leans UP + LEFT out of the frame AND the window, masked flush at the frame's
+   right + bottom edges. Scoped to .vendor-sheet. Escaping the window overrides
+   Foundry core's overflow:hidden on .application / .window-content — safe here:
+   the sheet's scroll lives on .sheet-body (a separate flex child), and the window
+   corners/shadow/resize are unaffected by overflow.
+
+   Masking is done by a CLIP BOX (.pus-portrait-clip, overflow:hidden) anchored to
+   the frame's bottom-right and extended far up + left: everything right/below the
+   frame is clipped, only the up/left bleed shows. Wrapping the media in that box
+   also stops dnd5e's `.portrait > img` rule matching (no longer a direct child),
+   so no specificity fight. The player shop-header ships the box in markup; the GM
+   npc-header gets it injected in `#injectPortraitClip` — both end up as
+   `.portrait > .pus-portrait-clip > img`. (Exact px are a visual starting point.)
+   ============================================================================ */
+.vendor-sheet.application { overflow: visible; }
+.vendor-sheet .window-content { overflow: visible; }
+.vendor-sheet .sheet-header { overflow: visible; position: relative; }
+.vendor-sheet .sheet-header .portrait { overflow: visible; }
+
+/* Rounded-rectangle gold frame, ~75% of the prior 270 (-> 200), kept in flow so it
+   reserves header space and is the figure's positioning context. */
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .portrait {
+  position: relative;
+  flex: 0 0 200px;
+  width: 200px;
+  height: 200px;
+  border: 5px solid var(--dnd5e-color-gold);
+  border-radius: 18px;
+  box-shadow: 0 0 6px var(--dnd5e-color-black);
+  background: rgba(0, 0, 0, 0.25);
+}
+/* GM npc-header: match its left column to the frame so it fits in flow. */
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header > .left { flex: 0 0 200px; }
+
+/* Clip box: anchored to the frame's inner bottom-right, extended far up + left.
+   overflow:hidden masks everything right/below the frame; click-through so the
+   bleed never intercepts canvas / other-window clicks. */
+.vendor-sheet .sheet-header .portrait .pus-portrait-clip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1500px;
+  height: 1500px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+/* GM npc-header only (its portrait sits inside .left): lift the mask up so the lower part
+   of the frame shows below the figure. The player shop-header (portrait is a direct child
+   of .sheet-header) keeps bottom:0. Tune the px to taste. */
+.vendor-sheet .sheet-header .left .portrait .pus-portrait-clip { bottom: 40px; }
+/* The figure: anchored to the clip box's bottom-right (= frame's bottom-right),
+   sized larger than the frame so it bleeds up + left. */
+.vendor-sheet .sheet-header .portrait .pus-portrait-clip > img,
+.vendor-sheet .sheet-header .portrait .pus-portrait-clip > video {
+  position: absolute;
+  right: -20px;     /* nudge the figure right; the clip box still masks at the frame's right edge */
+  bottom: -40px;    /* nudge the figure down; the clip box still masks at the frame's bottom edge */
+  max-width: 260px;            /* cap width at 260, keep aspect ratio (no upscaling/stretch) */
+  max-height: 420px;           /* and cap height at 420 — figure scales to fit within 260x420 */
+  width: auto;
+  height: auto;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;            /* override dnd5e's .document-image solid fill (player view) */
+}
+
+/* Player storefront header: stack the name + public description, vertically centered as a
+   group and left-aligned with the name. (Only the player shop-header has .header-details;
+   the GM npc-header uses dnd5e's own name layout, untouched.) */
+.vendor-sheet .sheet-header .header-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;     /* keep name + description centered vertically in the header */
+  align-items: flex-start;     /* left-align both */
+  gap: 6px;
+  min-width: 0;
+}
+.vendor-sheet .sheet-header .header-details .vendor-description {
+  max-width: 42ch;
+  text-align: left;
+  font-family: var(--dnd5e-font-roboto, sans-serif);
+  font-size: var(--font-size-13, 0.8125rem);
+  line-height: 1.4;
+  color: var(--color-text-secondary, #c9c7c1);
+}
+.vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol) { margin: 0 0 0.4em; }
+.vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol):last-child { margin-bottom: 0; }
+

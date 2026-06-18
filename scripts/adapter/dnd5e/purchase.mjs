@@ -1,6 +1,20 @@
 import { dbg } from "../../utils/debugLog.mjs";
 
 /**
+ * Given an exact copper-piece total, return the coarsest whole-coin denomination that
+ * represents it precisely. Picking the coarsest denomination makes change come back
+ * tidy — e.g. 1020 cp → "102 sp" so a gp-only buyer gets 8 sp change (not 80 cp).
+ *
+ * @param {number} cp - Exact value in copper pieces (must be a non-negative integer).
+ * @returns {{ amount: number, denomination: string }}
+ */
+function denomFromCp(cp) {
+  if (cp % 100 === 0) return { amount: cp / 100, denomination: "gp" };  // whole gp
+  if (cp % 10 === 0) return { amount: cp / 10, denomination: "sp" };    // whole sp → silver change
+  return { amount: cp, denomination: "cp" };                            // sub-sp → copper
+}
+
+/**
  * The EXACT charge for a purchase, expressed as a whole-coin amount in the COARSEST
  * denomination that represents it precisely (gp if whole, else sp, else cp). Charging in
  * a whole coin lets dnd5e's change-making pay a sub-unit remainder from a coarser purse,
@@ -23,9 +37,8 @@ function chargeAmount(price, quantity) {
   const rawCp = (price.value * quantity / conv) * 100;
   const cp = Math.ceil(Math.round(rawCp * 1e4) / 1e4);
   if (cp <= 0) return { amount: 0, denomination: "gp", cp: 0 };
-  if (cp % 100 === 0) return { amount: cp / 100, denomination: "gp", cp };   // whole gp
-  if (cp % 10 === 0) return { amount: cp / 10, denomination: "sp", cp };     // whole sp → silver change
-  return { amount: cp, denomination: "cp", cp };                            // sub-sp → copper
+  const { amount, denomination } = denomFromCp(cp);
+  return { amount, denomination, cp };
 }
 
 /** Decompose a copper amount into a tidy { gp, sp, cp } payload for crediting the vendor. */
@@ -78,29 +91,30 @@ export const Dnd5ePurchase = {
     return cp;
   },
 
-  async applyPurchaseCurrency(buyer, vendor, item, quantity = 1) {
-    const { amount, denomination, cp } = chargeAmount(this.getItemPrice(item), quantity);
-    if (amount <= 0) return true;                     // free item, nothing to move
-    const { CurrencyManager, Award } = game.dnd5e.applications;
-
-    const { remainder } = CurrencyManager.getActorCurrencyUpdates(
-      buyer, amount, denomination, { priority: "high" }
-    );
-    if (remainder) {
-      dbg("dnd5e-purchase:applyPurchaseCurrency", "buyer cannot afford", { buyer: buyer?.id, amount, denomination, remainder });
+  async debitBuyerCp(buyer, cp) {
+    if ( cp <= 0 ) return true;
+    const { amount, denomination } = denomFromCp(cp);
+    const { CurrencyManager } = game.dnd5e.applications;
+    // Non-mutating change-making (mirrors CurrencyManager.deductActorCurrency, which applies
+    // `updates` = { system: { currency } }); we apply it ourselves with render suppressed and a
+    // marker the vendor sheet's currency hook skips, so the deduction doesn't flicker the shop.
+    // eslint-disable-next-line no-unused-vars
+    const { item, remainder, ...updates } = CurrencyManager.getActorCurrencyUpdates(buyer, amount, denomination, { priority: "high" });
+    if ( remainder ) {
+      dbg("dnd5e-purchase:debitBuyerCp", "buyer cannot afford", { buyer: buyer?.id, amount, denomination, cp });
       return false;
     }
-
-    dbg("dnd5e-purchase:applyPurchaseCurrency", "debit buyer / credit vendor (exact)", {
-      buyer: buyer?.id, vendor: vendor?.id, amount, denomination, cp
-    });
-    try {
-      await CurrencyManager.deductActorCurrency(buyer, amount, denomination, { priority: "high" });
-    } catch (err) {                                   // throws InsufficientFunds on a race
-      dbg("dnd5e-purchase:applyPurchaseCurrency", "deduct threw, aborting", { err: err?.message });
-      return false;
-    }
-    await Award.awardCurrency(coinsFromCp(cp), [vendor]);   // credit the exact value as tidy coins
+    dbg("dnd5e-purchase:debitBuyerCp", "debit buyer (no render)", { buyer: buyer?.id, amount, denomination, cp });
+    await buyer.update(updates, { render: false, pickUpStix: { suppressVendorRender: true } });
     return true;
+  },
+
+  async creditVendorCp(vendor, cp) {
+    const currency = foundry.utils.deepClone(vendor.system?.currency ?? {});
+    for ( const [denom, n] of Object.entries(coinsFromCp(cp)) ) currency[denom] = (currency[denom] ?? 0) + n;
+    // The last write of the checkout — render normally (diff:false so a zero-coin cart still
+    // forces the one re-render) so every client updates exactly once with the final state.
+    dbg("dnd5e-purchase:creditVendorCp", "credit vendor (renders once)", { vendor: vendor?.id, cp });
+    await vendor.update({ "system.currency": currency }, { diff: false });
   }
 };

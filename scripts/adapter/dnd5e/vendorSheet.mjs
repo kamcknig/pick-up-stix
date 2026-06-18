@@ -1,7 +1,7 @@
 import { getAdapter } from "../index.mjs";
-import { getPlayerCandidateTokens, purchaseItem } from "../../transfer/ItemTransfer.mjs";
+import { getPlayerCandidateTokens, purchaseItem, purchaseCart } from "../../transfer/ItemTransfer.mjs";
 import { dispatchGM } from "../../utils/gmDispatch.mjs";
-import { notifyPurchase } from "../../utils/notify.mjs";
+import { notifyPurchase, notifyPurchaseCart } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
 import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
 import { createRowControl } from "../../utils/domButtons.mjs";
@@ -27,6 +27,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   #controlHookId = null;
   #groupingId = DEFAULT_GROUPING;
   #cart = new Set();
+  #renderTimer = null;
 
   constructor(options) {
     super(options);
@@ -41,6 +42,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     actions: {
       buyWare: Dnd5eVendorSheet.#onBuyWare,
       toggleCart: Dnd5eVendorSheet.#onToggleCart,
+      checkoutCart: Dnd5eVendorSheet.#onCheckoutCart,
       toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
     }
   };
@@ -102,6 +104,23 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   /**
+   * Coalesce bursts of re-renders into one. A cart checkout fires several document
+   * updates in quick succession (currency debit, stock update, stock delete) — on the
+   * buyer's client when the GM buys inline, or as they propagate from the GM when a
+   * player buys — and each would otherwise re-render the sheet and flicker the shop
+   * icons. Debounce non-forced renders so the burst settles into a single render. Cart
+   * toggles use `#refreshCart` (direct DOM, no render) so they stay instant; forced
+   * renders (e.g. the initial open) pass through immediately.
+   */
+  render(...args) {
+    const force = args[0] === true || args[0]?.force === true;
+    if ( force ) return super.render(...args);
+    if ( this.#renderTimer ) clearTimeout(this.#renderTimer);
+    this.#renderTimer = setTimeout(() => { this.#renderTimer = null; super.render(); }, 150);
+    return Promise.resolve(this);
+  }
+
+  /**
    * Own the shop's Buy-button enabled state. Core `DocumentSheetV2#_toggleDisabled`
    * force-disables every `.window-content` form control on a non-editable (non-owner)
    * sheet from its async `_onRender` (identical in Foundry v13 + v14), so this state
@@ -112,6 +131,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   async _onRender(context, options) {
     await super._onRender(context, options);   // let core _toggleDisabled run first
+    this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
+    this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
@@ -122,6 +143,39 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
       this.#controlHookId = Hooks.on("controlToken", () => { if (this.rendered) this.render(); });
     }
+  }
+
+  /**
+   * Wrap the portrait media in a `.pus-portrait-clip` box so the break-out figure is masked
+   * flush at the frame's right + bottom (overflow:hidden on a box anchored there) while
+   * bleeding up + left. The player shop-header ships this box in markup (no-op here); the GM
+   * npc-header re-renders a bare `.portrait > img` each render, so we idempotently re-wrap it.
+   * (Foundry v13 + v14.)
+   */
+  #injectPortraitClip() {
+    const portrait = this.element.querySelector(".sheet-header .portrait");
+    if ( !portrait || portrait.querySelector(":scope > .pus-portrait-clip") ) return;
+    const media = portrait.querySelector(":scope > img, :scope > video");
+    if ( !media ) return;
+    dbg("vendorSheet:injectPortraitClip", "wrapping portrait media in clip box");
+    const clip = document.createElement("div");
+    clip.className = "pus-portrait-clip";
+    portrait.insertBefore(clip, media);
+    clip.appendChild(media);
+  }
+
+  /**
+   * Move dnd5e's edit-mode toggle (the `.mode-slider` it prepends to the window header)
+   * to sit immediately left of the XP badge (`.cr-xp`, inside `.header-elements`).
+   * Idempotent and re-checked each render since dnd5e re-asserts the toggle on
+   * ownership / mode changes. (Foundry v13 + v14, dnd5e NPC window header.)
+   */
+  #repositionEditToggle() {
+    const slider = this.element.querySelector(".window-header .mode-slider");
+    const crXp = this.element.querySelector(".window-header .cr-xp");
+    if ( !slider || !crXp || crXp.previousElementSibling === slider ) return;
+    dbg("vendorSheet:repositionEditToggle", "moving edit toggle left of the XP badge");
+    crXp.before(slider);
   }
 
   /**
@@ -192,11 +246,13 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   async close(options = {}) {
     if (this.#currencyHookId !== null) { Hooks.off("updateActor", this.#currencyHookId); this.#currencyHookId = null; }
     if (this.#controlHookId !== null) { Hooks.off("controlToken", this.#controlHookId); this.#controlHookId = null; }
+    if (this.#renderTimer) { clearTimeout(this.#renderTimer); this.#renderTimer = null; }
     return super.close(options);
   }
 
-  #onBuyerCurrencyChange(actor, changes) {
+  #onBuyerCurrencyChange(actor, changes, options) {
     if (!this.rendered) return;
+    if (options?.pickUpStix?.suppressVendorRender) return;   // our own checkout debit — skip
     if (!foundry.utils.hasProperty(changes, "system.currency")) return;
     const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
     if (!buyer || buyer.id !== actor.id) return;
@@ -209,6 +265,13 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( partId === "shop" ) {
       context.shop = this.#prepareShop();
       context.isGM = game.user.isGM;
+    }
+    if ( partId === "header" ) {
+      // Player storefront header shows the actor's public biography below the name, enriched
+      // so links/rolls render. Reactive: editing it (GM bio tab) re-renders the sheet.
+      const TE = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
+      context.publicBio = await TE.enrichHTML(this.actor.system?.details?.biography?.public ?? "",
+        { secrets: false, relativeTo: this.actor });
     }
     return context;
   }
@@ -240,6 +303,28 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     else this.#cart.add(itemId);
     dbg("vendorSheet:onToggleCart", { itemId, inCart: this.#cart.has(itemId), size: this.#cart.size });
     this.#refreshCart();
+  }
+
+  static async #onCheckoutCart(event, target) {
+    const itemIds = [...this.#cart];
+    if ( !itemIds.length ) return;
+    const buyer = getPlayerCandidateTokens()[0]?.actor ?? null;
+    if ( !buyer ) {
+      dbg("vendorSheet:onCheckoutCart", "no buyer, bail");
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
+      return;
+    }
+    dbg("vendorSheet:onCheckoutCart", { count: itemIds.length, buyer: buyer.id, vendor: this.actor.id });
+    // Empty the cart and hide its footer immediately via direct DOM (no re-render). The single
+    // vendor-credit write at the end of the purchase is what re-renders the shop, exactly once.
+    this.#cart.clear();
+    this.#refreshCart();
+    await dispatchGM(
+      "purchaseCart",
+      { vendorActorId: this.actor.id, itemIds, buyerActorId: buyer.id },
+      async () => purchaseCart(this.actor.id, itemIds, buyer.id)
+    );
+    if ( !game.user.isGM ) notifyPurchaseCart(itemIds.length, this.actor.name);
   }
 
   /**
@@ -280,12 +365,14 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       if ( buy ) buy.disabled = hasCart || !(buyer && adapter.canAfford(buyer, item, 1));
     }
 
-    // Footer: total + visibility animation (Phase 2 = display only; Phase 3 enables checkout).
+    // Footer: total, visibility animation, and checkout button enable/disable.
     const footer = this.element.querySelector(".shop-cart-footer");
     if ( footer ) {
       footer.classList.toggle("active", hasCart);
       const totalEl = footer.querySelector(".cart-total");
       if ( totalEl ) totalEl.textContent = this.#formatCp(cartCp);
+      const checkout = footer.querySelector(".cart-checkout");
+      if ( checkout ) checkout.disabled = !(hasCart && buyer && cartCp <= wealthCp);
     }
   }
 

@@ -149,18 +149,32 @@ export default class SystemAdapter {
   getActorWealthCp(_actor) { return Infinity; }
 
   /**
-   * Move price * quantity from buyer to vendor (system currency). GM-side.
+   * Debit an exact copper-piece total from the buyer, applied WITHOUT a re-render (so a
+   * batch checkout doesn't flicker the open shop). Used by `purchaseCart` as both the
+   * payment and the affordability gate. GM-side only.
+   *
    * Default: no-op success (systems without a currency model transfer for free).
    *
    * @param {Actor} _buyer
-   * @param {Actor} _vendor
-   * @param {Item} _item
-   * @param {number} [_quantity=1]
-   * @returns {Promise<boolean>} false if the buyer could not pay (no transfer should occur).
+   * @param {number} _cp - Total charge in copper pieces.
+   * @returns {Promise<boolean>} false if the buyer could not pay (no items should move).
    */
-  async applyPurchaseCurrency(_buyer, _vendor, _item, _quantity = 1) {
+  async debitBuyerCp(_buyer, _cp) {
     return true;
   }
+
+  /**
+   * Credit an exact copper-piece total to the vendor. Intended as the LAST write of a
+   * batch checkout, rendering normally so every client re-renders exactly once with the
+   * final stock + currency. GM-side only.
+   *
+   * Default: no-op (systems without a currency model).
+   *
+   * @param {Actor} _vendor
+   * @param {number} _cp - Total credit in copper pieces.
+   * @returns {Promise<void>}
+   */
+  async creditVendorCp(_vendor, _cp) {}
 
   // === Container parent reference ============================================
 

@@ -253,7 +253,7 @@ export async function promptItemQuantitiesBatch({
  * @param {number} chosen - Quantity that was moved to the destination.
  * @returns {Promise<void>}
  */
-export async function decrementOrDeleteItem(item, chosen) {
+export async function decrementOrDeleteItem(item, chosen, options = {}) {
   if (!item) {
     dbg("qty:decrementOrDeleteItem", "no item passed, skip");
     return;
@@ -271,11 +271,11 @@ export async function decrementOrDeleteItem(item, chosen) {
 
   if (chosen >= sourceQty) {
     dbg("qty:decrementOrDeleteItem", "chosen >= sourceQty, deleting", { chosen, sourceQty, itemId: item.id });
-    await item.delete({ deleteContents: true });
+    await item.delete({ deleteContents: true, ...options });
     return;
   }
 
   const remaining = sourceQty - chosen;
   dbg("qty:decrementOrDeleteItem", "decrementing source", { itemId: item.id, sourceQty, chosen, remaining });
-  await item.update({ "system.quantity": remaining });
+  await item.update({ "system.quantity": remaining }, options);
 }

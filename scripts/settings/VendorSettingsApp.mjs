@@ -30,11 +30,8 @@ export default class VendorSettingsApp extends HandlebarsApplicationMixin(Applic
     dbg("VendorSettingsApp:_prepareContext", "preparing context");
     const gs = (key) => game.settings.get(MODULE_ID, key);
     return {
-      vendorFavorMin: gs("vendorFavorMin"),
       vendorFavorMax: gs("vendorFavorMax"),
-      vendorFavorFactorMin: gs("vendorFavorFactorMin"),
       vendorFavorFactorMax: gs("vendorFavorFactorMax"),
-      vendorFavorFactorDefault: gs("vendorFavorFactorDefault"),
       buttons: [{ type: "submit", icon: "fa-solid fa-save", label: "Save Settings" }]
     };
   }
@@ -44,10 +41,7 @@ export default class VendorSettingsApp extends HandlebarsApplicationMixin(Applic
     const d = formData.object;
     const ss = async (key, val) => game.settings.set(MODULE_ID, key, val);
 
-    await ss("vendorFavorMin", Number(d.vendorFavorMin ?? -5));
     await ss("vendorFavorMax", Number(d.vendorFavorMax ?? 5));
-    await ss("vendorFavorFactorMin", Number(d.vendorFavorFactorMin ?? 1));
     await ss("vendorFavorFactorMax", Number(d.vendorFavorFactorMax ?? 20));
-    await ss("vendorFavorFactorDefault", Number(d.vendorFavorFactorDefault ?? 4));
   }
 }

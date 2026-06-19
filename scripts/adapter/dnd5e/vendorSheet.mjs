@@ -163,6 +163,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   async _onRender(context, options) {
     await super._onRender(context, options);   // let core _toggleDisabled run first
+    await this.#clampFavorFlags();             // sync out-of-bounds favor/factor flags to current limits
     this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
     this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
     this.#repositionInitiativeDie();            // move initiative d20 above the vendor name (GM only)
@@ -237,6 +238,31 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( !wrapper ) return;
     dbg("vendorSheet:repositionInitiativeDie", "moving initiative die above vendor name");
     name.before(wrapper);
+  }
+
+  /**
+   * If the stored favor / favorFactor flags are outside the current world-setting bounds,
+   * clamp them in a single batched actor update. Only runs for GMs (players can't write
+   * flags). No-op when both values are already in range, so it never triggers a spurious
+   * re-render on normal open.
+   */
+  async #clampFavorFlags() {
+    if ( !game.user.isGM ) return;
+    const rawFavor = Number(this.actor.getFlag("pick-up-stix", "favor"));
+    const rawFactor = Number(this.actor.getFlag("pick-up-stix", "favorFactor"));
+    const clampedFavor = Number.isFinite(rawFavor)
+      ? Math.max(getFavorMin(), Math.min(getFavorMax(), Math.round(rawFavor)))
+      : null;
+    const clampedFactor = Number.isFinite(rawFactor)
+      ? Math.max(getFavorFactorMin(), Math.min(getFavorFactorMax(), Math.round(rawFactor)))
+      : null;
+    const updates = {};
+    if ( clampedFavor !== null && clampedFavor !== rawFavor ) updates["flags.pick-up-stix.favor"] = clampedFavor;
+    if ( clampedFactor !== null && clampedFactor !== rawFactor ) updates["flags.pick-up-stix.favorFactor"] = clampedFactor;
+    if ( !foundry.utils.isEmpty(updates) ) {
+      dbg("vendorSheet:clampFavorFlags", { vendor: this.actor.id, updates });
+      await this.actor.update(updates);
+    }
   }
 
   /**

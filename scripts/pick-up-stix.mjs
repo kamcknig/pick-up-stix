@@ -197,13 +197,6 @@ Hooks.once("init", async () => {
     default: ""
   });
 
-  game.settings.register(MODULE_ID, "vendorFavorMin", {
-    scope: "world",
-    config: false,
-    type: Number,
-    default: -5
-  });
-
   game.settings.register(MODULE_ID, "vendorFavorMax", {
     scope: "world",
     config: false,
@@ -211,25 +204,11 @@ Hooks.once("init", async () => {
     default: 5
   });
 
-  game.settings.register(MODULE_ID, "vendorFavorFactorMin", {
-    scope: "world",
-    config: false,
-    type: Number,
-    default: 1
-  });
-
   game.settings.register(MODULE_ID, "vendorFavorFactorMax", {
     scope: "world",
     config: false,
     type: Number,
     default: 20
-  });
-
-  game.settings.register(MODULE_ID, "vendorFavorFactorDefault", {
-    scope: "world",
-    config: false,
-    type: Number,
-    default: 4
   });
 
   // Hidden world setting that persists the install-tracker state (sent flag,

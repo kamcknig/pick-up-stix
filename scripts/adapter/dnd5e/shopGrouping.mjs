@@ -82,13 +82,16 @@ const COLUMNS = {
       const base = priceInGP(item, 0, factor);        // unmodified item value
       const sell = priceInGP(item, favor, factor);    // what the buyer pays (Favor-adjusted)
       const gp = game.i18n.localize("DND5E.CurrencyAbbrGP");
-      const fractional = sell.exact !== Math.trunc(sell.exact);
-      // Tint only priced items whose cost Favor actually shifts: cheaper = green, pricier = red.
+      const isNegative = sell.exact < 0;
+      const displayValue = Math.max(0, sell.display);
+      const fractional = !isNegative && sell.exact !== Math.trunc(sell.exact);
+      // Negative (clamped) prices shown purple for GM; else tint by Favor direction.
       let classes = "pus-price";
-      if (base.display > 0 && favor > 0) classes += " pus-price-down";
+      if (isNegative && game.user.isGM) classes += " pus-price-negative";
+      else if (base.display > 0 && favor > 0) classes += " pus-price-down";
       else if (base.display > 0 && favor < 0) classes += " pus-price-up";
       return {
-        text: `${sell.display} ${gp}`,
+        text: `${displayValue} ${gp}`,
         tooltip: fractional ? `${Number(sell.exact.toFixed(2))} ${gp}` : null,
         classes
       };

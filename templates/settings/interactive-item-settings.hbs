@@ -1,0 +1,83 @@
+<div class="standard-form">
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.GMOverrideEnabled.Name"}}</label>
+    <div class="form-fields">
+      <input type="checkbox" name="gmOverrideEnabled" {{checked gmOverrideEnabled}}>
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.GMOverrideEnabled.Hint"}}</p>
+  </div>
+
+  <div class="form-group stacked">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.ActorFolder.Name"}}</label>
+    <div class="form-fields">
+      <input type="text"
+             class="ii-folder-text"
+             placeholder="{{localize 'INTERACTIVE_ITEMS.Settings.ActorFolder.Placeholder'}}"
+             value="{{actorFolderName}}">
+      <select class="ii-folder-select">
+        <option value="">— {{localize "INTERACTIVE_ITEMS.Settings.ActorFolder.Existing"}} —</option>
+        {{#each folders}}
+          <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>
+        {{/each}}
+      </select>
+    </div>
+    <input type="hidden" name="actorFolder" value="{{actorFolderValue}}">
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.ActorFolder.Hint"}}</p>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.FolderColor.Name"}}</label>
+    <div class="form-fields">
+      <input type="color" name="folderColor" value="{{folderColor}}">
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.FolderColor.Hint"}}</p>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.DefaultContainerImage.Name"}}</label>
+    <div class="form-fields">
+      <file-picker name="defaultContainerImage" type="image" value="{{defaultContainerImage}}"></file-picker>
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.DefaultContainerImage.Hint"}}</p>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.DefaultContainerOpenImage.Name"}}</label>
+    <div class="form-fields">
+      <file-picker name="defaultContainerOpenImage" type="image" value="{{defaultContainerOpenImage}}"></file-picker>
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.DefaultContainerOpenImage.Hint"}}</p>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.DefaultInteractionRange.Name"}}</label>
+    <div class="form-fields">
+      <input type="number" name="defaultInteractionRange" value="{{defaultInteractionRange}}" min="0" step="1">
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.DefaultInteractionRange.Hint"}}</p>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.DefaultInspectionRange.Name"}}</label>
+    <div class="form-fields">
+      <input type="number" name="defaultInspectionRange" value="{{defaultInspectionRange}}" min="0" step="1">
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.DefaultInspectionRange.Hint"}}</p>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.RequireCtrlForDrag.Name"}}</label>
+    <div class="form-fields">
+      <input type="checkbox" name="requireCtrlForDrag" {{checked requireCtrlForDrag}}>
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.RequireCtrlForDrag.Hint"}}</p>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "INTERACTIVE_ITEMS.Settings.GenericPickupItemType.Name"}}</label>
+    <div class="form-fields">
+      <input type="text" name="genericPickupItemType" value="{{genericPickupItemType}}">
+    </div>
+    <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.GenericPickupItemType.Hint"}}</p>
+  </div>
+</div>

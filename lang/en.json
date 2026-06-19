@@ -40,25 +40,23 @@
         "Name": "Generic Mode — Pickup Item Type",
         "Hint": "(Generic mode only) The item type used when a player picks up an interactive object. Set automatically on first launch when a likely candidate is detected; otherwise prompted via dialog. Change here if detection picked the wrong type."
       },
-      "VendorFavorMin": {
-        "Name": "Vendor Favor — Minimum",
-        "Hint": "The lowest Favor value a vendor can be set to. Default: -5."
-      },
       "VendorFavorMax": {
-        "Name": "Vendor Favor — Maximum",
-        "Hint": "The highest Favor value a vendor can be set to. Default: 5."
-      },
-      "VendorFavorFactorMin": {
-        "Name": "Vendor Favor Factor — Minimum",
-        "Hint": "The lowest Favor Factor (% per Favor point) a vendor can be set to. Default: 1."
+        "Name": "Max Favor",
+        "Hint": "Absolute Favor ceiling. Vendors can be set from −Max to +Max (e.g. 5 allows −5 to +5)."
       },
       "VendorFavorFactorMax": {
-        "Name": "Vendor Favor Factor — Maximum",
-        "Hint": "The highest Favor Factor (% per Favor point) a vendor can be set to. Default: 20."
+        "Name": "Max Factor",
+        "Hint": "Highest Favor Factor (% per Favor point) a vendor can be set to. Minimum is always 1."
       },
-      "VendorFavorFactorDefault": {
-        "Name": "Vendor Favor Factor — Default",
-        "Hint": "The Favor Factor applied when a vendor has no Factor set. Default: 4."
+      "InteractiveItemSettingsMenu": {
+        "Name": "Interactive Item Settings",
+        "Hint": "Configure GM overrides, folder organisation, container images, range defaults, and drag behaviour.",
+        "Label": "Open Settings"
+      },
+      "VendorSettingsMenu": {
+        "Name": "Vendor Settings",
+        "Hint": "Configure the Favor bounds and Favor Factor range applied to vendor pricing.",
+        "Label": "Open Settings"
       }
     },
     "FolderToggle": {

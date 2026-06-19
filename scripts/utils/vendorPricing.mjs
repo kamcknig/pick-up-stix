@@ -6,26 +6,23 @@ import { dbg } from "./debugLog.mjs";
  * positive Favor discounts, negative Favor surcharges. Kept system-agnostic — the
  * dnd5e adapter applies the multiplier to its own currency math.
  */
-/** Hard-coded defaults — used as setting registration defaults and as fallbacks before `init`. */
-export const FAVOR_MIN = -5;
+/** Hard-coded fallback for max Favor — used before `init` and as setting default. */
 export const FAVOR_MAX = 5;
-export const FAVOR_FACTOR_MIN = 1;
 export const FAVOR_FACTOR_MAX = 20;
-export const FAVOR_FACTOR_DEFAULT = 4;
 
-// Runtime setting readers — fall back to the constants when settings aren't available yet.
+// Runtime setting reader — falls back to the constant when settings aren't available yet.
 const gs = (key, fallback) => { try { return game.settings.get("pick-up-stix", key); } catch { return fallback; } };
 
-/** Configured minimum Favor value (module setting `vendorFavorMin`, default −5). */
-export const getFavorMin = () => gs("vendorFavorMin", FAVOR_MIN);
 /** Configured maximum Favor value (module setting `vendorFavorMax`, default 5). */
 export const getFavorMax = () => gs("vendorFavorMax", FAVOR_MAX);
-/** Configured minimum Favor Factor (module setting `vendorFavorFactorMin`, default 1). */
-export const getFavorFactorMin = () => gs("vendorFavorFactorMin", FAVOR_FACTOR_MIN);
+/** Minimum Favor — always the negative of the max. */
+export const getFavorMin = () => -getFavorMax();
+/** Minimum Favor Factor — always 1. */
+export const getFavorFactorMin = () => 1;
 /** Configured maximum Favor Factor (module setting `vendorFavorFactorMax`, default 20). */
 export const getFavorFactorMax = () => gs("vendorFavorFactorMax", FAVOR_FACTOR_MAX);
-/** Configured default Favor Factor (module setting `vendorFavorFactorDefault`, default 4). */
-export const getFavorFactorDefault = () => gs("vendorFavorFactorDefault", FAVOR_FACTOR_DEFAULT);
+/** Default Favor Factor when a vendor has none set — always 1. */
+export const getFavorFactorDefault = () => 1;
 
 /** A vendor's Favor, clamped to the configured [favorMin, favorMax]; absent / non-numeric → 0. */
 export function getVendorFavor(vendor) {

@@ -295,6 +295,7 @@
       "Group": { "Type": "Type" },
       "ToggleShopVisible": "Show / hide in shop",
       "AddToCart": "Add to / remove from cart",
+      "ClearCart": "Clear cart",
       "CartTotal": "Cart total",
       "CartCount": "Items in cart",
       "CartQty": "Quantity to buy",

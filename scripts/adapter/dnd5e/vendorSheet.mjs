@@ -48,6 +48,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     actions: {
       buyWare: Dnd5eVendorSheet.#onBuyWare,
       toggleCart: Dnd5eVendorSheet.#onToggleCart,
+      clearCart: Dnd5eVendorSheet.#onClearCart,
       checkoutCart: Dnd5eVendorSheet.#onCheckoutCart,
       stepCartQty: Dnd5eVendorSheet.#onStepCartQty,
       toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
@@ -699,6 +700,14 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( this.#cart.has(itemId) ) this.#cart.delete(itemId);
     else this.#cart.set(itemId, 1);
     dbg("vendorSheet:onToggleCart", { itemId, inCart: this.#cart.has(itemId), size: this.#cart.size });
+    this.#refreshCart();
+  }
+
+  /** Trash button in the cart footer — empty the basket without buying. */
+  static #onClearCart(event, target) {
+    if ( !this.#cart.size ) return;
+    dbg("vendorSheet:onClearCart", { size: this.#cart.size });
+    this.#cart.clear();
     this.#refreshCart();
   }
 

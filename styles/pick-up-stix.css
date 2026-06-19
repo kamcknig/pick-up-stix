@@ -711,8 +711,10 @@
 .cart-count-badge { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
 .cart-count-badge i { opacity: 0.8; }
 
+.cart-actions { display: inline-flex; align-items: center; gap: 4px; }
 .vendor-buy,
-.cart-checkout {
+.cart-checkout,
+.cart-clear {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0;
@@ -722,10 +724,13 @@
 }
 .vendor-buy:hover:not(:disabled),
 .cart-checkout:hover:not(:disabled) { color: var(--color-text-primary, #ddd); border-color: currentColor; }
+.cart-clear:hover:not(:disabled) { color: var(--dnd5e-color-red, #b91c1c); border-color: currentColor; }
 .vendor-buy:active:not(:disabled),
-.cart-checkout:active:not(:disabled) { transform: translateY(1px); }
+.cart-checkout:active:not(:disabled),
+.cart-clear:active:not(:disabled) { transform: translateY(1px); }
 .vendor-buy:disabled,
-.cart-checkout:disabled { opacity: 0.35; cursor: default; }
+.cart-checkout:disabled,
+.cart-clear:disabled { opacity: 0.35; cursor: default; }
 .vendor-ware-empty { padding: 8px; opacity: 0.6; font-style: italic; }
 
 /* Vendor header banner — replace dnd5e's NPC banner with our vendor tile.

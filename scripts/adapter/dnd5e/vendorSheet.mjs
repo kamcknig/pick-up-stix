@@ -1,7 +1,7 @@
 import { getAdapter } from "../index.mjs";
 import { getPlayerCandidateTokens, purchaseItem, purchaseCart } from "../../transfer/ItemTransfer.mjs";
 import { dispatchGM } from "../../utils/gmDispatch.mjs";
-import { notifyPurchase, notifyPurchaseCart } from "../../utils/notify.mjs";
+import { notifyPurchase } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
 import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
 import { createRowControl } from "../../utils/domButtons.mjs";
@@ -539,6 +539,13 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
       return;
     }
+    // Resolve names NOW — the GM mutates vendor stock during the purchase, so the rows may be gone
+    // by the time the self-notify fires. Drop entries whose item vanished (GM notify is authoritative).
+    const lines = cartItems.reduce((acc, [id, qty]) => {
+      const name = this.actor.items.get(id)?.name;
+      if ( name ) acc.push({ name, qty });
+      return acc;
+    }, []);
     const totalUnits = cartItems.reduce((sum, [, qty]) => sum + qty, 0);
     dbg("vendorSheet:onCheckoutCart", { items: cartItems.length, units: totalUnits, buyer: buyer.id, vendor: this.actor.id });
     // Empty the cart and hide its footer immediately via direct DOM (no re-render). The single
@@ -550,7 +557,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       { vendorActorId: this.actor.id, cartItems, buyerActorId: buyer.id },
       async () => purchaseCart(this.actor.id, cartItems, buyer.id)
     );
-    if ( !game.user.isGM ) notifyPurchaseCart(totalUnits, this.actor.name);
+    // Buyer self-notifies one per distinct item (×N when qty > 1); the GM gets the attributed
+    // per-item set from purchaseCart.
+    if ( !game.user.isGM ) for ( const { name, qty } of lines ) notifyPurchase(name, this.actor.name, qty);
   }
 
   /**
@@ -712,7 +721,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       { vendorActorId: this.actor.id, itemId: item.id, buyerActorId: buyer.id, quantity: qty },
       async () => purchaseItem(this.actor.id, item.id, buyer.id, qty)
     );
-    if ( !game.user.isGM ) notifyPurchase(item.name, this.actor.name);  // buyer self-notifies
+    if ( !game.user.isGM ) notifyPurchase(item.name, this.actor.name, qty);  // buyer self-notifies
   }
 
   /**

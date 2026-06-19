@@ -33,38 +33,25 @@ export function notifyItemAction(key, itemName) {
   );
 }
 
-/** Buyer sees "You purchased N items from …"; the processing GM sees "{player} purchased N items from …". */
-export function notifyPurchaseCart(count, vendorName) {
+/**
+ * Buyer sees "You purchased …"; the processing GM sees "{player} purchased …".
+ * When quantity > 1 the message includes a ×N quantifier (…Qty key variant).
+ */
+export function notifyPurchase(itemName, vendorName, quantity = 1) {
+  const qty = Math.max(1, Number(quantity) || 1);
+  const suffix = qty > 1 ? "Qty" : "";
+  const data = { name: itemName, vendor: vendorName, quantity: qty };
   if (game.user.isGM && _currentInitiatorUserId && _currentInitiatorUserId !== game.user.id) {
     const initiator = game.users.get(_currentInitiatorUserId);
     if (initiator) {
       ui.notifications.info(game.i18n.format(
-        "INTERACTIVE_ITEMS.Notify.PurchasedCartByPlayer",
-        { player: initiator.name, count, vendor: vendorName }
+        `INTERACTIVE_ITEMS.Notify.Purchased${suffix}ByPlayer`,
+        { ...data, player: initiator.name }
       ));
       return;
     }
   }
-  ui.notifications.info(game.i18n.format(
-    "INTERACTIVE_ITEMS.Notify.PurchasedCart", { count, vendor: vendorName }
-  ));
-}
-
-/** Buyer sees "You purchased …"; the processing GM sees "{player} purchased …". */
-export function notifyPurchase(itemName, vendorName) {
-  if (game.user.isGM && _currentInitiatorUserId && _currentInitiatorUserId !== game.user.id) {
-    const initiator = game.users.get(_currentInitiatorUserId);
-    if (initiator) {
-      ui.notifications.info(game.i18n.format(
-        "INTERACTIVE_ITEMS.Notify.PurchasedByPlayer",
-        { player: initiator.name, name: itemName, vendor: vendorName }
-      ));
-      return;
-    }
-  }
-  ui.notifications.info(game.i18n.format(
-    "INTERACTIVE_ITEMS.Notify.Purchased", { name: itemName, vendor: vendorName }
-  ));
+  ui.notifications.info(game.i18n.format(`INTERACTIVE_ITEMS.Notify.Purchased${suffix}`, data));
 }
 
 export function notifyTooFar() {

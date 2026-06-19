@@ -2,7 +2,7 @@ import { getTokenActor, isInteractiveActor, isVendorActor } from "../utils/actor
 import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { emitSocketEvent, closeTokenHudIfMatching } from "../socket/SocketHandler.mjs";
-import { notifyItemAction, notifyTransferError, notifyPurchase, notifyPurchaseCart } from "../utils/notify.mjs";
+import { notifyItemAction, notifyTransferError, notifyPurchase } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
@@ -636,7 +636,7 @@ export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity
   // Credit the vendor LAST and let it render → exactly one re-render on every client.
   await adapter.creditVendorCp(vendor, totalCp);
 
-  notifyPurchase(item.name, vendor.name);
+  notifyPurchase(item.name, vendor.name, qty);
   return true;
 }
 
@@ -724,7 +724,7 @@ export async function purchaseCart(vendorActorId, cartItems, buyerActorId) {
   // Credit the vendor LAST and let it render → exactly one re-render on every client.
   await adapter.creditVendorCp(vendor, totalCp);
 
-  notifyPurchaseCart(totalUnits, vendor.name);
+  for ( const { item, qty } of resolved ) notifyPurchase(item.name, vendor.name, qty);
   dbg("xfer:purchaseCart", "cart purchase complete", { units: totalUnits });
   return true;
 }

@@ -76,6 +76,21 @@ export default class SystemAdapter {
   isPhysicalItem(item) { _abstract("isPhysicalItem"); }
 
   /**
+   * Whether purchasing multiple of `item` should keep them as a single stack
+   * (quantity N) rather than splitting into N separate documents of quantity 1.
+   *
+   * Default: `true` — preserve the legacy "one stack" behavior for any system
+   * without a specific opinion. The dnd5e adapter overrides this so only
+   * consumables stack; every other item type splits on purchase.
+   *
+   * @param {Item} _item
+   * @returns {boolean}
+   */
+  stacksOnPurchase(_item) {
+    return true;
+  }
+
+  /**
    * Read the current quantity (stack size) of a physical item. Returns 1
    * for items that don't have a quantity field (e.g. spells, features).
    *

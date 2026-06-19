@@ -89,10 +89,16 @@
     <span class="cart-summary">
       {{ localize "INTERACTIVE_ITEMS.Vendor.CartTotal" }}: <span class="cart-total">0 gp</span>
     </span>
-    <button type="button" class="cart-checkout" data-action="checkoutCart"
-            data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}" disabled>
-      <i class="fa-solid fa-coins"></i>
-    </button>
+    <div class="cart-actions">
+      <button type="button" class="cart-clear" data-action="clearCart"
+              data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.ClearCart" }}">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+      <button type="button" class="cart-checkout" data-action="checkoutCart"
+              data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}" disabled>
+        <i class="fa-solid fa-coins"></i>
+      </button>
+    </div>
   </footer>
   {{/if}}
 </section>

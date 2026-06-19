@@ -18,6 +18,38 @@ function stripEquipmentState(itemData) {
   delete itemData.system.prepared;
 }
 
+/**
+ * Build the inventory item-data to create on a buyer for `qty` units of a purchased `item`.
+ *
+ * Consumables (per `adapter.stacksOnPurchase`) land as a single stack of `qty`; every other
+ * item type splits into `qty` separate documents of quantity 1, so non-stacking gear arrives
+ * as distinct inventory entries rather than one fictitious stack. Notification copy is
+ * unaffected — callers still report the aggregate qty per distinct item.
+ *
+ * @param {Item} item              - the vendor's source item.
+ * @param {number} qty             - units purchased (already clamped to stock by the caller).
+ * @param {object} adapter         - the active system adapter.
+ * @returns {object[]} one or more plain item-data objects ready for createDocuments.
+ */
+function buildPurchasedItemData(item, qty, adapter) {
+  const base = item.toObject();
+  delete base._id;
+  stripEquipmentState(base);
+
+  if ( adapter.stacksOnPurchase(item) ) {
+    adapter.setItemDataQuantity(base, qty);
+    dbg("xfer:buildPurchasedItemData", "stacking (consumable)", { name: base.name, qty });
+    return [base];
+  }
+
+  dbg("xfer:buildPurchasedItemData", "splitting into qty-1 documents", { name: base.name, qty });
+  return Array.from({ length: qty }, () => {
+    const copy = foundry.utils.deepClone(base);
+    adapter.setItemDataQuantity(copy, 1);
+    return copy;
+  });
+}
+
 function stampInteractiveIdentity(itemData, actor, { embeddedItemData } = {}) {
   const descriptionValue = itemData.system?.description?.value ?? "";
 
@@ -621,16 +653,11 @@ export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity
     return false;
   }
 
-  // Add the stack to the buyer — this create renders the buyer's OWN sheet once, reflecting the
-  // already-debited gold + the new item (so an open character sheet stays current). It does not
-  // touch the vendor sheet. The vendor stock decrement is render-suppressed; the vendor credit
-  // below is the vendor sheet's single render.
-  const data = item.toObject();
-  delete data._id;
-  stripEquipmentState(data);
-  adapter.setItemDataQuantity(data, qty);
-  dbg("xfer:purchaseItem", "creating item on buyer", { name: data.name, qty, buyer: buyer.id });
-  await CONFIG.Item.documentClass.createDocuments([data], { parent: buyer });
+  // Add the purchased item(s) to the buyer. Consumables land as one stack of `qty`; other types
+  // split into `qty` qty-1 documents. This create renders the buyer's OWN sheet once.
+  const toCreate = buildPurchasedItemData(item, qty, adapter);
+  dbg("xfer:purchaseItem", "creating item(s) on buyer", { name: item.name, qty, docs: toCreate.length, buyer: buyer.id });
+  await CONFIG.Item.documentClass.createDocuments(toCreate, { parent: buyer });
   await decrementOrDeleteItem(item, qty, { render: false });
 
   // Credit the vendor LAST and let it render → exactly one re-render on every client.
@@ -701,11 +728,7 @@ export async function purchaseCart(vendorActorId, cartItems, buyerActorId) {
   const toUpdate = [];
   const toDelete = [];
   for ( const { item, qty } of resolved ) {
-    const data = item.toObject();
-    delete data._id;
-    stripEquipmentState(data);
-    adapter.setItemDataQuantity(data, qty);
-    toCreate.push(data);
+    toCreate.push(...buildPurchasedItemData(item, qty, adapter));
 
     const stock = adapter.getItemQuantity(item);
     if ( qty >= stock ) {

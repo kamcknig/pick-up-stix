@@ -930,3 +930,54 @@
   color: inherit;
   font-size: inherit;
 }
+
+/* Vendor Price column: Favor-adjusted sell price differs from the item's base value.
+   Up = costs more (red), down = costs less (green). */
+.vendor-sheet .shop-cell.pus-price-up { color: var(--dnd5e-color-maroon, #b9412f); }
+.vendor-sheet .shop-cell.pus-price-down { color: var(--dnd5e-color-green, #4b7d3a); }
+
+/* Favor card: occupies the abilities card's slot on the Shop tab. */
+.vendor-sheet .sheet-header .pus-vendor-favor {
+  align-items: center;
+  justify-content: flex-start;
+  padding: 6px 14px;
+  background: none;
+  box-shadow: none;
+  border: none;
+  width: 100%;
+}
+.vendor-sheet .pus-favor-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.vendor-sheet .pus-favor-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 200px;
+}
+.vendor-sheet .pus-favor-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: var(--font-size-12, 12px);
+}
+.vendor-sheet .pus-favor-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.vendor-sheet .pus-favor-range {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  box-shadow: none;
+}
+.vendor-sheet .pus-favor-value {
+  min-width: 2.5ch;
+  text-align: center;
+  font-weight: bold;
+}

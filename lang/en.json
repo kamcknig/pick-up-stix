@@ -305,12 +305,16 @@
       "FavorTooltip": "How favourably this vendor prices for the party. Positive is a discount, negative a surcharge.",
       "FavorFactor": "Favor Factor",
       "FavorFactorTooltip": "The percentage applied per Favor point. Default 4 means each Favor point shifts the price by 4%.",
+      "Settings": "Vendor Settings",
+      "SettingsToggle": "Show / hide vendor settings",
       "Queue": {
         "SwitchTitle": "Switch shops?",
         "SwitchPrompt": "You're already in line at {from}. Joining {to} will leave {from}'s queue.",
         "SwitchConfirm": "Join this queue",
         "Active": "Shopping now",
-        "Waiting": "Waiting in line"
+        "Waiting": "Waiting in line",
+        "Title": "Shopping Queue",
+        "Toggle": "Show / hide the shopping queue"
       }
     }
   },

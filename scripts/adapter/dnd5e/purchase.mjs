@@ -109,6 +109,18 @@ export const Dnd5ePurchase = {
     return true;
   },
 
+  /**
+   * Only consumables stack when purchased in bulk; every other dnd5e item type
+   * (weapon, equipment, tool, container, loot) splits into separate qty-1
+   * documents so the buyer receives distinct inventory entries.
+   *
+   * @param {Item} item
+   * @returns {boolean}
+   */
+  stacksOnPurchase(item) {
+    return item?.type === "consumable";
+  },
+
   async creditVendorCp(vendor, cp) {
     const currency = foundry.utils.deepClone(vendor.system?.currency ?? {});
     for ( const [denom, n] of Object.entries(coinsFromCp(cp)) ) currency[denom] = (currency[denom] ?? 0) + n;

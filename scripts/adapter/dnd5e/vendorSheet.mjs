@@ -171,6 +171,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#refreshSubtitleTooltips();
     this.#injectInventoryShopToggles();
     this.#injectInventoryShopAllToggle();
+    this.#fixListControlsPrefs();
     if (this.#currencyHookId === null) {       // register the live-update hooks once
       this.#currencyHookId = Hooks.on("updateActor", this.#onBuyerCurrencyChange.bind(this));
       // The buyer depends on the controlled token, so re-evaluate on selection changes too.
@@ -344,6 +345,77 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }));
     row.append(label, cell);
     list.parentElement.insertBefore(row, list);
+  }
+
+  /**
+   * Work around a dnd5e sheet-prefs limitation for dotted actor sub-types.
+   *
+   * dnd5e's <item-list-controls> persists its sort/group choice in the user flag
+   * `sheetPrefs.<actor.type>.tabs.<tab>.<sort|group>`. Our actor type is
+   * "pick-up-stix.vendor"; the "." in it makes `User#setFlag` expand the key into an
+   * extra nesting level that dnd5e's sheet-prefs schema then drops, so every write
+   * vanishes and the `prefs` getter always reads back `undefined`. The controls
+   * therefore fall back to their default mode on every click and look inert (no
+   * error). Verified live: a dot-free key round-trips, the dotted one does not.
+   *
+   * Fix, re-applied each render (the element is recreated on every part re-render):
+   *   - Reads: override the instance `prefs` getter to use a dot-free actor type.
+   *   - Writes: dnd5e bound its click handler (with the dotted path) in
+   *     connectedCallback, so swap each sort/group button for a clone (dropping that
+   *     listener) and wire our own dot-free cycle handler.
+   * Then re-init + re-apply so the saved choice is reflected in the fresh DOM.
+   *
+   * Scoped to the inventory control — the reported surface, and the one whose mode
+   * list is published on `ItemListControlsElement.CONFIG.inventory`.
+   */
+  #fixListControlsPrefs() {
+    const sanitize = (type) => type.replaceAll(".", "-");
+    for ( const ilc of this.element.querySelectorAll('item-list-controls[for="inventory"]') ) {
+      if ( !ilc.app ) continue;   // not yet initialised
+      // Reads: resolve prefs under a dot-free actor type.
+      Object.defineProperty(ilc, "prefs", {
+        configurable: true,
+        get() {
+          return game.user.getFlag("dnd5e", `sheetPrefs.${sanitize(this.app.document.type)}.tabs.${this.tab}`);
+        }
+      });
+      // Writes: replace the sort/group buttons (clone strips dnd5e's dotted-path
+      // click listener) and wire our own dot-free cycle handler.
+      for ( const action of ["sort", "group"] ) {
+        const btn = ilc._controls?.[action];
+        if ( !btn ) continue;
+        const fresh = btn.cloneNode(true);
+        btn.replaceWith(fresh);
+        ilc._controls[action] = fresh;
+        fresh.addEventListener("click", () => this.#cycleListMode(ilc, action));
+      }
+      // Re-init icons + re-apply layout now that prefs read the saved (dot-free) choice.
+      ilc._initSorting?.();
+      ilc._initGrouping?.();
+      ilc._applyGrouping?.();
+      dbg("vendorSheet:fixListControlsPrefs", "patched inventory controls", { tab: ilc.tab, prefs: ilc.prefs });
+    }
+  }
+
+  /**
+   * Cycle an <item-list-controls> sort or group mode using a dot-free prefs key —
+   * mirrors dnd5e's own `_onCycleMode`, but writes a key our dotted actor type can
+   * round-trip. Mode order comes from `ItemListControlsElement.CONFIG[for]`.
+   */
+  async #cycleListMode(ilc, action) {
+    const ILC = customElements.get("item-list-controls");
+    const cfg = ILC?.CONFIG?.[ilc.getAttribute("for")];
+    const modes = (action === "group" ? cfg?.grouping : cfg?.sorting)?.map((m) => m.key);
+    if ( !modes?.length ) { dbg("vendorSheet:cycleListMode", "no modes, bail", { action, for: ilc.getAttribute("for") }); return; }
+    const type = ilc.app.document.type.replaceAll(".", "-");
+    const flag = `sheetPrefs.${type}.tabs.${ilc.tab}.${action}`;
+    const current = Math.max(0, modes.indexOf(game.user.getFlag("dnd5e", flag)));
+    const next = modes[(current + 1) % modes.length];
+    dbg("vendorSheet:cycleListMode", { action, flag, from: modes[current], to: next });
+    await game.user.setFlag("dnd5e", flag, next);
+    if ( action === "group" ) { ilc._initGrouping?.(); ilc._applyGrouping?.(); }
+    else { ilc._initSorting?.(); ilc._applySorting?.(); }
+    game.tooltip?.deactivate?.();
   }
 
   /**

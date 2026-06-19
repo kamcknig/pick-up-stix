@@ -39,6 +39,24 @@
       "GenericPickupItemType": {
         "Name": "Generic Mode — Pickup Item Type",
         "Hint": "(Generic mode only) The item type used when a player picks up an interactive object. Set automatically on first launch when a likely candidate is detected; otherwise prompted via dialog. Change here if detection picked the wrong type."
+      },
+      "VendorFavorMax": {
+        "Name": "Max Favor",
+        "Hint": "Absolute Favor ceiling. Vendors can be set from −Max to +Max (e.g. 5 allows −5 to +5)."
+      },
+      "VendorFavorFactorMax": {
+        "Name": "Max Factor",
+        "Hint": "Highest Favor Factor (% per Favor point) a vendor can be set to. Minimum is always 1."
+      },
+      "InteractiveItemSettingsMenu": {
+        "Name": "Interactive Item Settings",
+        "Hint": "Configure GM overrides, folder organisation, container images, range defaults, and drag behaviour.",
+        "Label": "Open Settings"
+      },
+      "VendorSettingsMenu": {
+        "Name": "Vendor Settings",
+        "Hint": "Configure the Favor bounds and Favor Factor range applied to vendor pricing.",
+        "Label": "Open Settings"
       }
     },
     "FolderToggle": {
@@ -277,17 +295,26 @@
       "Group": { "Type": "Type" },
       "ToggleShopVisible": "Show / hide in shop",
       "AddToCart": "Add to / remove from cart",
+      "ClearCart": "Clear cart",
       "CartTotal": "Cart total",
       "CartCount": "Items in cart",
       "CartQty": "Quantity to buy",
       "AllShop": "All",
       "ToggleAllShop": "Add all to / remove all from shop",
+      "Favor": "Favor",
+      "FavorTooltip": "How favourably this vendor prices for the party. Positive is a discount, negative a surcharge.",
+      "FavorFactor": "Favor Factor",
+      "FavorFactorTooltip": "The percentage applied per Favor point. Default 4 means each Favor point shifts the price by 4%.",
+      "Settings": "Vendor Settings",
+      "SettingsToggle": "Show / hide vendor settings",
       "Queue": {
         "SwitchTitle": "Switch shops?",
         "SwitchPrompt": "You're already in line at {from}. Joining {to} will leave {from}'s queue.",
         "SwitchConfirm": "Join this queue",
         "Active": "Shopping now",
-        "Waiting": "Waiting in line"
+        "Waiting": "Waiting in line",
+        "Title": "Shopping Queue",
+        "Toggle": "Show / hide the shopping queue"
       }
     }
   },

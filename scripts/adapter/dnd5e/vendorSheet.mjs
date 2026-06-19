@@ -7,6 +7,7 @@ import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
 import { createRowControl } from "../../utils/domButtons.mjs";
 import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
 import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
+import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault } from "../../utils/vendorPricing.mjs";
 
 const NPCActorSheet = dnd5e.applications.actor.NPCActorSheet;
 
@@ -47,9 +48,12 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     actions: {
       buyWare: Dnd5eVendorSheet.#onBuyWare,
       toggleCart: Dnd5eVendorSheet.#onToggleCart,
+      clearCart: Dnd5eVendorSheet.#onClearCart,
       checkoutCart: Dnd5eVendorSheet.#onCheckoutCart,
       stepCartQty: Dnd5eVendorSheet.#onStepCartQty,
-      toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible
+      toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible,
+      toggleFavor: Dnd5eVendorSheet.#onToggleFavor,
+      toggleQueue: Dnd5eVendorSheet.#onToggleQueue
     }
   };
 
@@ -162,9 +166,13 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   async _onRender(context, options) {
     await super._onRender(context, options);   // let core _toggleDisabled run first
+    await this.#clampFavorFlags();             // sync out-of-bounds favor/factor flags to current limits
     this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
     this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
     this.#repositionInitiativeDie();            // move initiative d20 above the vendor name (GM only)
+    this.#applyAbilitiesTabVisibility();   // keep NPC abilities card hidden on the Shop tab
+    await this.#injectGmShopBio();          // mirror the player storefront bio under the name (Shop tab)
+    this.#wireFavorControls();              // wire favor sliders in the Shop tab (GM only)
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
@@ -238,6 +246,95 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   /**
+   * If the stored favor / favorFactor flags are outside the current world-setting bounds,
+   * clamp them in a single batched actor update. Only runs for GMs (players can't write
+   * flags). No-op when both values are already in range, so it never triggers a spurious
+   * re-render on normal open.
+   */
+  async #clampFavorFlags() {
+    if ( !game.user.isGM ) return;
+    const rawFavor = Number(this.actor.getFlag("pick-up-stix", "favor"));
+    const rawFactor = Number(this.actor.getFlag("pick-up-stix", "favorFactor"));
+    const clampedFavor = Number.isFinite(rawFavor)
+      ? Math.max(getFavorMin(), Math.min(getFavorMax(), Math.round(rawFavor)))
+      : null;
+    const clampedFactor = Number.isFinite(rawFactor)
+      ? Math.max(getFavorFactorMin(), Math.min(getFavorFactorMax(), Math.round(rawFactor)))
+      : null;
+    const updates = {};
+    if ( clampedFavor !== null && clampedFavor !== rawFavor ) updates["flags.pick-up-stix.favor"] = clampedFavor;
+    if ( clampedFactor !== null && clampedFactor !== rawFactor ) updates["flags.pick-up-stix.favorFactor"] = clampedFactor;
+    if ( !foundry.utils.isEmpty(updates) ) {
+      dbg("vendorSheet:clampFavorFlags", { vendor: this.actor.id, updates });
+      await this.actor.update(updates);
+    }
+  }
+
+  /** Hide the inherited NPC abilities card on the Shop tab (it has no place in the storefront);
+   *  show it on every other tab. No-op if the card isn't present (player storefront header). */
+  #applyAbilitiesTabVisibility() {
+    const abilities = this.element.querySelector(".sheet-header .ability-scores");
+    if ( !abilities ) return;
+    abilities.style.display = this.tabGroups.primary === "shop" ? "none" : "";
+  }
+
+  /**
+   * GM only, Shop tab only: mirror the player storefront by showing the vendor's public biography
+   * under the name in the NPC header. Removed on every other tab and when there's no biography, so
+   * the header falls back to its normal dnd5e content. Enriched to match the player view (secrets
+   * hidden). (Foundry v13 + v14, dnd5e NPC header.)
+   */
+  async #injectGmShopBio() {
+    if ( !game.user.isGM ) return;
+    const nameBox = this.element.querySelector(".sheet-header .right.stats .top .left");
+    if ( !nameBox ) return;
+    let bio = nameBox.querySelector(":scope > .pus-vendor-bio");
+    const raw = this.actor.system?.details?.biography?.public ?? "";
+    if ( this.tabGroups.primary !== "shop" || !raw.trim() ) {
+      if ( bio ) { dbg("vendorSheet:injectGmShopBio", "removing bio (off-shop or empty)"); bio.remove(); }
+      return;
+    }
+    const TE = foundry.applications?.ux?.TextEditor?.implementation ?? TextEditor;
+    const html = await TE.enrichHTML(raw, { secrets: false, relativeTo: this.actor });
+    if ( !bio ) {
+      bio = document.createElement("div");
+      bio.className = "pus-vendor-bio";
+      nameBox.appendChild(bio);
+    }
+    dbg("vendorSheet:injectGmShopBio", "showing bio on shop tab");
+    bio.innerHTML = html;
+  }
+
+  /**
+   * Wire the favor / favorFactor sliders in the Shop tab (GM only). The shop part is rebuilt on
+   * every render, so the DOM is fresh and listeners are re-added; a dataset marker guards against a
+   * double-bind within one DOM instance. `input` updates the live value label; `change` clamps and
+   * writes the flag (which re-renders + re-prices the shop) — identical behavior to the old header
+   * card.
+   */
+  #wireFavorControls() {
+    if ( !game.user.isGM ) return;
+    const panel = this.element.querySelector(".pus-favor-panel");
+    if ( !panel || panel.dataset.pusWired === "1" ) return;
+    panel.dataset.pusWired = "1";
+    const sign = (v) => `${v > 0 ? "+" : ""}${v}`;
+    for ( const range of panel.querySelectorAll(".pus-favor-range") ) {
+      const valueEl = range.closest(".pus-favor-slider").querySelector(".pus-favor-value");
+      const isFavor = range.dataset.flag === "favor";
+      const fmt = isFavor ? (v) => sign(v) : (v) => `${v}%`;
+      range.addEventListener("input", () => { valueEl.textContent = fmt(Number(range.value)); });
+      range.addEventListener("change", async () => {
+        const raw = Math.round(Number(range.value) || 0);
+        const v = isFavor
+          ? Math.max(getFavorMin(), Math.min(getFavorMax(), raw))
+          : Math.max(getFavorFactorMin(), Math.min(getFavorFactorMax(), raw || getFavorFactorDefault()));
+        dbg("vendorSheet:favorControlChange", { vendor: this.actor.id, flag: range.dataset.flag, value: v });
+        await this.actor.setFlag("pick-up-stix", range.dataset.flag, v);
+      });
+    }
+  }
+
+  /**
    * Re-evaluate subtitle truncation when a tab is shown. The GM's Shop tab is hidden
    * at first render (they land on an NPC tab), so the `_onRender` pass sees a zero-size
    * element and can't detect clipping; rerun once Shop becomes the active tab.
@@ -245,6 +342,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   changeTab(tab, group, options) {
     super.changeTab(tab, group, options);
     if ( tab === "shop" ) this.#refreshSubtitleTooltips();
+    this.#applyAbilitiesTabVisibility();   // swap abilities visibility with the active tab
+    this.#injectGmShopBio();               // show/hide the header bio with the active tab
   }
 
   /**
@@ -549,6 +648,84 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }, []);
   }
 
+  /** Per-user, per-vendor favor-panel collapse state (defaults to collapsed). */
+  #isFavorCollapsed() {
+    const map = game.user.getFlag("pick-up-stix", "favorCollapsed") ?? {};
+    return map[this.actor.id] ?? true;
+  }
+
+  /** Persist the favor-panel collapse state for this user + vendor (no actor re-render). */
+  async #setFavorCollapsed(collapsed) {
+    const map = { ...(game.user.getFlag("pick-up-stix", "favorCollapsed") ?? {}) };
+    map[this.actor.id] = collapsed;
+    dbg("vendorSheet:setFavorCollapsed", { vendor: this.actor.id, collapsed });
+    await game.user.setFlag("pick-up-stix", "favorCollapsed", map);
+  }
+
+  /**
+   * Toggle the favor panel open/closed. Persisted to a per-user user flag, so this does NOT
+   * re-render the sheet — the CSS height transition animates on the live DOM (mirrors dnd5e's
+   * sidebar collapse). On the next full render, `#prepareFavorContext().collapsed` re-applies the
+   * class from the flag. GM-only in practice (players never render the panel).
+   */
+  static #onToggleFavor(event, target) {
+    const panel = target.closest(".pus-favor-panel");
+    if ( !panel ) return;
+    const collapsed = panel.classList.toggle("collapsed");
+    target.setAttribute("aria-expanded", String(!collapsed));
+    dbg("vendorSheet:onToggleFavor", { vendor: this.actor.id, collapsed });
+    this.#setFavorCollapsed(collapsed);
+  }
+
+  /** Per-user, per-vendor queue-panel collapse state (defaults to expanded). */
+  #isQueueCollapsed() {
+    const map = game.user.getFlag("pick-up-stix", "queueCollapsed") ?? {};
+    return map[this.actor.id] ?? false;
+  }
+
+  /** Persist the queue-panel collapse state for this user + vendor (no actor re-render). */
+  async #setQueueCollapsed(collapsed) {
+    const map = { ...(game.user.getFlag("pick-up-stix", "queueCollapsed") ?? {}) };
+    map[this.actor.id] = collapsed;
+    dbg("vendorSheet:setQueueCollapsed", { vendor: this.actor.id, collapsed });
+    await game.user.setFlag("pick-up-stix", "queueCollapsed", map);
+  }
+
+  /**
+   * Toggle the queue panel open/closed. Like the favor toggle it persists to a per-user flag (no
+   * re-render) so the CSS height transition runs on the live DOM — but the queue content is
+   * in-flow, so expanding pushes the shop list down rather than overlaying it.
+   */
+  static #onToggleQueue(event, target) {
+    const panel = target.closest(".pus-queue-panel");
+    if ( !panel ) return;
+    const collapsed = panel.classList.toggle("collapsed");
+    target.setAttribute("aria-expanded", String(!collapsed));
+    dbg("vendorSheet:onToggleQueue", { vendor: this.actor.id, collapsed });
+    this.#setQueueCollapsed(collapsed);
+  }
+
+  /**
+   * Favor panel context (GM only): current values, slider bounds, and formatted display strings.
+   * Mirrors the value formatting the old header card used.
+   */
+  #prepareFavorContext() {
+    const favor = getVendorFavor(this.actor);
+    const factor = getVendorFavorFactor(this.actor);
+    const sign = (v) => `${v > 0 ? "+" : ""}${v}`;
+    return {
+      value: favor,
+      factor,
+      valueDisplay: sign(favor),
+      factorDisplay: `${factor}%`,
+      favorMin: getFavorMin(),
+      favorMax: getFavorMax(),
+      factorMin: getFavorFactorMin(),
+      factorMax: getFavorFactorMax(),
+      collapsed: this.#isFavorCollapsed()
+    };
+  }
+
   async _preparePartContext(partId, context, options) {
     context = await super._preparePartContext(partId, context, options);
     if ( partId === "shop" ) {
@@ -556,6 +733,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       context.isGM = game.user.isGM;
       context.queue = this.#prepareQueue();
       context.canShop = this.#canShop();
+      if ( context.isGM ) context.favor = this.#prepareFavorContext();
+      if ( context.isGM ) context.queueCollapsed = this.#isQueueCollapsed();
     }
     if ( partId === "header" ) {
       // Player storefront header shows the actor's public biography below the name, enriched
@@ -599,6 +778,14 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( this.#cart.has(itemId) ) this.#cart.delete(itemId);
     else this.#cart.set(itemId, 1);
     dbg("vendorSheet:onToggleCart", { itemId, inCart: this.#cart.has(itemId), size: this.#cart.size });
+    this.#refreshCart();
+  }
+
+  /** Trash button in the cart footer — empty the basket without buying. */
+  static #onClearCart(event, target) {
+    if ( !this.#cart.size ) return;
+    dbg("vendorSheet:onClearCart", { size: this.#cart.size });
+    this.#cart.clear();
     this.#refreshCart();
   }
 

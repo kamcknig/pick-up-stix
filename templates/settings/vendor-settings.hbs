@@ -1,0 +1,25 @@
+<div class="standard-form">
+  <div class="notification warning">
+    Some settings can result in a calculated price below zero. All prices are clamped to a minimum of 0 and will never be negative. GMs will see these items highlighted in purple.
+  </div>
+
+  <fieldset>
+    <legend>Vendor Pricing</legend>
+
+    <div class="form-group">
+      <label>{{localize "INTERACTIVE_ITEMS.Settings.VendorFavorMax.Name"}}</label>
+      <div class="form-fields">
+        <input type="number" name="vendorFavorMax" value="{{vendorFavorMax}}" min="1" step="1">
+      </div>
+      <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.VendorFavorMax.Hint"}}</p>
+    </div>
+
+    <div class="form-group">
+      <label>{{localize "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMax.Name"}}</label>
+      <div class="form-fields">
+        <input type="number" name="vendorFavorFactorMax" value="{{vendorFavorFactorMax}}" min="1" step="1">
+      </div>
+      <p class="hint">{{localize "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMax.Hint"}}</p>
+    </div>
+  </fieldset>
+</div>

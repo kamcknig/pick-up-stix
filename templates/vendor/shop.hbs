@@ -1,20 +1,65 @@
 {{!-- Wrapped in dnd5e's tab root so it shows only when the Shop tab is active. --}}
 <section class="tab {{ tab.cssClass }}" data-tab="{{ tab.id }}" data-group="{{ tab.group }}">
-  {{!-- GM sees the queue at the top of the Shop tab; players get it in the storefront header. --}}
+  {{!-- GM Shop tab: settings panel first, then the (collapsible) shopping queue below it.
+        Players get the queue in the storefront header instead. --}}
+  {{#if isGM}}
+  <section class="pus-collapse-panel pus-favor-panel {{#if favor.collapsed}}collapsed{{/if}}">
+    <button type="button" class="pus-collapse-bar" data-action="toggleFavor"
+            data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.SettingsToggle" }}"
+            aria-expanded="{{#if favor.collapsed}}false{{else}}true{{/if}}">
+      <span class="pus-collapse-title">{{ localize "INTERACTIVE_ITEMS.Vendor.Settings" }}</span>
+      <i class="fa-solid fa-chevron-down pus-collapse-caret"></i>
+    </button>
+    <div class="pus-favor-content">
+      <div class="pus-favor-controls">
+        <div class="pus-favor-control">
+          <label class="pus-favor-label" data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.FavorTooltip" }}">
+            {{ localize "INTERACTIVE_ITEMS.Vendor.Favor" }}
+          </label>
+          <div class="pus-favor-slider">
+            <input type="range" class="pus-favor-range" data-flag="favor"
+                   min="{{ favor.favorMin }}" max="{{ favor.favorMax }}" step="1" value="{{ favor.value }}" />
+            <span class="pus-favor-value">{{ favor.valueDisplay }}</span>
+          </div>
+        </div>
+        <div class="pus-favor-control">
+          <label class="pus-favor-label" data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.FavorFactorTooltip" }}">
+            {{ localize "INTERACTIVE_ITEMS.Vendor.FavorFactor" }}
+          </label>
+          <div class="pus-favor-slider">
+            <input type="range" class="pus-favor-range" data-flag="favorFactor"
+                   min="{{ favor.factorMin }}" max="{{ favor.factorMax }}" step="1" value="{{ favor.factor }}" />
+            <span class="pus-favor-value">{{ favor.factorDisplay }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {{/if}}
   {{#if isGM}}
   {{#if queue.length}}
-  <div class="vendor-queue pus-gm-queue">
-    {{#each queue}}
-    <div class="vendor-queue-shopper {{#if this.active}}active{{/if}} {{#if this.isSelf}}self{{/if}}"
-         data-actor-id="{{ this.actorId }}"
-         data-tooltip="{{#if this.active}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Active' }}{{else}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Waiting' }}{{/if}}">
-      <div class="vendor-queue-portrait" {{#if this.color}}style="--shopper-color: {{ this.color }};"{{/if}}>
-        <img src="{{ this.img }}" alt="{{ this.name }}" />
+  <section class="pus-collapse-panel pus-queue-panel {{#if queueCollapsed}}collapsed{{/if}}">
+    <button type="button" class="pus-collapse-bar" data-action="toggleQueue"
+            data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Queue.Toggle" }}"
+            aria-expanded="{{#if queueCollapsed}}false{{else}}true{{/if}}">
+      <span class="pus-collapse-title">{{ localize "INTERACTIVE_ITEMS.Vendor.Queue.Title" }}</span>
+      <i class="fa-solid fa-chevron-down pus-collapse-caret"></i>
+    </button>
+    <div class="pus-queue-content">
+      <div class="vendor-queue pus-gm-queue">
+        {{#each queue}}
+        <div class="vendor-queue-shopper {{#if this.active}}active{{/if}} {{#if this.isSelf}}self{{/if}}"
+             data-actor-id="{{ this.actorId }}"
+             data-tooltip="{{#if this.active}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Active' }}{{else}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Waiting' }}{{/if}}">
+          <div class="vendor-queue-portrait" {{#if this.color}}style="--shopper-color: {{ this.color }};"{{/if}}>
+            <img src="{{ this.img }}" alt="{{ this.name }}" />
+          </div>
+          <span class="vendor-queue-name">{{ this.name }}</span>
+        </div>
+        {{/each}}
       </div>
-      <span class="vendor-queue-name">{{ this.name }}</span>
     </div>
-    {{/each}}
-  </div>
+  </section>
   {{/if}}
   {{/if}}
   <section class="vendor-shop" style="--shop-cols: {{ shop.columnTemplate }};">
@@ -89,10 +134,16 @@
     <span class="cart-summary">
       {{ localize "INTERACTIVE_ITEMS.Vendor.CartTotal" }}: <span class="cart-total">0 gp</span>
     </span>
-    <button type="button" class="cart-checkout" data-action="checkoutCart"
-            data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}" disabled>
-      <i class="fa-solid fa-coins"></i>
-    </button>
+    <div class="cart-actions">
+      <button type="button" class="cart-clear" data-action="clearCart"
+              data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.ClearCart" }}">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+      <button type="button" class="cart-checkout" data-action="checkoutCart"
+              data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Buy" }}" disabled>
+        <i class="fa-solid fa-coins"></i>
+      </button>
+    </div>
   </footer>
   {{/if}}
 </section>

@@ -288,7 +288,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       const cell = document.createElement("div");
       cell.className = "item-detail ii-row-controls-cell pus-shop-toggle-cell";
       cell.appendChild(createRowControl({
-        iconClass: "fa-solid fa-box-arrow-down-arrow-up",
+        iconClass: "fa-solid fa-store",
         titleKey: "INTERACTIVE_ITEMS.Vendor.ToggleShopVisible",
         extraClass: "pick-up-stix-shop-toggle",
         active: visible,
@@ -331,7 +331,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     const cell = document.createElement("div");
     cell.className = "ii-row-controls-cell pus-shop-toggle-cell";
     cell.appendChild(createRowControl({
-      iconClass: "fa-solid fa-box-arrow-down-arrow-up",
+      iconClass: "fa-solid fa-store",
       titleKey: "INTERACTIVE_ITEMS.Vendor.ToggleAllShop",
       extraClass: "pick-up-stix-shop-toggle",
       active: allVisible,

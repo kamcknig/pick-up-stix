@@ -1,9 +1,10 @@
-import { pickupItem, depositItem, setContainerOpen } from "../transfer/ItemTransfer.mjs";
+import { pickupItem, depositItem, setContainerOpen, purchaseItem, purchaseCart } from "../transfer/ItemTransfer.mjs";
 import { createInteractiveToken, splitInteractiveToken } from "../canvas/placement.mjs";
 import { getTokenActor } from "../utils/actorHelpers.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { decrementOrDeleteItem } from "../utils/quantityPrompt.mjs";
 import { setInitiator, clearInitiator } from "../utils/notify.mjs";
+import { joinVendorQueue, leaveVendorQueue } from "../utils/vendorQueue.mjs";
 
 const SOCKET_NAME = "module.pick-up-stix";
 
@@ -93,6 +94,30 @@ async function _dispatch(payload) {
           payload.data.splitQty
         );
         break;
+      case "purchaseItem": {
+        if (!game.user.isActiveGM) break;       // currency safety: single processor for sockets
+        const { vendorActorId, itemId, buyerActorId, quantity } = payload.data ?? {};
+        await purchaseItem(vendorActorId, itemId, buyerActorId, quantity ?? 1);
+        break;
+      }
+      case "purchaseCart": {
+        if (!game.user.isActiveGM) break;       // currency safety: single processor for sockets
+        const { vendorActorId, cartItems, buyerActorId } = payload.data ?? {};
+        await purchaseCart(vendorActorId, cartItems, buyerActorId);
+        break;
+      }
+      case "vendorQueueJoin": {
+        if (!game.user.isActiveGM) break;
+        const { vendorActorId, actorId } = payload.data ?? {};
+        await joinVendorQueue(vendorActorId, actorId);
+        break;
+      }
+      case "vendorQueueLeave": {
+        if (!game.user.isActiveGM) break;
+        const { vendorActorId, actorId } = payload.data ?? {};
+        await leaveVendorQueue(vendorActorId, actorId);
+        break;
+      }
     }
 }
 

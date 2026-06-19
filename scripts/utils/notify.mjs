@@ -33,6 +33,27 @@ export function notifyItemAction(key, itemName) {
   );
 }
 
+/**
+ * Buyer sees "You purchased …"; the processing GM sees "{player} purchased …".
+ * When quantity > 1 the message includes a ×N quantifier (…Qty key variant).
+ */
+export function notifyPurchase(itemName, vendorName, quantity = 1) {
+  const qty = Math.max(1, Number(quantity) || 1);
+  const suffix = qty > 1 ? "Qty" : "";
+  const data = { name: itemName, vendor: vendorName, quantity: qty };
+  if (game.user.isGM && _currentInitiatorUserId && _currentInitiatorUserId !== game.user.id) {
+    const initiator = game.users.get(_currentInitiatorUserId);
+    if (initiator) {
+      ui.notifications.info(game.i18n.format(
+        `INTERACTIVE_ITEMS.Notify.Purchased${suffix}ByPlayer`,
+        { ...data, player: initiator.name }
+      ));
+      return;
+    }
+  }
+  ui.notifications.info(game.i18n.format(`INTERACTIVE_ITEMS.Notify.Purchased${suffix}`, data));
+}
+
 export function notifyTooFar() {
   ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.TooFar"));
 }

@@ -119,6 +119,12 @@
       "PickedUpByPlayer": "{player} picked up {name}.",
       "DepositedByPlayer": "{player} deposited {name}.",
       "SplitByPlayer": "{player} split {name} off the stack.",
+      "Purchased": "You purchased {name} from {vendor}.",
+      "PurchasedByPlayer": "{player} purchased {name} from {vendor}.",
+      "PurchasedQty": "You purchased {name} ×{quantity} from {vendor}.",
+      "PurchasedQtyByPlayer": "{player} purchased {name} ×{quantity} from {vendor}.",
+      "NotEnoughCoin": "You can't afford {name}.",
+      "NoBuyer": "Select a token or assign a character to make a purchase.",
       "TransferError": "Failed to transfer item.",
       "NoCharacter": "No character assigned. Set your character in User Configuration.",
       "NoItems": "No items to pick up.",
@@ -261,11 +267,34 @@
           "hint": "Custom message shown when a player attempts to interact with this locked object"
         }
       }
+    },
+    "Vendor": {
+      "Description": "Description",
+      "Buy": "Buy",
+      "Empty": "This vendor has nothing for sale.",
+      "ShopTab": "Shop",
+      "Col": { "Rarity": "Rarity", "Stock": "Stock", "Price": "Price" },
+      "Group": { "Type": "Type" },
+      "ToggleShopVisible": "Show / hide in shop",
+      "AddToCart": "Add to / remove from cart",
+      "CartTotal": "Cart total",
+      "CartCount": "Items in cart",
+      "CartQty": "Quantity to buy",
+      "AllShop": "All",
+      "ToggleAllShop": "Add all to / remove all from shop",
+      "Queue": {
+        "SwitchTitle": "Switch shops?",
+        "SwitchPrompt": "You're already in line at {from}. Joining {to} will leave {from}'s queue.",
+        "SwitchConfirm": "Join this queue",
+        "Active": "Shopping now",
+        "Waiting": "Waiting in line"
+      }
     }
   },
   "TYPES": {
     "Actor": {
-      "pick-up-stix.interactiveItem": "Interactive Object"
+      "pick-up-stix.interactiveItem": "Interactive Object",
+      "pick-up-stix.vendor": "Vendor"
     }
   }
 }

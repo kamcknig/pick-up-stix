@@ -1,8 +1,8 @@
-import { getTokenActor, isInteractiveActor } from "../utils/actorHelpers.mjs";
+import { getTokenActor, isInteractiveActor, isVendorActor } from "../utils/actorHelpers.mjs";
 import { getAdapter } from "../adapter/index.mjs";
 import { dispatchGM } from "../utils/gmDispatch.mjs";
 import { emitSocketEvent, closeTokenHudIfMatching } from "../socket/SocketHandler.mjs";
-import { notifyItemAction, notifyTransferError } from "../utils/notify.mjs";
+import { notifyItemAction, notifyTransferError, notifyPurchase } from "../utils/notify.mjs";
 import { validateContainerAccess, validateItemAccess } from "../utils/containerAccess.mjs";
 import { dbg } from "../utils/debugLog.mjs";
 import { isModuleGM } from "../utils/playerView.mjs";
@@ -577,6 +577,158 @@ export async function depositItem(sourceActorId, itemId, sceneId, tokenId, quant
   return true;
 }
 
+/**
+ * GM-side: buyer purchases `quantity` units of vendor item `itemId`.
+ * Currency math is adapter-owned; this orchestrates resolve → pay → move → notify.
+ *
+ * @param {string} vendorActorId
+ * @param {string} itemId
+ * @param {string} buyerActorId
+ * @param {number} [quantity=1]
+ * @returns {Promise<boolean>}
+ */
+export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity = 1) {
+  dbg("xfer:purchaseItem", "entry", { vendorActorId, itemId, buyerActorId, quantity });
+  const adapter = getAdapter();
+  const vendor = game.actors.get(vendorActorId);
+  const buyer = game.actors.get(buyerActorId);
+  if (!vendor || !buyer) {
+    dbg("xfer:purchaseItem", "missing vendor/buyer, bail", { vendor: !!vendor, buyer: !!buyer });
+    notifyTransferError();
+    return false;
+  }
+  const item = vendor.items.get(itemId);
+  if (!item) {
+    dbg("xfer:purchaseItem", "vendor item gone, bail", { itemId });
+    notifyTransferError();
+    return false;
+  }
+
+  const qty = Math.max(1, Number(quantity) || 1);
+
+  // Re-validate affordability GM-side (defends against a stale client / race).
+  if (!adapter.canAfford(buyer, item, qty)) {
+    dbg("xfer:purchaseItem", "GM-side affordability failed, bail", { itemId, buyer: buyer.id });
+    return false;
+  }
+
+  const totalCp = adapter.getItemChargeCp(item, qty);
+
+  // Debit the buyer first (also the affordability gate). No re-render — the single vendor
+  // credit at the end is the one write that renders, so the shop updates once (no flicker).
+  if (!(await adapter.debitBuyerCp(buyer, totalCp))) {
+    dbg("xfer:purchaseItem", "debit failed, no item moved", { itemId, buyer: buyer.id });
+    return false;
+  }
+
+  // Add the stack to the buyer — this create renders the buyer's OWN sheet once, reflecting the
+  // already-debited gold + the new item (so an open character sheet stays current). It does not
+  // touch the vendor sheet. The vendor stock decrement is render-suppressed; the vendor credit
+  // below is the vendor sheet's single render.
+  const data = item.toObject();
+  delete data._id;
+  stripEquipmentState(data);
+  adapter.setItemDataQuantity(data, qty);
+  dbg("xfer:purchaseItem", "creating item on buyer", { name: data.name, qty, buyer: buyer.id });
+  await CONFIG.Item.documentClass.createDocuments([data], { parent: buyer });
+  await decrementOrDeleteItem(item, qty, { render: false });
+
+  // Credit the vendor LAST and let it render → exactly one re-render on every client.
+  await adapter.creditVendorCp(vendor, totalCp);
+
+  notifyPurchase(item.name, vendor.name, qty);
+  return true;
+}
+
+/**
+ * GM-side: buyer purchases the cart from vendor in a single transaction. One currency
+ * deduction for the whole cart total, then each item is copied to the buyer at its chosen
+ * quantity and vendor stock is decremented — avoids the "messy change" of looping purchases.
+ *
+ * @param {string} vendorActorId
+ * @param {Array<[string, number]>} cartItems  - `[itemId, quantity]` pairs.
+ * @param {string} buyerActorId
+ * @returns {Promise<boolean>}
+ */
+export async function purchaseCart(vendorActorId, cartItems, buyerActorId) {
+  dbg("xfer:purchaseCart", "entry", { vendorActorId, count: cartItems?.length, buyerActorId });
+  const adapter = getAdapter();
+  const vendor = game.actors.get(vendorActorId);
+  const buyer = game.actors.get(buyerActorId);
+  if ( !vendor || !buyer ) {
+    dbg("xfer:purchaseCart", "missing vendor/buyer, bail", { vendor: !!vendor, buyer: !!buyer });
+    notifyTransferError();
+    return false;
+  }
+
+  // Resolve cart entries → { item, qty }, dropping gone/out-of-stock items and clamping each
+  // quantity to the live stock (race-condition defence against stale client state).
+  const resolved = (cartItems ?? []).map(entry => {
+    const [id, rawQty] = Array.isArray(entry) ? entry : [entry?.id, entry?.qty];
+    const item = vendor.items.get(id);
+    if ( !item ) return null;
+    const stock = adapter.getItemQuantity(item);
+    if ( stock <= 0 ) return null;
+    return { item, qty: Math.max(1, Math.min(stock, Math.round(Number(rawQty) || 1))) };
+  }).filter(Boolean);
+  if ( !resolved.length ) {
+    dbg("xfer:purchaseCart", "no in-stock items remain, bail");
+    return false;
+  }
+
+  // Total the cart in copper (each item charged for its chosen quantity) + total units.
+  const totalCp = resolved.reduce((sum, { item, qty }) => sum + adapter.getItemChargeCp(item, qty), 0);
+  const totalUnits = resolved.reduce((sum, { qty }) => sum + qty, 0);
+  dbg("xfer:purchaseCart", "cart totalled", { totalCp, items: resolved.length, units: totalUnits });
+
+  // GM-side wealth re-check (defends against stale client state / race).
+  if ( adapter.getActorWealthCp(buyer) < totalCp ) {
+    dbg("xfer:purchaseCart", "buyer cannot afford cart total, bail", { totalCp, buyer: buyer.id });
+    return false;
+  }
+
+  // Debit the buyer first (also the affordability gate). No re-render here — the single
+  // vendor-credit write at the very end is the one that renders, so the shop updates once.
+  if ( !(await adapter.debitBuyerCp(buyer, totalCp)) ) {
+    dbg("xfer:purchaseCart", "debit failed, no items moved");
+    return false;
+  }
+
+  // Build one batched set of moves. The buyer create renders the buyer's OWN sheet once
+  // (reflecting the already-debited gold + new items); the vendor stock update/delete are
+  // render-suppressed, and the vendor credit below is the vendor sheet's single render.
+  const toCreate = [];
+  const toUpdate = [];
+  const toDelete = [];
+  for ( const { item, qty } of resolved ) {
+    const data = item.toObject();
+    delete data._id;
+    stripEquipmentState(data);
+    adapter.setItemDataQuantity(data, qty);
+    toCreate.push(data);
+
+    const stock = adapter.getItemQuantity(item);
+    if ( qty >= stock ) {
+      toDelete.push(item.id);                          // bought the whole stack → remove the row
+    } else {
+      const upd = { _id: item.id, system: {} };
+      adapter.setItemDataQuantity(upd, stock - qty);   // decrement the source stack by qty
+      toUpdate.push(upd);
+    }
+  }
+  dbg("xfer:purchaseCart", "batched ops", { create: toCreate.length, update: toUpdate.length, delete: toDelete.length });
+  if ( toCreate.length ) await CONFIG.Item.documentClass.createDocuments(toCreate, { parent: buyer });
+  if ( toUpdate.length ) await vendor.updateEmbeddedDocuments("Item", toUpdate, { render: false });
+  if ( toDelete.length ) await vendor.deleteEmbeddedDocuments("Item", toDelete, { deleteContents: true, render: false });
+
+  // Credit the vendor LAST and let it render → exactly one re-render on every client.
+  await adapter.creditVendorCp(vendor, totalCp);
+
+  for ( const { item, qty } of resolved ) notifyPurchase(item.name, vendor.name, qty);
+  dbg("xfer:purchaseCart", "cart purchase complete", { units: totalUnits });
+  return true;
+}
+
 export function checkProximity(interactiveActor, { silent = false, range = "interaction", playerToken = null } = {}) {
   if (isModuleGM()) return true;
 
@@ -844,7 +996,7 @@ export function getPlayerCharacter() {
   if (game.user.character) return game.user.character;
 
   const controlled = canvas.tokens?.controlled?.[0];
-  if (controlled?.actor && !isInteractiveActor(controlled.actor)) {
+  if (controlled?.actor && !isInteractiveActor(controlled.actor) && !isVendorActor(controlled.actor)) {
     return controlled.actor;
   }
 
@@ -853,7 +1005,7 @@ export function getPlayerCharacter() {
 
 export function getPlayerCandidateTokens() {
   const controlled = (canvas.tokens?.controlled ?? [])
-    .filter(t => t.actor && !isInteractiveActor(t.actor));
+    .filter(t => t.actor && !isInteractiveActor(t.actor) && !isVendorActor(t.actor));
   if (controlled.length) return controlled;
 
   const character = game.user.character;
@@ -893,7 +1045,7 @@ export async function promptGMPickupTarget(candidates = null) {
     actors = [];
     for (const t of tokens) {
       const a = t.actor;
-      if (!a || isInteractiveActor(a) || seen.has(a.id)) continue;
+      if (!a || isInteractiveActor(a) || isVendorActor(a) || seen.has(a.id)) continue;
       seen.add(a.id);
       actors.push(a);
     }

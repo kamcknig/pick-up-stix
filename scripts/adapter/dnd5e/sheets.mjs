@@ -1,3 +1,6 @@
+import { dbg } from "../../utils/debugLog.mjs";
+import { isVendorActor } from "../../utils/actorHelpers.mjs";
+
 /**
  * dnd5e sheet-delegation methods for the SystemAdapter contract.
  * dnd5e ships a window-style ContainerSheet and ItemSheet5e; this adapter
@@ -75,5 +78,39 @@ export const Dnd5eSheets = {
     const sheet = Dnd5eInteractiveItemConfigSheet.forActor(actor);
     await sheet.render({ force: true, ...options });
     return sheet;
+  },
+
+  /**
+   * Register Dnd5eVendorSheet as the default sheet for `pick-up-stix.vendor`.
+   * Called once from init via the adapter. dnd5e has no closed actor registry,
+   * so registering the sheet is sufficient.
+   *
+   * @returns {Promise<void>}
+   */
+  async registerVendorSheet() {
+    const { default: Dnd5eVendorSheet } = await import("./vendorSheet.mjs");
+    dbg("dnd5e-sheets:registerVendorSheet", "registering vendor sheet for pick-up-stix.vendor");
+    foundry.documents.collections.Actors.registerSheet("pick-up-stix", Dnd5eVendorSheet, {
+      types: ["pick-up-stix.vendor"],
+      makeDefault: true,
+      label: "Vendor Sheet"
+    });
+
+    // dnd5e auto-equips physical items created on creature actors (NPCData.preCreateEquipped
+    // sets `equipped = actor.system.isNPC`, dnd5e.mjs:13928). Our NPC-backed vendor is a shop,
+    // not a combatant — its stock must never be equipped. Force `equipped: false` on items
+    // created on a vendor. (preCreateEquipped runs first; this hook overrides its result.)
+    // Also default new vendor stock to shopVisible = true so it appears in the Shop tab.
+    Hooks.on("preCreateItem", (item, _data, _options, _userId) => {
+      if (!isVendorActor(item.parent)) return;
+      const updates = {};
+      if (item.system?.equipped === true) updates["system.equipped"] = false;   // never equip vendor stock
+      if (item.getFlag("pick-up-stix", "shopVisible") === undefined) {
+        updates["flags.pick-up-stix.shopVisible"] = true;                        // default active
+      }
+      if (foundry.utils.isEmpty(updates)) return;
+      dbg("dnd5e-sheets:vendorItemDefaults", "applying vendor item defaults", { item: item.name, updates });
+      item.updateSource(updates);
+    });
   }
 };

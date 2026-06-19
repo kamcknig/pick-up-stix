@@ -53,10 +53,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          SOURCE_BRANCH=$(git branch -r --contains "$TAG" | grep -v HEAD | sed 's|origin/||' | head -1 | xargs)
-          if [ -z "$SOURCE_BRANCH" ]; then
-            SOURCE_BRANCH="main"
-          fi
+          # A tag-push event carries no branch name, so resolve the branch the tag was
+          # created on from git. --points-at matches only branches whose TIP is exactly the
+          # tagged commit (precise); --contains would also match every ancestor branch
+          # (e.g. develop, when a release/* branch was cut from it) and head -1 would pick
+          # the wrong one alphabetically. When more than one branch shares the tagged tip,
+          # prefer a release/* branch, since releases are cut from those.
+          POINTS=$(git branch -r --points-at "$TAG" | grep -v HEAD | sed 's|origin/||' | xargs -n1)
+          SOURCE_BRANCH=$(echo "$POINTS" | grep '^release/' | head -1)
+          [ -z "$SOURCE_BRANCH" ] && SOURCE_BRANCH=$(echo "$POINTS" | head -1)
+          [ -z "$SOURCE_BRANCH" ] && SOURCE_BRANCH="master"
+          echo "Resolved source branch: $SOURCE_BRANCH"
           cp module.json /tmp/module.json
           git checkout "$SOURCE_BRANCH"
           cp /tmp/module.json module.json

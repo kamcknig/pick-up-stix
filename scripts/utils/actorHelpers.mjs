@@ -1,4 +1,4 @@
-import { INTERACTIVE_TYPES } from "../constants.mjs";
+import { INTERACTIVE_TYPES, VENDOR_TYPE } from "../constants.mjs";
 import { getAdapter } from "../adapter/index.mjs";
 
 export function isInteractiveActor(actor) {
@@ -30,6 +30,10 @@ export function isInteractiveItemMode(actor) {
   } catch {
     return !actor.system?.isContainer;
   }
+}
+
+export function isVendorActor(actor) {
+  return !!actor && actor.type === VENDOR_TYPE;
 }
 
 export function getTokenActor(sceneId, tokenId) {

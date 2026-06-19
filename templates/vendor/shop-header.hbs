@@ -1,0 +1,27 @@
+<header class="sheet-header">
+  <div class="portrait">
+    <div class="pus-portrait-clip">
+      <img class="document-image" src="{{actor.img}}" alt="{{actor.name}}" />
+    </div>
+  </div>
+  <div class="header-details {{#if queue.length}}has-queue{{/if}}">
+    <div class="document-name">{{actor.name}}</div>
+    {{#if publicBio}}
+    <div class="vendor-description">{{{publicBio}}}</div>
+    {{/if}}
+    {{#if queue.length}}
+    <div class="vendor-queue">
+      {{#each queue}}
+      <div class="vendor-queue-shopper {{#if this.active}}active{{/if}} {{#if this.isSelf}}self{{/if}}"
+           data-actor-id="{{ this.actorId }}"
+           data-tooltip="{{#if this.active}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Active' }}{{else}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Waiting' }}{{/if}}">
+        <div class="vendor-queue-portrait" {{#if this.color}}style="--shopper-color: {{ this.color }};"{{/if}}>
+          <img src="{{ this.img }}" alt="{{ this.name }}" />
+        </div>
+        <span class="vendor-queue-name">{{ this.name }}</span>
+      </div>
+      {{/each}}
+    </div>
+    {{/if}}
+  </div>
+</header>

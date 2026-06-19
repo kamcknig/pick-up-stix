@@ -1,4 +1,6 @@
 import { loadAdapter, getAdapter } from "./adapter/index.mjs";
+import InteractiveItemSettingsApp from "./settings/InteractiveItemSettingsApp.mjs";
+import VendorSettingsApp from "./settings/VendorSettingsApp.mjs";
 import InteractiveItemModel from "./models/InteractiveItemModel.mjs";
 import VendorModel from "./models/VendorModel.mjs";
 import InteractiveItemSheet from "./sheets/InteractiveItemSheet.mjs";
@@ -76,6 +78,24 @@ Hooks.once("init", async () => {
     "pick-up-stix.config-fields-v1": "modules/pick-up-stix/templates/partials/config-fields-v1.hbs"
   });
 
+  game.settings.registerMenu(MODULE_ID, "interactiveItemSettings", {
+    name: "INTERACTIVE_ITEMS.Settings.InteractiveItemSettingsMenu.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.InteractiveItemSettingsMenu.Hint",
+    label: "INTERACTIVE_ITEMS.Settings.InteractiveItemSettingsMenu.Label",
+    icon: "fa-solid fa-box-open",
+    type: InteractiveItemSettingsApp,
+    restricted: true
+  });
+
+  game.settings.registerMenu(MODULE_ID, "vendorSettings", {
+    name: "INTERACTIVE_ITEMS.Settings.VendorSettingsMenu.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.VendorSettingsMenu.Hint",
+    label: "INTERACTIVE_ITEMS.Settings.VendorSettingsMenu.Label",
+    icon: "fa-solid fa-shop",
+    type: VendorSettingsApp,
+    restricted: true
+  });
+
   game.settings.register(MODULE_ID, "debugLogging", {
     name: "Debug Logging",
     hint: "Write detailed [PUS] debug logs to the browser console. Turn off for normal play.",
@@ -86,76 +106,60 @@ Hooks.once("init", async () => {
   });
 
   game.settings.register(MODULE_ID, "gmOverrideEnabled", {
-    name: "INTERACTIVE_ITEMS.Settings.GMOverrideEnabled.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.GMOverrideEnabled.Hint",
     scope: "client",
-    config: true,
+    config: false,
     type: Boolean,
     default: true,
     onChange: () => _onGMOverrideChanged()
   });
 
   game.settings.register(MODULE_ID, "actorFolder", {
-    name: "INTERACTIVE_ITEMS.Settings.ActorFolder.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.ActorFolder.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "",
     onChange: value => _onActorFolderChanged(value)
   });
 
   game.settings.register(MODULE_ID, "folderColor", {
-    name: "INTERACTIVE_ITEMS.Settings.FolderColor.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.FolderColor.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: "",
     onChange: value => _onFolderColorChanged(value)
   });
 
   game.settings.register(MODULE_ID, "defaultContainerImage", {
-    name: "INTERACTIVE_ITEMS.Settings.DefaultContainerImage.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.DefaultContainerImage.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: CHEST_CLOSED
   });
 
   game.settings.register(MODULE_ID, "defaultContainerOpenImage", {
-    name: "INTERACTIVE_ITEMS.Settings.DefaultContainerOpenImage.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.DefaultContainerOpenImage.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: CHEST_OPEN
   });
 
   game.settings.register(MODULE_ID, "defaultInteractionRange", {
-    name: "INTERACTIVE_ITEMS.Settings.DefaultInteractionRange.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.DefaultInteractionRange.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 1
   });
 
   game.settings.register(MODULE_ID, "defaultInspectionRange", {
-    name: "INTERACTIVE_ITEMS.Settings.DefaultInspectionRange.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.DefaultInspectionRange.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 4
   });
 
   game.settings.register(MODULE_ID, "requireCtrlForDrag", {
-    name: "INTERACTIVE_ITEMS.Settings.RequireCtrlForDrag.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.RequireCtrlForDrag.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false
   });
@@ -163,10 +167,8 @@ Hooks.once("init", async () => {
   // Item type used when creating a pickup stub in a player's inventory (generic
   // mode only). Populated automatically by heuristic or via dialog on first launch.
   game.settings.register(MODULE_ID, "genericPickupItemType", {
-    name: "INTERACTIVE_ITEMS.Settings.GenericPickupItemType.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.GenericPickupItemType.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: String,
     default: ""
   });
@@ -196,46 +198,36 @@ Hooks.once("init", async () => {
   });
 
   game.settings.register(MODULE_ID, "vendorFavorMin", {
-    name: "INTERACTIVE_ITEMS.Settings.VendorFavorMin.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorMin.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: -5
   });
 
   game.settings.register(MODULE_ID, "vendorFavorMax", {
-    name: "INTERACTIVE_ITEMS.Settings.VendorFavorMax.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorMax.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 5
   });
 
   game.settings.register(MODULE_ID, "vendorFavorFactorMin", {
-    name: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMin.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMin.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 1
   });
 
   game.settings.register(MODULE_ID, "vendorFavorFactorMax", {
-    name: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMax.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMax.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 20
   });
 
   game.settings.register(MODULE_ID, "vendorFavorFactorDefault", {
-    name: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorDefault.Name",
-    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorDefault.Hint",
     scope: "world",
-    config: true,
+    config: false,
     type: Number,
     default: 4
   });
@@ -1816,83 +1808,6 @@ async function _handleContainerSheetGmDeposit({ destActor, droppedItem, destCont
     console.error("pick-up-stix | failed to deposit item on container sheet:", err);
   }
 }
-
-Hooks.on("renderSettingsConfig", (app, html) => {
-  const input = html.querySelector(`[name="${MODULE_ID}.actorFolder"]`);
-  if (!input) return;
-
-  const currentValue = input.value;
-  const currentFolder = currentValue ? game.folders.get(currentValue) : null;
-
-  const wrapper = document.createElement("div");
-  wrapper.classList.add("ii-settings-folder-picker");
-
-  const textInput = document.createElement("input");
-  textInput.type = "text";
-  textInput.placeholder = game.i18n.localize("INTERACTIVE_ITEMS.Settings.ActorFolder.Placeholder");
-  textInput.classList.add("ii-settings-folder-field");
-
-  const select = document.createElement("select");
-  select.classList.add("ii-settings-folder-field");
-
-  const emptyOpt = document.createElement("option");
-  emptyOpt.value = "";
-  emptyOpt.textContent = `\u2014 ${game.i18n.localize("INTERACTIVE_ITEMS.Settings.ActorFolder.Existing")} \u2014`;
-  select.appendChild(emptyOpt);
-
-  for (const folder of game.folders.filter(f => f.type === "Actor").sort((a, b) => a.name.localeCompare(b.name))) {
-    const opt = document.createElement("option");
-    opt.value = folder.id;
-    opt.textContent = folder.name;
-    if (folder.id === currentValue) opt.selected = true;
-    select.appendChild(opt);
-  }
-
-  const hidden = document.createElement("input");
-  hidden.type = "hidden";
-  hidden.name = input.name;
-  hidden.value = currentValue;
-
-  if (currentFolder) textInput.value = currentFolder.name;
-
-  select.addEventListener("change", () => {
-    if (select.value) {
-      const folder = game.folders.get(select.value);
-      textInput.value = folder?.name ?? "";
-      hidden.value = select.value;
-    }
-  });
-
-  textInput.addEventListener("input", () => {
-    select.value = "";
-    hidden.value = textInput.value;
-  });
-
-  wrapper.appendChild(textInput);
-  wrapper.appendChild(select);
-  input.replaceWith(wrapper);
-  wrapper.parentNode.insertBefore(hidden, wrapper.nextSibling);
-
-  for (const key of ["defaultContainerImage", "defaultContainerOpenImage"]) {
-    const imgInput = html.querySelector(`[name="${MODULE_ID}.${key}"]`);
-    if (!imgInput) continue;
-    const fp = document.createElement("file-picker");
-    fp.setAttribute("name", imgInput.name);
-    fp.setAttribute("type", "image");
-    fp.setAttribute("value", imgInput.value);
-    imgInput.replaceWith(fp);
-  }
-
-  const colorInput = html.querySelector(`[name="${MODULE_ID}.folderColor"]`);
-  if (colorInput) {
-    const picker = document.createElement("input");
-    picker.type = "color";
-    picker.name = colorInput.name;
-    picker.value = colorInput.value || "#000000";
-    picker.classList.add("ii-settings-color-picker");
-    colorInput.replaceWith(picker);
-  }
-});
 
 // Captures the source token's synthetic-actor state at paste time so
 // preCreateToken can rebuild the new token's delta from the source's

@@ -981,3 +981,23 @@
   text-align: center;
   font-weight: bold;
 }
+
+/* Vendor price tint — clamped-to-zero negative price (GM only) */
+.pus-price-negative {
+  color: #c9a0dc !important;
+}
+
+/* Settings dialogs — scrollable body, sticky footer */
+#pick-up-stix-interactive-item-settings .window-content,
+#pick-up-stix-vendor-settings .window-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#pick-up-stix-interactive-item-settings .window-content > .standard-form,
+#pick-up-stix-vendor-settings .window-content > .standard-form {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}

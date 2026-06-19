@@ -589,7 +589,6 @@
   align-items: center;
   column-gap: 10px;
   row-gap: 4px;
-  padding: 8px 12px;
 }
 .shop-group { display: contents; }
 .shop-group-header,
@@ -699,7 +698,7 @@
 .shop-cart-footer {
   position: sticky; bottom: 0;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 8px 12px; margin-top: 4px;
+  margin-top: 4px;
   background: color-mix(in srgb, var(--dnd5e-color-maroon, #741b2b) 40%, #000);
   border-top: 1px solid var(--color-border-dark, rgba(0,0,0,0.4));
   border-radius: 4px 4px 0 0;
@@ -711,8 +710,10 @@
 .cart-count-badge { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
 .cart-count-badge i { opacity: 0.8; }
 
+.cart-actions { display: inline-flex; align-items: center; gap: 4px; }
 .vendor-buy,
-.cart-checkout {
+.cart-checkout,
+.cart-clear {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0;
@@ -722,10 +723,13 @@
 }
 .vendor-buy:hover:not(:disabled),
 .cart-checkout:hover:not(:disabled) { color: var(--color-text-primary, #ddd); border-color: currentColor; }
+.cart-clear:hover:not(:disabled) { color: var(--dnd5e-color-red, #b91c1c); border-color: currentColor; }
 .vendor-buy:active:not(:disabled),
-.cart-checkout:active:not(:disabled) { transform: translateY(1px); }
+.cart-checkout:active:not(:disabled),
+.cart-clear:active:not(:disabled) { transform: translateY(1px); }
 .vendor-buy:disabled,
-.cart-checkout:disabled { opacity: 0.35; cursor: default; }
+.cart-checkout:disabled,
+.cart-clear:disabled { opacity: 0.35; cursor: default; }
 .vendor-ware-empty { padding: 8px; opacity: 0.6; font-style: italic; }
 
 /* Vendor header banner — replace dnd5e's NPC banner with our vendor tile.
@@ -862,6 +866,19 @@
 .vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol) { margin: 0 0 0.4em; }
 .vendor-sheet .sheet-header .header-details .vendor-description :is(p, ul, ol):last-child { margin-bottom: 0; }
 
+/* GM Shop-tab header bio — mirrors the player storefront description, under the name. */
+.vendor-sheet .sheet-header .pus-vendor-bio {
+  max-width: 42ch;
+  margin-top: 4px;
+  text-align: left;
+  font-family: var(--dnd5e-font-roboto, sans-serif);
+  font-size: var(--font-size-13, 0.8125rem);
+  line-height: 1.4;
+  color: var(--color-text-secondary, #c9c7c1);
+}
+.vendor-sheet .sheet-header .pus-vendor-bio :is(p, ul, ol) { margin: 0 0 0.4em; }
+.vendor-sheet .sheet-header .pus-vendor-bio :is(p, ul, ol):last-child { margin-bottom: 0; }
+
 /* Shopping queue — horizontal strip; active shopper first and larger. */
 .vendor-queue {
   display: flex;
@@ -929,4 +946,119 @@
 .vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .right.stats .top .left .initiative .config-button {
   color: inherit;
   font-size: inherit;
+}
+
+/* Vendor Price column: Favor-adjusted sell price differs from the item's base value.
+   Up = costs more (red), down = costs less (green). */
+.vendor-sheet .shop-cell.pus-price-up { color: var(--dnd5e-color-maroon, #b9412f); }
+.vendor-sheet .shop-cell.pus-price-down { color: var(--dnd5e-color-green, #4b7d3a); }
+
+/* Shop-tab sibling sections (settings panel, queue, inventory list, cart footer) share one inset. */
+.vendor-sheet .pus-favor-panel,
+.vendor-sheet .pus-queue-panel,
+.vendor-shop,
+.shop-cart-footer { padding: 8px 12px; }
+
+/* Collapsible panels stack their bar over their content. */
+.vendor-sheet .pus-favor-panel,
+.vendor-sheet .pus-queue-panel { display: flex; flex-direction: column; }
+/* Settings panel anchors its content as an overlay (drops OVER the list, see below). */
+.vendor-sheet .pus-favor-panel { position: relative; }
+
+/* Collapsible-bar pattern shared by the settings + queue panels — a subtle clickable strip;
+   text + caret centered; caret flips when the panel is expanded. */
+.vendor-sheet .pus-collapse-bar {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; padding: 0; gap: 8px;
+  background: none; border: none; cursor: pointer;
+  color: var(--color-text-secondary, #999);
+  font-size: var(--font-size-12, 12px);
+}
+.vendor-sheet .pus-collapse-bar:hover { color: var(--color-text-primary, #ddd); }
+.vendor-sheet .pus-collapse-caret { transition: transform 0.2s ease; }
+.vendor-sheet .pus-collapse-panel:not(.collapsed) .pus-collapse-caret { transform: rotate(180deg); }
+
+/* Expanding content: an absolute overlay below the bar. Inset left/right to match the bar width
+   (the 12px mirrors the panel's horizontal padding). Fades + slides in; `visibility` keeps it
+   fully hidden — and non-interactive — when collapsed. */
+.vendor-sheet .pus-favor-content {
+  position: absolute; top: 100%; left: 12px; right: 12px; z-index: 20;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s;
+}
+.vendor-sheet .pus-favor-panel.collapsed .pus-favor-content {
+  opacity: 0; transform: translateY(-8px); visibility: hidden; pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s 0.2s;
+}
+.vendor-sheet .pus-favor-content > .pus-favor-controls {
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--dnd5e-color-maroon, #741b2b) 14%, #161013);
+  border: 1px solid var(--color-border-light-1, rgba(255, 255, 255, 0.25));
+  border-radius: 4px;
+}
+
+/* Queue panel content: in-flow (the height animation pushes the list down rather than overlaying).
+   The wrapper clips so the strip — including its border — collapses cleanly to nothing. */
+.vendor-sheet .pus-queue-content {
+  display: grid; grid-template-rows: 1fr; overflow: hidden;
+  transition: grid-template-rows 0.25s ease;
+}
+.vendor-sheet .pus-queue-panel.collapsed .pus-queue-content { grid-template-rows: 0fr; }
+.vendor-sheet .pus-queue-content > .vendor-queue {
+  overflow: hidden; min-height: 0;
+  padding: 8px 0 0; border-bottom: none;
+}
+.vendor-sheet .pus-favor-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.vendor-sheet .pus-favor-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 200px;
+}
+.vendor-sheet .pus-favor-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: var(--font-size-12, 12px);
+}
+.vendor-sheet .pus-favor-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.vendor-sheet .pus-favor-range {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  box-shadow: none;
+}
+.vendor-sheet .pus-favor-value {
+  min-width: 2.5ch;
+  text-align: center;
+  font-weight: bold;
+}
+
+/* Vendor price tint — clamped-to-zero negative price (GM only) */
+.pus-price-negative {
+  color: #c9a0dc !important;
+}
+
+/* Settings dialogs — scrollable body, sticky footer */
+#pick-up-stix-interactive-item-settings .window-content,
+#pick-up-stix-vendor-settings .window-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#pick-up-stix-interactive-item-settings .window-content > .standard-form,
+#pick-up-stix-vendor-settings .window-content > .standard-form {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }

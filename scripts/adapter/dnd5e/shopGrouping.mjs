@@ -1,14 +1,15 @@
 import { getAdapter } from "../index.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
+import { getVendorFavor, getVendorFavorFactor, favorMultiplier } from "../../utils/vendorPricing.mjs";
 
 /* ---------- dnd5e display helpers (system-specific; kept in the dnd5e adapter) ---------- */
 
-/** Price as { display: ceil(gp), exact: gp, denomination }. */
-export function priceInGP(item) {
+/** Price as { display: ceil(gp), exact: gp, denomination }, Favor-adjusted. */
+export function priceInGP(item, favor = 0, factor = 4) {
   const { value, denomination } = item.system?.price ?? {};
   const conv = CONFIG.DND5E.currencies?.[denomination]?.conversion;
   if (!value || !conv) return { display: 0, exact: 0, denomination: denomination ?? "gp" };
-  const exact = value / conv;                       // 250 cp / 100 = 2.5 gp
+  const exact = (value / conv) * favorMultiplier(favor, factor);   // gp, Favor-adjusted
   return { display: Math.ceil(exact), exact, denomination };
 }
 
@@ -76,13 +77,23 @@ const COLUMNS = {
   price: {
     id: "price", header: "INTERACTIVE_ITEMS.Vendor.Col.Price", align: "end",
     cell(item) {
-      const { display, exact } = priceInGP(item);
+      const favor = getVendorFavor(item.parent);
+      const factor = getVendorFavorFactor(item.parent);
+      const base = priceInGP(item, 0, factor);        // unmodified item value
+      const sell = priceInGP(item, favor, factor);    // what the buyer pays (Favor-adjusted)
       const gp = game.i18n.localize("DND5E.CurrencyAbbrGP");
-      const fractional = exact !== Math.trunc(exact);
+      const isNegative = sell.exact < 0;
+      const displayValue = Math.max(0, sell.display);
+      const fractional = !isNegative && sell.exact !== Math.trunc(sell.exact);
+      // Negative (clamped) prices shown purple for GM; else tint by Favor direction.
+      let classes = "pus-price";
+      if (isNegative && game.user.isGM) classes += " pus-price-negative";
+      else if (base.display > 0 && favor > 0) classes += " pus-price-down";
+      else if (base.display > 0 && favor < 0) classes += " pus-price-up";
       return {
-        text: `${display} ${gp}`,
-        tooltip: fractional ? `${Number(exact.toFixed(2))} ${gp}` : null,   // real price when not whole
-        classes: "pus-price"
+        text: `${displayValue} ${gp}`,
+        tooltip: fractional ? `${Number(sell.exact.toFixed(2))} ${gp}` : null,
+        classes
       };
     }
   }

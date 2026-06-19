@@ -195,6 +195,51 @@ Hooks.once("init", async () => {
     default: ""
   });
 
+  game.settings.register(MODULE_ID, "vendorFavorMin", {
+    name: "INTERACTIVE_ITEMS.Settings.VendorFavorMin.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorMin.Hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: -5
+  });
+
+  game.settings.register(MODULE_ID, "vendorFavorMax", {
+    name: "INTERACTIVE_ITEMS.Settings.VendorFavorMax.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorMax.Hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 5
+  });
+
+  game.settings.register(MODULE_ID, "vendorFavorFactorMin", {
+    name: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMin.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMin.Hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1
+  });
+
+  game.settings.register(MODULE_ID, "vendorFavorFactorMax", {
+    name: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMax.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorMax.Hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 20
+  });
+
+  game.settings.register(MODULE_ID, "vendorFavorFactorDefault", {
+    name: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorDefault.Name",
+    hint: "INTERACTIVE_ITEMS.Settings.VendorFavorFactorDefault.Hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 4
+  });
+
   // Hidden world setting that persists the install-tracker state (sent flag,
   // version, attempt count, last error). Managed entirely by installTracker.mjs.
   registerInstallTrackerSetting();

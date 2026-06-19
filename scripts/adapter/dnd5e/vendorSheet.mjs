@@ -7,6 +7,7 @@ import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
 import { createRowControl } from "../../utils/domButtons.mjs";
 import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
 import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
+import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault } from "../../utils/vendorPricing.mjs";
 
 const NPCActorSheet = dnd5e.applications.actor.NPCActorSheet;
 
@@ -165,6 +166,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
     this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
     this.#repositionInitiativeDie();            // move initiative d20 above the vendor name (GM only)
+    this.#injectFavorControl();                 // Favor card replaces abilities on the Shop tab (GM)
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
@@ -238,6 +240,77 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   /**
+   * GM/owner npc-header only: inject a "Favor" card as a sibling of dnd5e's abilities
+   * card, then show whichever fits the active tab. The slider persists
+   * flags.pick-up-stix.favor on release (change), which re-renders the sheet and
+   * re-prices the shop (Phase 1). Idempotent — re-runs each render since dnd5e
+   * rebuilds the header part. Players render the storefront header (no abilities card),
+   * so this bails for them. (Foundry v13 + v14; abilities markup identical across both.)
+   */
+  #injectFavorControl() {
+    const abilities = this.element.querySelector(".sheet-header .ability-scores");
+    if ( !abilities ) return;   // not the GM npc-header, or dnd5e changed the layout
+    let favorCard = this.element.querySelector(".sheet-header .pus-vendor-favor");
+    if ( !favorCard ) {
+      const favor = getVendorFavor(this.actor);
+      const factor = getVendorFavorFactor(this.actor);
+      const sign = (v) => `${v > 0 ? "+" : ""}${v}`;
+      dbg("vendorSheet:injectFavorControl", { vendor: this.actor.id, favor, factor });
+      favorCard = document.createElement("div");
+      favorCard.className = "middle pus-vendor-favor card flexrow";
+      favorCard.innerHTML = `
+        <div class="pus-favor-controls">
+          <div class="pus-favor-control">
+            <label class="pus-favor-label" data-tooltip="${game.i18n.localize("INTERACTIVE_ITEMS.Vendor.FavorTooltip")}">
+              ${game.i18n.localize("INTERACTIVE_ITEMS.Vendor.Favor")}
+            </label>
+            <div class="pus-favor-slider">
+              <input type="range" class="pus-favor-range" data-flag="favor" min="${getFavorMin()}" max="${getFavorMax()}" step="1" value="${favor}" />
+              <span class="pus-favor-value">${sign(favor)}</span>
+            </div>
+          </div>
+          <div class="pus-favor-control">
+            <label class="pus-favor-label" data-tooltip="${game.i18n.localize("INTERACTIVE_ITEMS.Vendor.FavorFactorTooltip")}">
+              ${game.i18n.localize("INTERACTIVE_ITEMS.Vendor.FavorFactor")}
+            </label>
+            <div class="pus-favor-slider">
+              <input type="range" class="pus-favor-range" data-flag="favorFactor" min="${getFavorFactorMin()}" max="${getFavorFactorMax()}" step="1" value="${factor}" />
+              <span class="pus-favor-value">${factor}%</span>
+            </div>
+          </div>
+        </div>`;
+      abilities.after(favorCard);
+      // Wire both sliders with a shared handler — data-flag drives which flag to write.
+      for ( const range of favorCard.querySelectorAll(".pus-favor-range") ) {
+        const valueEl = range.closest(".pus-favor-slider").querySelector(".pus-favor-value");
+        const isFavor = range.dataset.flag === "favor";
+        const fmt = isFavor ? (v) => sign(v) : (v) => `${v}%`;
+        range.addEventListener("input", () => { valueEl.textContent = fmt(Number(range.value)); });
+        range.addEventListener("change", async () => {
+          const raw = Math.round(Number(range.value) || 0);
+          const v = isFavor
+            ? Math.max(getFavorMin(), Math.min(getFavorMax(), raw))
+            : Math.max(getFavorFactorMin(), Math.min(getFavorFactorMax(), raw || getFavorFactorDefault()));
+          dbg("vendorSheet:favorControlChange", { vendor: this.actor.id, flag: range.dataset.flag, value: v });
+          await this.actor.setFlag("pick-up-stix", range.dataset.flag, v);
+        });
+      }
+    }
+    this.#applyFavorTabVisibility(abilities, favorCard);
+  }
+
+  /** Show the Favor card on the Shop tab and the abilities card elsewhere (inline display
+   *  beats dnd5e's `.flexrow{display:flex}`). No-op when neither card is present. */
+  #applyFavorTabVisibility(abilities, favorCard) {
+    abilities ??= this.element.querySelector(".sheet-header .ability-scores");
+    favorCard ??= this.element.querySelector(".sheet-header .pus-vendor-favor");
+    if ( !abilities || !favorCard ) return;
+    const onShop = this.tabGroups.primary === "shop";
+    abilities.style.display = onShop ? "none" : "";
+    favorCard.style.display = onShop ? "" : "none";
+  }
+
+  /**
    * Re-evaluate subtitle truncation when a tab is shown. The GM's Shop tab is hidden
    * at first render (they land on an NPC tab), so the `_onRender` pass sees a zero-size
    * element and can't detect clipping; rerun once Shop becomes the active tab.
@@ -245,6 +318,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   changeTab(tab, group, options) {
     super.changeTab(tab, group, options);
     if ( tab === "shop" ) this.#refreshSubtitleTooltips();
+    this.#applyFavorTabVisibility();            // swap abilities <-> Favor with the active tab
   }
 
   /**

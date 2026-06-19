@@ -1,4 +1,5 @@
 import { dbg } from "../../utils/debugLog.mjs";
+import { vendorPriceMultiplier } from "../../utils/vendorPricing.mjs";
 
 /**
  * Given an exact copper-piece total, return the coarsest whole-coin denomination that
@@ -28,13 +29,13 @@ function denomFromCp(cp) {
  * @param {number} quantity
  * @returns {{ amount:number, denomination:string, cp:number }}
  */
-function chargeAmount(price, quantity) {
+function chargeAmount(price, quantity, multiplier = 1) {
   const conv = CONFIG.DND5E.currencies?.[price.denomination]?.conversion;
   if (!price.value || !conv) return { amount: 0, denomination: "gp", cp: 0 };
-  // Exact value in copper, rounding any sub-copper fraction UP (always favours the vendor).
+  // Exact value in copper, Favor-adjusted, rounding any sub-copper fraction UP.
   // Inner round to 1e-4 first kills float noise so a whole-cp value (e.g. 10.2 gp = 1020 cp)
   // doesn't get ceil'd up by a 1e-13 artifact.
-  const rawCp = (price.value * quantity / conv) * 100;
+  const rawCp = (price.value * quantity / conv) * 100 * multiplier;
   const cp = Math.ceil(Math.round(rawCp * 1e4) / 1e4);
   if (cp <= 0) return { amount: 0, denomination: "gp", cp: 0 };
   const { amount, denomination } = denomFromCp(cp);
@@ -68,7 +69,8 @@ export const Dnd5ePurchase = {
   },
 
   canAfford(buyer, item, quantity = 1) {
-    const { amount, denomination } = chargeAmount(this.getItemPrice(item), quantity);
+    const mult = vendorPriceMultiplier(item?.parent);
+    const { amount, denomination } = chargeAmount(this.getItemPrice(item), quantity, mult);
     if (amount <= 0) return true;                     // free
     if (!buyer) return false;
     const { CurrencyManager } = game.dnd5e.applications;
@@ -79,7 +81,7 @@ export const Dnd5ePurchase = {
   },
 
   getItemChargeCp(item, quantity = 1) {
-    return chargeAmount(this.getItemPrice(item), quantity).cp;
+    return chargeAmount(this.getItemPrice(item), quantity, vendorPriceMultiplier(item?.parent)).cp;
   },
 
   getActorWealthCp(actor) {

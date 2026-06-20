@@ -136,6 +136,12 @@
   justify-content: flex-end;
   padding-right: 8px;
 }
+.pus-shop-all-row .pus-shop-all-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;        /* push the actions to the left; ALL label + toggle stay right */
+}
 
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
 
@@ -777,8 +783,8 @@
 .vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .portrait {
   position: relative;
   flex: 0 0 200px;
-  width: 200px;
-  height: 200px;
+  width: 150px;
+  height: 150px;
   border: 5px solid var(--dnd5e-color-gold);
   border-radius: 18px;
   box-shadow: 0 0 6px var(--dnd5e-color-black);
@@ -980,7 +986,8 @@
 
 /* Expanding content: an absolute overlay below the bar. Inset left/right to match the bar width
    (the 12px mirrors the panel's horizontal padding). Fades + slides in; `visibility` keeps it
-   fully hidden — and non-interactive — when collapsed. */
+   fully hidden — and non-interactive — when collapsed. The inner wrapper owns the scroll so the
+   overlay never grows the outer sheet — tall content (many expanded rows) scrolls in place. */
 .vendor-sheet .pus-favor-content {
   position: absolute; top: 100%; left: 12px; right: 12px; z-index: 20;
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s;
@@ -989,7 +996,8 @@
   opacity: 0; transform: translateY(-8px); visibility: hidden; pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s 0.2s;
 }
-.vendor-sheet .pus-favor-content > .pus-favor-controls {
+.vendor-sheet .pus-favor-content-inner {
+  max-height: 360px; overflow-y: auto;
   padding: 8px 12px;
   background: color-mix(in srgb, var(--dnd5e-color-maroon, #741b2b) 14%, #161013);
   border: 1px solid var(--color-border-light-1, rgba(255, 255, 255, 0.25));
@@ -1009,7 +1017,7 @@
 }
 .vendor-sheet .pus-favor-controls {
   display: flex;
-  flex-direction: column;
+  flex-flow: row wrap;
   gap: 8px;
   width: 100%;
 }
@@ -1018,7 +1026,14 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  max-width: 200px;
+  flex: 1 1 calc(50% - 8px);
+  max-width: 50%;
+  box-sizing: border-box;
+}
+.vendor-sheet .pus-settings-divider {
+  margin: 10px 0;
+  border: none;
+  border-top: 1px solid var(--color-border-light-1, rgba(255, 255, 255, 0.25));
 }
 .vendor-sheet .pus-favor-label {
   font-weight: bold;
@@ -1041,6 +1056,64 @@
   min-width: 2.5ch;
   text-align: center;
   font-weight: bold;
+}
+
+/* "Settings by" segmented toggle */
+.vendor-sheet .pus-settings-by {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.vendor-sheet .pus-settings-by-label {
+  font-size: var(--font-size-12, 12px); text-transform: uppercase; font-weight: bold;
+}
+.vendor-sheet .pus-settings-by-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border-light-1, rgba(255,255,255,.25));
+  border-radius: 4px; overflow: hidden;
+}
+.vendor-sheet .pus-settings-by-btn {
+  background: none; border: none; padding: 2px 10px; cursor: pointer;
+  color: var(--color-text-secondary, #999); font-size: var(--font-size-12, 12px);
+}
+.vendor-sheet .pus-settings-by-btn.active {
+  background: color-mix(in srgb, var(--dnd5e-color-gold, #c9ad6a) 28%, transparent);
+  color: var(--color-text-primary, #ddd);
+}
+
+/* Grouping-factor row list */
+.vendor-sheet .pus-factor-list { display: flex; flex-direction: column; gap: 4px; }
+.vendor-sheet .pus-factor-row {
+  border: 1px solid var(--color-border-light-1, rgba(255,255,255,.2)); border-radius: 4px;
+}
+.vendor-sheet .pus-factor-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: none; cursor: pointer; padding: 6px 8px;
+  color: var(--color-text-primary, #ddd); font-size: var(--font-size-13, 13px);
+}
+.vendor-sheet .pus-factor-name { font-weight: bold; color: var(--pus-rarity-color, var(--color-text-primary, #ddd)); }
+.vendor-sheet .pus-factor-count {
+  color: var(--color-text-secondary, #999); font-size: var(--font-size-11, 11px);
+}
+.vendor-sheet .pus-factor-mult { margin-left: auto; font-weight: bold; }
+.vendor-sheet .pus-factor-caret { transition: transform 0.2s ease; }
+.vendor-sheet .pus-factor-row.expanded .pus-factor-caret { transform: rotate(180deg); }
+
+/* Collapsible body — grid 0fr→1fr, clips the strip flush */
+.vendor-sheet .pus-factor-body {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease;
+}
+.vendor-sheet .pus-factor-row.expanded .pus-factor-body { grid-template-rows: 1fr; }
+.vendor-sheet .pus-factor-body-inner { min-height: 0; overflow: hidden; }
+
+/* Slider + editable number input side by side */
+.vendor-sheet .pus-factor-slider-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+}
+.vendor-sheet .pus-factor-range { flex: 1; min-width: 0; background: none; box-shadow: none; }
+.vendor-sheet .pus-factor-num { width: 5ch; text-align: center; }
+.vendor-sheet .pus-factor-hint { margin: 0 8px 6px; }
+.vendor-sheet .pus-factor-empty {
+  color: var(--color-text-secondary, #999); font-size: var(--font-size-12, 12px); padding: 4px 8px;
 }
 
 /* Vendor price tint — clamped-to-zero negative price (GM only) */

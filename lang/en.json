@@ -45,8 +45,12 @@
         "Hint": "Absolute Favor ceiling. Vendors can be set from −Max to +Max (e.g. 5 allows −5 to +5)."
       },
       "VendorFavorFactorMax": {
-        "Name": "Max Factor",
+        "Name": "Max Favor Factor",
         "Hint": "Highest Favor Factor (% per Favor point) a vendor can be set to. Minimum is always 1."
+      },
+      "VendorMaxPriceFactor": {
+        "Name": "Max Price Factor",
+        "Hint": "Highest per-grouping price factor (percent) a vendor can set, e.g. 500 allows up to ×5.00. Minimum is always 0."
       },
       "InteractiveItemSettingsMenu": {
         "Name": "Interactive Item Settings",
@@ -307,6 +311,16 @@
       "FavorFactorTooltip": "The percentage applied per Favor point. Default 4 means each Favor point shifts the price by 4%.",
       "Settings": "Vendor Settings",
       "SettingsToggle": "Show / hide vendor settings",
+      "SettingsBy": {
+        "Label": "Settings by",
+        "Type": "Type",
+        "Rarity": "Rarity"
+      },
+      "Factor": {
+        "Items": "items",
+        "Hint": "Price factor — max is",
+        "Empty": "No items in inventory to configure."
+      },
       "Queue": {
         "SwitchTitle": "Switch shops?",
         "SwitchPrompt": "You're already in line at {from}. Joining {to} will leave {from}'s queue.",
@@ -315,7 +329,19 @@
         "Waiting": "Waiting in line",
         "Title": "Shopping Queue",
         "Toggle": "Show / hide the shopping queue"
-      }
+      },
+      "SetInventory": "Set default inventory",
+      "SetInventoryDone": "Saved {count} item(s) as this vendor's default inventory.",
+      "Restock": "Restock to default",
+      "RestockNoDefault": "No default inventory saved yet — use Set Inventory first.",
+      "RestockNothing": "Inventory already matches the saved default.",
+      "RestockDone": "Restock complete — {created} added, {increased} restocked, {removed} removed.",
+      "RestockConfirmTitle": "Remove extra stock?",
+      "RestockConfirmPrompt": "Missing items and quantities will be restored. These exceed the saved default and can be removed:",
+      "RestockExtraQtyRow": "{name}: remove {remove} extra",
+      "RestockExtraItemRow": "{name} (×{qty}): not in the default",
+      "RestockRemove": "Remove extras",
+      "RestockKeep": "Keep extras"
     }
   },
   "TYPES": {

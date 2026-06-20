@@ -11,6 +11,7 @@
       <i class="fa-solid fa-chevron-down pus-collapse-caret"></i>
     </button>
     <div class="pus-favor-content">
+      <div class="pus-favor-content-inner">
       <div class="pus-favor-controls">
         <div class="pus-favor-control">
           <label class="pus-favor-label" data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.FavorTooltip" }}">
@@ -32,6 +33,49 @@
             <span class="pus-favor-value">{{ favor.factorDisplay }}</span>
           </div>
         </div>
+      </div>
+      <hr class="pus-settings-divider" />
+
+      <div class="pus-settings-by">
+        <span class="pus-settings-by-label">{{ localize "INTERACTIVE_ITEMS.Vendor.SettingsBy.Label" }}</span>
+        <div class="pus-settings-by-toggle">
+          {{#each settings.dimensions}}
+          <button type="button" class="pus-settings-by-btn {{#if this.active}}active{{/if}}"
+                  data-action="settingsBy" data-dimension="{{ this.key }}"
+                  aria-pressed="{{#if this.active}}true{{else}}false{{/if}}">
+            {{ localize this.label }}
+          </button>
+          {{/each}}
+        </div>
+      </div>
+
+      <div class="pus-factor-list">
+        {{#each settings.rows}}
+        <div class="pus-factor-row {{#if this.expanded}}expanded{{/if}}"
+             data-dimension="{{ this.dimension }}" data-key="{{ this.key }}">
+          <button type="button" class="pus-factor-head" data-action="toggleFactorRow"
+                  aria-expanded="{{#if this.expanded}}true{{else}}false{{/if}}">
+            <span class="pus-factor-name {{ this.colorClass }}">{{ this.label }}</span>
+            <span class="pus-factor-count">{{ this.count }} {{ localize "INTERACTIVE_ITEMS.Vendor.Factor.Items" }}</span>
+            <span class="pus-factor-mult">&times;{{ this.factorDisplay }}</span>
+            <i class="fa-solid fa-chevron-down pus-factor-caret"></i>
+          </button>
+          <div class="pus-factor-body">
+            <div class="pus-factor-body-inner">
+              <div class="pus-factor-slider-row">
+                <input type="range" class="pus-factor-range" min="0" max="{{ ../settings.maxFactor }}"
+                       step="1" value="{{ this.factor }}" />
+                <input type="number" class="pus-factor-num" min="0" max="{{ ../settings.maxFactor }}"
+                       step="1" value="{{ this.factor }}" />
+              </div>
+              <p class="hint pus-factor-hint">{{ localize "INTERACTIVE_ITEMS.Vendor.Factor.Hint" }} {{ ../settings.maxFactor }}%</p>
+            </div>
+          </div>
+        </div>
+        {{else}}
+        <p class="pus-factor-empty">{{ localize "INTERACTIVE_ITEMS.Vendor.Factor.Empty" }}</p>
+        {{/each}}
+      </div>
       </div>
     </div>
   </section>

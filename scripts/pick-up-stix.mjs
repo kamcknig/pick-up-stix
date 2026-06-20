@@ -211,6 +211,13 @@ Hooks.once("init", async () => {
     default: 20
   });
 
+  game.settings.register(MODULE_ID, "vendorMaxPriceFactor", {
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 500
+  });
+
   // Hidden world setting that persists the install-tracker state (sent flag,
   // version, attempt count, last error). Managed entirely by installTracker.mjs.
   registerInstallTrackerSetting();

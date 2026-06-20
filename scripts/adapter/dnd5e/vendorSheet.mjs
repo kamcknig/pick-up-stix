@@ -177,6 +177,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
     this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
     this.#repositionInitiativeDie();            // move initiative d20 above the vendor name (GM only)
+    this.#repositionPortraitToggle();           // move portrait/token toggle above the initiative die (GM only, edit mode)
     this.#applyShopHeaderVisibility();   // keep NPC abilities card + legendary row hidden on the Shop tab
     await this.#injectGmShopBio();          // mirror the player storefront bio under the name (Shop tab)
     this.#wireFavorControls();              // wire favor sliders in the Shop tab (GM only)
@@ -238,15 +239,35 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     crXp.before(slider);
   }
 
+  /**
+   * Move dnd5e's portrait/token image toggle (`flags.dnd5e.showTokenPortrait`) from the
+   * portrait column to sit just above the relocated initiative die in the name container,
+   * left-aligned with it. GM only. The toggle is only rendered in edit mode (the template
+   * wraps it in `{{#if editable}}`), so a missing-toggle bail naturally scopes this to edit
+   * mode. Idempotent and re-checked each render since dnd5e re-renders the header part.
+   * Runs AFTER #repositionInitiativeDie so the initiative wrapper is already in the name
+   * container to anchor against. (Foundry v13 + v14, dnd5e NPC header.)
+   */
+  #repositionPortraitToggle() {
+    if ( !this.actor.isOwner ) return;
+    const input = this.element.querySelector('.sheet-header input[name="flags.dnd5e.showTokenPortrait"]');
+    const toggle = input?.closest("label.slide-toggle");
+    if ( !toggle ) return;
+    const wrapper = this.element.querySelector(".sheet-header .right.stats .top .left .initiative-wrapper");
+    if ( !wrapper ) return;
+    if ( wrapper.previousElementSibling === toggle ) return;
+    dbg("vendorSheet:repositionPortraitToggle", "moving portrait toggle above initiative die");
+    wrapper.before(toggle);
+  }
+
   /** Move dnd5e's initiative d20 from its portrait overlay to above the vendor name (GM only). */
   #repositionInitiativeDie() {
     if ( !this.actor.isOwner ) return;
-    // Name lives in .sheet-header .right.stats > .top > .left (in edit mode it's an input).
     const nameContainer = this.element.querySelector(".sheet-header .right.stats .top .left");
     if ( !nameContainer ) return;
     const name = nameContainer.querySelector(".document-name");
     if ( !name ) return;
-    if ( name.previousElementSibling?.classList.contains("initiative-wrapper") ) return; // already moved
+    if ( name.previousElementSibling?.classList.contains("initiative-wrapper") ) return;
     const wrapper = this.element.querySelector(".sheet-header .portrait .initiative-wrapper");
     if ( !wrapper ) return;
     dbg("vendorSheet:repositionInitiativeDie", "moving initiative die above vendor name");

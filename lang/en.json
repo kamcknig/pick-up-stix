@@ -315,7 +315,19 @@
         "Waiting": "Waiting in line",
         "Title": "Shopping Queue",
         "Toggle": "Show / hide the shopping queue"
-      }
+      },
+      "SetInventory": "Set default inventory",
+      "SetInventoryDone": "Saved {count} item(s) as this vendor's default inventory.",
+      "Restock": "Restock to default",
+      "RestockNoDefault": "No default inventory saved yet — use Set Inventory first.",
+      "RestockNothing": "Inventory already matches the saved default.",
+      "RestockDone": "Restock complete — {created} added, {increased} restocked, {removed} removed.",
+      "RestockConfirmTitle": "Remove extra stock?",
+      "RestockConfirmPrompt": "Missing items and quantities will be restored. These exceed the saved default and can be removed:",
+      "RestockExtraQtyRow": "{name}: remove {remove} extra",
+      "RestockExtraItemRow": "{name} (×{qty}): not in the default",
+      "RestockRemove": "Remove extras",
+      "RestockKeep": "Keep extras"
     }
   },
   "TYPES": {

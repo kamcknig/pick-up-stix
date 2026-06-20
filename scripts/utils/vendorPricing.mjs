@@ -30,6 +30,18 @@ export const getFavorFactorDefault = () => 1;
 /** Configured maximum per-grouping price factor (module setting `vendorMaxPriceFactor`, default 500). */
 export const getMaxPriceFactor = () => gs("vendorMaxPriceFactor", PRICE_FACTOR_MAX);
 
+/** A vendor's stored global price factor (percent), clamped to [0, maxPriceFactor]; absent → 100. */
+export function getVendorGlobalFactor(vendor) {
+  const raw = Number(vendor?.getFlag?.("pick-up-stix", "globalPriceFactor"));
+  if ( !Number.isFinite(raw) ) return PRICE_FACTOR_DEFAULT;
+  return Math.max(0, Math.min(getMaxPriceFactor(), Math.round(raw)));
+}
+
+/** Cost multiplier for the global factor: factor% / 100 (default → 1.0). */
+export function globalFactorMultiplier(vendor) {
+  return getVendorGlobalFactor(vendor) / 100;
+}
+
 /** A vendor's Favor, clamped to the configured [favorMin, favorMax]; absent / non-numeric → 0. */
 export function getVendorFavor(vendor) {
   const raw = Number(vendor?.getFlag?.("pick-up-stix", "favor"));

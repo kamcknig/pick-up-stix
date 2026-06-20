@@ -1,6 +1,6 @@
 import { getAdapter } from "../index.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
-import { vendorPriceMultiplier, groupingFactorMultiplier } from "../../utils/vendorPricing.mjs";
+import { vendorPriceMultiplier, groupingFactorMultiplier, globalFactorMultiplier } from "../../utils/vendorPricing.mjs";
 
 /* ---------- dnd5e display helpers (system-specific; kept in the dnd5e adapter) ---------- */
 
@@ -21,10 +21,11 @@ export function vendorItemMultiplier(item) {
   const vendor = item?.parent;
   if ( !vendor ) return 1;
   const favorM  = vendorPriceMultiplier(vendor);
+  const globalM = globalFactorMultiplier(vendor);
   const typeM   = groupingFactorMultiplier(vendor, "type", groupType(item));
   const rarityM = groupingFactorMultiplier(vendor, "rarity", rarityOf(item).key);
-  const m = favorM * typeM * rarityM;
-  dbg("shopGrouping:vendorItemMultiplier", { item: item.id, favorM, typeM, rarityM, m });
+  const m = favorM * globalM * typeM * rarityM;
+  dbg("shopGrouping:vendorItemMultiplier", { item: item.id, favorM, globalM, typeM, rarityM, m });
   return m;
 }
 

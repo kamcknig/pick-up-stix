@@ -954,6 +954,17 @@
   font-size: inherit;
 }
 
+/* GM NPC edit mode: the portrait/token toggle is moved by JS (#repositionPortraitToggle) from the
+   portrait column to .right.stats > .top > .left, just above the relocated initiative die. dnd5e
+   stretches it full-width (width:100%) with an 8px bottom margin; constrain + left-align it so it
+   sits as a compact control above the d20, with the column's own 4px gap handling spacing. */
+.vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .right.stats .top .left label.slide-toggle.header-interactable {
+  width: fit-content;
+  align-self: flex-start;
+  margin-bottom: 0;
+  gap: 36px;
+}
+
 /* Vendor Price column: Favor-adjusted sell price differs from the item's base value.
    Up = costs more (red), down = costs less (green). */
 .vendor-sheet .shop-cell.pus-price-up { color: var(--dnd5e-color-maroon, #b9412f); }

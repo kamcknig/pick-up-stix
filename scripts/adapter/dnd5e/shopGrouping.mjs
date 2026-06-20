@@ -1,16 +1,31 @@
 import { getAdapter } from "../index.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
-import { getVendorFavor, getVendorFavorFactor, favorMultiplier } from "../../utils/vendorPricing.mjs";
+import { vendorPriceMultiplier, groupingFactorMultiplier } from "../../utils/vendorPricing.mjs";
 
 /* ---------- dnd5e display helpers (system-specific; kept in the dnd5e adapter) ---------- */
 
-/** Price as { display: ceil(gp), exact: gp, denomination }, Favor-adjusted. */
-export function priceInGP(item, favor = 0, factor = 4) {
+/** Price as { display: ceil(gp), exact: gp, denomination }, scaled by `multiplier`. */
+export function priceInGP(item, multiplier = 1) {
   const { value, denomination } = item.system?.price ?? {};
   const conv = CONFIG.DND5E.currencies?.[denomination]?.conversion;
   if (!value || !conv) return { display: 0, exact: 0, denomination: denomination ?? "gp" };
-  const exact = (value / conv) * favorMultiplier(favor, factor);   // gp, Favor-adjusted
+  const exact = (value / conv) * multiplier;
   return { display: Math.ceil(exact), exact, denomination };
+}
+
+/**
+ * Full per-item cost multiplier: Favor × type-factor × rarity-factor, all compounded.
+ * Returns 1 when the item has no vendor parent. Absent factors default to 100% → ×1.0.
+ */
+export function vendorItemMultiplier(item) {
+  const vendor = item?.parent;
+  if ( !vendor ) return 1;
+  const favorM  = vendorPriceMultiplier(vendor);
+  const typeM   = groupingFactorMultiplier(vendor, "type", groupType(item));
+  const rarityM = groupingFactorMultiplier(vendor, "rarity", rarityOf(item).key);
+  const m = favorM * typeM * rarityM;
+  dbg("shopGrouping:vendorItemMultiplier", { item: item.id, favorM, typeM, rarityM, m });
+  return m;
 }
 
 /** Localized rarity label + raw key. Mundane / unset items are treated as "common". */
@@ -77,19 +92,16 @@ const COLUMNS = {
   price: {
     id: "price", header: "INTERACTIVE_ITEMS.Vendor.Col.Price", align: "end",
     cell(item) {
-      const favor = getVendorFavor(item.parent);
-      const factor = getVendorFavorFactor(item.parent);
-      const base = priceInGP(item, 0, factor);        // unmodified item value
-      const sell = priceInGP(item, favor, factor);    // what the buyer pays (Favor-adjusted)
+      const base = priceInGP(item, 1);
+      const sell = priceInGP(item, vendorItemMultiplier(item));
       const gp = game.i18n.localize("DND5E.CurrencyAbbrGP");
       const isNegative = sell.exact < 0;
       const displayValue = Math.max(0, sell.display);
       const fractional = !isNegative && sell.exact !== Math.trunc(sell.exact);
-      // Negative (clamped) prices shown purple for GM; else tint by Favor direction.
       let classes = "pus-price";
-      if (isNegative && game.user.isGM) classes += " pus-price-negative";
-      else if (base.display > 0 && favor > 0) classes += " pus-price-down";
-      else if (base.display > 0 && favor < 0) classes += " pus-price-up";
+      if ( isNegative && game.user.isGM ) classes += " pus-price-negative";
+      else if ( base.exact > 0 && sell.exact < base.exact ) classes += " pus-price-down";
+      else if ( base.exact > 0 && sell.exact > base.exact ) classes += " pus-price-up";
       return {
         text: `${displayValue} ${gp}`,
         tooltip: fractional ? `${Number(sell.exact.toFixed(2))} ${gp}` : null,
@@ -121,6 +133,51 @@ export const SHOP_GROUPINGS = {
 };
 
 export const DEFAULT_GROUPING = "type";
+
+/* -------------------- Settings-panel dimension registry -------------------- */
+
+/** Ordered rarity keys (dnd5e ladder), unknowns last. */
+function rarityOrder() {
+  return Object.keys(CONFIG.DND5E.itemRarity ?? {});
+}
+
+/** Settings-panel grouping dimensions: how to bucket + label + order items for the factor list. */
+export const SETTINGS_DIMENSIONS = {
+  type: {
+    keyOf: (item) => groupType(item),
+    labelOf: (key) => game.i18n.localize(CONFIG.Item.typeLabels?.[key] ?? key),
+    order: () => inventoryTypeOrder()
+  },
+  rarity: {
+    keyOf: (item) => rarityOf(item).key,
+    labelOf: (key) => game.i18n.localize(CONFIG.DND5E.itemRarity?.[key] ?? key),
+    order: () => rarityOrder()
+  }
+};
+
+/**
+ * Buckets `items` by the given settings dimension, returning only buckets that have
+ * at least one item, ordered by the dimension's canonical order (unknowns alpha-last).
+ * @returns {Array<{ key, label, count }>}
+ */
+export function buildSettingsGroups(items, dimension) {
+  const dim = SETTINGS_DIMENSIONS[dimension] ?? SETTINGS_DIMENSIONS.type;
+  const counts = new Map();
+  for ( const item of items ) {
+    const key = dim.keyOf(item);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const order = dim.order();
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, label: dim.labelOf(key), count }))
+    .sort((a, b) => {
+      const ai = order.indexOf(a.key), bi = order.indexOf(b.key);
+      if ( ai !== -1 && bi !== -1 ) return ai - bi;
+      if ( ai !== -1 ) return -1;
+      if ( bi !== -1 ) return 1;
+      return a.label.localeCompare(b.label);
+    });
+}
 
 /* ------------------------ Build the grouped structure ------------------------ */
 

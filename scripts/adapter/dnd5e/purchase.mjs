@@ -1,5 +1,5 @@
 import { dbg } from "../../utils/debugLog.mjs";
-import { vendorPriceMultiplier } from "../../utils/vendorPricing.mjs";
+import { vendorItemMultiplier } from "./shopGrouping.mjs";
 
 /**
  * Given an exact copper-piece total, return the coarsest whole-coin denomination that
@@ -69,7 +69,7 @@ export const Dnd5ePurchase = {
   },
 
   canAfford(buyer, item, quantity = 1) {
-    const mult = vendorPriceMultiplier(item?.parent);
+    const mult = vendorItemMultiplier(item);
     const { amount, denomination } = chargeAmount(this.getItemPrice(item), quantity, mult);
     if (amount <= 0) return true;                     // free
     if (!buyer) return false;
@@ -81,7 +81,7 @@ export const Dnd5ePurchase = {
   },
 
   getItemChargeCp(item, quantity = 1) {
-    return chargeAmount(this.getItemPrice(item), quantity, vendorPriceMultiplier(item?.parent)).cp;
+    return chargeAmount(this.getItemPrice(item), quantity, vendorItemMultiplier(item)).cp;
   },
 
   getActorWealthCp(actor) {

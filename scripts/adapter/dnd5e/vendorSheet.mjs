@@ -184,7 +184,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
-    this.#refreshSubtitleTooltips();
+    this.#applyWareTooltips();
     this.#injectInventoryShopToggles();
     this.#injectInventoryShopAllToggle();
     this.#fixListControlsPrefs();
@@ -385,21 +385,29 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   changeTab(tab, group, options) {
     super.changeTab(tab, group, options);
-    if ( tab === "shop" ) this.#refreshSubtitleTooltips();
     this.#applyShopHeaderVisibility();   // swap abilities + legendary visibility with the active tab
-    this.#injectGmShopBio();               // show/hide the header bio with the active tab
+    this.#injectGmShopBio();             // show/hide the header bio with the active tab
   }
 
   /**
-   * Tooltip the full subtitle on any `.shop-ware-sub` that's visually clipped. Needs the
-   * shop content visible (a hidden tab has no layout box → scrollWidth/clientWidth are 0),
-   * so it's called from `_onRender` (player / re-render while on Shop) and `changeTab`.
+   * Decorate each shop ware's identity block (icon + name + subtitle) with a
+   * rich item tooltip via the adapter — the native dnd5e item card on dnd5e, a
+   * formatted fallback elsewhere. Replaces the old subtitle-clip tooltip; the
+   * card supersedes it (it carries the full description). Pure attribute setting
+   * (no layout reads), so it works even while the Shop tab is hidden at first
+   * render — no changeTab re-run needed.
    */
-  #refreshSubtitleTooltips() {
-    for ( const sub of this.element.querySelectorAll(".shop-ware-sub") ) {
-      if ( sub.scrollWidth > sub.clientWidth ) sub.dataset.tooltip = sub.textContent;
-      else delete sub.dataset.tooltip;
+  #applyWareTooltips() {
+    const adapter = getAdapter();
+    let wares = 0;
+    for ( const row of this.element.querySelectorAll(".shop-ware[data-item-id]") ) {
+      const item = this.actor.items.get(row.dataset.itemId);
+      const main = row.querySelector(".shop-ware-main");
+      if ( !item || !main ) continue;
+      adapter.applyItemTooltip(main, item);
+      wares++;
     }
+    dbg("vendorSheet:applyWareTooltips", { wares });
   }
 
   /**

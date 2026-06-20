@@ -43,7 +43,7 @@ export function typeSubtitle(item) {
 }
 
 /** Item description as full single-line plaintext ("" if none). CSS clamps the
- *  display; the sheet adds a hover tooltip when it's visually truncated. */
+ *  visible line; the full description now appears in the ware's hover item card. */
 export function descriptionSubtitle(item) {
   const html = item.system?.description?.value;                    // HTMLField, nullable
   if (!html) return "";

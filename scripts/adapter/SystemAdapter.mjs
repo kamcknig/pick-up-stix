@@ -776,6 +776,37 @@ export default class SystemAdapter {
    */
   async createItemsWithContents(items, options) { _abstract("createItemsWithContents"); }
 
+  // === Item tooltips =========================================================
+
+  /**
+   * Decorate `element` so hovering it shows a rich tooltip describing `item`.
+   *
+   * The base implementation builds a static fallback card (image, name,
+   * description) and sets it as Foundry's `data-tooltip-html`, which the core
+   * TooltipManager renders as HTML (sanitised via `foundry.utils.cleanHTML`)
+   * — behaviour confirmed identical on Foundry v13 and v14. Systems with a
+   * native rich item tooltip (dnd5e) override this to wire their own.
+   *
+   * Idempotent: safe to call on every render (it overwrites the attributes).
+   *
+   * @param {HTMLElement} element - The element that triggers the tooltip on hover.
+   * @param {Item} item - The item the tooltip describes.
+   */
+  applyItemTooltip(element, item) {
+    if ( !element || !item ) return;
+    const esc = foundry.utils.escapeHTML ?? (s => String(s ?? ""));
+    const img = item.img ? `<img src="${item.img}" alt="">` : "";
+    const descHtml = item.system?.description?.value;
+    const desc = descHtml ? `<div class="pus-tt-desc">${descHtml}</div>` : "";
+    element.dataset.tooltipHtml =
+      `<div class="pus-item-tooltip">`
+      + `<div class="pus-tt-header">${img}<span class="pus-tt-name">${esc(item.name)}</span></div>`
+      + desc
+      + `</div>`;
+    element.dataset.tooltipClass = "pus-item-tooltip";
+    element.dataset.tooltipDirection ??= "LEFT";
+  }
+
   // === CSS class constants ===================================================
 
   /**

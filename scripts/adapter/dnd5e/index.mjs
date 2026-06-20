@@ -4,6 +4,7 @@ import { Dnd5eContainer } from "./container.mjs";
 import { Dnd5eSheets } from "./sheets.mjs";
 import { Dnd5eHooks } from "./hooks.mjs";
 import { Dnd5ePurchase } from "./purchase.mjs";
+import { Dnd5eTooltip } from "./tooltip.mjs";
 import Dnd5eVendorModel from "./vendorModel.mjs";
 import { buildDnd5eCurrencyConverter } from "./currency.mjs";
 
@@ -78,3 +79,4 @@ Object.assign(Dnd5eAdapter.prototype, Dnd5eContainer);
 Object.assign(Dnd5eAdapter.prototype, Dnd5eSheets);
 Object.assign(Dnd5eAdapter.prototype, Dnd5eHooks);
 Object.assign(Dnd5eAdapter.prototype, Dnd5ePurchase);
+Object.assign(Dnd5eAdapter.prototype, Dnd5eTooltip);

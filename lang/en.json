@@ -321,6 +321,10 @@
         "Type": "Type",
         "Rarity": "Rarity"
       },
+      "GlobalFactor": {
+        "Label": "Global Factor",
+        "Tooltip": "Applies to all items. Compounds with other factors."
+      },
       "Factor": {
         "Items": "items",
         "Hint": "Price factor — max is",

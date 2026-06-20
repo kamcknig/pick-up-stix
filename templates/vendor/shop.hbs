@@ -36,6 +36,19 @@
       </div>
       <hr class="pus-settings-divider" />
 
+      <div class="pus-favor-control">
+        <label class="pus-favor-label" data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.GlobalFactor.Tooltip" }}">
+          {{ localize "INTERACTIVE_ITEMS.Vendor.GlobalFactor.Label" }}
+        </label>
+        <div class="pus-factor-slider-row">
+          <input type="range" class="pus-factor-range pus-global-factor-range" min="0" max="{{ settings.maxFactor }}"
+                 step="1" value="{{ settings.globalFactor }}" />
+          <input type="number" class="pus-factor-num pus-global-factor-num" min="0" max="{{ settings.maxFactor }}"
+                 step="1" value="{{ settings.globalFactor }}" />
+        </div>
+        <p class="hint pus-factor-hint">{{ localize "INTERACTIVE_ITEMS.Vendor.Factor.Hint" }} {{ settings.maxFactor }}%</p>
+      </div>
+
       <div class="pus-settings-by">
         <span class="pus-settings-by-label">{{ localize "INTERACTIVE_ITEMS.Vendor.SettingsBy.Label" }}</span>
         <div class="pus-settings-by-toggle">

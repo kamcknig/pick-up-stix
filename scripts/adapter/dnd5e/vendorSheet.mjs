@@ -7,7 +7,7 @@ import { buildShop, DEFAULT_GROUPING, buildSettingsGroups } from "./shopGrouping
 import { createRowControl } from "../../utils/domButtons.mjs";
 import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
 import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
-import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault, getVendorGroupingFactor, getMaxPriceFactor } from "../../utils/vendorPricing.mjs";
+import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault, getVendorGroupingFactor, getVendorGlobalFactor, getMaxPriceFactor } from "../../utils/vendorPricing.mjs";
 import { saveDefaultInventory, computeRestockDiff, applyRestock, promptRestockRemoval }
   from "../../utils/vendorInventory.mjs";
 
@@ -263,15 +263,21 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( !game.user.isGM ) return;
     const rawFavor = Number(this.actor.getFlag("pick-up-stix", "favor"));
     const rawFactor = Number(this.actor.getFlag("pick-up-stix", "favorFactor"));
+    const rawGlobal = Number(this.actor.getFlag("pick-up-stix", "globalPriceFactor"));
+    const max = getMaxPriceFactor();
     const clampedFavor = Number.isFinite(rawFavor)
       ? Math.max(getFavorMin(), Math.min(getFavorMax(), Math.round(rawFavor)))
       : null;
     const clampedFactor = Number.isFinite(rawFactor)
       ? Math.max(getFavorFactorMin(), Math.min(getFavorFactorMax(), Math.round(rawFactor)))
       : null;
+    const clampedGlobal = Number.isFinite(rawGlobal)
+      ? Math.max(0, Math.min(max, Math.round(rawGlobal)))
+      : null;
     const updates = {};
     if ( clampedFavor !== null && clampedFavor !== rawFavor ) updates["flags.pick-up-stix.favor"] = clampedFavor;
     if ( clampedFactor !== null && clampedFactor !== rawFactor ) updates["flags.pick-up-stix.favorFactor"] = clampedFactor;
+    if ( clampedGlobal !== null && clampedGlobal !== rawGlobal ) updates["flags.pick-up-stix.globalPriceFactor"] = clampedGlobal;
     if ( !foundry.utils.isEmpty(updates) ) {
       dbg("vendorSheet:clampFavorFlags", { vendor: this.actor.id, updates });
       await this.actor.update(updates);
@@ -345,7 +351,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }
   }
 
-  /** Wire the grouping-factor sliders + editable numeric inputs in the settings panel (GM only). */
+  /** Wire the global price factor slider and per-grouping sliders in the settings panel (GM only). */
   #wireSettingsControls() {
     if ( !game.user.isGM ) return;
     const list = this.element.querySelector(".pus-factor-list");
@@ -353,6 +359,23 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     list.dataset.pusWired = "1";
     const max = getMaxPriceFactor();
     const clamp = (v) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+
+    // Global price factor: range + number input above the settings-by toggle.
+    const globalRoot = list.closest(".pus-favor-content-inner");
+    const globalRange = globalRoot?.querySelector(".pus-global-factor-range");
+    const globalNum   = globalRoot?.querySelector(".pus-global-factor-num");
+    if ( globalRange ) {
+      globalRange.addEventListener("input", () => { if ( globalNum ) globalNum.value = String(clamp(globalRange.value)); });
+      if ( globalNum ) globalNum.addEventListener("input", () => { globalRange.value = String(clamp(globalNum.value)); });
+      const commitGlobal = async (el) => {
+        const v = clamp(el.value);
+        dbg("vendorSheet:globalFactorChange", { vendor: this.actor.id, value: v });
+        await this.actor.setFlag("pick-up-stix", "globalPriceFactor", v);
+      };
+      globalRange.addEventListener("change", () => commitGlobal(globalRange));
+      if ( globalNum ) globalNum.addEventListener("change", () => commitGlobal(globalNum));
+    }
+
     for ( const row of list.querySelectorAll(".pus-factor-row") ) {
       const range = row.querySelector(".pus-factor-range");
       const num   = row.querySelector(".pus-factor-num");
@@ -848,6 +871,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     const physical = this.actor.items.filter(i => getAdapter().isPhysicalItem(i));
     const groups = buildSettingsGroups(physical, this.#settingsBy);
     const maxFactor = getMaxPriceFactor();
+    const globalFactor = getVendorGlobalFactor(this.actor);
     return {
       by: this.#settingsBy,
       dimensions: [
@@ -855,6 +879,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
         { key: "rarity", label: "INTERACTIVE_ITEMS.Vendor.SettingsBy.Rarity", active: this.#settingsBy === "rarity" }
       ],
       maxFactor,
+      globalFactor,
+      globalFactorDisplay: (globalFactor / 100).toFixed(2),
       rows: groups.map(g => {
         const factor = getVendorGroupingFactor(this.actor, this.#settingsBy, g.key);
         return {

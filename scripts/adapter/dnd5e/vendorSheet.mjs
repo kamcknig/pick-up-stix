@@ -3,11 +3,11 @@ import { getPlayerCandidateTokens, purchaseItem, purchaseCart } from "../../tran
 import { dispatchGM } from "../../utils/gmDispatch.mjs";
 import { notifyPurchase } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
-import { buildShop, DEFAULT_GROUPING } from "./shopGrouping.mjs";
+import { buildShop, DEFAULT_GROUPING, buildSettingsGroups } from "./shopGrouping.mjs";
 import { createRowControl } from "../../utils/domButtons.mjs";
 import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
 import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
-import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault } from "../../utils/vendorPricing.mjs";
+import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault, getVendorGroupingFactor, getMaxPriceFactor } from "../../utils/vendorPricing.mjs";
 import { saveDefaultInventory, computeRestockDiff, applyRestock, promptRestockRemoval }
   from "../../utils/vendorInventory.mjs";
 
@@ -34,6 +34,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   #updateItemHookId = null;
   #queueHookId = null;
   #groupingId = DEFAULT_GROUPING;
+  #settingsBy = "type";                 // "type" | "rarity" — which dimension the factor list edits
+  #expandedFactorRows = new Set();      // `${dimension}:${key}` rows currently expanded (survives re-render)
+  #favorCollapsed = true;               // vendor-settings panel — always starts collapsed on open; toggled live
   #cart = new Map();   // itemId -> quantity to buy
   #renderTimer = null;
 
@@ -55,6 +58,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       stepCartQty: Dnd5eVendorSheet.#onStepCartQty,
       toggleShopVisible: Dnd5eVendorSheet.#onToggleShopVisible,
       toggleFavor: Dnd5eVendorSheet.#onToggleFavor,
+      settingsBy: Dnd5eVendorSheet.#onSettingsBy,
+      toggleFactorRow: Dnd5eVendorSheet.#onToggleFactorRow,
       toggleQueue: Dnd5eVendorSheet.#onToggleQueue
     }
   };
@@ -172,9 +177,10 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
     this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
     this.#repositionInitiativeDie();            // move initiative d20 above the vendor name (GM only)
-    this.#applyAbilitiesTabVisibility();   // keep NPC abilities card hidden on the Shop tab
+    this.#applyShopHeaderVisibility();   // keep NPC abilities card + legendary row hidden on the Shop tab
     await this.#injectGmShopBio();          // mirror the player storefront bio under the name (Shop tab)
     this.#wireFavorControls();              // wire favor sliders in the Shop tab (GM only)
+    this.#wireSettingsControls();           // wire grouping-factor controls in the Shop tab (GM only)
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
@@ -272,12 +278,15 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }
   }
 
-  /** Hide the inherited NPC abilities card on the Shop tab (it has no place in the storefront);
-   *  show it on every other tab. No-op if the card isn't present (player storefront header). */
-  #applyAbilitiesTabVisibility() {
-    const abilities = this.element.querySelector(".sheet-header .ability-scores");
-    if ( !abilities ) return;
-    abilities.style.display = this.tabGroups.primary === "shop" ? "none" : "";
+  /** Hide inherited NPC header chrome that has no place in the storefront — the abilities card and
+   *  the legendary/lair (.bottom) row — on the Shop tab; restore them on every other tab. No-op for
+   *  any section not present (e.g. the player storefront header). */
+  #applyShopHeaderVisibility() {
+    const onShop = this.tabGroups.primary === "shop";
+    for ( const sel of [".sheet-header .ability-scores", ".sheet-header .right.stats .bottom"] ) {
+      const el = this.element.querySelector(sel);
+      if ( el ) el.style.display = onShop ? "none" : "";
+    }
   }
 
   /**
@@ -336,6 +345,39 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }
   }
 
+  /** Wire the grouping-factor sliders + editable numeric inputs in the settings panel (GM only). */
+  #wireSettingsControls() {
+    if ( !game.user.isGM ) return;
+    const list = this.element.querySelector(".pus-factor-list");
+    if ( !list || list.dataset.pusWired === "1" ) return;
+    list.dataset.pusWired = "1";
+    const max = getMaxPriceFactor();
+    const clamp = (v) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+    for ( const row of list.querySelectorAll(".pus-factor-row") ) {
+      const range = row.querySelector(".pus-factor-range");
+      const num   = row.querySelector(".pus-factor-num");
+      const mult  = row.querySelector(".pus-factor-mult");
+      if ( !range || !num ) continue;
+      const flagKey = `groupingFactors.${row.dataset.dimension}.${row.dataset.key}`;
+      const syncLive = (v) => {
+        num.value = String(v);
+        if ( mult ) mult.textContent = `×${(v / 100).toFixed(2)}`;
+      };
+      range.addEventListener("input", () => syncLive(clamp(range.value)));
+      num.addEventListener("input", () => {
+        range.value = String(clamp(num.value));
+        if ( mult ) mult.textContent = `×${(clamp(num.value) / 100).toFixed(2)}`;
+      });
+      const commit = async (el) => {
+        const v = clamp(el.value);
+        dbg("vendorSheet:factorChange", { vendor: this.actor.id, flagKey, value: v });
+        await this.actor.setFlag("pick-up-stix", flagKey, v);
+      };
+      range.addEventListener("change", () => commit(range));
+      num.addEventListener("change", () => commit(num));
+    }
+  }
+
   /**
    * Re-evaluate subtitle truncation when a tab is shown. The GM's Shop tab is hidden
    * at first render (they land on an NPC tab), so the `_onRender` pass sees a zero-size
@@ -344,7 +386,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   changeTab(tab, group, options) {
     super.changeTab(tab, group, options);
     if ( tab === "shop" ) this.#refreshSubtitleTooltips();
-    this.#applyAbilitiesTabVisibility();   // swap abilities visibility with the active tab
+    this.#applyShopHeaderVisibility();   // swap abilities + legendary visibility with the active tab
     this.#injectGmShopBio();               // show/hide the header bio with the active tab
   }
 
@@ -627,6 +669,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   _onClose(options) {
     super._onClose(options);
     this.#leaveQueue();
+    // The sheet instance is cached per-actor and reused on reopen, so reset the vendor-settings
+    // panel to collapsed here — otherwise it reopens in whatever state it was last left in.
+    this.#favorCollapsed = true;
   }
 
   async close(options = {}) {
@@ -692,25 +737,17 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }, []);
   }
 
-  /** Per-user, per-vendor favor-panel collapse state (defaults to collapsed). */
+  /** Vendor-settings panel collapse state — instance-only, so it always starts collapsed on open. */
   #isFavorCollapsed() {
-    const map = game.user.getFlag("pick-up-stix", "favorCollapsed") ?? {};
-    return map[this.actor.id] ?? true;
-  }
-
-  /** Persist the favor-panel collapse state for this user + vendor (no actor re-render). */
-  async #setFavorCollapsed(collapsed) {
-    const map = { ...(game.user.getFlag("pick-up-stix", "favorCollapsed") ?? {}) };
-    map[this.actor.id] = collapsed;
-    dbg("vendorSheet:setFavorCollapsed", { vendor: this.actor.id, collapsed });
-    await game.user.setFlag("pick-up-stix", "favorCollapsed", map);
+    return this.#favorCollapsed;
   }
 
   /**
-   * Toggle the favor panel open/closed. Persisted to a per-user user flag, so this does NOT
-   * re-render the sheet — the CSS height transition animates on the live DOM (mirrors dnd5e's
-   * sidebar collapse). On the next full render, `#prepareFavorContext().collapsed` re-applies the
-   * class from the flag. GM-only in practice (players never render the panel).
+   * Toggle the favor panel open/closed. Tracked in an instance field (not persisted) so it always
+   * starts collapsed on open, while a live toggle survives re-renders within the session. This does
+   * NOT re-render — the CSS height transition animates on the live DOM (mirrors dnd5e's sidebar
+   * collapse); the next full render re-applies the class from the field via `#prepareFavorContext`.
+   * GM-only in practice (players never render the panel).
    */
   static #onToggleFavor(event, target) {
     const panel = target.closest(".pus-favor-panel");
@@ -718,7 +755,35 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     const collapsed = panel.classList.toggle("collapsed");
     target.setAttribute("aria-expanded", String(!collapsed));
     dbg("vendorSheet:onToggleFavor", { vendor: this.actor.id, collapsed });
-    this.#setFavorCollapsed(collapsed);
+    this.#favorCollapsed = collapsed;
+  }
+
+  /** Switch the factor list between the Type and Rarity dimensions (GM only). Re-renders the shop part. */
+  static #onSettingsBy(event, target) {
+    const dim = target.dataset.dimension;
+    if ( dim !== "type" && dim !== "rarity" ) return;
+    if ( this.#settingsBy === dim ) return;
+    dbg("vendorSheet:onSettingsBy", { vendor: this.actor.id, dim });
+    this.#settingsBy = dim;
+    this.render();
+  }
+
+  /**
+   * Expand/collapse one grouping-factor row. DOM-only so the transition is instant; the instance
+   * Set records the state so a later re-render (after a flag write) re-applies it via context.
+   * Clicks originating inside `.pus-factor-body` (slider / number input) are ignored so editing
+   * doesn't collapse the row.
+   */
+  static #onToggleFactorRow(event, target) {
+    if ( event.target.closest(".pus-factor-body") ) return;
+    const row = target.closest(".pus-factor-row");
+    if ( !row ) return;
+    const id = `${row.dataset.dimension}:${row.dataset.key}`;
+    const expanded = row.classList.toggle("expanded");
+    target.setAttribute("aria-expanded", String(expanded));
+    if ( expanded ) this.#expandedFactorRows.add(id);
+    else this.#expandedFactorRows.delete(id);
+    dbg("vendorSheet:onToggleFactorRow", { vendor: this.actor.id, id, expanded });
   }
 
   /** Per-user, per-vendor queue-panel collapse state (defaults to expanded). */
@@ -770,6 +835,35 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     };
   }
 
+  /** GM-only context for the "Settings by" toggle + the factor list of inventory-present buckets. */
+  #prepareSettingsContext() {
+    const physical = this.actor.items.filter(i => getAdapter().isPhysicalItem(i));
+    const groups = buildSettingsGroups(physical, this.#settingsBy);
+    const maxFactor = getMaxPriceFactor();
+    return {
+      by: this.#settingsBy,
+      dimensions: [
+        { key: "type",   label: "INTERACTIVE_ITEMS.Vendor.SettingsBy.Type",   active: this.#settingsBy === "type" },
+        { key: "rarity", label: "INTERACTIVE_ITEMS.Vendor.SettingsBy.Rarity", active: this.#settingsBy === "rarity" }
+      ],
+      maxFactor,
+      rows: groups.map(g => {
+        const factor = getVendorGroupingFactor(this.actor, this.#settingsBy, g.key);
+        return {
+          dimension: this.#settingsBy,
+          key: g.key,
+          label: g.label,
+          count: g.count,
+          factor,
+          factorDisplay: (factor / 100).toFixed(2),
+          // Reuse the ware-row rarity palette to tint the group name when grouped by rarity.
+          colorClass: this.#settingsBy === "rarity" ? `pus-rarity-${g.key}` : "",
+          expanded: this.#expandedFactorRows.has(`${this.#settingsBy}:${g.key}`)
+        };
+      })
+    };
+  }
+
   async _preparePartContext(partId, context, options) {
     context = await super._preparePartContext(partId, context, options);
     if ( partId === "shop" ) {
@@ -778,6 +872,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       context.queue = this.#prepareQueue();
       context.canShop = this.#canShop();
       if ( context.isGM ) context.favor = this.#prepareFavorContext();
+      if ( context.isGM ) context.settings = this.#prepareSettingsContext();
       if ( context.isGM ) context.queueCollapsed = this.#isQueueCollapsed();
     }
     if ( partId === "header" ) {

@@ -164,32 +164,45 @@ export default class SystemAdapter {
   getActorWealthCp(_actor) { return Infinity; }
 
   /**
-   * Debit an exact copper-piece total from the buyer, applied WITHOUT a re-render (so a
-   * batch checkout doesn't flicker the open shop). Used by `purchaseCart` as both the
-   * payment and the affordability gate. GM-side only.
-   *
-   * Default: no-op success (systems without a currency model transfer for free).
+   * Compute (without mutating) how a `cp` transfer from buyer→vendor would settle.
+   * Returns an opaque plan object passed to applyBuyerSettlement/applyVendorSettlement,
+   * or null when the purchase cannot be paid or changed.
+   * Default: returns a noop plan (systems without a currency model are always free).
    *
    * @param {Actor} _buyer
-   * @param {number} _cp - Total charge in copper pieces.
-   * @returns {Promise<boolean>} false if the buyer could not pay (no items should move).
+   * @param {Actor} _vendor
+   * @param {number} _cp
+   * @returns {{ mode: string }|null}
    */
-  async debitBuyerCp(_buyer, _cp) {
-    return true;
-  }
+  planSettlement(_buyer, _vendor, _cp) { return { mode: "noop" }; }
 
   /**
-   * Credit an exact copper-piece total to the vendor. Intended as the LAST write of a
-   * batch checkout, rendering normally so every client re-renders exactly once with the
-   * final stock + currency. GM-side only.
+   * Apply the buyer side of a settlement plan (render-suppressed — fires before items move).
+   * Default: no-op.
    *
-   * Default: no-op (systems without a currency model).
-   *
-   * @param {Actor} _vendor
-   * @param {number} _cp - Total credit in copper pieces.
+   * @param {Actor} _buyer
+   * @param {{ mode: string }} _plan
    * @returns {Promise<void>}
    */
-  async creditVendorCp(_vendor, _cp) {}
+  async applyBuyerSettlement(_buyer, _plan) {}
+
+  /**
+   * Apply the vendor side of a settlement plan (renders — the single final write).
+   * Default: no-op.
+   *
+   * @param {Actor} _vendor
+   * @param {{ mode: string }} _plan
+   * @returns {Promise<void>}
+   */
+  async applyVendorSettlement(_vendor, _plan) {}
+
+  /**
+   * The system's currency converter, or null when the system has no currency model
+   * (affordability is then always free — see getActorWealthCp/getItemChargeCp defaults).
+   * Subclasses return a cached CurrencyConverter.
+   * @returns {import("../utils/CurrencyConverter.mjs").CurrencyConverter|null}
+   */
+  get currency() { return null; }
 
   // === Container parent reference ============================================
 

@@ -638,20 +638,18 @@ export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity
 
   const qty = Math.max(1, Number(quantity) || 1);
 
-  // Re-validate affordability GM-side (defends against a stale client / race).
-  if (!adapter.canAfford(buyer, item, qty)) {
-    dbg("xfer:purchaseItem", "GM-side affordability failed, bail", { itemId, buyer: buyer.id });
-    return false;
-  }
-
   const totalCp = adapter.getItemChargeCp(item, qty);
 
-  // Debit the buyer first (also the affordability gate). No re-render — the single vendor
-  // credit at the end is the one write that renders, so the shop updates once (no flicker).
-  if (!(await adapter.debitBuyerCp(buyer, totalCp))) {
-    dbg("xfer:purchaseItem", "debit failed, no item moved", { itemId, buyer: buyer.id });
+  // Compute the settlement plan (validates affordability + change feasibility for both modes).
+  // Re-validates GM-side, defending against stale client state / race.
+  const plan = adapter.planSettlement(buyer, vendor, totalCp);
+  if ( !plan ) {
+    dbg("xfer:purchaseItem", "cannot settle, bail", { itemId, buyer: buyer.id });
     return false;
   }
+
+  // Debit the buyer first (render suppressed) — the single vendor credit at the end renders.
+  await adapter.applyBuyerSettlement(buyer, plan);
 
   // Add the purchased item(s) to the buyer. Consumables land as one stack of `qty`; other types
   // split into `qty` qty-1 documents. This create renders the buyer's OWN sheet once.
@@ -661,7 +659,7 @@ export async function purchaseItem(vendorActorId, itemId, buyerActorId, quantity
   await decrementOrDeleteItem(item, qty, { render: false });
 
   // Credit the vendor LAST and let it render → exactly one re-render on every client.
-  await adapter.creditVendorCp(vendor, totalCp);
+  await adapter.applyVendorSettlement(vendor, plan);
 
   notifyPurchase(item.name, vendor.name, qty);
   return true;
@@ -708,18 +706,20 @@ export async function purchaseCart(vendorActorId, cartItems, buyerActorId) {
   const totalUnits = resolved.reduce((sum, { qty }) => sum + qty, 0);
   dbg("xfer:purchaseCart", "cart totalled", { totalCp, items: resolved.length, units: totalUnits });
 
-  // GM-side wealth re-check (defends against stale client state / race).
-  if ( adapter.getActorWealthCp(buyer) < totalCp ) {
-    dbg("xfer:purchaseCart", "buyer cannot afford cart total, bail", { totalCp, buyer: buyer.id });
+  // Compute the settlement plan (validates affordability + change feasibility for both modes).
+  // Re-validates GM-side, defending against stale client state / race.
+  const plan = adapter.planSettlement(buyer, vendor, totalCp);
+  if ( !plan ) {
+    dbg("xfer:purchaseCart", "cannot settle, bail", { totalCp, buyer: buyer.id });
+    const noChangeKey = adapter.getActorWealthCp(buyer) >= totalCp
+      ? "INTERACTIVE_ITEMS.Notify.NoChange"
+      : "INTERACTIVE_ITEMS.Notify.NotEnoughCoin";
+    ui.notifications.warn(game.i18n.localize(noChangeKey));
     return false;
   }
 
-  // Debit the buyer first (also the affordability gate). No re-render here — the single
-  // vendor-credit write at the very end is the one that renders, so the shop updates once.
-  if ( !(await adapter.debitBuyerCp(buyer, totalCp)) ) {
-    dbg("xfer:purchaseCart", "debit failed, no items moved");
-    return false;
-  }
+  // Debit the buyer first (render suppressed) — the single vendor credit at the end renders.
+  await adapter.applyBuyerSettlement(buyer, plan);
 
   // Build one batched set of moves. The buyer create renders the buyer's OWN sheet once
   // (reflecting the already-debited gold + new items); the vendor stock update/delete are
@@ -745,7 +745,7 @@ export async function purchaseCart(vendorActorId, cartItems, buyerActorId) {
   if ( toDelete.length ) await vendor.deleteEmbeddedDocuments("Item", toDelete, { deleteContents: true, render: false });
 
   // Credit the vendor LAST and let it render → exactly one re-render on every client.
-  await adapter.creditVendorCp(vendor, totalCp);
+  await adapter.applyVendorSettlement(vendor, plan);
 
   for ( const { item, qty } of resolved ) notifyPurchase(item.name, vendor.name, qty);
   dbg("xfer:purchaseCart", "cart purchase complete", { units: totalUnits });

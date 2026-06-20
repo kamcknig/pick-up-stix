@@ -937,6 +937,20 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
       return;
     }
+
+    // Pre-flight: total the cart and check buyer wealth before dispatching.
+    // Settlement feasibility (change availability) is the GM-side authoritative gate in purchaseCart.
+    const adapter = getAdapter();
+    const totalCp = cartItems.reduce((sum, [id, qty]) => {
+      const item = this.actor.items.get(id);
+      return sum + (item ? adapter.getItemChargeCp(item, qty) : 0);
+    }, 0);
+    if ( totalCp > 0 && adapter.getActorWealthCp(buyer) < totalCp ) {
+      dbg("vendorSheet:onCheckoutCart", "buyer lacks wealth, bail", { totalCp, buyer: buyer.id });
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotEnoughCoin"));
+      return;
+    }
+
     // Resolve names NOW — the GM mutates vendor stock during the purchase, so the rows may be gone
     // by the time the self-notify fires. Drop entries whose item vanished (GM notify is authoritative).
     const lines = cartItems.reduce((acc, [id, qty]) => {
@@ -1083,8 +1097,11 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   /** Format a copper amount as a short coin string, e.g. 3060 → "30 gp 6 sp". */
   #formatCp(cp) {
-    const gp = Math.floor(cp / 100), sp = Math.floor((cp % 100) / 10), c = cp % 10;
-    return [gp && `${gp} gp`, sp && `${sp} sp`, c && `${c} cp`].filter(Boolean).join(" ") || "0 gp";
+    const conv = getAdapter().currency;
+    if ( !conv ) return `${cp}`;
+    const { coins } = conv.decompose(cp);
+    const parts = conv.changeDenoms.filter(d => coins[d]).map(d => `${coins[d]} ${d}`);
+    return parts.join(" ") || `0 ${conv.defaultDenom}`;
   }
 
   static async #onBuyWare(event, target) {
@@ -1108,6 +1125,12 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( !adapter.canAfford(buyer, item, qty) ) {
       dbg("vendorSheet:onBuyWare", "buyer cannot afford qty, bail", { item: item.id, buyer: buyer.id, qty });
       ui.notifications.warn(game.i18n.format("INTERACTIVE_ITEMS.Notify.NotEnoughCoin", { name: item.name }));
+      return;
+    }
+    const chargeCp = adapter.getItemChargeCp(item, qty);
+    if ( chargeCp > 0 && !adapter.planSettlement(buyer, item.parent, chargeCp) ) {
+      dbg("vendorSheet:onBuyWare", "no change available, bail", { item: item.id, buyer: buyer.id, qty });
+      ui.notifications.warn(game.i18n.format("INTERACTIVE_ITEMS.Notify.NoChange", { name: item.name }));
       return;
     }
 

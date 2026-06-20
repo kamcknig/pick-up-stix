@@ -8,6 +8,8 @@ import { createRowControl } from "../../utils/domButtons.mjs";
 import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
 import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
 import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault } from "../../utils/vendorPricing.mjs";
+import { saveDefaultInventory, computeRestockDiff, applyRestock, promptRestockRemoval }
+  from "../../utils/vendorInventory.mjs";
 
 const NPCActorSheet = dnd5e.applications.actor.NPCActorSheet;
 
@@ -442,8 +444,50 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
         if ( updates.length ) await this.actor.updateEmbeddedDocuments("Item", updates);
       }
     }));
-    row.append(label, cell);
+    const actions = document.createElement("div");
+    actions.className = "pus-shop-all-actions";
+    actions.appendChild(createRowControl({
+      iconClass: "fa-solid fa-floppy-disk",
+      titleKey: "INTERACTIVE_ITEMS.Vendor.SetInventory",
+      extraClass: "pus-shop-action",
+      onClick: () => this.#onSetInventory()
+    }));
+    actions.appendChild(createRowControl({
+      iconClass: "fa-solid fa-truck-ramp-box",
+      titleKey: "INTERACTIVE_ITEMS.Vendor.Restock",
+      extraClass: "pus-shop-action",
+      onClick: () => this.#onRestock()
+    }));
+    row.append(actions, label, cell);   // actions sit left (margin-right:auto), All label+toggle stay right
     list.parentElement.insertBefore(row, list);
+  }
+
+  /** Save the current physical inventory as this vendor's default (overwrites any prior). GM-only. */
+  async #onSetInventory() {
+    dbg("vendorSheet:onSetInventory", { vendor: this.actor.id });
+    const count = await saveDefaultInventory(this.actor);
+    ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Vendor.SetInventoryDone", { count }));
+  }
+
+  /** Restock to the saved default: always add missing items/quantities; confirm before removing extras. */
+  async #onRestock() {
+    const diff = computeRestockDiff(this.actor);
+    if ( !diff ) {
+      dbg("vendorSheet:onRestock", "no default saved, bail", { vendor: this.actor.id });
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Vendor.RestockNoDefault"));
+      return;
+    }
+    const hasExtras = diff.extraQty.length > 0 || diff.extraItems.length > 0;
+    const hasAdds = diff.toCreate.length > 0 || diff.toIncrease.length > 0;
+    if ( !hasExtras && !hasAdds ) {
+      dbg("vendorSheet:onRestock", "already matches default", { vendor: this.actor.id });
+      ui.notifications.info(game.i18n.localize("INTERACTIVE_ITEMS.Vendor.RestockNothing"));
+      return;
+    }
+    const removeExtras = hasExtras ? await promptRestockRemoval(diff) : false;
+    dbg("vendorSheet:onRestock", "applying", { vendor: this.actor.id, removeExtras, hasAdds, hasExtras });
+    const summary = await applyRestock(this.actor, diff, { removeExtras });
+    ui.notifications.info(game.i18n.format("INTERACTIVE_ITEMS.Vendor.RestockDone", summary));
   }
 
   /**

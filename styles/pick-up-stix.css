@@ -136,6 +136,12 @@
   justify-content: flex-end;
   padding-right: 8px;
 }
+.pus-shop-all-row .pus-shop-all-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;        /* push the actions to the left; ALL label + toggle stay right */
+}
 
 /* ===== GM Identification Toggle (injected into dnd5e character sheets) ===== */
 
@@ -777,8 +783,8 @@
 .vendor-sheet.dnd5e2.sheet.actor.npc .sheet-header .portrait {
   position: relative;
   flex: 0 0 200px;
-  width: 200px;
-  height: 200px;
+  width: 150px;
+  height: 150px;
   border: 5px solid var(--dnd5e-color-gold);
   border-radius: 18px;
   box-shadow: 0 0 6px var(--dnd5e-color-black);

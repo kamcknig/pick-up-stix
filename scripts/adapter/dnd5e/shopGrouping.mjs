@@ -7,9 +7,9 @@ import { vendorPriceMultiplier, groupingFactorMultiplier } from "../../utils/ven
 /** Price as { display: ceil(gp), exact: gp, denomination }, scaled by `multiplier`. */
 export function priceInGP(item, multiplier = 1) {
   const { value, denomination } = item.system?.price ?? {};
-  const conv = CONFIG.DND5E.currencies?.[denomination]?.conversion;
-  if (!value || !conv) return { display: 0, exact: 0, denomination: denomination ?? "gp" };
-  const exact = (value / conv) * multiplier;
+  const conv = getAdapter().currency;
+  if ( !value || !conv ) return { display: 0, exact: 0, denomination: denomination ?? "gp" };
+  const exact = conv.convert(value, denomination, "gp") * multiplier;
   return { display: Math.ceil(exact), exact, denomination };
 }
 

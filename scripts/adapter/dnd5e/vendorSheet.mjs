@@ -39,6 +39,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   #favorCollapsed = true;               // vendor-settings panel — always starts collapsed on open; toggled live
   #cart = new Map();   // itemId -> quantity to buy
   #renderTimer = null;
+  #backdropObserver = null;
 
   constructor(options) {
     super(options);
@@ -194,6 +195,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     await this.#injectGmShopBio();          // mirror the player storefront bio under the name (Shop tab)
     this.#wireFavorControls();              // wire favor sliders in the Shop tab (GM only)
     this.#wireSettingsControls();           // wire grouping-factor controls in the Shop tab (GM only)
+    this.#wireSettingsBackdrop();           // size the settings backdrop + observe for changes (GM only)
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
@@ -432,6 +434,48 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       range.addEventListener("change", () => commit(range));
       num.addEventListener("change", () => commit(num));
     }
+  }
+
+  /**
+   * Size the settings backdrop to span from the bottom of the (variable-height) settings panel
+   * down to the bottom of the shop content. The gradient stops are static relative to the
+   * backdrop's own top (which top:100% pins to the panel bottom), so only the height is dynamic.
+   * Difference of two getBoundingClientRect bottoms — both elements scroll together, so the gap
+   * is scroll-invariant and needs no recompute on scroll. GM only. (Foundry v13 + v14, dnd5e.)
+   */
+  #sizeSettingsBackdrop() {
+    const content = this.element.querySelector(".pus-favor-content");
+    const backdrop = content?.querySelector(":scope > .pus-settings-backdrop");
+    if ( !content || !backdrop ) return;
+    const tab = content.closest(".tab");
+    if ( !tab ) return;
+    // Use tab.scrollHeight (full content height) not getBoundingClientRect (viewport-clipped) so the
+    // backdrop reaches the true bottom of the ware list even when the sheet content overflows the
+    // visible window. Convert content's viewport bottom to tab scroll-space by adding scrollTop.
+    const tabRect = tab.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const contentBottomInScroll = (contentRect.bottom - tabRect.top) + tab.scrollTop;
+    const h = Math.max(0, tab.scrollHeight - contentBottomInScroll);
+    backdrop.style.height = `${h}px`;
+  }
+
+  /**
+   * Wire the settings backdrop: (re)observe the settings content and the shop tab so the backdrop
+   * height tracks factor-row expansion and sheet resizes, then size it once immediately. GM only;
+   * the backdrop only exists in the GM settings panel. Re-run each render (the elements are
+   * rebuilt); the observer is torn down in close().
+   */
+  #wireSettingsBackdrop() {
+    if ( !game.user.isGM ) return;
+    const content = this.element.querySelector(".pus-favor-content");
+    const tab = content?.closest(".tab");
+    if ( !content || !tab ) return;
+    if ( !this.#backdropObserver ) this.#backdropObserver = new ResizeObserver(() => this.#sizeSettingsBackdrop());
+    this.#backdropObserver.disconnect();
+    this.#backdropObserver.observe(content);
+    this.#backdropObserver.observe(tab);
+    dbg("vendorSheet:wireSettingsBackdrop", "observing settings + tab for backdrop sizing");
+    this.#sizeSettingsBackdrop();
   }
 
   /**
@@ -745,6 +789,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if (this.#updateItemHookId !== null) { Hooks.off("updateItem", this.#updateItemHookId); this.#updateItemHookId = null; }
     if (this.#queueHookId !== null) { Hooks.off("updateActor", this.#queueHookId); this.#queueHookId = null; }
     if (this.#renderTimer) { clearTimeout(this.#renderTimer); this.#renderTimer = null; }
+    if (this.#backdropObserver) { this.#backdropObserver.disconnect(); this.#backdropObserver = null; }
     return super.close(options);
   }
 

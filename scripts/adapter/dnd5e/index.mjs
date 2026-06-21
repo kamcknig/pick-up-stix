@@ -4,7 +4,9 @@ import { Dnd5eContainer } from "./container.mjs";
 import { Dnd5eSheets } from "./sheets.mjs";
 import { Dnd5eHooks } from "./hooks.mjs";
 import { Dnd5ePurchase } from "./purchase.mjs";
+import { Dnd5eTooltip } from "./tooltip.mjs";
 import Dnd5eVendorModel from "./vendorModel.mjs";
+import { buildDnd5eCurrencyConverter } from "./currency.mjs";
 
 /**
  * Concrete SystemAdapter implementation for the dnd5e game system.
@@ -24,6 +26,13 @@ export default class Dnd5eAdapter extends SystemAdapter {
 
   /** @type {string} */
   static SYSTEM_ID = "dnd5e";
+
+  #currency = null;
+
+  /** dnd5e currency converter (cp base), built lazily from CONFIG and cached. */
+  get currency() {
+    return (this.#currency ??= buildDnd5eCurrencyConverter());
+  }
 
   constructor() {
     super();
@@ -70,3 +79,4 @@ Object.assign(Dnd5eAdapter.prototype, Dnd5eContainer);
 Object.assign(Dnd5eAdapter.prototype, Dnd5eSheets);
 Object.assign(Dnd5eAdapter.prototype, Dnd5eHooks);
 Object.assign(Dnd5eAdapter.prototype, Dnd5ePurchase);
+Object.assign(Dnd5eAdapter.prototype, Dnd5eTooltip);

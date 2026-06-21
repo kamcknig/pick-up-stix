@@ -7,7 +7,7 @@ import { buildShop, DEFAULT_GROUPING, buildSettingsGroups } from "./shopGrouping
 import { createRowControl } from "../../utils/domButtons.mjs";
 import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
 import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
-import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault, getVendorGroupingFactor, getMaxPriceFactor } from "../../utils/vendorPricing.mjs";
+import { getVendorFavor, getVendorFavorFactor, getFavorMin, getFavorMax, getFavorFactorMin, getFavorFactorMax, getFavorFactorDefault, getVendorGroupingFactor, getVendorGlobalFactor, getMaxPriceFactor } from "../../utils/vendorPricing.mjs";
 import { saveDefaultInventory, computeRestockDiff, applyRestock, promptRestockRemoval }
   from "../../utils/vendorInventory.mjs";
 
@@ -177,6 +177,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#injectPortraitClip();                 // wrap the portrait so the figure masks at the frame
     this.#repositionEditToggle();               // move dnd5e's edit toggle next to the XP badge
     this.#repositionInitiativeDie();            // move initiative d20 above the vendor name (GM only)
+    this.#repositionPortraitToggle();           // move portrait/token toggle above the initiative die (GM only, edit mode)
     this.#applyShopHeaderVisibility();   // keep NPC abilities card + legendary row hidden on the Shop tab
     await this.#injectGmShopBio();          // mirror the player storefront bio under the name (Shop tab)
     this.#wireFavorControls();              // wire favor sliders in the Shop tab (GM only)
@@ -184,7 +185,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
-    this.#refreshSubtitleTooltips();
+    this.#applyWareTooltips();
     this.#injectInventoryShopToggles();
     this.#injectInventoryShopAllToggle();
     this.#fixListControlsPrefs();
@@ -238,15 +239,35 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     crXp.before(slider);
   }
 
+  /**
+   * Move dnd5e's portrait/token image toggle (`flags.dnd5e.showTokenPortrait`) from the
+   * portrait column to sit just above the relocated initiative die in the name container,
+   * left-aligned with it. GM only. The toggle is only rendered in edit mode (the template
+   * wraps it in `{{#if editable}}`), so a missing-toggle bail naturally scopes this to edit
+   * mode. Idempotent and re-checked each render since dnd5e re-renders the header part.
+   * Runs AFTER #repositionInitiativeDie so the initiative wrapper is already in the name
+   * container to anchor against. (Foundry v13 + v14, dnd5e NPC header.)
+   */
+  #repositionPortraitToggle() {
+    if ( !this.actor.isOwner ) return;
+    const input = this.element.querySelector('.sheet-header input[name="flags.dnd5e.showTokenPortrait"]');
+    const toggle = input?.closest("label.slide-toggle");
+    if ( !toggle ) return;
+    const wrapper = this.element.querySelector(".sheet-header .right.stats .top .left .initiative-wrapper");
+    if ( !wrapper ) return;
+    if ( wrapper.previousElementSibling === toggle ) return;
+    dbg("vendorSheet:repositionPortraitToggle", "moving portrait toggle above initiative die");
+    wrapper.before(toggle);
+  }
+
   /** Move dnd5e's initiative d20 from its portrait overlay to above the vendor name (GM only). */
   #repositionInitiativeDie() {
     if ( !this.actor.isOwner ) return;
-    // Name lives in .sheet-header .right.stats > .top > .left (in edit mode it's an input).
     const nameContainer = this.element.querySelector(".sheet-header .right.stats .top .left");
     if ( !nameContainer ) return;
     const name = nameContainer.querySelector(".document-name");
     if ( !name ) return;
-    if ( name.previousElementSibling?.classList.contains("initiative-wrapper") ) return; // already moved
+    if ( name.previousElementSibling?.classList.contains("initiative-wrapper") ) return;
     const wrapper = this.element.querySelector(".sheet-header .portrait .initiative-wrapper");
     if ( !wrapper ) return;
     dbg("vendorSheet:repositionInitiativeDie", "moving initiative die above vendor name");
@@ -263,15 +284,21 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( !game.user.isGM ) return;
     const rawFavor = Number(this.actor.getFlag("pick-up-stix", "favor"));
     const rawFactor = Number(this.actor.getFlag("pick-up-stix", "favorFactor"));
+    const rawGlobal = Number(this.actor.getFlag("pick-up-stix", "globalPriceFactor"));
+    const max = getMaxPriceFactor();
     const clampedFavor = Number.isFinite(rawFavor)
       ? Math.max(getFavorMin(), Math.min(getFavorMax(), Math.round(rawFavor)))
       : null;
     const clampedFactor = Number.isFinite(rawFactor)
       ? Math.max(getFavorFactorMin(), Math.min(getFavorFactorMax(), Math.round(rawFactor)))
       : null;
+    const clampedGlobal = Number.isFinite(rawGlobal)
+      ? Math.max(0, Math.min(max, Math.round(rawGlobal)))
+      : null;
     const updates = {};
     if ( clampedFavor !== null && clampedFavor !== rawFavor ) updates["flags.pick-up-stix.favor"] = clampedFavor;
     if ( clampedFactor !== null && clampedFactor !== rawFactor ) updates["flags.pick-up-stix.favorFactor"] = clampedFactor;
+    if ( clampedGlobal !== null && clampedGlobal !== rawGlobal ) updates["flags.pick-up-stix.globalPriceFactor"] = clampedGlobal;
     if ( !foundry.utils.isEmpty(updates) ) {
       dbg("vendorSheet:clampFavorFlags", { vendor: this.actor.id, updates });
       await this.actor.update(updates);
@@ -345,7 +372,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }
   }
 
-  /** Wire the grouping-factor sliders + editable numeric inputs in the settings panel (GM only). */
+  /** Wire the global price factor slider and per-grouping sliders in the settings panel (GM only). */
   #wireSettingsControls() {
     if ( !game.user.isGM ) return;
     const list = this.element.querySelector(".pus-factor-list");
@@ -353,6 +380,23 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     list.dataset.pusWired = "1";
     const max = getMaxPriceFactor();
     const clamp = (v) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+
+    // Global price factor: range + number input above the settings-by toggle.
+    const globalRoot = list.closest(".pus-favor-content-inner");
+    const globalRange = globalRoot?.querySelector(".pus-global-factor-range");
+    const globalNum   = globalRoot?.querySelector(".pus-global-factor-num");
+    if ( globalRange ) {
+      globalRange.addEventListener("input", () => { if ( globalNum ) globalNum.value = String(clamp(globalRange.value)); });
+      if ( globalNum ) globalNum.addEventListener("input", () => { globalRange.value = String(clamp(globalNum.value)); });
+      const commitGlobal = async (el) => {
+        const v = clamp(el.value);
+        dbg("vendorSheet:globalFactorChange", { vendor: this.actor.id, value: v });
+        await this.actor.setFlag("pick-up-stix", "globalPriceFactor", v);
+      };
+      globalRange.addEventListener("change", () => commitGlobal(globalRange));
+      if ( globalNum ) globalNum.addEventListener("change", () => commitGlobal(globalNum));
+    }
+
     for ( const row of list.querySelectorAll(".pus-factor-row") ) {
       const range = row.querySelector(".pus-factor-range");
       const num   = row.querySelector(".pus-factor-num");
@@ -385,21 +429,29 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    */
   changeTab(tab, group, options) {
     super.changeTab(tab, group, options);
-    if ( tab === "shop" ) this.#refreshSubtitleTooltips();
     this.#applyShopHeaderVisibility();   // swap abilities + legendary visibility with the active tab
-    this.#injectGmShopBio();               // show/hide the header bio with the active tab
+    this.#injectGmShopBio();             // show/hide the header bio with the active tab
   }
 
   /**
-   * Tooltip the full subtitle on any `.shop-ware-sub` that's visually clipped. Needs the
-   * shop content visible (a hidden tab has no layout box → scrollWidth/clientWidth are 0),
-   * so it's called from `_onRender` (player / re-render while on Shop) and `changeTab`.
+   * Decorate each shop ware's identity block (icon + name + subtitle) with a
+   * rich item tooltip via the adapter — the native dnd5e item card on dnd5e, a
+   * formatted fallback elsewhere. Replaces the old subtitle-clip tooltip; the
+   * card supersedes it (it carries the full description). Pure attribute setting
+   * (no layout reads), so it works even while the Shop tab is hidden at first
+   * render — no changeTab re-run needed.
    */
-  #refreshSubtitleTooltips() {
-    for ( const sub of this.element.querySelectorAll(".shop-ware-sub") ) {
-      if ( sub.scrollWidth > sub.clientWidth ) sub.dataset.tooltip = sub.textContent;
-      else delete sub.dataset.tooltip;
+  #applyWareTooltips() {
+    const adapter = getAdapter();
+    let wares = 0;
+    for ( const row of this.element.querySelectorAll(".shop-ware[data-item-id]") ) {
+      const item = this.actor.items.get(row.dataset.itemId);
+      const main = row.querySelector(".shop-ware-main");
+      if ( !item || !main ) continue;
+      adapter.applyItemTooltip(main, item);
+      wares++;
     }
+    dbg("vendorSheet:applyWareTooltips", { wares });
   }
 
   /**
@@ -840,6 +892,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     const physical = this.actor.items.filter(i => getAdapter().isPhysicalItem(i));
     const groups = buildSettingsGroups(physical, this.#settingsBy);
     const maxFactor = getMaxPriceFactor();
+    const globalFactor = getVendorGlobalFactor(this.actor);
     return {
       by: this.#settingsBy,
       dimensions: [
@@ -847,6 +900,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
         { key: "rarity", label: "INTERACTIVE_ITEMS.Vendor.SettingsBy.Rarity", active: this.#settingsBy === "rarity" }
       ],
       maxFactor,
+      globalFactor,
+      globalFactorDisplay: (globalFactor / 100).toFixed(2),
       rows: groups.map(g => {
         const factor = getVendorGroupingFactor(this.actor, this.#settingsBy, g.key);
         return {
@@ -937,6 +992,20 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NoBuyer"));
       return;
     }
+
+    // Pre-flight: total the cart and check buyer wealth before dispatching.
+    // Settlement feasibility (change availability) is the GM-side authoritative gate in purchaseCart.
+    const adapter = getAdapter();
+    const totalCp = cartItems.reduce((sum, [id, qty]) => {
+      const item = this.actor.items.get(id);
+      return sum + (item ? adapter.getItemChargeCp(item, qty) : 0);
+    }, 0);
+    if ( totalCp > 0 && adapter.getActorWealthCp(buyer) < totalCp ) {
+      dbg("vendorSheet:onCheckoutCart", "buyer lacks wealth, bail", { totalCp, buyer: buyer.id });
+      ui.notifications.warn(game.i18n.localize("INTERACTIVE_ITEMS.Notify.NotEnoughCoin"));
+      return;
+    }
+
     // Resolve names NOW — the GM mutates vendor stock during the purchase, so the rows may be gone
     // by the time the self-notify fires. Drop entries whose item vanished (GM notify is authoritative).
     const lines = cartItems.reduce((acc, [id, qty]) => {
@@ -1083,8 +1152,11 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
 
   /** Format a copper amount as a short coin string, e.g. 3060 → "30 gp 6 sp". */
   #formatCp(cp) {
-    const gp = Math.floor(cp / 100), sp = Math.floor((cp % 100) / 10), c = cp % 10;
-    return [gp && `${gp} gp`, sp && `${sp} sp`, c && `${c} cp`].filter(Boolean).join(" ") || "0 gp";
+    const conv = getAdapter().currency;
+    if ( !conv ) return `${cp}`;
+    const { coins } = conv.decompose(cp);
+    const parts = conv.changeDenoms.filter(d => coins[d]).map(d => `${coins[d]} ${d}`);
+    return parts.join(" ") || `0 ${conv.defaultDenom}`;
   }
 
   static async #onBuyWare(event, target) {
@@ -1108,6 +1180,12 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( !adapter.canAfford(buyer, item, qty) ) {
       dbg("vendorSheet:onBuyWare", "buyer cannot afford qty, bail", { item: item.id, buyer: buyer.id, qty });
       ui.notifications.warn(game.i18n.format("INTERACTIVE_ITEMS.Notify.NotEnoughCoin", { name: item.name }));
+      return;
+    }
+    const chargeCp = adapter.getItemChargeCp(item, qty);
+    if ( chargeCp > 0 && !adapter.planSettlement(buyer, item.parent, chargeCp) ) {
+      dbg("vendorSheet:onBuyWare", "no change available, bail", { item: item.id, buyer: buyer.id, qty });
+      ui.notifications.warn(game.i18n.format("INTERACTIVE_ITEMS.Notify.NoChange", { name: item.name }));
       return;
     }
 

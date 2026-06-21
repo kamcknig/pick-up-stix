@@ -1,15 +1,15 @@
 import { getAdapter } from "../index.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
-import { vendorPriceMultiplier, groupingFactorMultiplier } from "../../utils/vendorPricing.mjs";
+import { vendorPriceMultiplier, groupingFactorMultiplier, globalFactorMultiplier } from "../../utils/vendorPricing.mjs";
 
 /* ---------- dnd5e display helpers (system-specific; kept in the dnd5e adapter) ---------- */
 
 /** Price as { display: ceil(gp), exact: gp, denomination }, scaled by `multiplier`. */
 export function priceInGP(item, multiplier = 1) {
   const { value, denomination } = item.system?.price ?? {};
-  const conv = CONFIG.DND5E.currencies?.[denomination]?.conversion;
-  if (!value || !conv) return { display: 0, exact: 0, denomination: denomination ?? "gp" };
-  const exact = (value / conv) * multiplier;
+  const conv = getAdapter().currency;
+  if ( !value || !conv ) return { display: 0, exact: 0, denomination: denomination ?? "gp" };
+  const exact = conv.convert(value, denomination, "gp") * multiplier;
   return { display: Math.ceil(exact), exact, denomination };
 }
 
@@ -21,10 +21,11 @@ export function vendorItemMultiplier(item) {
   const vendor = item?.parent;
   if ( !vendor ) return 1;
   const favorM  = vendorPriceMultiplier(vendor);
+  const globalM = globalFactorMultiplier(vendor);
   const typeM   = groupingFactorMultiplier(vendor, "type", groupType(item));
   const rarityM = groupingFactorMultiplier(vendor, "rarity", rarityOf(item).key);
-  const m = favorM * typeM * rarityM;
-  dbg("shopGrouping:vendorItemMultiplier", { item: item.id, favorM, typeM, rarityM, m });
+  const m = favorM * globalM * typeM * rarityM;
+  dbg("shopGrouping:vendorItemMultiplier", { item: item.id, favorM, globalM, typeM, rarityM, m });
   return m;
 }
 
@@ -43,7 +44,7 @@ export function typeSubtitle(item) {
 }
 
 /** Item description as full single-line plaintext ("" if none). CSS clamps the
- *  display; the sheet adds a hover tooltip when it's visually truncated. */
+ *  visible line; the full description now appears in the ware's hover item card. */
 export function descriptionSubtitle(item) {
   const html = item.system?.description?.value;                    // HTMLField, nullable
   if (!html) return "";

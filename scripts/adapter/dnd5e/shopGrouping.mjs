@@ -93,19 +93,38 @@ const COLUMNS = {
   price: {
     id: "price", header: "INTERACTIVE_ITEMS.Vendor.Col.Price", align: "end",
     cell(item) {
-      const base = priceInGP(item, 1);
-      const sell = priceInGP(item, vendorItemMultiplier(item));
-      const gp = game.i18n.localize("DND5E.CurrencyAbbrGP");
-      const isNegative = sell.exact < 0;
-      const displayValue = Math.max(0, sell.display);
-      const fractional = !isNegative && sell.exact !== Math.trunc(sell.exact);
+      const conv = getAdapter().currency;
+      const { value, denomination } = item.system?.price ?? {};
+      if ( !value || !conv ) return { text: `0 ${conv?.defaultDenom ?? "gp"}`, classes: "pus-price" };
+
+      const basePrice = conv.toBase(value, denomination ?? conv.defaultDenom);
+      const mult = vendorItemMultiplier(item);
+      // Exact cp after factors, then float-safe ceil: kills noise (237.0000000001 → 237)
+      // and rounds any genuine sub-cp fraction up — only the smallest denomination is bumped,
+      // never a larger one. Matches getItemChargeCp so display === what the player pays.
+      const exactCp = basePrice * mult;
+      const sellBase = Math.max(0, Math.ceil(Math.round(exactCp * 1e4) / 1e4));
+
       let classes = "pus-price";
-      if ( isNegative && game.user.isGM ) classes += " pus-price-negative";
-      else if ( base.exact > 0 && sell.exact < base.exact ) classes += " pus-price-down";
-      else if ( base.exact > 0 && sell.exact > base.exact ) classes += " pus-price-up";
+      if ( exactCp < 0 && game.user.isGM ) classes += " pus-price-negative";
+      else if ( basePrice > 0 && sellBase < basePrice ) classes += " pus-price-down";
+      else if ( basePrice > 0 && sellBase > basePrice ) classes += " pus-price-up";
+
+      // decompose into whole coins; sellBase is already integer so remainder is always 0.
+      const { coins } = conv.decompose(sellBase);
+      const coinEntries = conv.changeDenoms.filter(d => coins[d]).map(d => ({
+        amount: coins[d], denom: d,
+        label: CONFIG.DND5E?.currencies?.[d]?.label ?? d
+      }));
+
+      if ( !coinEntries.length ) {
+        const d = conv.defaultDenom;
+        coinEntries.push({ amount: 0, denom: d, label: CONFIG.DND5E?.currencies?.[d]?.label ?? d });
+      }
+      // Always use the coins array so the template renders denomination icons for every price.
       return {
-        text: `${displayValue} ${gp}`,
-        tooltip: fractional ? `${Number(sell.exact.toFixed(2))} ${gp}` : null,
+        text: coinEntries.map(c => `${c.amount} ${c.denom}`).join(" "),
+        coins: coinEntries,
         classes
       };
     }

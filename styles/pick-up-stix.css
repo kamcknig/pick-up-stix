@@ -970,6 +970,22 @@
 .vendor-sheet .shop-cell.pus-price-up { color: var(--dnd5e-color-maroon, #b9412f); }
 .vendor-sheet .shop-cell.pus-price-down { color: var(--dnd5e-color-green, #4b7d3a); }
 
+/* Multi-denomination prices stack vertically, right-aligned within the cell.
+   Single-denomination prices use the plain text path and are unaffected. */
+.vendor-sheet .pus-coin-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.2;
+}
+.vendor-sheet .pus-coin-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
 /* Shop-tab sibling sections (settings panel, queue, inventory list, cart footer) share one inset. */
 .vendor-sheet .pus-favor-panel,
 .vendor-sheet .pus-queue-panel,

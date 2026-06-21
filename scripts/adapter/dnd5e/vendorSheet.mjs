@@ -48,6 +48,18 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     if ( !this.document.isOwner ) this.tabGroups.primary = "shop";
   }
 
+  /**
+   * Override dnd5e's sidebar-collapsed flag key to sanitize the actor type. The vendor
+   * sub-type `pick-up-stix.vendor` contains a dot that breaks getFlag/setFlag round-trips
+   * when used raw in a `sheetPrefs.${type}.*` path (expandObject splits on every dot,
+   * silently mis-nesting the value so reads always return undefined). Replace dots with
+   * dashes — the same fix applied in #fixListControlsPrefs. (Foundry v13 + v14, dnd5e.)
+   */
+  get _sidebarCollapsedKeyPath() {
+    const type = this.actor.type.replaceAll(".", "-");
+    return `sheetPrefs.${type}.tabs.${this.tabGroups.primary}.collapseSidebar`;
+  }
+
   static DEFAULT_OPTIONS = {
     classes: ["pick-up-stix", "vendor-sheet"],
     actions: {

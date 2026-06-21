@@ -52,6 +52,10 @@
         "Name": "Max Price Factor",
         "Hint": "Highest per-grouping price factor (percent) a vendor can set, e.g. 500 allows up to ×5.00. Minimum is always 0."
       },
+      "UseOnlyAvailableCurrency": {
+        "Name": "Use only available currency",
+        "Hint": "When on, purchases use only coins the buyer and vendor actually hold — if exact change can't be made, the item can't be bought. When off, change is created as needed."
+      },
       "InteractiveItemSettingsMenu": {
         "Name": "Interactive Item Settings",
         "Hint": "Configure GM overrides, folder organisation, container images, range defaults, and drag behaviour.",
@@ -146,6 +150,7 @@
       "PurchasedQty": "You purchased {name} ×{quantity} from {vendor}.",
       "PurchasedQtyByPlayer": "{player} purchased {name} ×{quantity} from {vendor}.",
       "NotEnoughCoin": "You can't afford {name}.",
+      "NoChange": "This purchase can't be settled with available coins.",
       "NoBuyer": "Select a token or assign a character to make a purchase.",
       "TransferError": "Failed to transfer item.",
       "NoCharacter": "No character assigned. Set your character in User Configuration.",
@@ -315,6 +320,10 @@
         "Label": "Settings by",
         "Type": "Type",
         "Rarity": "Rarity"
+      },
+      "GlobalFactor": {
+        "Label": "Global Factor",
+        "Tooltip": "Applies to all items. Compounds with other factors."
       },
       "Factor": {
         "Items": "items",

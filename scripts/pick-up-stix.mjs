@@ -218,6 +218,13 @@ Hooks.once("init", async () => {
     default: 500
   });
 
+  game.settings.register(MODULE_ID, "useOnlyAvailableCurrency", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
   // Hidden world setting that persists the install-tracker state (sent flag,
   // version, attempt count, last error). Managed entirely by installTracker.mjs.
   registerInstallTrackerSetting();

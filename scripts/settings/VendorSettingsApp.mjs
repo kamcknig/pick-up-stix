@@ -33,6 +33,7 @@ export default class VendorSettingsApp extends HandlebarsApplicationMixin(Applic
       vendorFavorMax: gs("vendorFavorMax"),
       vendorFavorFactorMax: gs("vendorFavorFactorMax"),
       vendorMaxPriceFactor: gs("vendorMaxPriceFactor"),
+      useOnlyAvailableCurrency: gs("useOnlyAvailableCurrency"),
       buttons: [{ type: "submit", icon: "fa-solid fa-save", label: "Save Settings" }]
     };
   }
@@ -45,5 +46,6 @@ export default class VendorSettingsApp extends HandlebarsApplicationMixin(Applic
     await ss("vendorFavorMax", Number(d.vendorFavorMax ?? 5));
     await ss("vendorFavorFactorMax", Number(d.vendorFavorFactorMax ?? 20));
     await ss("vendorMaxPriceFactor", Math.max(0, Number(d.vendorMaxPriceFactor ?? 500)));
+    await ss("useOnlyAvailableCurrency", !!d.useOnlyAvailableCurrency);
   }
 }

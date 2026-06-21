@@ -142,7 +142,7 @@
         </div>
         {{#each this.cells}}
         <span class="shop-cell shop-align-{{ this.align }} {{ this.classes }}"
-              {{#if this.tooltip}}data-tooltip="{{ this.tooltip }}"{{/if}}>{{ this.text }}</span>
+              {{#if this.tooltip}}data-tooltip="{{ this.tooltip }}"{{/if}}>{{#if this.coins}}<span class="pus-coin-stack">{{#each this.coins}}<span class="pus-coin-row">{{this.amount}}<i class="currency {{this.denom}}" data-tooltip="{{this.label}}"></i></span>{{/each}}</span>{{else}}{{ this.text }}{{/if}}</span>
         {{/each}}
         {{#if @root.isGM}}
         <a class="ii-row-control shop-toggle {{#if this.shopVisible}}active{{/if}}"

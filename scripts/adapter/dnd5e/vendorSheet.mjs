@@ -1112,6 +1112,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       if ( countEl ) countEl.textContent = String(cartUnits);
       const checkout = footer.querySelector(".cart-checkout");
       if ( checkout ) checkout.disabled = !(hasCart && buyer && cartCp <= wealthCp);
+      const clear = footer.querySelector(".cart-clear");
+      if ( clear ) clear.disabled = !hasCart;   // re-enable for non-owners (_toggleDisabled disabled it)
     }
   }
 

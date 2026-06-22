@@ -247,6 +247,6 @@ function buildWareRow(item, columns) {
     stock,
     multiStock: stock > 1,
     shopVisible: item.getFlag("pick-up-stix", "shopVisible") !== false,
-    cells: columns.map(c => ({ align: c.align, ...c.cell(item) }))
+    cells: columns.map(c => ({ align: c.align, id: c.id, ...c.cell(item) }))
   };
 }

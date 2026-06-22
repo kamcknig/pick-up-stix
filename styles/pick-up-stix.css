@@ -992,6 +992,30 @@
 .vendor-shop,
 .shop-cart-footer { padding: 8px 12px; }
 
+/* Ware-list filter bar — a bordered control strip above the shop list (GM + player). */
+.vendor-sheet .pus-shop-filters {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  margin: 4px 12px 0; padding: 8px 10px;
+  border: 1px solid var(--color-border-light-1, rgba(255, 255, 255, 0.25));
+  border-radius: 6px;
+}
+.vendor-sheet .pus-shop-filter { display: flex; align-items: center; gap: 6px; }
+.vendor-sheet .pus-shop-filter-label {
+  font-size: var(--font-size-12, 12px); text-transform: uppercase; opacity: 0.75;
+}
+.vendor-sheet .pus-filter-rarity { height: 26px; min-width: 120px; }
+.vendor-sheet .pus-filter-toggle { cursor: pointer; }
+.vendor-sheet .pus-filter-reset {
+  margin-left: auto;                /* right-align */
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border-radius: 4px; cursor: pointer;
+  background: none; border: 1px solid transparent;
+  color: var(--color-text-secondary, #999);
+}
+.vendor-sheet .pus-filter-reset:hover { color: var(--color-text-primary, #ddd); border-color: currentColor; }
+/* Empty-state when the affordable filter hides every ware (Phase 2). */
+.vendor-sheet .shop-filter-empty { padding: 12px; text-align: center; opacity: 0.7; }
+
 /* Collapsible panels stack their bar over their content. */
 .vendor-sheet .pus-favor-panel,
 .vendor-sheet .pus-queue-panel { display: flex; flex-direction: column; }

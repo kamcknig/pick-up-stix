@@ -120,6 +120,32 @@
   </section>
   {{/if}}
   {{/if}}
+  {{!-- Ware-list filters (all viewers). Sits below the GM queue, above the list. --}}
+  <section class="pus-shop-filters">
+    <div class="pus-shop-filter">
+      <label class="pus-shop-filter-label" for="pus-filter-rarity">
+        {{ localize "INTERACTIVE_ITEMS.Vendor.Filter.Rarity" }}
+      </label>
+      <select id="pus-filter-rarity" class="pus-filter-rarity">
+        <option value="" {{#unless filters.rarity}}selected{{/unless}}>
+          {{ localize "INTERACTIVE_ITEMS.Vendor.Filter.All" }}
+        </option>
+        {{#each filters.rarityOptions}}
+        <option value="{{ this.key }}" {{#if this.selected}}selected{{/if}}>{{ this.label }}</option>
+        {{/each}}
+      </select>
+    </div>
+    <label class="pus-shop-filter pus-filter-toggle"
+           data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.Filter.AffordableTooltip' }}">
+      <slide-toggle class="pus-filter-affordable" {{#if filters.affordable}}checked{{/if}}></slide-toggle>
+      <span>{{ localize "INTERACTIVE_ITEMS.Vendor.Filter.Affordable" }}</span>
+    </label>
+    <button type="button" class="pus-filter-reset" data-action="resetFilters"
+            data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.Filter.Reset' }}"
+            aria-label="{{ localize 'INTERACTIVE_ITEMS.Vendor.Filter.Reset' }}">
+      <i class="fa-solid fa-arrow-rotate-left"></i>
+    </button>
+  </section>
   <section class="vendor-shop" style="--shop-cols: {{ shop.columnTemplate }};">
     {{#each shop.groups}}
     <div class="shop-group" data-group-key="{{ this.key }}">
@@ -142,7 +168,7 @@
           </div>
         </div>
         {{#each this.cells}}
-        <span class="shop-cell shop-align-{{ this.align }} {{ this.classes }}"
+        <span class="shop-cell shop-align-{{ this.align }} {{ this.classes }}" data-col="{{ this.id }}"
               {{#if this.tooltip}}data-tooltip="{{ this.tooltip }}"{{/if}}>{{#if this.coins}}<span class="pus-coin-stack">{{#each this.coins}}<span class="pus-coin-row">{{this.amount}}<i class="currency {{this.denom}}" data-tooltip="{{this.label}}"></i></span>{{/each}}</span>{{else}}{{ this.text }}{{/if}}</span>
         {{/each}}
         {{#if @root.isGM}}
@@ -184,6 +210,9 @@
     <p class="vendor-ware-empty">{{ localize "INTERACTIVE_ITEMS.Vendor.Empty" }}</p>
     {{/each}}
   </section>
+  <p class="shop-filter-empty" style="display:none;">
+    {{ localize "INTERACTIVE_ITEMS.Vendor.Filter.NoneAffordable" }}
+  </p>
   {{#if canShop}}
   <footer class="shop-cart-footer">
     <span class="cart-count-badge" data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.CartCount" }}">

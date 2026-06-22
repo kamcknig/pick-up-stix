@@ -3,7 +3,7 @@ import { getPlayerCandidateTokens, purchaseItem, purchaseCart } from "../../tran
 import { dispatchGM } from "../../utils/gmDispatch.mjs";
 import { notifyPurchase } from "../../utils/notify.mjs";
 import { dbg } from "../../utils/debugLog.mjs";
-import { buildShop, DEFAULT_GROUPING, buildSettingsGroups } from "./shopGrouping.mjs";
+import { buildShop, DEFAULT_GROUPING, buildSettingsGroups, rarityOf } from "./shopGrouping.mjs";
 import { createRowControl } from "../../utils/domButtons.mjs";
 import { emitSocketEvent } from "../../socket/SocketHandler.mjs";
 import { getVendorQueue, findUserVendorQueues, promptVendorQueueSwitch } from "../../utils/vendorQueue.mjs";
@@ -38,6 +38,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   #expandedFactorRows = new Set();      // `${dimension}:${key}` rows currently expanded (survives re-render)
   #favorCollapsed = true;               // vendor-settings panel — always starts collapsed on open; toggled live
   #cart = new Map();   // itemId -> quantity to buy
+  #filterRarity = "";          // "" = All; else a CONFIG.DND5E.itemRarity key
+  #filterAffordable = false;   // hide/clamp wares the resolved buyer can't afford
   #renderTimer = null;
   #backdropObserver = null;
 
@@ -73,7 +75,8 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       toggleFavor: Dnd5eVendorSheet.#onToggleFavor,
       settingsBy: Dnd5eVendorSheet.#onSettingsBy,
       toggleFactorRow: Dnd5eVendorSheet.#onToggleFactorRow,
-      toggleQueue: Dnd5eVendorSheet.#onToggleQueue
+      toggleQueue: Dnd5eVendorSheet.#onToggleQueue,
+      resetFilters: Dnd5eVendorSheet.#onResetFilters
     }
   };
 
@@ -196,6 +199,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     this.#wireFavorControls();              // wire favor sliders in the Shop tab (GM only)
     this.#wireSettingsControls();           // wire grouping-factor controls in the Shop tab (GM only)
     this.#wireSettingsBackdrop();           // size the settings backdrop + observe for changes (GM only)
+    this.#wireFilterControls();   // re-enable filter controls (core _toggleDisabled disables them for players)
     // Re-evaluate cart state and buy-button gating after core _toggleDisabled has run.
     // #refreshCart owns the disabled state for both basket toggles and buy buttons.
     this.#refreshCart();
@@ -217,6 +221,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       // Cart quantity inputs (multi-stock wares). One delegated change listener on the root,
       // which survives shop-part re-renders and is torn down with the element on close.
       this.element.addEventListener("change", this.#onCartQtyChange.bind(this));
+      // Ware-filter controls (rarity select, affordable toggle). Second delegated change listener,
+      // torn down with the element on close like the cart-qty one.
+      this.element.addEventListener("change", this.#onFilterChange.bind(this));
     }
   }
 
@@ -780,6 +787,9 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     // The sheet instance is cached per-actor and reused on reopen, so reset the vendor-settings
     // panel to collapsed here — otherwise it reopens in whatever state it was last left in.
     this.#favorCollapsed = true;
+    // Ware filters are view-only state — reset so the sheet always reopens unfiltered.
+    this.#filterRarity = "";
+    this.#filterAffordable = false;
   }
 
   async close(options = {}) {
@@ -983,6 +993,7 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       context.isGM = game.user.isGM;
       context.queue = this.#prepareQueue();
       context.canShop = this.#canShop();
+      context.filters = this.#prepareFilters();
       if ( context.isGM ) context.favor = this.#prepareFavorContext();
       if ( context.isGM ) context.settings = this.#prepareSettingsContext();
       if ( context.isGM ) context.queueCollapsed = this.#isQueueCollapsed();
@@ -1011,6 +1022,64 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
   }
 
   /**
+   * Per-viewer ware-filter context. Rarity options come from the rarities actually present in the
+   * eligible (physical, in-stock, shop-visible) inventory, ordered by the dnd5e rarity ladder. A
+   * stored rarity that's no longer present is reset to "All" so the select can't show a dead value.
+   */
+  #prepareFilters() {
+    const eligible = this.actor.items.filter(i => this.#isShopEligible(i));
+    const options = buildSettingsGroups(eligible, "rarity");   // [{key,label,count}] ladder-ordered
+    if ( this.#filterRarity && !options.some(o => o.key === this.#filterRarity) ) {
+      dbg("vendorSheet:prepareFilters", "stored rarity no longer present, resetting", { rarity: this.#filterRarity });
+      this.#filterRarity = "";
+    }
+    return {
+      rarity: this.#filterRarity,
+      affordable: this.#filterAffordable,
+      rarityOptions: options.map(o => ({ key: o.key, label: o.label, selected: o.key === this.#filterRarity }))
+    };
+  }
+
+  /**
+   * Re-enable the ware-filter controls. Core DocumentSheetV2#_toggleDisabled force-disables every
+   * .window-content form control on a non-owner (player) sheet from its async _onRender, so the
+   * filter select / toggle / reset would be dead for players without this. Idempotent — runs each
+   * render on the freshly-built bar.
+   */
+  #wireFilterControls() {
+    const bar = this.element.querySelector(".pus-shop-filters");
+    if ( !bar ) return;
+    for ( const el of bar.querySelectorAll("select, slide-toggle, input, button") ) el.disabled = false;
+  }
+
+  /**
+   * Delegated change handler for the ware-filter bar. The rarity select changes group membership →
+   * full re-render (rebuilds #prepareShop). The affordable toggle is a live DOM filter → re-run
+   * #refreshCart only (no re-render, no flicker); its filtering pass is added in Phase 2.
+   */
+  #onFilterChange(event) {
+    const t = event.target;
+    if ( t?.classList?.contains("pus-filter-rarity") ) {
+      this.#filterRarity = t.value || "";
+      dbg("vendorSheet:onFilterChange", "rarity", { rarity: this.#filterRarity });
+      this.render();
+    } else if ( t?.classList?.contains("pus-filter-affordable") ) {
+      this.#filterAffordable = !!t.checked;
+      dbg("vendorSheet:onFilterChange", "affordable", { affordable: this.#filterAffordable });
+      this.#refreshCart();   // DOM-only; affordable DOM pass added in Phase 2
+    }
+  }
+
+  /** Reset both ware filters to their default unselected state (rarity "All", affordable off). */
+  static #onResetFilters(event, target) {
+    if ( !this.#filterRarity && !this.#filterAffordable ) return;
+    dbg("vendorSheet:onResetFilters", { vendor: this.actor.id });
+    this.#filterRarity = "";
+    this.#filterAffordable = false;
+    this.render();
+  }
+
+  /**
    * Build the grouped shop structure from the vendor's physical items.
    * Delegates bucketing, column cell building, and sort order to the
    * grouping framework in shopGrouping.mjs — all dnd5e display logic
@@ -1019,7 +1088,11 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
    * @returns {{ groupingId, columnTemplate, headers, groups }}
    */
   #prepareShop() {
-    const items = this.actor.items.filter(i => this.#isShopEligible(i));
+    let items = this.actor.items.filter(i => this.#isShopEligible(i));
+    if ( this.#filterRarity ) {
+      items = items.filter(i => rarityOf(i).key === this.#filterRarity);
+      dbg("vendorSheet:prepareShop", "rarity filter applied", { rarity: this.#filterRarity, items: items.length });
+    }
     return buildShop(items, this.#groupingId);
   }
 
@@ -1115,6 +1188,11 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
     }
     const hasCart = this.#cart.size > 0;
 
+    // Budget left for NEW units after what's already committed to the cart. Drives the Affordable
+    // filter's per-row clamping below. No buyer → Infinity (filter is a deliberate no-op).
+    const remaining = (buyer ? wealthCp : Infinity) - cartCp;
+    let anyVisible = false;
+
     for ( const row of this.element.querySelectorAll(".shop-ware") ) {
       const id = row.dataset.itemId;
       const item = this.actor.items.get(id);
@@ -1122,6 +1200,26 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
       const inCart = this.#cart.has(id);
       const unitCp = adapter.getItemChargeCp(item, 1);
       const stock = adapter.getItemQuantity(item);
+
+      // Affordable cap: units already in the cart are paid for, so they always count; on top of
+      // those, only as many extra as `remaining` covers, capped at live stock. unitCp<=0 (free) →
+      // full stock. cap is never below the current cart qty, so toggling never auto-drops a choice.
+      const cartQty = inCart ? (this.#cart.get(id) ?? 0) : 0;
+      const affordableExtra = unitCp <= 0 ? stock : Math.max(0, Math.floor(remaining / unitCp));
+      const cap = Math.min(stock, cartQty + affordableExtra);
+      const effMax = this.#filterAffordable ? cap : stock;
+
+      if ( this.#filterAffordable ) {
+        const show = inCart || cap >= 1;
+        row.style.display = show ? "" : "none";
+        if ( show ) anyVisible = true;
+      } else {
+        row.style.display = "";
+        anyVisible = true;
+      }
+      // Stock cell reflects the affordable cap while filtering, the true stock otherwise.
+      const stockCell = row.querySelector('.shop-cell[data-col="stock"]');
+      if ( stockCell ) stockCell.textContent = `×${effMax}`;
 
       const basket = row.querySelector(".shop-cart-toggle");
       if ( basket ) {
@@ -1140,12 +1238,23 @@ export default class Dnd5eVendorSheet extends NPCActorSheet {
         const qtyVal = qtyWrap.querySelector(".qty-val");
         if ( qtyVal ) {
           qtyVal.disabled = !inCart;   // re-enable for non-owners (core _toggleDisabled disabled it)
-          qtyVal.max = String(stock);
+          qtyVal.max = String(effMax);
           if ( inCart ) qtyVal.value = String(this.#cart.get(id));
         }
         for ( const step of qtyWrap.querySelectorAll(".qty-step") ) step.disabled = !inCart;
       }
     }
+
+    // Hide a group's header when the filter has hidden all of its wares; show the empty-state
+    // placeholder when the affordable filter has hidden the entire list.
+    for ( const group of this.element.querySelectorAll(".shop-group") ) {
+      const wares = group.querySelectorAll(".shop-ware");
+      const groupVisible = [...wares].some(w => w.style.display !== "none");
+      const header = group.querySelector(".shop-group-header");
+      if ( header ) header.style.display = groupVisible ? "" : "none";
+    }
+    const empty = this.element.querySelector(".shop-filter-empty");
+    if ( empty ) empty.style.display = (this.#filterAffordable && !anyVisible) ? "" : "none";
 
     // Footer: total + unit count, visibility animation, and checkout enable/disable.
     const footer = this.element.querySelector(".shop-cart-footer");

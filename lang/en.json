@@ -302,6 +302,14 @@
       "ShopTab": "Shop",
       "Col": { "Rarity": "Rarity", "Stock": "Stock", "Price": "Price" },
       "Group": { "Type": "Type" },
+      "Filter": {
+        "Rarity": "Rarity",
+        "All": "All",
+        "Affordable": "Affordable",
+        "AffordableTooltip": "Hide wares you can't afford. Stacks show only the quantity you can buy.",
+        "Reset": "Reset filters",
+        "NoneAffordable": "Nothing here is affordable right now."
+      },
       "ToggleShopVisible": "Show / hide in shop",
       "AddToCart": "Add to / remove from cart",
       "ClearCart": "Clear cart",

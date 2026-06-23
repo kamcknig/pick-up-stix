@@ -95,7 +95,7 @@ const COLUMNS = {
     cell(item) {
       const conv = getAdapter().currency;
       const { value, denomination } = item.system?.price ?? {};
-      if ( !value || !conv ) return { text: `0 ${conv?.defaultDenom ?? "gp"}`, classes: "pus-price" };
+      if ( !value || !conv ) return { text: "0", classes: "pus-price" };
 
       const basePrice = conv.toBase(value, denomination ?? conv.defaultDenom);
       const mult = vendorItemMultiplier(item);
@@ -110,18 +110,15 @@ const COLUMNS = {
       else if ( basePrice > 0 && sellBase < basePrice ) classes += " pus-price-down";
       else if ( basePrice > 0 && sellBase > basePrice ) classes += " pus-price-up";
 
+      // A free ware shows a bare "0" — no denomination/coin appended.
+      if ( sellBase <= 0 ) return { text: "0", classes };
+
       // decompose into whole coins; sellBase is already integer so remainder is always 0.
       const { coins } = conv.decompose(sellBase);
       const coinEntries = conv.changeDenoms.filter(d => coins[d]).map(d => ({
         amount: coins[d], denom: d,
         label: CONFIG.DND5E?.currencies?.[d]?.label ?? d
       }));
-
-      if ( !coinEntries.length ) {
-        const d = conv.defaultDenom;
-        coinEntries.push({ amount: 0, denom: d, label: CONFIG.DND5E?.currencies?.[d]?.label ?? d });
-      }
-      // Always use the coins array so the template renders denomination icons for every price.
       return {
         text: coinEntries.map(c => `${c.amount} ${c.denom}`).join(" "),
         coins: coinEntries,

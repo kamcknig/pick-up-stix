@@ -1,0 +1,308 @@
+{{!-- pf2e vendor sheet (ApplicationV1). Header + Inventory tab (reuses pf2e's
+      native inventory partials — same look/controls as an NPC's inventory) +
+      Shop tab (read-only ware list from buildShop). --}}
+<form class="{{cssClass}}" autocomplete="off">
+  <header class="vendor-sheet-header">
+    <img class="profile" src="{{actor.img}}" data-action="editActorImage"
+         title="{{actor.name}}" alt="{{actor.name}}"/>
+    <div class="vendor-header-fields">
+      <input type="text" name="name" value="{{actor.name}}" placeholder="{{localize 'Name'}}"
+             {{#unless editable}}disabled{{/unless}}/>
+    </div>
+  </header>
+
+  <nav class="sheet-tabs tabs" data-group="primary">
+    {{#if isGM}}
+    <a class="item" data-tab="inventory">
+      <i class="fa-solid fa-box-open"></i> {{localize "PF2E.TabInventoryLabel"}}
+    </a>
+    {{/if}}
+    <a class="item" data-tab="shop">
+      <i class="fa-solid fa-store"></i> {{localize "INTERACTIVE_ITEMS.Vendor.ShopTab"}}
+    </a>
+  </nav>
+
+  <section class="sheet-body">
+    {{#if isGM}}
+    <section class="tab inventory item-container" data-container-type="actorInventory"
+             data-group="primary" data-tab="inventory">
+      {{#if owner}}
+        {{> (resolvePath "templates/actors/partials/coinage.hbs") owner=owner}}
+      {{/if}}
+      {{> (resolvePath "templates/actors/partials/inventory-header.hbs")}}
+      {{!-- GM shop-management toolbar: snapshot the current stock as the default,
+            restock to it, and a master toggle that adds/removes every ware. --}}
+      <div class="pus-shop-toolbar">
+        <button type="button" class="pus-shop-save"
+                data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.SetInventory'}}"
+                aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.SetInventory'}}">
+          <i class="fa-solid fa-floppy-disk"></i>
+        </button>
+        <button type="button" class="pus-shop-restock"
+                data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.Restock'}}"
+                aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.Restock'}}">
+          <i class="fa-solid fa-truck-ramp-box"></i>
+        </button>
+        <span class="pus-shop-all-label">{{localize 'INTERACTIVE_ITEMS.Vendor.AllShop'}}</span>
+        <button type="button" class="pus-shop-all-toggle {{#if allVisible}}active{{/if}}"
+                data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.ToggleAllShop'}}"
+                aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.ToggleAllShop'}}">
+          <i class="fa-solid fa-store"></i>
+        </button>
+      </div>
+      {{> (resolvePath "templates/actors/partials/inventory.hbs")}}
+      {{!-- encumbrance/bulk footer intentionally omitted: vendors aren't creatures --}}
+    </section>
+    {{/if}}
+
+    {{!-- Shop reuses pf2e's inventory row chrome (.inventory / .inventory-list /
+          ul.items / .data / .item-name / .item-icon) so rows match the Inventory
+          tab exactly; only the header band colour differs (set via CSS var). --}}
+    <div class="tab shop inventory" data-group="primary" data-tab="shop">
+      {{!-- GM pricing settings: Favor + per-bucket price factors. A collapsible panel
+            whose content drops as an overlay over the ware list when expanded. --}}
+      {{#if isGM}}
+      <section class="pus-collapse-panel pus-favor-panel {{#if favor.collapsed}}collapsed{{/if}}">
+        <button type="button" class="pus-collapse-bar"
+                data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.SettingsToggle' }}"
+                aria-expanded="{{#if favor.collapsed}}false{{else}}true{{/if}}">
+          <span class="pus-collapse-title">{{ localize 'INTERACTIVE_ITEMS.Vendor.Settings' }}</span>
+          <i class="fa-solid fa-chevron-down pus-collapse-caret"></i>
+        </button>
+        <div class="pus-favor-content">
+          <div class="pus-settings-backdrop" aria-hidden="true"></div>
+          <div class="pus-favor-content-inner">
+            <div class="pus-favor-controls">
+              <div class="pus-favor-control">
+                <label class="pus-favor-label" data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.FavorTooltip' }}">
+                  {{ localize 'INTERACTIVE_ITEMS.Vendor.Favor' }}
+                </label>
+                <div class="pus-favor-slider">
+                  <input type="range" class="pus-favor-range" data-flag="favor"
+                         min="{{ favor.favorMin }}" max="{{ favor.favorMax }}" step="1" value="{{ favor.value }}" />
+                  <span class="pus-favor-value">{{ favor.valueDisplay }}</span>
+                </div>
+              </div>
+              <div class="pus-favor-control">
+                <label class="pus-favor-label" data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.FavorFactorTooltip' }}">
+                  {{ localize 'INTERACTIVE_ITEMS.Vendor.FavorFactor' }}
+                </label>
+                <div class="pus-favor-slider">
+                  <input type="range" class="pus-favor-range" data-flag="favorFactor"
+                         min="{{ favor.factorMin }}" max="{{ favor.factorMax }}" step="1" value="{{ favor.factor }}" />
+                  <span class="pus-favor-value">{{ favor.factorDisplay }}</span>
+                </div>
+              </div>
+            </div>
+            <hr class="pus-settings-divider" />
+
+            <div class="pus-favor-control">
+              <label class="pus-favor-label" data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.GlobalFactor.Tooltip' }}">
+                {{ localize 'INTERACTIVE_ITEMS.Vendor.GlobalFactor.Label' }}
+              </label>
+              <div class="pus-factor-slider-row">
+                <input type="range" class="pus-factor-range pus-global-factor-range" min="0" max="{{ settings.maxFactor }}"
+                       step="1" value="{{ settings.globalFactor }}" />
+                <input type="number" class="pus-factor-num pus-global-factor-num" min="0" max="{{ settings.maxFactor }}"
+                       step="1" value="{{ settings.globalFactor }}" />
+              </div>
+              <p class="hint pus-factor-hint">{{ localize 'INTERACTIVE_ITEMS.Vendor.Factor.Hint' }} {{ settings.maxFactor }}%</p>
+            </div>
+
+            <div class="pus-settings-by">
+              <span class="pus-settings-by-label">{{ localize 'INTERACTIVE_ITEMS.Vendor.SettingsBy.Label' }}</span>
+              <div class="pus-settings-by-toggle">
+                {{#each settings.dimensions}}
+                <button type="button" class="pus-settings-by-btn {{#if this.active}}active{{/if}}"
+                        data-dimension="{{ this.key }}"
+                        aria-pressed="{{#if this.active}}true{{else}}false{{/if}}">
+                  {{ localize this.label }}
+                </button>
+                {{/each}}
+              </div>
+            </div>
+
+            <div class="pus-factor-list">
+              {{#each settings.rows}}
+              <div class="pus-factor-row {{#if this.expanded}}expanded{{/if}}"
+                   data-dimension="{{ this.dimension }}" data-key="{{ this.key }}">
+                <button type="button" class="pus-factor-head"
+                        aria-expanded="{{#if this.expanded}}true{{else}}false{{/if}}">
+                  <span class="pus-factor-name {{ this.colorClass }}">{{ this.label }}</span>
+                  <span class="pus-factor-count">{{ this.count }} {{ localize 'INTERACTIVE_ITEMS.Vendor.Factor.Items' }}</span>
+                  <span class="pus-factor-mult">&times;{{ this.factorDisplay }}</span>
+                  <i class="fa-solid fa-chevron-down pus-factor-caret"></i>
+                </button>
+                <div class="pus-factor-body">
+                  <div class="pus-factor-body-inner">
+                    <div class="pus-factor-slider-row">
+                      <input type="range" class="pus-factor-range" min="0" max="{{ ../settings.maxFactor }}"
+                             step="1" value="{{ this.factor }}" />
+                      <input type="number" class="pus-factor-num" min="0" max="{{ ../settings.maxFactor }}"
+                             step="1" value="{{ this.factor }}" />
+                    </div>
+                    <p class="hint pus-factor-hint">{{ localize 'INTERACTIVE_ITEMS.Vendor.Factor.Hint' }} {{ ../settings.maxFactor }}%</p>
+                  </div>
+                </div>
+              </div>
+              {{else}}
+              <p class="pus-factor-empty">{{ localize 'INTERACTIVE_ITEMS.Vendor.Factor.Empty' }}</p>
+              {{/each}}
+            </div>
+          </div>
+        </div>
+      </section>
+      {{/if}}
+
+      {{!-- Shopping queue. GM: a collapsible panel; players: a plain strip. Both see
+            who is shopping now (active, first + larger) and who is waiting. --}}
+      {{#if queue.length}}
+      {{#if isGM}}
+      <section class="pus-collapse-panel pus-queue-panel {{#if queueCollapsed}}collapsed{{/if}}">
+        <button type="button" class="pus-collapse-bar"
+                data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Toggle' }}"
+                aria-expanded="{{#if queueCollapsed}}false{{else}}true{{/if}}">
+          <span class="pus-collapse-title">{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Title' }}</span>
+          <i class="fa-solid fa-circle-exclamation pus-collapse-alert"
+             data-tooltip="{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Waiting' }}"></i>
+          <i class="fa-solid fa-chevron-down pus-collapse-caret"></i>
+        </button>
+        <div class="pus-queue-content">
+          <div class="vendor-queue pus-gm-queue">
+            {{#each queue}}
+            <div class="vendor-queue-shopper {{#if this.active}}active{{/if}} {{#if this.isSelf}}self{{/if}}"
+                 data-actor-id="{{ this.actorId }}"
+                 data-tooltip="{{#if this.active}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Active' }}{{else}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Waiting' }}{{/if}}">
+              <div class="vendor-queue-portrait" {{#if this.color}}style="--shopper-color: {{ this.color }};"{{/if}}>
+                <img src="{{ this.img }}" alt="{{ this.name }}" />
+              </div>
+              <span class="vendor-queue-name">{{ this.name }}</span>
+            </div>
+            {{/each}}
+          </div>
+        </div>
+      </section>
+      {{else}}
+      <div class="vendor-queue pus-player-queue">
+        {{#each queue}}
+        <div class="vendor-queue-shopper {{#if this.active}}active{{/if}} {{#if this.isSelf}}self{{/if}}"
+             data-actor-id="{{ this.actorId }}"
+             data-tooltip="{{#if this.active}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Active' }}{{else}}{{ localize 'INTERACTIVE_ITEMS.Vendor.Queue.Waiting' }}{{/if}}">
+          <div class="vendor-queue-portrait" {{#if this.color}}style="--shopper-color: {{ this.color }};"{{/if}}>
+            <img src="{{ this.img }}" alt="{{ this.name }}" />
+          </div>
+          <span class="vendor-queue-name">{{ this.name }}</span>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+      {{/if}}
+
+      {{!-- Ware filters (all viewers): rarity select + affordable toggle + reset. --}}
+      <section class="pus-shop-filters">
+        <div class="pus-shop-filter">
+          <label class="pus-shop-filter-label" for="pus-filter-rarity">
+            {{localize 'INTERACTIVE_ITEMS.Vendor.Filter.Rarity'}}
+          </label>
+          <select id="pus-filter-rarity" class="pus-filter-rarity">
+            <option value="" {{#unless filters.rarity}}selected{{/unless}}>
+              {{localize 'INTERACTIVE_ITEMS.Vendor.Filter.All'}}
+            </option>
+            {{#each filters.rarityOptions}}
+            <option value="{{this.key}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
+          </select>
+        </div>
+        <button type="button" class="pus-shop-filter pus-filter-affordable {{#if filters.affordable}}active{{/if}}"
+                data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.Filter.AffordableTooltip'}}"
+                aria-pressed="{{#if filters.affordable}}true{{else}}false{{/if}}">
+          <i class="fa-solid fa-coins"></i>
+          <span>{{localize 'INTERACTIVE_ITEMS.Vendor.Filter.Affordable'}}</span>
+        </button>
+        <button type="button" class="pus-filter-reset"
+                data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.Filter.Reset'}}"
+                aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.Filter.Reset'}}">
+          <i class="fa-solid fa-arrow-rotate-left"></i>
+        </button>
+      </section>
+
+      <section class="pus-shop-list inventory-list directory-list inventory-pane">
+        {{#each shop.groups}}
+        <header data-group-key="{{this.key}}">
+          <h3 class="item-name">{{this.title}}</h3>
+          {{#each ../shop.headers}}
+          <span class="pus-shop-col col-{{this.id}} shop-align-{{this.align}}">{{localize this.label}}</span>
+          {{/each}}
+          {{#if @root.canShop}}<span class="pus-shop-col col-controls"></span>{{/if}}
+        </header>
+        <ul class="items">
+          {{#each this.wares}}
+          <li data-item-id="{{this.id}}" draggable="true">
+            <div class="data" data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.ViewDetails'}}">
+              <div class="item-name">
+                <a class="item-image"><img class="item-icon" src="{{this.img}}" alt="{{this.name}}"/></a>
+                <h4 class="name rarity-{{this.rarity}}">
+                  <span class="pus-ware-name">{{this.name}}</span>
+                  {{#if this.subtitle}}<span class="pus-ware-sub">{{this.subtitle}}</span>{{/if}}
+                </h4>
+              </div>
+              {{#each this.cells}}
+              <span class="pus-shop-col col-{{this.id}} shop-align-{{this.align}} {{this.classes}}">{{#if this.coins}}<span class="pus-coin-stack">{{#each this.coins}}<span class="pus-coin-row">{{this.amount}} <span class="pus-coin-img pus-coin-{{this.denom}}" data-tooltip="{{this.label}}"></span></span>{{/each}}</span>{{else}}{{this.text}}{{/if}}</span>
+              {{/each}}
+              {{#if @root.canShop}}
+              <span class="pus-shop-col col-controls">
+                <button type="button" class="shop-cart-toggle"
+                        data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.AddToCart'}}"
+                        aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.AddToCart'}}">
+                  <i class="fa-solid fa-basket-shopping"></i>
+                </button>
+                <button type="button" class="vendor-buy"
+                        data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.Buy'}}"
+                        aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.Buy'}}">
+                  <i class="fa-solid fa-coins"></i>
+                </button>
+              </span>
+              {{/if}}
+            </div>
+            {{#if @root.canShop}}{{#if this.multiStock}}
+            <div class="shop-ware-qty">
+              <span class="shop-ware-qty-label">{{localize "INTERACTIVE_ITEMS.Vendor.CartQty"}}</span>
+              <button type="button" class="qty-step" data-step="-1" tabindex="-1" data-tooltip="-1"><i class="fa-solid fa-minus"></i></button>
+              <input type="number" class="qty-val" min="1" max="{{this.stock}}" value="1" step="1"
+                     aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.CartQty'}}"/>
+              <button type="button" class="qty-step" data-step="1" tabindex="-1" data-tooltip="+1"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            {{/if}}{{/if}}
+          </li>
+          {{/each}}
+        </ul>
+        {{else}}
+        <p class="vendor-ware-empty">{{localize "INTERACTIVE_ITEMS.Vendor.Empty"}}</p>
+        {{/each}}
+      </section>
+      <p class="shop-filter-empty" style="display:none;">
+        {{localize "INTERACTIVE_ITEMS.Vendor.Filter.NoneAffordable"}}
+      </p>
+      {{#if canShop}}
+      <footer class="shop-cart-footer">
+        <span class="cart-count-badge" data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.CartCount'}}">
+          <i class="fa-solid fa-basket-shopping"></i> &times;<span class="cart-count">0</span>
+        </span>
+        <span class="cart-summary">{{localize "INTERACTIVE_ITEMS.Vendor.CartTotal"}}: <span class="cart-total">0</span></span>
+        <div class="cart-actions">
+          <button type="button" class="cart-clear"
+                  data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.ClearCart'}}"
+                  aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.ClearCart'}}">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+          <button type="button" class="cart-checkout"
+                  data-tooltip="{{localize 'INTERACTIVE_ITEMS.Vendor.Buy'}}"
+                  aria-label="{{localize 'INTERACTIVE_ITEMS.Vendor.Buy'}}">
+            <i class="fa-solid fa-coins"></i>
+          </button>
+        </div>
+      </footer>
+      {{/if}}
+    </div>
+  </section>
+</form>

@@ -101,6 +101,8 @@
             data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Queue.Toggle" }}"
             aria-expanded="{{#if queueCollapsed}}false{{else}}true{{/if}}">
       <span class="pus-collapse-title">{{ localize "INTERACTIVE_ITEMS.Vendor.Queue.Title" }}</span>
+      <i class="fa-solid fa-circle-exclamation pus-collapse-alert"
+         data-tooltip="{{ localize "INTERACTIVE_ITEMS.Vendor.Queue.Waiting" }}"></i>
       <i class="fa-solid fa-chevron-down pus-collapse-caret"></i>
     </button>
     <div class="pus-queue-content">

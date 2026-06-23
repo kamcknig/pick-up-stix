@@ -4,8 +4,9 @@ A vendor is a shopkeeper actor that players can buy from in-world. The GM stocks
 it with wares, sets its prices, and places it on the canvas; players open it to
 browse a storefront and purchase items into their own inventory.
 
-> **System support:** Vendors are currently a **dnd5e-only** feature. On pf2e and
-> in generic mode the vendor sheet is not available.
+> **System support:** Vendors are available on **dnd5e** and **pf2e**, each
+> following its own sheet conventions. In generic mode the vendor sheet is not
+> available.
 
 ## Creating and stocking a vendor
 
@@ -21,10 +22,10 @@ remove everything at once.
 
 ## The shop
 
-The vendor sheet adds a **Shop** tab. GMs see it alongside the full set of normal
-actor tabs (features, inventory, spells, etc.); players see a focused
-storefront-only view. The storefront shows the vendor's public description, the
-list of for-sale items with rarity, stock, and price, and a shopping queue.
+The vendor sheet adds a **Shop** tab alongside the system's normal inventory
+view. GMs use the inventory view to stock and manage the vendor; players see a
+focused storefront-only view. The storefront shows the list of for-sale items
+with rarity, stock, and price, and a shopping queue.
 
 ## Buying
 

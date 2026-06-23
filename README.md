@@ -18,7 +18,7 @@ system's own item and container sheets for a seamless experience.
 - **[Vendors](docs/vendor.md)** — Shopkeeper actors players can buy from. GMs
   stock wares and set prices with an adjustable Favor discount/surcharge; players
   browse a storefront and check out, served one at a time through a shopping
-  queue. *(dnd5e only.)*
+  queue.
 - **[Light-emitting items](docs/lighting.md)** — Give any interactive item a
   light source that follows it on the canvas, in a player's pack, or inside an
   open container, layered on top of the carrier's own light.

@@ -300,6 +300,8 @@
       "Buy": "Buy",
       "Empty": "This vendor has nothing for sale.",
       "ShopTab": "Shop",
+      "Delete": "Delete",
+      "StockHint": "Drag items here to stock the vendor. Adjust quantity or remove with the controls on each row.",
       "Col": { "Rarity": "Rarity", "Stock": "Stock", "Price": "Price" },
       "Group": { "Type": "Type" },
       "Filter": {
@@ -311,6 +313,7 @@
         "NoneAffordable": "Nothing here is affordable right now."
       },
       "ToggleShopVisible": "Show / hide in shop",
+      "ViewDetails": "Press to view details",
       "AddToCart": "Add to / remove from cart",
       "ClearCart": "Clear cart",
       "CartTotal": "Cart total",

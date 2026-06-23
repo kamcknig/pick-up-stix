@@ -2184,7 +2184,12 @@ Hooks.on("preCreateActor", (actor, data, options, userId) => {
   //   default. Only seed it when the creator didn't specify one, so an explicit
   //   choice isn't clobbered.
   const updates = { "prototypeToken.actorLink": true };
-  if (foundry.utils.getProperty(data, "ownership.default") === undefined) {
+  // Seed LIMITED when the creator didn't choose one. pf2e's
+  // ActorPF2e.createDocuments pre-fills ownership.default = NONE for non-core
+  // sub-types *before* this hook runs, so treat NONE as "unset" too — otherwise
+  // pf2e vendors are invisible to players. (dnd5e leaves it undefined.)
+  const existingOwnership = foundry.utils.getProperty(data, "ownership.default");
+  if (existingOwnership === undefined || existingOwnership === CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE) {
     updates["ownership.default"] = CONST.DOCUMENT_OWNERSHIP_LEVELS.LIMITED;
   }
   actor.updateSource(updates);

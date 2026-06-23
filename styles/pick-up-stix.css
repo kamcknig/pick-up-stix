@@ -657,6 +657,16 @@
 .pus-rarity-legendary { --pus-rarity-color: #ff8000; }
 .pus-rarity-artifact  { --pus-rarity-color: #e6cc80; }
 
+/* pf2e shop: use pf2e's own rarity palette (the defaults above are dnd5e's,
+   and pf2e has no veryRare/legendary/artifact but does have `unique`). Scoped
+   to the pf2e vendor sheet (.pf2e) so the dnd5e vendor keeps its palette. Also
+   tints the pill text so it matches the rarity-coloured ware name. */
+.pick-up-stix.pf2e.vendor-sheet .pus-rarity { color: var(--pus-rarity-color, #888); }
+.pick-up-stix.pf2e.vendor-sheet .pus-rarity-common   { --pus-rarity-color: var(--color-rarity-common, #323232); }
+.pick-up-stix.pf2e.vendor-sheet .pus-rarity-uncommon { --pus-rarity-color: var(--color-rarity-uncommon, #98513d); }
+.pick-up-stix.pf2e.vendor-sheet .pus-rarity-rare     { --pus-rarity-color: var(--color-rarity-rare, #002664); }
+.pick-up-stix.pf2e.vendor-sheet .pus-rarity-unique   { --pus-rarity-color: var(--color-rarity-unique, #54166e); }
+
 .shop-cart-toggle {
   flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; padding: 0; border-radius: 4px; cursor: pointer;
@@ -1035,6 +1045,11 @@
 .vendor-sheet .pus-collapse-caret { transition: transform 0.2s ease; }
 .vendor-sheet .pus-collapse-panel:not(.collapsed) .pus-collapse-caret { transform: rotate(180deg); }
 
+/* "!" alert right of the Shopping Queue label, shown only while the panel is collapsed
+   (the queue panel only renders when players are queued, so collapsed === shoppers waiting). */
+.vendor-sheet .pus-queue-panel .pus-collapse-alert { display: none; color: #d9762a; font-size: 1.35em; }
+.vendor-sheet .pus-queue-panel.collapsed .pus-collapse-alert { display: inline-block; }
+
 /* Expanding content: an absolute overlay below the bar. Inset left/right to match the bar width
    (the 12px mirrors the panel's horizontal padding). Fades + slides in; `visibility` keeps it
    fully hidden — and non-interactive — when collapsed. The inner wrapper owns the scroll so the
@@ -1208,4 +1223,354 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* ---- pf2e vendor sheet (reuses pf2e's native inventory partials) ---- */
+/* Header: portrait + name, matching the pf2e sheet header band. */
+.pick-up-stix.vendor-sheet .vendor-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+}
+.pick-up-stix.vendor-sheet .vendor-sheet-header .profile {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  border: 1px solid var(--color-border-dark, rgba(0, 0, 0, 0.4));
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.pick-up-stix.vendor-sheet .vendor-header-fields {
+  flex: 1;
+  min-width: 0;
+}
+.pick-up-stix.vendor-sheet .vendor-header-fields input[name="name"] {
+  width: 100%;
+  font-size: var(--font-size-24, 24px);
+}
+
+/* Tab visibility (mirrors pf2e's; scoped here so we don't depend on the
+   .npc layout classes, which expect a sidebar structure we don't render). */
+.pick-up-stix.vendor-sheet .sheet-body > .tab { display: none; }
+.pick-up-stix.vendor-sheet .sheet-body > .tab.active { display: flex; flex-direction: column; }
+.pick-up-stix.vendor-sheet .sheet-body { flex: 1; min-height: 0; overflow: hidden; }
+
+/* Blue inventory section bands (the .npc/.loot sheets set this var to the blue;
+   our sheet otherwise falls back to the default brown). */
+.pick-up-stix.vendor-sheet form {
+  --color-pf-inventory-header-bg: var(--primary-background);
+}
+
+/* Vendors aren't creatures — no bulk. Hide the BULK column in headers + rows
+   (the encumbrance footer is already omitted from the template). */
+.pick-up-stix.vendor-sheet .inventory .bulk,
+.pick-up-stix.vendor-sheet .inventory .total-bulk {
+  display: none !important;
+}
+
+/* ---- Shop tab: reuse pf2e inventory row chrome, distinct header band ---- */
+/* The shop section bands use the same header styling as the inventory but a
+   different colour (override the shared bg variable, scoped to the shop tab). */
+.pick-up-stix.vendor-sheet .tab.shop {
+  --color-pf-inventory-header-bg: #4a5e3a;
+}
+/* Shop columns: fixed widths so the header labels line up with the row values
+   (rows otherwise inherit pf2e's flex .data layout for free). */
+.pick-up-stix.vendor-sheet .tab.shop .pus-shop-col {
+  flex: 0 0 auto;
+  align-self: center;
+  white-space: nowrap;
+}
+.pick-up-stix.vendor-sheet .tab.shop .col-rarity { width: 92px; text-align: center; }
+.pick-up-stix.vendor-sheet .tab.shop .col-stock { width: 48px; text-align: center; }
+.pick-up-stix.vendor-sheet .tab.shop .col-price { width: 84px; text-align: right; }
+.pick-up-stix.vendor-sheet .tab.shop .col-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  /* Constant width (basket + buy) so the rarity/stock/price columns stay aligned
+     with the header. The qty stepper lives on its own row, so no extra width. */
+  flex: 0 0 62px;
+}
+.pick-up-stix.vendor-sheet .tab.shop header > span.pus-shop-col { justify-content: center; }
+
+/* Shop control buttons (Buy, basket toggle, cart clear/checkout). */
+.pick-up-stix.vendor-sheet .tab.shop .vendor-buy,
+.pick-up-stix.vendor-sheet .tab.shop .shop-cart-toggle,
+.pick-up-stix.vendor-sheet .shop-cart-footer .cart-clear,
+.pick-up-stix.vendor-sheet .shop-cart-footer .cart-checkout {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.pick-up-stix.vendor-sheet .tab.shop .vendor-buy[disabled],
+.pick-up-stix.vendor-sheet .tab.shop .shop-cart-toggle[disabled],
+.pick-up-stix.vendor-sheet .shop-cart-footer button[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+.pick-up-stix.vendor-sheet .tab.shop .shop-cart-toggle.active {
+  color: var(--color-text-light-0, #fff);
+  background: var(--primary-background, #44456a);
+}
+
+/* Make the shop ware row a flex column so the .data line and the qty sub-row
+   each stretch full width (pf2e's ul.items column otherwise centers the li's
+   non-stretched children). Scoped to the shop tab only. */
+.pick-up-stix.vendor-sheet .tab.shop .pus-shop-list ul.items > li {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Breathing room inside each ware row so the icon/name/columns aren't flush against
+   the row's top and bottom edges. The row is clickable (opens the item sheet), so
+   show a pointer cursor over the content (the control buttons keep their own). */
+.pick-up-stix.vendor-sheet .tab.shop .pus-shop-list ul.items > li > .data {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  cursor: pointer;
+}
+
+/* Per-ware quantity stepper — its own row beneath the ware, shown only when
+   the ware is in the cart. Full width + right-aligned so it sits under the basket. */
+.pick-up-stix.vendor-sheet .tab.shop .shop-ware-qty {
+  display: none;
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 0 34px 4px 0; /* right offset ≈ buy button → stepper sits under the basket */
+}
+.pick-up-stix.vendor-sheet .tab.shop .shop-ware-qty.active { display: flex; }
+.pick-up-stix.vendor-sheet .tab.shop .shop-ware-qty-label {
+  font-size: var(--font-size-11, 11px);
+  opacity: 0.8;
+  margin-right: 2px;
+}
+.pick-up-stix.vendor-sheet .tab.shop .shop-ware-qty .qty-val {
+  width: 44px;
+  text-align: center;
+  padding: 0 2px;
+}
+.pick-up-stix.vendor-sheet .tab.shop .shop-ware-qty .qty-step {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  line-height: 1;
+}
+
+/* Cart footer — shown only when the cart has items. Matches the shop header
+   green band with light text so it stays readable. */
+.pick-up-stix.vendor-sheet .shop-cart-footer {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-pf-inventory-header-bg, #4a5e3a);
+  color: var(--color-text-light-0, #fff);
+  flex: 0 0 auto;
+}
+.pick-up-stix.vendor-sheet .shop-cart-footer .cart-clear,
+.pick-up-stix.vendor-sheet .shop-cart-footer .cart-checkout {
+  color: var(--color-text-light-0, #fff);
+}
+.pick-up-stix.vendor-sheet .shop-cart-footer.active { display: flex; }
+.pick-up-stix.vendor-sheet .shop-cart-footer .cart-summary { margin-left: auto; }
+.pick-up-stix.vendor-sheet .shop-cart-footer .cart-actions { display: flex; gap: 4px; }
+/* Let the ware list scroll so the cart footer stays pinned to the bottom. */
+.pick-up-stix.vendor-sheet .tab.shop .pus-shop-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+/* The ware's type subtitle under its name (inventory rows have no subtitle). */
+.pick-up-stix.vendor-sheet .tab.shop .pus-ware-sub {
+  display: block;
+  font-size: var(--font-size-10, 10px);
+  opacity: 0.7;
+  text-transform: none;
+}
+
+/* ---- pf2e GM settings panel: re-skin to the parchment sheet, not dnd5e's dark overlay ----
+   The shared settings/queue panel markup is styled for dnd5e (light text on a maroon
+   overlay). On pf2e that clashes with the light parchment sheet, so re-skin the surface,
+   borders, and text to pf2e's palette and align it full-width with the inventory bands.
+   Scoped to .pf2e so the dnd5e vendor is untouched. */
+
+/* Light parchment panel surface (replaces the dnd5e maroon mix). */
+.pick-up-stix.pf2e.vendor-sheet { --pus-settings-panel-bg: var(--color-pf-tertiary-light, #f2e8ca); }
+
+/* Full-width to align with pf2e's full-width inventory section bands + ware list
+   (dnd5e insets these panels 12px; pf2e bands run edge-to-edge). */
+.pick-up-stix.pf2e.vendor-sheet .pus-favor-panel,
+.pick-up-stix.pf2e.vendor-sheet .pus-queue-panel { padding-left: 0; padding-right: 0; }
+.pick-up-stix.pf2e.vendor-sheet .pus-favor-content { left: 0; right: 0; }
+
+/* Collapsed queue: the inner strip's 8px top padding otherwise peeks through the
+   grid 0fr collapse — zero it (and its border) so the strip fully disappears. */
+.pick-up-stix.pf2e.vendor-sheet .pus-queue-panel.collapsed .pus-queue-content > .vendor-queue {
+  padding: 0;
+  border: none;
+}
+
+/* Panel container: pf2e brown border, dark text, a soft drop shadow for the overlay. */
+.pick-up-stix.pf2e.vendor-sheet .pus-favor-content-inner {
+  border-color: var(--color-pf-alternate, #786452);
+  color: var(--color-text-dark-input, #333);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-collapse-bar,
+.pick-up-stix.pf2e.vendor-sheet .pus-collapse-title,
+.pick-up-stix.pf2e.vendor-sheet .pus-favor-label,
+.pick-up-stix.pf2e.vendor-sheet .pus-favor-value,
+.pick-up-stix.pf2e.vendor-sheet .pus-settings-by-label,
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-head,
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-mult,
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-hint,
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-empty,
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-count {
+  color: var(--color-text-dark-input, #333);
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-collapse-bar:hover { color: var(--color-pf-primary, #5e0000); }
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-count { opacity: 0.7; }
+
+/* Borders/dividers → pf2e brown instead of dnd5e's translucent white. */
+.pick-up-stix.pf2e.vendor-sheet .pus-settings-divider { border-top-color: var(--color-pf-alternate, #786452); }
+.pick-up-stix.pf2e.vendor-sheet .pus-settings-by-toggle,
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-row { border-color: var(--color-pf-alternate, #786452); }
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-row { background: rgba(255, 255, 255, 0.35); }
+
+/* "Settings by" segmented toggle — pf2e red active state on parchment. */
+.pick-up-stix.pf2e.vendor-sheet .pus-settings-by-btn { color: var(--color-text-dark-input, #333); }
+.pick-up-stix.pf2e.vendor-sheet .pus-settings-by-btn.active {
+  background: var(--color-pf-primary, #5e0000);
+  color: var(--color-pf-tertiary-light, #f2e8ca);
+}
+
+/* Factor-name keeps the rarity tint (--pus-rarity-color) but defaults to dark text. */
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-name {
+  color: var(--pus-rarity-color, var(--color-text-dark-input, #333));
+}
+
+/* Editable number inputs readable on parchment. */
+.pick-up-stix.pf2e.vendor-sheet .pus-factor-num {
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-dark-input, #333);
+  border: 1px solid var(--color-pf-alternate, #786452);
+}
+
+/* ---- Shop visibility + GM management toolbar (Phase 6.2) ---- */
+
+/* Per-row shop-visibility toggle injected into each native inventory row's controls:
+   full pf2e-red when the ware is in the shop, dimmed when hidden. */
+.pick-up-stix.vendor-sheet .tab.inventory .item-controls .pus-inv-shop-toggle.active {
+  color: var(--color-pf-primary, #5e0000);
+  opacity: 1;
+}
+.pick-up-stix.vendor-sheet .tab.inventory .item-controls .pus-inv-shop-toggle:not(.active) {
+  opacity: 0.4;
+}
+
+/* The All master toggle (in the toolbar): full colour when every ware is in the shop. */
+.pick-up-stix.vendor-sheet .pus-shop-toolbar .pus-shop-all-toggle {
+  background: none;
+  border: none;
+}
+.pick-up-stix.vendor-sheet .pus-shop-toolbar .pus-shop-all-toggle.active {
+  color: var(--color-pf-primary, #5e0000);
+}
+.pick-up-stix.vendor-sheet .pus-shop-toolbar .pus-shop-all-toggle:not(.active) {
+  opacity: 0.35;
+}
+
+/* GM shop-management toolbar: a compact control strip above the ware list. */
+.pick-up-stix.vendor-sheet .pus-shop-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+}
+.pick-up-stix.vendor-sheet .pus-shop-toolbar button {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.pick-up-stix.vendor-sheet .pus-shop-toolbar .pus-shop-all-label {
+  margin-left: auto;
+  font-size: var(--font-size-12, 12px);
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+/* Ware filter bar on pf2e parchment: brown border + dark, legible text/controls
+   (the shared bar is styled for dnd5e's dark theme — faint white border + grey text).
+   Add breathing room before the first ware band. */
+.pick-up-stix.pf2e.vendor-sheet .pus-shop-filters {
+  border-color: var(--color-pf-alternate, #786452);
+  margin-bottom: 8px;
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-shop-filter-label,
+.pick-up-stix.pf2e.vendor-sheet .pus-filter-reset,
+.pick-up-stix.pf2e.vendor-sheet .shop-filter-empty {
+  color: var(--color-text-dark-input, #333);
+}
+/* Affordable filter is a toggle BUTTON (not a form input, so pf2e's submit-on-change
+   never re-renders over the DOM-only filter) — a pf2e chip that highlights red when on. */
+.pick-up-stix.pf2e.vendor-sheet .pus-filter-affordable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding: 2px 10px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--color-pf-alternate, #786452);
+  border-radius: 4px;
+  color: var(--color-text-dark-input, #333);
+  font-size: var(--font-size-12, 12px);
+  white-space: nowrap;
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-filter-affordable.active {
+  background: var(--color-pf-primary, #5e0000);
+  border-color: var(--color-pf-primary, #5e0000);
+  color: var(--color-pf-tertiary-light, #f2e8ca);
+}
+
+/* Shop price column: the same pf2e coin images used on the inventory coinage row,
+   but smaller, borderless, and masked to a circle. Paths are relative to this
+   stylesheet (modules/pick-up-stix/styles/) → ../../../ reaches the Foundry data
+   root, then systems/pf2e/icons/. */
+.pick-up-stix.pf2e.vendor-sheet .pus-coin-img {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  border: none;
+  border-radius: 50%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-coin-pp {
+  background-image: url("../../../systems/pf2e/icons/equipment/treasure/currency/platinum-pieces.webp");
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-coin-gp {
+  background-image: url("../../../systems/pf2e/icons/equipment/treasure/currency/gold-pieces.webp");
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-coin-sp {
+  background-image: url("../../../systems/pf2e/icons/equipment/treasure/currency/silver-pieces.webp");
+}
+.pick-up-stix.pf2e.vendor-sheet .pus-coin-cp {
+  background-image: url("../../../systems/pf2e/icons/equipment/treasure/currency/copper-pieces.webp");
 }
